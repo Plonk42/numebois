@@ -69,13 +69,8 @@ export class InstanceBatch {
     return this.assets.geometry(name as ModelName);
   }
 
-  build(
-    options: (model: InstanceModel) => {
-      material: THREE.Material;
-      depthMaterial?: THREE.Material;
-      castShadow: boolean;
-    },
-  ): THREE.InstancedMesh[] {
+  /** Instanced meshes, one per model. They receive shadows but cast none. */
+  build(material: (model: InstanceModel) => THREE.Material): THREE.InstancedMesh[] {
     const meshes: THREE.InstancedMesh[] = [];
     const matrix = new THREE.Matrix4();
     const position = new THREE.Vector3();
@@ -91,8 +86,7 @@ export class InstanceBatch {
       }
       geometry.setIndex(source.getIndex());
       const swatch = new Float32Array(n * 2);
-      const { material, depthMaterial, castShadow } = options(name);
-      const mesh = new THREE.InstancedMesh(geometry, material, n);
+      const mesh = new THREE.InstancedMesh(geometry, material(name), n);
       for (let i = 0; i < n; i++) {
         const o = i * STRIDE;
         position.set(list[o], list[o + 1], list[o + 2]);
@@ -104,9 +98,7 @@ export class InstanceBatch {
       }
       geometry.setAttribute('aSwatch', new THREE.InstancedBufferAttribute(swatch, 2));
       mesh.instanceMatrix.needsUpdate = true;
-      mesh.castShadow = castShadow;
       mesh.receiveShadow = true;
-      if (depthMaterial && castShadow) mesh.customDepthMaterial = depthMaterial;
       // The whole diorama is always in view.
       mesh.frustumCulled = false;
       mesh.name = name;

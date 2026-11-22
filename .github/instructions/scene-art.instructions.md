@@ -32,7 +32,7 @@ Le rendu est la priorité n°1 : un paysage de plus en plus riche et joli est la
 - Moins de 100 appels de dessin, moins de 150 000 triangles visibles, environ 64 Mo de mémoire graphique, 50 images par seconde visées et 30 au minimum. Le dernier palier de la clairière est à environ 135 000 triangles : tout ajout se paie ailleurs (mesurer par partie avant d'ajouter).
 - `InstancedMesh` pour la végétation répétée, et un matériau partagé.
 - Résolution plafonnée (`min(devicePixelRatio, 1.5)`, 2 en qualité haute).
-- Une seule lumière directionnelle avec ombres, et une carte d'ombres limitée au diorama.
+- Une seule lumière directionnelle avec ombres, et une carte d'ombres limitée au diorama. Seuls le sol (avec ses grands rochers) et les arbres projettent une ombre : les instances (petits rochers, buissons, herbes) n'en projettent pas, leur ombre ne se voit pas depuis la caméra. La passe d'ombres compte dans le budget (compteur « avec ombres »).
 - Pas de post-traitement plein écran en qualité moyenne ou basse : halos et rayons sont simulés par des sprites.
 - Vent et eau en shader de sommets (`onBeforeCompile`), désactivables.
 - Aucune allocation à chaque image dans la boucle de rendu (vecteurs et matrices réutilisés). Animations en pause quand l'onglet est caché.

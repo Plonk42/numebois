@@ -145,15 +145,10 @@ export class Painting {
     this.root.add(this.forest.mesh);
 
     this.batch = composition.batch;
-    const instanced = this.batch.build((model) => {
-      if (model.startsWith('Rock')) return { material: materials.solid, castShadow: true };
-      if (model === 'gen:shadow') return { material: materials.solid, castShadow: false };
-      return {
-        material: materials.vegetation,
-        depthMaterial: materials.vegetationDepth,
-        castShadow: model.startsWith('Bush'),
-      };
-    });
+    // Small rocks and bushes cast no shadow: barely visible from the camera, and costly.
+    const instanced = this.batch.build((model) =>
+      model.startsWith('Rock') || model === 'gen:shadow' ? materials.solid : materials.vegetation,
+    );
     this.root.add(...instanced);
 
     this.sky = new Sky(ambience);

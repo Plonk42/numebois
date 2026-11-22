@@ -199,7 +199,6 @@ export interface SceneMaterials {
   /** Terrain, tiles, rocks, clouds: plain atlas colours. */
   solid: THREE.MeshLambertMaterial;
   vegetation: THREE.MeshLambertMaterial;
-  vegetationDepth: THREE.MeshDepthMaterial;
   tree: THREE.MeshLambertMaterial;
   treeDepth: THREE.MeshDepthMaterial;
   water: THREE.MeshLambertMaterial;
@@ -238,20 +237,13 @@ export function createMaterials(atlas: THREE.Texture, seed: number): SceneMateri
   };
 
   const solid = new THREE.MeshLambertMaterial({ map: atlas });
-  const vegetationPatch: Patch = {
+  const vegetation = patch(new THREE.MeshLambertMaterial({ map: atlas }), {
     key: 'vegetation',
     uniforms: shared as unknown as Record<string, THREE.IUniform>,
     vertexHeader: VEGETATION_HEADER,
     projectVertex: VEGETATION_PROJECT,
-  };
-  const vegetation = patch(new THREE.MeshLambertMaterial({ map: atlas }), {
-    ...vegetationPatch,
     uvVertex: VEGETATION_UV,
   });
-  const vegetationDepth = patch(
-    new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking }),
-    { ...vegetationPatch, key: 'vegetation-depth' },
-  );
   const treePatch: Patch = {
     key: 'tree',
     uniforms: { ...shared, uTreeData: treeData } as unknown as Record<string, THREE.IUniform>,
@@ -280,14 +272,13 @@ export function createMaterials(atlas: THREE.Texture, seed: number): SceneMateri
     shared,
     solid,
     vegetation,
-    vegetationDepth,
     tree,
     treeDepth,
     water,
     waterUniforms,
     treeData,
     dispose() {
-      for (const m of [solid, vegetation, vegetationDepth, tree, treeDepth, water]) m.dispose();
+      for (const m of [solid, vegetation, tree, treeDepth, water]) m.dispose();
       noise.dispose();
     },
   };
