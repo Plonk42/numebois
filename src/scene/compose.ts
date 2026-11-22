@@ -13,7 +13,7 @@ import type { Terrain } from './terrain/types';
 export function createTerrain(description: SceneDescription, assets: AssetLibrary): Terrain {
   return description.form === 'hex'
     ? createHexIsland(description.seed, assets)
-    : createClearing(description.seed);
+    : createClearing(description.seed, description.stage);
 }
 
 /** Everything of a painting that is plain data: no GPU object, usable in tests. */
@@ -67,7 +67,7 @@ export function composeScene(
     quality,
     planting.trees,
   );
-  const cloudCount = Math.round(16 * ambience.clouds * quality.clouds);
+  const cloudCount = Math.round(12 * ambience.clouds * quality.clouds);
   return {
     terrain,
     ground,

@@ -104,6 +104,8 @@ export class Clouds {
   ) {
     const rng = new Rng(seed).fork('clouds');
     this.span = radius * 3.2;
+    // Clouds grow with the diorama, and rise with its mountains.
+    const size = radius / 20;
     const models = ['cloud_big', 'cloud_small'] as const;
     models.forEach((model, m) => {
       const n = counts[model];
@@ -113,11 +115,11 @@ export class Clouds {
         const back = rng.chance(0.75);
         list.push({
           x: rng.range(-this.span / 2, this.span / 2),
-          y: back ? rng.range(-9, 9) : rng.range(-16, -9),
+          y: back ? rng.range(-9, 9) * size + 8 * (size - 1) : rng.range(-16, -9) * size,
           z: back
             ? rng.range(-radius * 2.6, -radius * 1.15)
             : rng.range(-radius * 0.6, radius * 0.9),
-          scale: rng.range(2.2, 4.6) * (m === 0 ? 1 : 0.8),
+          scale: rng.range(2.2, 4.6) * (m === 0 ? 1 : 0.8) * size,
           yaw: rng.range(0, Math.PI * 2),
           speed: rng.range(0.25, 0.6),
         });

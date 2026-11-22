@@ -1,7 +1,7 @@
 import type { ModelName } from '../asset-catalog';
 import type { MeshWriter } from '../mesh-data';
 import type { WaterBuilder } from '../render/water';
-import type { Season } from '../trees/builder';
+import type { Season, TreeSpec } from '../trees/builder';
 
 export type SurfaceKind = 'grass' | 'sand' | 'rock' | 'water';
 
@@ -14,7 +14,7 @@ export interface Surface {
 
 /**
  * Place for a tree.
- * - edge: forest edge framing the scene, always there;
+ * - edge: forest around the clearing, planted by rank as the stages go;
  * - hero: large foreground tree, always there;
  * - clearing: trees of the clearing itself, added stage after stage (in list order);
  * - demo: empty slot used by the growth demonstration.
@@ -27,6 +27,11 @@ export interface TreeSpot {
   size: number;
   /** Prefer a conifer (high or far spots). */
   conifer?: boolean;
+  /** Edge spots are planted once the stage reaches this fraction (0 to 1). */
+  rank?: number;
+  /** Stable index of the spot in its role, so a tree keeps its family at every stage. */
+  slot?: number;
+  detail?: TreeSpec['detail'];
 }
 
 export interface StaticModel {
@@ -79,12 +84,16 @@ export interface Terrain {
   readonly ponds: readonly Pond[];
   /** Half extents of the area to scatter vegetation on. */
   readonly extent: { x: number; z: number };
+  /** Factor on the amounts of vegetation and ambient life, for the size of the diorama. */
+  readonly cover: number;
   /** Box framed by the camera, and its view angles in degrees. */
   readonly frame: {
     center: [number, number, number];
     size: [number, number, number];
     yaw: number;
     pitch: number;
+    /** Points to keep in view instead of the box (the camera centres itself on them). */
+    points?: readonly (readonly [number, number, number])[];
   };
   /** Sphere covered by the shadow map. */
   readonly shadow: { center: [number, number, number]; radius: number };

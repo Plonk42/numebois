@@ -1,4 +1,4 @@
-import { Rng, valueNoise2 } from '../core/rng';
+import { hashSeed, Rng, valueNoise2 } from '../core/rng';
 import type { ModelName } from './asset-catalog';
 import { swatchColumn, swatchUV, type SwatchName } from './atlas';
 import type { SceneDescription } from './description';
@@ -16,6 +16,8 @@ import type { PlantedTree } from './trees/forest';
 const TAU = Math.PI * 2;
 
 const EDGE_FAMILIES: readonly FamilyName[] = ['Round', 'Cube', 'Birch', 'Round', 'Cube'];
+/** Seen from far away, only the simplest shapes read well. */
+export const FAR_FAMILIES: readonly FamilyName[] = ['Round', 'Cube'];
 const CLEARING_FAMILIES: readonly FamilyName[] = [
   'Round',
   'Cube',
@@ -36,20 +38,22 @@ export interface Planting {
   demo: number[];
 }
 
-/** Trees of the painting for its stage: the forest edge, the clearing trees, the demo slots. */
+/** Trees of the painting for its stage: the forest, the clearing trees, the demo slots. */
 export function plantTrees(
   terrain: Terrain,
   description: SceneDescription,
   ambience: Ambience,
 ): Planting {
-  const rng = new Rng(description.seed).fork('trees');
   const trees: PlantedTree[] = [];
   const demo: number[] = [];
   const clearingSpots = terrain.treeSpots.filter((s) => s.role === 'clearing');
   const clearingCount = Math.round(clearingSpots.length * ambience.clearingTrees);
   const counters = { clearing: 0, hero: 0, demo: 0 };
   for (const spot of terrain.treeSpots) {
-    // Draw the same numbers whatever the stage, so a tree keeps its shape as it ages.
+    // Numbers drawn from the place itself, so a tree keeps its shape from stage to stage.
+    const rng = new Rng(
+      hashSeed(description.seed, `tree:${Math.round(spot.x * 8)}:${Math.round(spot.z * 8)}`),
+    );
     const seed = rng.int(1, 1e9);
     const yaw = rng.range(0, TAU);
     const pick = rng.next();
@@ -58,23 +62,25 @@ export function plantTrees(
     if (!surface) continue;
     let family: FamilyName;
     let age: number;
-    let detail: PlantedTree['detail'] = 'full';
+    let detail: PlantedTree['detail'] = spot.detail ?? 'full';
     if (spot.role === 'edge') {
-      family = spot.conifer ? 'Pine' : EDGE_FAMILIES[Math.floor(pick * EDGE_FAMILIES.length)];
+      if (spot.rank !== undefined && spot.rank >= ambience.edgeTrees) continue;
+      detail = spot.detail ?? 'light';
+      const families = detail === 'far' ? FAR_FAMILIES : EDGE_FAMILIES;
+      family = spot.conifer ? 'Pine' : families[Math.floor(pick * families.length)];
       age = ambience.edgeAge[0] + (ambience.edgeAge[1] - ambience.edgeAge[0]) * ageDraw;
-      detail = 'light';
     } else if (spot.role === 'hero') {
-      family = HERO_FAMILIES[counters.hero++ % HERO_FAMILIES.length];
+      family = HERO_FAMILIES[(spot.slot ?? counters.hero++) % HERO_FAMILIES.length];
       age = Math.max(ambience.edgeAge[0], 0.85);
     } else if (spot.role === 'clearing') {
       const index = counters.clearing++;
       if (index >= clearingCount) continue;
-      family = CLEARING_FAMILIES[index % CLEARING_FAMILIES.length];
+      family = CLEARING_FAMILIES[(spot.slot ?? index) % CLEARING_FAMILIES.length];
       // The first trees planted are the oldest.
       const t = clearingCount > 1 ? index / (clearingCount - 1) : 0;
       age = ambience.clearingAge[1] - (ambience.clearingAge[1] - ambience.clearingAge[0]) * t;
     } else {
-      family = DEMO_FAMILIES[counters.demo++ % DEMO_FAMILIES.length];
+      family = DEMO_FAMILIES[(spot.slot ?? counters.demo++) % DEMO_FAMILIES.length];
       age = 0;
       demo.push(trees.length);
     }
@@ -82,7 +88,8 @@ export function plantTrees(
       family,
       seed,
       x: spot.x,
-      y: surface.y - 0.05,
+      // On a slope, the foot of the trunk stays in the ground.
+      y: surface.y - 0.05 - 0.4 * surface.slope,
       z: spot.z,
       yaw,
       scale: spot.size * (family === 'Pine' ? 1.25 : 1),
@@ -175,10 +182,12 @@ export function scatterVegetation(
     !blocked.some((b) => Math.hypot(b.x - x, b.z - z) < b.r + r);
   const col = (names: readonly SwatchName[]) => swatchColumn(rng.pick(names));
   const leaves = leafColumns(season);
-  const cover = quality.groundCover;
+  const cover = quality.groundCover * terrain.cover;
+  // Along the water, a larger diorama is dressed more sparsely.
+  const bankStep = 0.9 * Math.max(1, terrain.cover);
 
   // Banks: small rocks and tall grass along the water.
-  const reed: ModelName[] = ['Grass_2_A', 'Grass_2_A', 'Grass_2_B'];
+  const reed: ModelName[] = ['Grass_2_A', 'Grass_2_A', 'Grass_2_A', 'Grass_2_A', 'Grass_2_B'];
   const pebbles: ModelName[] = ['Rock_3_E', 'Rock_1_A', 'Rock_2_C'];
   for (const bank of terrain.banks) {
     for (let i = 0; i + 1 < bank.points.length; i++) {
@@ -187,7 +196,7 @@ export function scatterVegetation(
       const len = Math.hypot(b.x - a.x, b.z - a.z) || 1;
       const sx = -(b.z - a.z) / len;
       const sz = (b.x - a.x) / len;
-      const steps = Math.max(1, Math.round(len / 0.9));
+      const steps = Math.max(1, Math.round(len / bankStep));
       for (let s = 0; s < steps; s++) {
         const t = (s + rng.next()) / steps;
         const cx = a.x + (b.x - a.x) * t;
@@ -234,12 +243,16 @@ export function scatterVegetation(
     z: rng.range(-terrain.extent.z, terrain.extent.z),
   });
 
-  // Grass tufts, in patches.
+  // Grass tufts, in patches. The heavy tuft is rare: the meadow is large.
   const grassModels: ModelName[] = [
     'Grass_1_A',
     'Grass_1_A',
     'Grass_1_A',
     'Grass_1_A',
+    'Grass_1_A',
+    'Grass_1_A',
+    'Grass_1_A',
+    'Grass_2_A',
     'Grass_2_A',
     'Grass_2_A',
     'Grass_1_B',
@@ -306,10 +319,12 @@ export function scatterVegetation(
     'Bush_4_D',
     'Bush_1_B',
     'Bush_4_D',
+    'Bush_2_D',
+    'Bush_3_B',
     'Bush_1_E',
   ];
   const anchors = [...trees.filter((t) => t.age > 0), ...terrain.staticModels];
-  const bushTarget = Math.round(30 * ambience.bushes);
+  const bushTarget = Math.round(30 * ambience.bushes * terrain.cover);
   for (let attempt = 0, placed = 0; attempt < bushTarget * 8 && placed < bushTarget; attempt++) {
     let x: number;
     let z: number;
@@ -342,7 +357,7 @@ export function scatterVegetation(
 
   // Mushrooms at the foot of the trees; a fairy ring at the last stage.
   const grown = trees.filter((t) => t.age > 0.5);
-  const mushroomTarget = Math.round(12 * ambience.mushrooms);
+  const mushroomTarget = Math.round(12 * ambience.mushrooms * terrain.cover);
   for (
     let attempt = 0, placed = 0;
     attempt < mushroomTarget * 8 && placed < mushroomTarget;
@@ -400,7 +415,7 @@ export function scatterVegetation(
   }
 
   // A few stones in the meadow.
-  for (let i = 0; i < 14; i++) {
+  for (let i = 0; i < Math.round(14 * terrain.cover); i++) {
     const { x, z } = sample();
     const surface = terrain.surfaceAt(x, z);
     if (!surface || surface.kind !== 'grass' || !free(x, z, 0.5)) continue;
@@ -418,7 +433,7 @@ export function scatterVegetation(
 
   // Water lilies and water plants on the ponds.
   for (const pond of terrain.ponds) {
-    const count = Math.round(8 * ambience.lilies);
+    const count = Math.round(8 * ambience.lilies * Math.min(1.8, pond.radius / 2.5));
     for (let i = 0; i < count; i++) {
       const a = rng.range(0, TAU);
       const d = pond.radius * Math.sqrt(rng.range(0.15, 1));
@@ -440,7 +455,10 @@ export function scatterVegetation(
   if (quality.contactShadows) {
     for (const tree of trees) {
       if (tree.age <= 0) continue;
-      const r = (tree.family === 'Pine' ? 1.5 : 2.3) * tree.scale * (0.5 + 0.5 * tree.age);
+      const r =
+        (tree.family === 'Pine' ? 1.5 : tree.detail === 'far' ? 3 : 2.3) *
+        tree.scale *
+        (0.5 + 0.5 * tree.age);
       batch.add('gen:shadow', tree.x, tree.y + 0.12, tree.z, 0, r, 1);
     }
   }

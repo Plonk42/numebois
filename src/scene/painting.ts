@@ -16,8 +16,10 @@ import {
   GLOW_POLLEN,
   GLOW_SNOW,
   GLOW_SPARKLE,
+  RAINBOW_TRIANGLES,
   GlowPoints,
   Leaves,
+  Rainbow,
   SunRays,
   type Flapper,
   type GlowParticle,
@@ -78,7 +80,7 @@ export function effectTriangles(flappers: number, leaves: number, puffs: number)
 }
 
 /** Upper bound of `effectTriangles` at full quality, for the budget tests. */
-export const MAX_EFFECT_TRIANGLES = effectTriangles(20, 120, 30);
+export const MAX_EFFECT_TRIANGLES = effectTriangles(30, 150, 80) + RAINBOW_TRIANGLES;
 
 /**
  * A painting: the whole diorama built from its compact description. Building it twice from
@@ -167,9 +169,11 @@ export class Painting {
     this.fog = fog;
     stage.scene.fog = fog;
 
-    // Ambient life.
+    // Ambient life, in proportion to the diorama.
     const rng = new Rng(seed).fork('life');
     const shared = materials.shared;
+    const life = terrain.cover * quality.particles;
+    const size = terrain.extent.x / 20;
     const meadow = (lift: number, spread = 0.8): { x: number; y: number; z: number } | null => {
       for (let attempt = 0; attempt < 12; attempt++) {
         const x = rng.range(-terrain.extent.x, terrain.extent.x) * spread;
@@ -184,12 +188,12 @@ export class Painting {
     const pollenColor = winter
       ? new THREE.Color(0xffffff)
       : new THREE.Color(description.stage === 4 ? 0xffe9a8 : 0xfff6d0);
-    const pollen = Math.round((winter ? 200 : 110) * ambience.pollen * quality.particles);
+    const pollen = Math.round((winter ? 200 : 110) * ambience.pollen * life);
     for (let i = 0; i < pollen; i++) {
       const p = meadow(winter ? 0 : rng.range(0.2, 2.5), 1);
       if (p) particles.push({ ...p, kind: winter ? GLOW_SNOW : GLOW_POLLEN, color: pollenColor });
     }
-    const fireflies = Math.round(54 * ambience.fireflies * quality.particles);
+    const fireflies = Math.round(54 * ambience.fireflies * life);
     for (let i = 0; i < fireflies; i++) {
       const p = meadow(rng.range(0.5, 2.4));
       if (p) particles.push({ ...p, kind: GLOW_FIREFLY, color: new THREE.Color(0xf3ff8e) });
@@ -226,7 +230,7 @@ export class Painting {
 
     const effects: THREE.Object3D[] = [];
     const flappers: Flapper[] = [];
-    const butterflies = Math.round(14 * ambience.butterflies * quality.particles);
+    const butterflies = Math.round(14 * ambience.butterflies * life);
     for (let i = 0; i < butterflies && population.flowerSpots.length > 0; i++) {
       const spot = rng.pick(population.flowerSpots);
       const [r, g, b] = swatchColor(rng.pick(PETALS), 0.35);
@@ -236,20 +240,20 @@ export class Painting {
         z: spot.z,
         radius: rng.range(0.8, 2.2),
         speed: rng.range(0.45, 0.9),
-        size: rng.range(0.2, 0.3),
+        size: rng.range(0.2, 0.3) * Math.sqrt(size),
         color: new THREE.Color().setRGB(r, g, b, THREE.SRGBColorSpace),
         bird: false,
       });
     }
-    const birds = Math.round(4 * ambience.birds);
+    const birds = Math.round(4 * ambience.birds * Math.sqrt(terrain.cover));
     for (let i = 0; i < birds; i++) {
       flappers.push({
-        x: rng.range(-6, 6),
-        y: terrain.frame.center[1] + rng.range(9, 13),
-        z: rng.range(-8, 2),
-        radius: rng.range(12, 19),
+        x: rng.range(-6, 6) * size,
+        y: terrain.frame.center[1] + rng.range(9, 13) * size,
+        z: rng.range(-8, 2) * size,
+        radius: rng.range(12, 19) * size,
         speed: rng.range(0.14, 0.22),
-        size: rng.range(0.55, 0.75),
+        size: rng.range(0.55, 0.75) * Math.sqrt(size),
         color: new THREE.Color(rng.chance(0.5) ? 0x3c4a60 : 0xf4f6fa),
         bird: true,
       });
@@ -269,7 +273,7 @@ export class Painting {
     const grown = planting.trees
       .map((tree, i) => ({ tree, info: this.forest.infos[i] }))
       .filter((t) => t.tree.age > 0.6 && t.tree.family !== 'Pine');
-    const falling = Math.round(46 * ambience.fallingLeaves * quality.particles);
+    const falling = Math.round(46 * ambience.fallingLeaves * life);
     for (let i = 0; i < falling && grown.length > 0; i++) {
       const { tree, info } = rng.pick(grown);
       const fall = info.height * 0.7;
@@ -290,7 +294,7 @@ export class Painting {
 
     const puffs: { x: number; y: number; z: number }[] = [];
     for (const fall of terrain.waterfalls) {
-      const count = Math.max(5, Math.round((fall.splash ? 12 : 9) * quality.particles));
+      const count = Math.max(4, Math.round(6.5 * fall.width * quality.particles));
       for (let i = 0; i < count; i++) {
         puffs.push({
           x: fall.foot[0] + rng.range(-0.5, 0.5) * fall.width,
@@ -316,6 +320,22 @@ export class Painting {
       this.disposables.push(rays);
       this.root.add(rays.mesh);
     }
+    // Rainbow over the widest fall landing in water.
+    const cascade = terrain.waterfalls
+      .filter((fall) => fall.splash)
+      .sort((a, b) => b.width - a.width)[0];
+    let rainbowTriangles = 0;
+    if (ambience.rainbow > 0 && quality.rainbow && cascade) {
+      const rainbow = new Rainbow(
+        new THREE.Vector3(cascade.foot[0], cascade.foot[1] - 1.5, cascade.foot[2] + 1.5),
+        Math.max(6, (cascade.top[1] - cascade.foot[1]) * 1.9),
+        0.5 * ambience.rainbow,
+        shared,
+      );
+      this.disposables.push(rainbow);
+      this.root.add(rainbow.mesh);
+      rainbowTriangles = RAINBOW_TRIANGLES;
+    }
     this.root.add(...effects);
     this.fogged = [...effects, this.glow.points];
 
@@ -330,7 +350,8 @@ export class Painting {
         this.forest.triangles +
         parts.instances +
         parts.clouds +
-        effectTriangles(flappers.length, leaves.length, puffs.length),
+        effectTriangles(flappers.length, leaves.length, puffs.length) +
+        rainbowTriangles,
       treeTriangles: this.forest.triangles,
       groundTriangles: parts.ground,
       waterTriangles: parts.water,
@@ -361,7 +382,11 @@ export class Painting {
   /** Call after framing or a resize: sprites and fog depend on the camera distance. */
   resized(): void {
     const height = this.stage.renderer.domElement.height;
-    this.glow.setViewport(height, this.stage.camera);
+    this.glow.setViewport(
+      height,
+      this.stage.camera,
+      Math.sqrt(Math.max(1, this.terrain.extent.x / 20)),
+    );
     this.sky.setAspect(this.stage.camera.aspect);
     this.fog.near = this.ambience.fog.near * this.stage.distance;
     this.fog.far = this.ambience.fog.far * this.stage.distance;

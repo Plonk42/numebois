@@ -116,6 +116,16 @@ describe('triangle budget', () => {
       expect(low).toBeLessThan(stage4);
     }
   });
+
+  it('starts the clearing bare and makes every stage clearly richer', () => {
+    const stages = STAGES.map((stage) =>
+      sceneTriangles({ form: 'clearing', seed: 7, stage, season: 'summer' }),
+    );
+    for (let stage = 1; stage < stages.length; stage++) {
+      expect(stages[stage], `stage ${stage}`).toBeGreaterThan(stages[stage - 1] * 1.12);
+    }
+    expect(stages[4]).toBeGreaterThan(stages[0] * 3);
+  });
 });
 
 describe('quality tiers', () => {
@@ -185,23 +195,75 @@ describe('hexagon island plan', () => {
 });
 
 describe('clearing terrain', () => {
-  it('plants trees on the ground, away from the water, and has two waterfalls', () => {
-    for (let seed = 0; seed < 40; seed++) {
-      const terrain = createClearing(seed);
-      expect(terrain.waterfalls, `seed ${seed}`).toHaveLength(2);
-      expect(
-        terrain.treeSpots.filter((s) => s.role === 'edge').length,
-        `seed ${seed}`,
-      ).toBeGreaterThan(18);
-      expect(terrain.treeSpots.filter((s) => s.role === 'demo').length).toBeGreaterThan(0);
-      for (const spot of terrain.treeSpots) {
-        const surface = terrain.surfaceAt(spot.x, spot.z);
-        expect(surface, `seed ${seed}: ${spot.role} at ${spot.x},${spot.z}`).not.toBeNull();
-        expect(surface!.kind, `seed ${seed}: ${spot.role} at ${spot.x},${spot.z}`).not.toBe(
-          'water',
-        );
+  it('plants trees on the ground, away from the water, at every stage', () => {
+    for (let seed = 0; seed < 12; seed++) {
+      for (const stage of STAGES) {
+        const terrain = createClearing(seed, stage);
+        const label = `seed ${seed}, stage ${stage}`;
+        expect(terrain.treeSpots.filter((s) => s.role === 'demo').length, label).toBeGreaterThan(0);
+        expect(terrain.treeSpots.filter((s) => s.role === 'hero').length, label).toBeGreaterThan(0);
+        for (const spot of terrain.treeSpots) {
+          const surface = terrain.surfaceAt(spot.x, spot.z);
+          expect(surface, `${label}: ${spot.role} at ${spot.x},${spot.z}`).not.toBeNull();
+          expect(surface!.kind, `${label}: ${spot.role} at ${spot.x},${spot.z}`).not.toBe('water');
+        }
+        expect(terrain.surfaceAt(100, 0)).toBeNull();
       }
-      expect(terrain.surfaceAt(100, 0)).toBeNull();
+    }
+  });
+
+  it('makes the relief an axis of progress: larger, higher, with more water', () => {
+    const highest = (terrain: ReturnType<typeof createClearing>) => {
+      let top = -Infinity;
+      for (let x = -terrain.extent.x; x <= terrain.extent.x; x += 1) {
+        for (let z = -terrain.extent.z; z <= terrain.extent.z; z += 1) {
+          top = Math.max(top, terrain.surfaceAt(x, z)?.y ?? -Infinity);
+        }
+      }
+      return top;
+    };
+    for (let seed = 0; seed < 6; seed++) {
+      const terrains = STAGES.map((stage) => createClearing(seed, stage));
+      expect(terrains.map((t) => t.waterfalls.length)).toEqual([1, 2, 4, 7, 7]);
+      expect(terrains.map((t) => t.ponds.length)).toEqual([1, 1, 2, 3, 3]);
+      for (let stage = 1; stage < terrains.length; stage++) {
+        const label = `seed ${seed}, stage ${stage}`;
+        expect(terrains[stage].extent.x, label).toBeGreaterThan(terrains[stage - 1].extent.x);
+        expect(highest(terrains[stage]), label).toBeGreaterThan(highest(terrains[stage - 1]) + 2);
+        expect(
+          terrains[stage].treeSpots.filter((s) => s.role === 'edge').length,
+          label,
+        ).toBeGreaterThan(terrains[stage - 1].treeSpots.filter((s) => s.role === 'edge').length);
+      }
+      // A mountain in the background, and a forest around the clearing.
+      expect(highest(terrains[4]), `seed ${seed}`).toBeGreaterThan(20);
+      expect(terrains[4].treeSpots.filter((s) => s.role === 'edge').length).toBeGreaterThan(35);
+      // Every fall comes down: its foot is below its lip.
+      for (const fall of terrains[4].waterfalls) expect(fall.foot[1]).toBeLessThan(fall.top[1] - 2);
+    }
+  });
+
+  it('keeps a tree in place and in shape from one stage to the next', () => {
+    const trees = (stage: (typeof STAGES)[number]) => {
+      const description: SceneDescription = { form: 'clearing', seed: 11, stage, season: 'summer' };
+      const { planting } = composeScene(
+        description,
+        placeholders,
+        ambienceFor(stage, 'summer'),
+        QUALITY.high,
+      );
+      return new Map(planting.trees.map((t) => [`${t.x},${t.z}`, t]));
+    };
+    for (let stage = 1; stage <= 4; stage++) {
+      const before = trees((stage - 1) as (typeof STAGES)[number]);
+      const after = trees(stage as (typeof STAGES)[number]);
+      expect(after.size).toBeGreaterThan(before.size);
+      for (const [place, tree] of before) {
+        const same = after.get(place);
+        expect(same, `stage ${stage}: tree at ${place}`).toBeDefined();
+        expect(same).toMatchObject({ family: tree.family, seed: tree.seed, detail: tree.detail });
+        expect(same!.age).toBeGreaterThanOrEqual(tree.age);
+      }
     }
   });
 });

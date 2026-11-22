@@ -7,6 +7,8 @@ export interface Frame {
   /** Degrees: yaw around Y (0 looks towards -z), pitch downwards. */
   yaw: number;
   pitch: number;
+  /** Points to keep in view instead of the box: the camera centres itself on them. */
+  points?: readonly (readonly [number, number, number])[];
 }
 
 const FOV = 30;
@@ -75,18 +77,44 @@ export class Stage {
     const margin = 0.94;
     let distance = 0;
     const corner = new THREE.Vector3();
-    for (let i = 0; i < 8; i++) {
-      corner.set(
-        ((i & 1 ? 1 : -1) * box.size[0]) / 2,
-        ((i & 2 ? 1 : -1) * box.size[1]) / 2,
-        ((i & 4 ? 1 : -1) * box.size[2]) / 2,
-      );
-      const depth = corner.dot(dir);
-      distance = Math.max(
-        distance,
-        depth + Math.abs(corner.dot(right)) / (tanH * margin),
-        depth + Math.abs(corner.dot(up)) / (tanV * margin),
-      );
+    if (box.points) {
+      // Each point as (across, up, depth) from the centre of the box.
+      const points = box.points.map((p) => {
+        corner.set(p[0], p[1], p[2]).sub(this.target);
+        return [corner.dot(right), corner.dot(up), corner.dot(dir)];
+      });
+      // Smallest distance showing every point along an axis, and the offset that gives it.
+      const fit = (axis: number, tan: number): [number, number] => {
+        const need = (offset: number) =>
+          points.reduce((max, p) => Math.max(max, p[2] + Math.abs(p[axis] - offset) / tan), 0);
+        let lo = Math.min(...points.map((p) => p[axis]));
+        let hi = Math.max(...points.map((p) => p[axis]));
+        for (let i = 0; i < 40; i++) {
+          const a = lo + (hi - lo) / 3;
+          const b = hi - (hi - lo) / 3;
+          if (need(a) < need(b)) hi = b;
+          else lo = a;
+        }
+        return [(lo + hi) / 2, need((lo + hi) / 2)];
+      };
+      const [across, acrossDistance] = fit(0, tanH * margin);
+      const [above, aboveDistance] = fit(1, tanV * margin);
+      this.target.addScaledVector(right, across).addScaledVector(up, above);
+      distance = Math.max(acrossDistance, aboveDistance);
+    } else {
+      for (let i = 0; i < 8; i++) {
+        corner.set(
+          ((i & 1 ? 1 : -1) * box.size[0]) / 2,
+          ((i & 2 ? 1 : -1) * box.size[1]) / 2,
+          ((i & 4 ? 1 : -1) * box.size[2]) / 2,
+        );
+        const depth = corner.dot(dir);
+        distance = Math.max(
+          distance,
+          depth + Math.abs(corner.dot(right)) / (tanH * margin),
+          depth + Math.abs(corner.dot(up)) / (tanV * margin),
+        );
+      }
     }
     this.distance = distance;
     this.update(0);

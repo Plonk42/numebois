@@ -164,9 +164,13 @@ export class GlowPoints {
     this.points.name = 'glow';
   }
 
-  /** Point sizes are in world units: give the height of the drawing buffer and the camera. */
-  setViewport(heightPx: number, camera: THREE.PerspectiveCamera): void {
-    this.material.uniforms.uScale.value = heightPx / (2 * Math.tan((camera.fov * Math.PI) / 360));
+  /**
+   * Point sizes are in world units: give the height of the drawing buffer and the camera.
+   * `boost` enlarges the points of a large diorama, seen from further away.
+   */
+  setViewport(heightPx: number, camera: THREE.PerspectiveCamera, boost = 1): void {
+    this.material.uniforms.uScale.value =
+      (heightPx / (2 * Math.tan((camera.fov * Math.PI) / 360))) * boost;
   }
 
   burst(origin: THREE.Vector3, time: number): void {
@@ -535,12 +539,13 @@ export class SunRays {
     // Width axis: perpendicular to the ray and to the view direction.
     const side = new THREE.Vector3().crossVectors(sunDir, viewDir).normalize();
     // Rays stay above the diorama: they end about 9 units over the ground.
-    const reach = Math.min(16, 9 / Math.max(0.2, sunDir.y));
+    const size = extent.x / 20;
+    const reach = Math.min(16, 9 / Math.max(0.2, sunDir.y)) * size;
     for (let i = 0; i < count; i++) {
       const gx = rng.range(-extent.x * 0.45, extent.x * 0.45) + sunDir.x * -3;
       const gz = rng.range(-extent.z * 0.5, extent.z * 0.35);
       const length = reach * rng.range(0.8, 1);
-      const width = rng.range(1.0, 2.0);
+      const width = rng.range(1.0, 2.0) * size;
       const ph = rng.next();
       const base = position.length / 3;
       for (const [u, v] of [
@@ -584,6 +589,92 @@ export class SunRays {
     this.mesh.frustumCulled = false;
     this.mesh.renderOrder = 9;
     this.mesh.name = 'sun-rays';
+  }
+
+  dispose(): void {
+    this.mesh.geometry.dispose();
+    this.material.dispose();
+  }
+}
+
+const RAINBOW_SEGMENTS = 40;
+export const RAINBOW_TRIANGLES = RAINBOW_SEGMENTS * 2;
+
+const RAINBOW_VERTEX = /* glsl */ `
+varying vec2 vUv;
+void main() {
+  vUv = uv;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}
+`;
+
+// uv = (along the arc, across the band from the inside).
+const RAINBOW_FRAGMENT = /* glsl */ `
+uniform float uTime;
+uniform float uStrength;
+varying vec2 vUv;
+void main() {
+  // Hue from red on the outside to violet on the inside, in soft pastel bands.
+  float h = (1.0 - vUv.y) * 0.8;
+  vec3 col = clamp(vec3(abs(h * 6.0 - 3.0) - 1.0, 2.0 - abs(h * 6.0 - 2.0), 2.0 - abs(h * 6.0 - 4.0)), 0.0, 1.0);
+  col = mix(col, vec3(1.0), 0.3);
+  float band = smoothstep(0.0, 0.2, vUv.y) * (1.0 - smoothstep(0.8, 1.0, vUv.y));
+  float ends = smoothstep(0.02, 0.3, vUv.x) * (1.0 - smoothstep(0.7, 0.98, vUv.x));
+  float a = band * ends * uStrength * (0.88 + 0.12 * sin(uTime * 0.4));
+  gl_FragColor = vec4(col * a, a);
+  #include <tonemapping_fragment>
+  #include <colorspace_fragment>
+}
+`;
+
+/** Rainbow of the last stage: one translucent arc facing the (nearly fixed) camera. */
+export class Rainbow {
+  readonly mesh: THREE.Mesh;
+  private readonly material: THREE.ShaderMaterial;
+
+  constructor(
+    center: THREE.Vector3,
+    radius: number,
+    strength: number,
+    shared: { uTime: { value: number } },
+  ) {
+    const position: number[] = [];
+    const uv: number[] = [];
+    const index: number[] = [];
+    const width = radius * 0.11;
+    for (let i = 0; i <= RAINBOW_SEGMENTS; i++) {
+      const t = i / RAINBOW_SEGMENTS;
+      const c = Math.cos(t * Math.PI);
+      const s = Math.sin(t * Math.PI);
+      for (const side of [0, 1]) {
+        const r = radius + (side - 0.5) * width;
+        position.push(center.x + c * r, center.y + s * r, center.z);
+        uv.push(t, side);
+      }
+      if (i > 0) {
+        const b = i * 2;
+        index.push(b - 2, b - 1, b, b, b - 1, b + 1);
+      }
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(position), 3));
+    geometry.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(uv), 2));
+    geometry.setIndex(index);
+    this.material = new THREE.ShaderMaterial({
+      vertexShader: RAINBOW_VERTEX,
+      fragmentShader: RAINBOW_FRAGMENT,
+      transparent: true,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      blending: THREE.CustomBlending,
+      blendSrc: THREE.OneFactor,
+      blendDst: THREE.OneMinusSrcAlphaFactor,
+      uniforms: { uTime: shared.uTime, uStrength: { value: strength } },
+    });
+    this.mesh = new THREE.Mesh(geometry, this.material);
+    this.mesh.frustumCulled = false;
+    this.mesh.renderOrder = 8;
+    this.mesh.name = 'rainbow';
   }
 
   dispose(): void {
