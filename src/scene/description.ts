@@ -3,8 +3,11 @@ import type { Season } from './trees/builder';
 export type Form = 'clearing' | 'hex';
 export const FORMS: readonly Form[] = ['clearing', 'hex'];
 
-export type Stage = 0 | 1 | 2 | 3 | 4;
-export const STAGES: readonly Stage[] = [0, 1, 2, 3, 4];
+export const STAGES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] as const;
+export type Stage = (typeof STAGES)[number];
+export const LAST_STAGE: Stage = 11;
+/** One value per stage. */
+export type PerStage<T> = readonly [T, T, T, T, T, T, T, T, T, T, T, T];
 
 /**
  * Everything needed to rebuild a scene identically: the painting is a pure function of
@@ -20,7 +23,7 @@ export interface SceneDescription {
 export const DEFAULT_DESCRIPTION: SceneDescription = {
   form: 'clearing',
   seed: 7,
-  stage: 2,
+  stage: 6,
   season: 'summer',
 };
 

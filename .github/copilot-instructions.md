@@ -35,7 +35,7 @@ Numebois est un jeu web de maths pour un enfant de CE2 (8 ans, grande difficult�
 - **Courant** (interface, notions, leçons, quêtes, textes, docs, tests, petites corrections) : `npm run format`, `npm run check` et les specs Playwright concernées, puis commit et push sur `main`.
 - **Risqué** (format de sauvegarde ou de l'Album, service worker, moteur de rendu partagé, chaîne de traitement des assets, CI, dépendances) : branche, PR avec le modèle, `gh pr merge --auto --squash`, sans attendre la CI.
 - Un commit par étape cohérente, avec ses tests et ses docs. Résumé à l'impératif, `(#N)` ou `Closes #N`. Ne jamais faire de force-push sur `main`, affaiblir un test ni ajouter de relances pour obtenir du vert.
-- Changement d'interface : vérification en émulation tablette (paysage 1280×800 et portrait). Changement de rendu : captures avant/après aux paliers 0, 2 et 4, et budget tablette mesuré. Un nouveau décor demande la validation du propriétaire.
+- Changement d'interface : vérification en émulation tablette (paysage 1280×800 et portrait). Changement de rendu : captures avant/après aux paliers 0, 6 et 11, et budget tablette mesuré. Un nouveau décor demande la validation du propriétaire.
 - Sauvegardes : compatibilité obligatoire une fois que le propriétaire a déclaré « l'enfant joue pour de vrai » (voir le workflow).
 - Lancer les commandes longues en mode synchrone et attendre leur fin. Ne jamais interroger une commande en arrière-plan avec `sleep` ou `tail`.
 

@@ -74,10 +74,16 @@ export function plantTrees(
       age = Math.max(ambience.edgeAge[0], 0.85);
     } else if (spot.role === 'clearing') {
       const index = counters.clearing++;
-      if (index >= clearingCount) continue;
-      family = CLEARING_FAMILIES[(spot.slot ?? index) % CLEARING_FAMILIES.length];
       // The first trees planted are the oldest.
-      const t = clearingCount > 1 ? index / (clearingCount - 1) : 0;
+      let t: number;
+      if (spot.rank !== undefined) {
+        if (spot.rank >= ambience.clearingTrees) continue;
+        t = spot.rank / ambience.clearingTrees;
+      } else {
+        if (index >= clearingCount) continue;
+        t = clearingCount > 1 ? index / (clearingCount - 1) : 0;
+      }
+      family = CLEARING_FAMILIES[(spot.slot ?? index) % CLEARING_FAMILIES.length];
       age = ambience.clearingAge[1] - (ambience.clearingAge[1] - ambience.clearingAge[0]) * t;
     } else {
       family = DEMO_FAMILIES[(spot.slot ?? counters.demo++) % DEMO_FAMILIES.length];

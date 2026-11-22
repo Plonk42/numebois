@@ -38,7 +38,7 @@ body:
     id: acceptance
     attributes:
       label: Critères d'acceptation
-      description: Comportement observable, tests attendus, vérification en émulation tablette ou revue visuelle (paliers 0, 2 et 4).
+      description: Comportement observable, tests attendus, vérification en émulation tablette ou revue visuelle (paliers 0, 6 et 11).
     validations:
       required: true
   - type: textarea

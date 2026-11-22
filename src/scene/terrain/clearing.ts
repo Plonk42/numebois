@@ -1,7 +1,7 @@
 import { Rng, hashSeed, valueNoise2 } from '../../core/rng';
 import type { ModelName } from '../asset-catalog';
 import { swatchUV, type SwatchName } from '../atlas';
-import type { Stage } from '../description';
+import { LAST_STAGE, type PerStage, type Stage } from '../description';
 import type { MeshWriter } from '../mesh-data';
 import {
   WATER_FALL,
@@ -46,10 +46,10 @@ interface Relief {
   peaks: readonly [number, number, number];
   /** Height of the ledge of the main fall (0: the pond is a simple spring). */
   ledge: number;
-  /** Falls of the main cascade above the ledge. */
-  tiers: 0 | 1 | 2;
-  /** Falls of the east stream (0: no stream yet). */
-  east: 0 | 1 | 2;
+  /** Falls of the main cascade above the ledge (0 to 2). */
+  tiers: number;
+  /** Falls of the east stream (0: no stream yet, 1 or 2). */
+  east: number;
   /** The west brook and its fall. */
   west: boolean;
   /** Radius of the pond, which becomes a lake. */
@@ -62,84 +62,45 @@ interface Relief {
   cover: number;
 }
 
-const RELIEF: Record<Stage, Relief> = {
-  // A small meadow around a spring.
-  0: {
-    hx: 13.5,
-    hz: 10.5,
-    cz: 1,
-    peaks: [0, 0, 0],
-    ledge: 0,
-    tiers: 0,
-    east: 0,
-    west: false,
-    lake: 2.4,
-    stream: 0.62,
-    snow: 99,
-    cover: 0.5,
-  },
-  // A hill rises at the back: rocky ledge and first waterfall.
-  1: {
-    hx: 18.5,
-    hz: 14.5,
-    cz: -0.5,
-    peaks: [8, 0, 0],
-    ledge: 4.2,
-    tiers: 0,
-    east: 0,
-    west: false,
-    lake: 3.0,
-    stream: 0.8,
-    snow: 99,
-    cover: 0.8,
-  },
-  // The hill becomes a mountain; a second stream comes down from the east and joins.
-  2: {
-    hx: 23.5,
-    hz: 21.5,
-    cz: -3,
-    peaks: [14, 6.5, 0],
-    ledge: 5,
-    tiers: 1,
-    east: 1,
-    west: false,
-    lake: 3.6,
-    stream: 0.95,
-    snow: 11.5,
-    cover: 1.1,
-  },
-  // Snowy summit, cascade in three falls, three streams meeting in the lake and the meadow.
-  3: {
-    hx: 27,
-    hz: 24.5,
-    cz: -3.5,
-    peaks: [20, 11.5, 6],
-    ledge: 5.6,
-    tiers: 2,
-    east: 2,
-    west: true,
-    lake: 4.3,
-    stream: 1.05,
-    snow: 12.5,
-    cover: 1.25,
-  },
-  // The whole range, at its highest.
-  4: {
-    hx: 30,
-    hz: 27,
-    cz: -4,
-    peaks: [26, 16, 10],
-    ledge: 6,
-    tiers: 2,
-    east: 2,
-    west: true,
-    lake: 5,
-    stream: 1.15,
-    snow: 13.5,
-    cover: 1.4,
-  },
-};
-const FINAL = RELIEF[4];
+// One value per stage, so each line reads as a progression. Every stage is a little larger
+// than the one before, and most bring one new thing: ledge and first fall (2), hill (3),
+// mountain and second fall (4), east stream and confluence (5), snow (6), third fall (7),
+// second east fall (8), west brook (9).
+const RELIEF_BY_STAGE = {
+  hx: [13.5, 15.5, 17.5, 19, 21, 22.5, 24, 25.5, 27, 28.5, 29.3, 30],
+  hz: [10.5, 12, 14.5, 18.5, 20, 21.25, 22.25, 23.5, 24.5, 25.5, 26.3, 27],
+  cz: [1, 0.5, -0.5, -3.5, -4, -3.75, -3.75, -4, -4, -4, -4, -4],
+  mainPeak: [0, 0, 5, 8, 11, 13, 16, 19, 21, 23, 24.5, 26],
+  eastPeak: [0, 0, 0, 0, 0, 4.5, 6.5, 8.5, 11.5, 13, 14.5, 16],
+  westPeak: [0, 0, 0, 0, 0, 0, 0, 0, 3.5, 6, 8, 10],
+  ledge: [0, 0, 3.2, 4.2, 4.6, 5, 5.2, 5.4, 5.6, 5.8, 5.9, 6],
+  tiers: [0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 2],
+  east: [0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 2],
+  west: [false, false, false, false, false, false, false, false, false, true, true, true],
+  lake: [2.4, 2.7, 2.9, 3.1, 3.3, 3.6, 3.8, 4, 4.3, 4.5, 4.8, 5],
+  stream: [0.62, 0.7, 0.76, 0.82, 0.88, 0.94, 0.98, 1.02, 1.06, 1.1, 1.13, 1.15],
+  snow: [99, 99, 99, 99, 99, 99, 12, 12.5, 12.5, 13, 13.2, 13.5],
+  cover: [0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.08, 1.15, 1.22, 1.3, 1.35, 1.4],
+} satisfies Record<string, PerStage<number> | PerStage<boolean>>;
+
+function reliefOf(stage: Stage): Relief {
+  const r = RELIEF_BY_STAGE;
+  return {
+    hx: r.hx[stage],
+    hz: r.hz[stage],
+    cz: r.cz[stage],
+    peaks: [r.mainPeak[stage], r.eastPeak[stage], r.westPeak[stage]],
+    ledge: r.ledge[stage],
+    tiers: r.tiers[stage],
+    east: r.east[stage],
+    west: r.west[stage],
+    lake: r.lake[stage],
+    stream: r.stream[stage],
+    snow: r.snow[stage],
+    cover: r.cover[stage],
+  };
+}
+const FINAL = reliefOf(LAST_STAGE);
 
 // Features are placed by hand in a reference layout (possibly mirrored by the seed) and
 // never move: a stage only decides which ones are there and how high the relief is.
@@ -272,6 +233,8 @@ interface Pool {
   radius: number;
   level: number;
   bed: number;
+  /** The bed is flat within this distance of the centre. */
+  flat: number;
 }
 
 interface Stream {
@@ -361,7 +324,7 @@ class Clearing implements Terrain {
     this.mirror = rng.chance(0.5) ? -1 : 1;
     this.wobble = [rng.range(0, TAU), rng.range(0, TAU)];
     this.ridges = PEAKS.map(() => rng.range(0, TAU));
-    const relief = RELIEF[stage];
+    const relief = reliefOf(stage);
     this.relief = relief;
     this.extent = { x: relief.hx, z: relief.hz + Math.abs(relief.cz) };
     this.cover = relief.cover;
@@ -376,6 +339,7 @@ class Clearing implements Terrain {
       radius: relief.lake,
       level: LAKE.level,
       bed: LAKE.level - 0.8,
+      flat: relief.lake - 1.3,
     });
     this.main = this.stream(MAIN_PATH, LAKE.level, STREAM_END_LEVEL, relief.stream, false);
     this.mainCascade();
@@ -390,7 +354,7 @@ class Clearing implements Terrain {
   private mainCascade(): void {
     const r = this.relief;
     if (r.ledge <= 0) return;
-    const half = 0.6 + 0.08 * this.stage;
+    const half = 0.8 * r.stream;
     const ledge = this.step(LEDGE, r.ledge);
     const water = ledge.level - 0.32;
     const fall = this.fall(LEDGE, [LAKE.x, LAKE.z], water, LAKE.level, 1.7, half);
@@ -417,8 +381,13 @@ class Clearing implements Terrain {
   private eastStream(): void {
     const r = this.relief;
     if (r.east === 0) return;
-    const half = 0.45 + 0.075 * this.stage;
-    this.pools.push({ ...EAST_POOL, bed: EAST_POOL.level - 0.7 });
+    const half = 0.65 * r.stream;
+    // A wide flat bed: the fall lands in water even with a steep slope behind the pool.
+    this.pools.push({
+      ...EAST_POOL,
+      bed: EAST_POOL.level - 0.7,
+      flat: EAST_POOL.radius * 0.75,
+    });
     const end = EAST_PATH[EAST_PATH.length - 1];
     const joint = distanceToPath(MAIN_PATH, end[0], end[1]).along / MAIN_LENGTH;
     this.stream(EAST_PATH, EAST_POOL.level, lerp(LAKE.level, STREAM_END_LEVEL, joint), half, false);
@@ -461,7 +430,11 @@ class Clearing implements Terrain {
     const r = this.relief;
     if (!r.west) return;
     const half = 0.5;
-    this.pools.push({ ...WEST_POOL, bed: WEST_POOL.level - 0.7 });
+    this.pools.push({
+      ...WEST_POOL,
+      bed: WEST_POOL.level - 0.7,
+      flat: WEST_POOL.radius * 0.75,
+    });
     this.stream(WEST_PATH, WEST_POOL.level, LAKE.level, half, false);
     const step = this.step(
       WEST_STEP,
@@ -630,7 +603,7 @@ class Clearing implements Terrain {
     for (const pool of this.pools) {
       const d = Math.hypot(fx - pool.x, z - pool.z);
       if (d < pool.radius + 1) {
-        h = Math.min(h, lerp(pool.bed, h, smoothstep(pool.radius - 1.3, pool.radius + 1, d)));
+        h = Math.min(h, lerp(pool.bed, h, smoothstep(pool.flat, pool.radius + 1, d)));
       }
     }
     return h;
@@ -795,6 +768,7 @@ class Clearing implements Terrain {
         role: 'clearing',
         size: lerp(0.85, 1.05, this.at(fx, z).next()),
         slot,
+        rank: (slot + 0.5) / CLEARING_SPOTS.length,
         // The last ones planted are far from the camera.
         detail: slot < 6 ? 'full' : 'light',
       });
@@ -811,7 +785,7 @@ class Clearing implements Terrain {
   private forest(): void {
     const rng = new Rng(this.seed).fork('forest');
     const m = this.mirror;
-    const final = this.stage === 4 ? this : new Clearing(this.seed, 4, false);
+    const final = this.stage === LAST_STAGE ? this : new Clearing(this.seed, LAST_STAGE, false);
     const placed = [...DEMO_SPOTS, ...HERO_SPOTS, ...CLEARING_SPOTS].map(([x, z]) => ({
       x,
       z,

@@ -3,7 +3,7 @@ import { Rng } from '../core/rng';
 import type { AssetLibrary } from './assets';
 import { swatchColor, type SwatchName } from './atlas';
 import { composeScene, compositionTriangles } from './compose';
-import type { SceneDescription } from './description';
+import { LAST_STAGE, type SceneDescription } from './description';
 import type { InstanceBatch } from './render/instancing';
 import { Lighting, sunDirection } from './render/lighting';
 import { createMaterials, paletteColor, type SceneMaterials } from './render/materials';
@@ -187,7 +187,7 @@ export class Painting {
     const winter = season === 'winter';
     const pollenColor = winter
       ? new THREE.Color(0xffffff)
-      : new THREE.Color(description.stage === 4 ? 0xffe9a8 : 0xfff6d0);
+      : new THREE.Color(description.stage === LAST_STAGE ? 0xffe9a8 : 0xfff6d0);
     const pollen = Math.round((winter ? 200 : 110) * ambience.pollen * life);
     for (let i = 0; i < pollen; i++) {
       const p = meadow(winter ? 0 : rng.range(0.2, 2.5), 1);
