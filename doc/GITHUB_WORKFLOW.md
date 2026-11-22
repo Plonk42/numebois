@@ -6,9 +6,9 @@ Différence majeure avec PasCap : **`main` est la production**. Chaque push sur 
 
 ## Livrer un changement
 
-| Changement                                                                                                                                                                                                                  | Route                                                 |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| **Courant :** interface, widgets, notions et leçons, quêtes, problèmes, textes, docs, tests, petites corrections, refactorisations                                                                                          | Contrôle local rapide, commit, push direct sur `main` |
+| Changement                                                                                                                                                                                                   | Route                                                 |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------- |
+| **Courant :** interface, widgets, notions et leçons, quêtes, problèmes, textes, docs, tests, petites corrections, refactorisations                                                                           | Contrôle local rapide, commit, push direct sur `main` |
 | **Risqué :** format de sauvegarde ou de l'Album, service worker et cache PWA, moteur de rendu partagé et budget tablette, chaîne de traitement des assets, CI/workflows/secrets, mises à jour de dépendances | Branche courte et PR en squash auto-merge             |
 
 En cas de doute, la route risquée. Un mauvais service worker peut bloquer l'app hors-ligne sur la tablette, et un mauvais format de sauvegarde peut faire perdre l'Album : ces deux-là ne passent jamais en direct.
@@ -44,14 +44,14 @@ Un échec qui n'arrive que sur les runners hébergés est un signal réel, pas u
 
 ## CI et déploiement
 
-Le workflow `.github/workflows/ci.yml` (créé en phase 0) tourne sur les PR, les pushs sur `main` et le déclenchement manuel, avec des permissions en lecture seule (sauf pour le déploiement). Un push plus récent sur la même branche annule l'exécution précédente.
+Le workflow `.github/workflows/ci.yml` tourne sur les PR, les pushs sur `main` et le déclenchement manuel, avec des permissions en lecture seule (sauf pour le déploiement). Un push plus récent sur la même branche annule l'exécution précédente.
 
-| Job             | Rôle                                                                                                            |
-| --------------- | --------------------------------------------------------------------------------------------------------------- |
-| `checks`        | `npm run check` en étapes séparées : format, lint, types, Vitest, build                                         |
-| `e2e`           | Playwright en émulation tablette (Galaxy Tab S4, paysage et portrait)                                           |
-| `Delivery gate` | Réussit seulement si tous les jobs ci-dessus ont réussi                                                         |
-| `deploy`        | Seulement sur `main`, après le `Delivery gate` : construit et publie sur GitHub Pages                           |
+| Job             | Rôle                                                                                                    |
+| --------------- | ------------------------------------------------------------------------------------------------------- |
+| `checks`        | `npm run check` en étapes séparées : format, lint, types, Vitest, build                                 |
+| `e2e`           | Playwright en émulation tablette (Galaxy Tab S4, paysage et portrait)                                   |
+| `Delivery gate` | Réussit seulement si tous les jobs ci-dessus ont réussi                                                 |
+| `deploy`        | Seulement sur `main`, après le `Delivery gate` : construit et publie sur GitHub Pages (pas encore créé) |
 
 - Seulement des assets gratuits (KayKit CC0) et des compléments générés : pas de pack payant ni de dépôt privé. Les fichiers bruts des packs restent hors du dépôt pour l'instant ; la chaîne de traitement décidera ce qui y entre.
 - Une nouvelle version de la PWA s'active au lancement suivant, jamais au milieu d'une session.
@@ -83,16 +83,16 @@ Le workflow `.github/workflows/ci.yml` (créé en phase 0) tourne sur les PR, le
 | `priority:p2` | Travail planifié normal (par défaut)                                   |
 | `priority:p3` | Amélioration facultative                                               |
 
-| Domaine         | Périmètre                                                 |
-| --------------- | --------------------------------------------------------- |
-| `area:render`   | Paysage, effets, décors, paliers de richesse              |
-| `area:pedagogy` | Notions, générateurs, indices, leçons, quêtes, problèmes  |
-| `area:ui`       | Interface, widgets, pavé, Carnet, Album (écran)           |
-| `area:engine`   | Sentier, rafale, maîtrise, révision, défis                |
-| `area:save`     | Sauvegarde, Album (données), export/import, compatibilité |
+| Domaine         | Périmètre                                                                          |
+| --------------- | ---------------------------------------------------------------------------------- |
+| `area:render`   | Paysage, effets, décors, paliers de richesse                                       |
+| `area:pedagogy` | Notions, générateurs, indices, leçons, quêtes, problèmes                           |
+| `area:ui`       | Interface, widgets, pavé, Carnet, Album (écran)                                    |
+| `area:engine`   | Sentier, rafale, maîtrise, révision, défis                                         |
+| `area:save`     | Sauvegarde, Album (données), export/import, compatibilité                          |
 | `area:assets`   | Packs KayKit et autres, licences, modèles générés ou Blender, chaîne de traitement |
-| `area:ci`       | CI, déploiement, tests e2e                                |
-| `area:workflow` | Workflow, personnalisations Copilot, docs                 |
+| `area:ci`       | CI, déploiement, tests e2e                                                         |
+| `area:workflow` | Workflow, personnalisations Copilot, docs                                          |
 
 Les jalons GitHub sont M0 à M5, avec la même description que dans le plan. Un nouveau jalon est créé seulement avec l'accord du propriétaire.
 
