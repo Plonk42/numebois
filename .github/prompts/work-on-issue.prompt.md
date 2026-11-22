@@ -41,7 +41,7 @@ Pour chaque ticket choisi, dans l'ordre du classement :
 4. Valider comme l'exigent les instructions :
    - tests unitaires concernés ;
    - vérification en émulation tablette (paysage et portrait) pour un changement d'interface ;
-   - captures avant/après aux paliers 0, 2 et 4 et budget tablette pour un changement de rendu ;
+   - captures avant/après aux paliers 0, 6 et 11 et budget tablette pour un changement de rendu ;
    - `npm run format`, `npm run check` et chaque spec Playwright concernée, trouvée en cherchant dans `tests/e2e`.
 
    Ne jamais affaiblir une assertion, ajouter des relances ni sauter un test.

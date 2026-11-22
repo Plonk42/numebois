@@ -19,14 +19,14 @@ Le rendu est la priorité n°1 : un paysage de plus en plus riche et joli est la
 - Les formes de tableau partagent tout sauf le terrain (interface `Terrain`, `src/scene/terrain/`) : arbres, végétation, lumière et effets ne dépendent jamais d'une forme.
 - Les effets du code (lumière, brouillard, particules, halos) restent dans la palette de la texture de dégradé et de la lumière du tableau.
 - Les emplacements sont composés à la main et lisibles depuis la caméra. Vu de la caméra, un arbre cache le sol loin derrière lui : aucun emplacement devant un lac, une chute, un bassin ou un confluent. Chaque choix proposé à l'enfant doit donner une belle scène.
-- Chaque palier de richesse (0 à 4) change visiblement l'ambiance (lumière, ciel, densité, vie, couche sonore) et le relief (taille du tableau, zones, montagnes, cascades), pas seulement le nombre d'objets. Les paliers sont très distincts : le palier 0 est presque nu mais déjà joli, le palier 4 est spectaculaire.
-- Le relief d'un palier est déclaré dans le terrain du décor (`RELIEF` dans `src/scene/terrain/clearing.ts`), les densités et la lumière dans `src/scene/render/richness.ts`. Les éléments (sommets, marches, ruisseaux, emplacements) sont placés une fois dans la disposition finale ; un palier décide seulement lesquels sont présents. Un arbre garde sa place, sa graine et sa forme d'un palier au suivant (nombres tirés de sa position, jamais de son rang dans une liste).
+- Les paliers de richesse sont nombreux et progressifs (12, de 0 à 11 ; demande du propriétaire) : plus de paliers donnent plus d'occasions de progresser. Chaque palier est un petit pas visible, et la plupart apportent une seule nouveauté, sur l'ambiance (lumière, ciel, densité, vie, couche sonore) ou le relief (taille du tableau, zones, montagnes, cascades), pas seulement sur le nombre d'objets. Le palier 0 est presque nu mais déjà joli, le dernier est spectaculaire.
+- Les valeurs d'un palier sont écrites en colonnes, une ligne par paramètre et une valeur par palier : le relief dans le terrain du décor (`RELIEF_BY_STAGE` dans `src/scene/terrain/clearing.ts`), les densités et la vie dans `LIFE` (`src/scene/render/richness.ts`), où la lumière glisse entre cinq ambiances. Le nombre de paliers n'est écrit qu'une fois (`STAGES`, `LAST_STAGE` dans `src/scene/description.ts`), jamais en dur ailleurs. Les éléments (sommets, marches, ruisseaux, emplacements) sont placés une fois dans la disposition finale ; un palier décide seulement lesquels sont présents. Un arbre garde sa place, sa graine et sa forme d'un palier au suivant (nombres tirés de sa position, plantation selon un rang fixe, jamais selon sa place dans une liste).
 - Chaque nouveau décor apporte au moins un effet inédit et dépasse le précédent.
 - Les animations de pousse et de récompense ne sont jamais coupées, même en qualité basse.
 
 ## Budget tablette (Android milieu de gamme)
 
-- Moins de 100 appels de dessin, moins de 150 000 triangles visibles, environ 64 Mo de mémoire graphique, 50 images par seconde visées et 30 au minimum. Le palier 4 de la clairière est à environ 135 000 triangles : tout ajout se paie ailleurs (mesurer par partie avant d'ajouter).
+- Moins de 100 appels de dessin, moins de 150 000 triangles visibles, environ 64 Mo de mémoire graphique, 50 images par seconde visées et 30 au minimum. Le dernier palier de la clairière est à environ 135 000 triangles : tout ajout se paie ailleurs (mesurer par partie avant d'ajouter).
 - `InstancedMesh` pour la végétation répétée, et un matériau partagé.
 - Résolution plafonnée (`min(devicePixelRatio, 1.5)`, 2 en qualité haute).
 - Une seule lumière directionnelle avec ombres, et une carte d'ombres limitée au diorama.
@@ -48,7 +48,7 @@ Le rendu est la priorité n°1 : un paysage de plus en plus riche et joli est la
 
 Pour tout nouveau décor, modèle ou effet, suivre le skill `visual-review` :
 
-- captures avant/après depuis une caméra fixe, aux paliers 0, 2 et 4 (`npm run capture`) ;
+- captures avant/après depuis une caméra fixe, aux paliers 0, 6 et 11 (`npm run capture`) ;
 - mesures avec `?debug` (images par seconde, mémoire, appels de dessin, triangles), en qualité haute et basse.
 
 Un nouveau décor demande la validation du propriétaire.

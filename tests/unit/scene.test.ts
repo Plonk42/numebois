@@ -4,9 +4,11 @@ import { createPlaceholderLibrary } from '../../src/scene/assets';
 import { composeScene, compositionTriangles } from '../../src/scene/compose';
 import {
   FORMS,
+  LAST_STAGE,
   STAGES,
   parseDescription,
   type SceneDescription,
+  type Stage,
 } from '../../src/scene/description';
 import { MAX_EFFECT_TRIANGLES } from '../../src/scene/painting';
 import { QUALITIES, QUALITY, QualityGovernor } from '../../src/scene/render/quality';
@@ -64,9 +66,11 @@ describe('scene description', () => {
     const d = parseDescription(new URLSearchParams('form=hex&stage=4&season=winter&seed=12'));
     expect(d).toEqual({ form: 'hex', stage: 4, season: 'winter', seed: 12 });
     const fallback = parseDescription(
-      new URLSearchParams('form=cube&stage=9&season=monsoon&seed=x'),
+      new URLSearchParams('form=cube&stage=12&season=monsoon&seed=x'),
     );
-    expect(fallback).toEqual({ form: 'clearing', stage: 2, season: 'summer', seed: 7 });
+    expect(fallback).toEqual({ form: 'clearing', stage: 6, season: 'summer', seed: 7 });
+    expect(STAGES).toHaveLength(12);
+    expect(LAST_STAGE).toBe(STAGES[STAGES.length - 1]);
   });
 
   it.each(FORMS)('composes the same %s scene twice from the same description', (form) => {
@@ -101,7 +105,7 @@ describe('triangle budget', () => {
   it('keeps the richest stage under the budget for other seeds', () => {
     for (const form of FORMS) {
       for (let seed = 1; seed <= 12; seed++) {
-        const triangles = sceneTriangles({ form, seed, stage: 4, season: 'summer' });
+        const triangles = sceneTriangles({ form, seed, stage: LAST_STAGE, season: 'summer' });
         expect(triangles, `${form} seed ${seed}`).toBeLessThan(TRIANGLE_BUDGET);
       }
     }
@@ -109,22 +113,27 @@ describe('triangle budget', () => {
 
   it('gets richer with the stage and lighter with the quality tier', () => {
     for (const form of FORMS) {
-      const stage0 = sceneTriangles({ form, seed: 7, stage: 0, season: 'summer' });
-      const stage4 = sceneTriangles({ form, seed: 7, stage: 4, season: 'summer' });
-      expect(stage4).toBeGreaterThan(stage0 * 1.2);
-      const low = sceneTriangles({ form, seed: 7, stage: 4, season: 'summer' }, QUALITY.low);
-      expect(low).toBeLessThan(stage4);
+      const first = sceneTriangles({ form, seed: 7, stage: 0, season: 'summer' });
+      const last = sceneTriangles({ form, seed: 7, stage: LAST_STAGE, season: 'summer' });
+      expect(last).toBeGreaterThan(first * 1.2);
+      const low = sceneTriangles(
+        { form, seed: 7, stage: LAST_STAGE, season: 'summer' },
+        QUALITY.low,
+      );
+      expect(low).toBeLessThan(last);
     }
   });
 
-  it('starts the clearing bare and makes every stage clearly richer', () => {
+  it('starts the clearing bare and makes every stage richer, step by step', () => {
     const stages = STAGES.map((stage) =>
       sceneTriangles({ form: 'clearing', seed: 7, stage, season: 'summer' }),
     );
     for (let stage = 1; stage < stages.length; stage++) {
-      expect(stages[stage], `stage ${stage}`).toBeGreaterThan(stages[stage - 1] * 1.12);
+      // Visibly richer, but never a jump: progress comes in many small steps.
+      expect(stages[stage], `stage ${stage}`).toBeGreaterThan(stages[stage - 1] * 1.05);
+      expect(stages[stage], `stage ${stage}`).toBeLessThan(stages[stage - 1] * 1.35);
     }
-    expect(stages[4]).toBeGreaterThan(stages[0] * 3);
+    expect(stages[LAST_STAGE]).toBeGreaterThan(stages[0] * 3);
   });
 });
 
@@ -207,6 +216,15 @@ describe('clearing terrain', () => {
           expect(surface, `${label}: ${spot.role} at ${spot.x},${spot.z}`).not.toBeNull();
           expect(surface!.kind, `${label}: ${spot.role} at ${spot.x},${spot.z}`).not.toBe('water');
         }
+        // Every fall starts on the diorama, comes down and lands in water.
+        for (const fall of terrain.waterfalls) {
+          expect(fall.foot[1], label).toBeLessThan(fall.top[1] - 2);
+          if (!fall.splash) continue;
+          expect(terrain.surfaceAt(fall.top[0], fall.top[2]), `${label}: lip`).not.toBeNull();
+          expect(terrain.surfaceAt(fall.foot[0], fall.foot[2])?.kind, `${label}: foot`).toBe(
+            'water',
+          );
+        }
         expect(terrain.surfaceAt(100, 0)).toBeNull();
       }
     }
@@ -222,29 +240,35 @@ describe('clearing terrain', () => {
       }
       return top;
     };
+    const edges = (terrain: ReturnType<typeof createClearing>) =>
+      terrain.treeSpots.filter((s) => s.role === 'edge').length;
     for (let seed = 0; seed < 6; seed++) {
       const terrains = STAGES.map((stage) => createClearing(seed, stage));
-      expect(terrains.map((t) => t.waterfalls.length)).toEqual([1, 2, 4, 7, 7]);
-      expect(terrains.map((t) => t.ponds.length)).toEqual([1, 1, 2, 3, 3]);
+      const tops = terrains.map(highest);
+      // One new thing at a time: a fall, a stream with its pool.
+      expect(terrains.map((t) => t.waterfalls.length)).toEqual([
+        1, 1, 2, 2, 3, 4, 4, 5, 6, 7, 7, 7,
+      ]);
+      expect(terrains.map((t) => t.ponds.length)).toEqual([1, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3]);
       for (let stage = 1; stage < terrains.length; stage++) {
         const label = `seed ${seed}, stage ${stage}`;
         expect(terrains[stage].extent.x, label).toBeGreaterThan(terrains[stage - 1].extent.x);
-        expect(highest(terrains[stage]), label).toBeGreaterThan(highest(terrains[stage - 1]) + 2);
-        expect(
-          terrains[stage].treeSpots.filter((s) => s.role === 'edge').length,
-          label,
-        ).toBeGreaterThan(terrains[stage - 1].treeSpots.filter((s) => s.role === 'edge').length);
+        expect(terrains[stage].cover, label).toBeGreaterThan(terrains[stage - 1].cover);
+        expect(tops[stage], label).toBeGreaterThan(tops[stage - 1] - 0.5);
+        expect(edges(terrains[stage]), label).toBeGreaterThanOrEqual(edges(terrains[stage - 1]));
+      }
+      // From the hill on, the relief rises at every stage.
+      for (let stage = 3; stage < terrains.length; stage++) {
+        expect(tops[stage], `seed ${seed}, stage ${stage}`).toBeGreaterThan(tops[stage - 1] + 1);
       }
       // A mountain in the background, and a forest around the clearing.
-      expect(highest(terrains[4]), `seed ${seed}`).toBeGreaterThan(20);
-      expect(terrains[4].treeSpots.filter((s) => s.role === 'edge').length).toBeGreaterThan(35);
-      // Every fall comes down: its foot is below its lip.
-      for (const fall of terrains[4].waterfalls) expect(fall.foot[1]).toBeLessThan(fall.top[1] - 2);
+      expect(tops[LAST_STAGE], `seed ${seed}`).toBeGreaterThan(20);
+      expect(edges(terrains[LAST_STAGE])).toBeGreaterThan(35);
     }
   });
 
   it('keeps a tree in place and in shape from one stage to the next', () => {
-    const trees = (stage: (typeof STAGES)[number]) => {
+    const trees = (stage: Stage) => {
       const description: SceneDescription = { form: 'clearing', seed: 11, stage, season: 'summer' };
       const { planting } = composeScene(
         description,
@@ -254,10 +278,11 @@ describe('clearing terrain', () => {
       );
       return new Map(planting.trees.map((t) => [`${t.x},${t.z}`, t]));
     };
-    for (let stage = 1; stage <= 4; stage++) {
-      const before = trees((stage - 1) as (typeof STAGES)[number]);
-      const after = trees(stage as (typeof STAGES)[number]);
-      expect(after.size).toBeGreaterThan(before.size);
+    const all = STAGES.map(trees);
+    for (let stage = 1; stage < all.length; stage++) {
+      const before = all[stage - 1];
+      const after = all[stage];
+      expect(after.size, `stage ${stage}`).toBeGreaterThanOrEqual(before.size);
       for (const [place, tree] of before) {
         const same = after.get(place);
         expect(same, `stage ${stage}: tree at ${place}`).toBeDefined();
@@ -265,5 +290,6 @@ describe('clearing terrain', () => {
         expect(same!.age).toBeGreaterThanOrEqual(tree.age);
       }
     }
+    expect(all[LAST_STAGE].size).toBeGreaterThan(all[0].size * 5);
   });
 });

@@ -2,7 +2,7 @@
  * Visual review captures: fixed camera, frozen time. Writes one PNG per scene and a contact
  * sheet under `test-results/captures/`.
  *
- *   npm run capture -- --forms clearing,hex --stages 0,2,4 --seasons summer [--seed 7]
+ *   npm run capture -- --forms clearing,hex --stages 0,6,11 --seasons summer [--seed 7]
  *     [--size 1280x800] [--url http://127.0.0.1:5173/numebois/] [--name review] [--time 12]
  *
  * Needs a running server (`npm run dev` or `npm run preview`).
@@ -17,7 +17,7 @@ function option(name: string, fallback: string): string {
 }
 
 const forms = option('forms', 'clearing,hex').split(',');
-const stages = option('stages', '0,2,4').split(',');
+const stages = option('stages', '0,6,11').split(',');
 const seasons = option('seasons', 'summer').split(',');
 const seed = option('seed', '7');
 const time = option('time', '12');

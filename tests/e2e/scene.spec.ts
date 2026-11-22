@@ -60,7 +60,7 @@ async function checkScene(page: Page, name: string): Promise<void> {
 }
 
 for (const form of FORMS) {
-  for (const stage of [0, 2, 4]) {
+  for (const stage of [0, 6, 11]) {
     test(`${form}: palier ${stage}`, async ({ page }) => {
       const errors = watchErrors(page);
       await openScene(page, `form=${form}&stage=${stage}&quality=high&time=12`);
@@ -70,17 +70,17 @@ for (const form of FORMS) {
   }
 
   for (const season of ['spring', 'summer', 'autumn', 'winter']) {
-    test(`${form}: ${season} au palier 4`, async ({ page }) => {
+    test(`${form}: ${season} au palier 11`, async ({ page }) => {
       const errors = watchErrors(page);
-      await openScene(page, `form=${form}&stage=4&season=${season}&quality=high&time=12`);
-      await checkScene(page, `${form}-${season}-palier-4`);
+      await openScene(page, `form=${form}&stage=11&season=${season}&quality=high&time=12`);
+      await checkScene(page, `${form}-${season}-palier-11`);
       expect(errors).toEqual([]);
     });
   }
 
   test(`${form}: qualité basse`, async ({ page }) => {
     const errors = watchErrors(page);
-    await openScene(page, `form=${form}&stage=4&quality=low&time=12`);
+    await openScene(page, `form=${form}&stage=11&quality=low&time=12`);
     const counters = await page.evaluate(() => window.__numebois!.counters());
     expect(counters.quality).toBe('low');
     expect(counters.pixelRatio).toBe(1);
@@ -91,7 +91,7 @@ for (const form of FORMS) {
 
 test('formes de remplacement sans les packs', async ({ page }) => {
   const errors = watchErrors(page);
-  await openScene(page, 'form=hex&stage=4&quality=high&time=12&assets=placeholder');
+  await openScene(page, 'form=hex&stage=11&quality=high&time=12&assets=placeholder');
   const counters = await page.evaluate(() => window.__numebois!.counters());
   expect(counters.placeholders).toBe(true);
   await checkScene(page, 'formes-de-remplacement');
@@ -109,12 +109,12 @@ test('mode débogage : réglages, compteurs et pousse', async ({ page }) => {
 
   await page.locator('#debug-form').selectOption('hex');
   await page.locator('#debug-season').selectOption('autumn');
-  await page.locator('#debug-stage').fill('4');
-  await expect(panel).toContainText('4 · féerique');
+  await page.locator('#debug-stage').fill('11');
+  await expect(panel).toContainText('11 · féerique');
   expect(await page.evaluate(() => window.__numebois!.describe())).toMatchObject({
     form: 'hex',
     season: 'autumn',
-    stage: 4,
+    stage: 11,
   });
   expect(new URL(page.url()).searchParams.get('form')).toBe('hex');
 

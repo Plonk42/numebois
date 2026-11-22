@@ -40,7 +40,8 @@ L'enfant a beaucoup de mal à se concentrer. Le but n°1 est qu'il ait envie de 
   - **Pousse et vent dans le shader.** Chaque arbre est généré adulte ; ses sommets portent un point d'origine et deux âges de naissance, et une petite texture de données donne l'âge de chaque arbre. Faire pousser un arbre ne modifie donc aucune géométrie, et toute la forêt reste un seul appel de dessin.
   - **Tableau flottant.** Les deux formes flottent dans le ciel, entourées de nuages KayKit ; le ruisseau de la clairière tombe dans le vide, la rivière de l'île tombe du plateau dans un bassin relié à la mer.
   - **Fleurs et champignons générés en TypeScript** (`src/scene/props.ts`), sans passer par Blender.
-  - **Le relief est un axe de progrès des paliers (demande du propriétaire, 2026-11-22).** Le terrain de la clairière dépend du palier (`RELIEF` dans `src/scene/terrain/clearing.ts`) : le tableau s'agrandit (27 × 21 unités au palier 0, 60 × 54 au palier 4), les montagnes du fond montent (aucune, colline et corniche, 14, 20 puis 26 unités de haut, avec neige), et l'eau en descend (1, 2, 4 puis 7 chutes ; un ruisseau venu de l'est rejoint le ruisseau principal au palier 2, un troisième se jette dans le lac au palier 3). Les éléments sont placés une fois pour toutes dans la disposition finale : un palier décide seulement lesquels sont présents et à quelle hauteur. Un arbre garde donc sa place, sa graine et sa forme d'un palier au suivant. La caméra se cadre toute seule sur le bord du tableau et les sommets. Changer de palier reconstruit le tableau ; la transition animée reste à concevoir.
+  - **Le relief est un axe de progrès des paliers (demande du propriétaire, 2026-11-22).** Le terrain de la clairière dépend du palier (`RELIEF_BY_STAGE` dans `src/scene/terrain/clearing.ts`) : le tableau s'agrandit à chaque palier (27 × 21 unités au palier 0, 60 × 54 au palier 11), les montagnes du fond montent (corniche au palier 2, colline au palier 3, puis de 11 à 26 unités de haut, avec neige à partir du palier 6), et l'eau en descend (de 1 à 7 chutes, une de plus à la fois ; un ruisseau venu de l'est rejoint le ruisseau principal au palier 5, un troisième se jette dans le lac au palier 9). Les éléments sont placés une fois pour toutes dans la disposition finale : un palier décide seulement lesquels sont présents et à quelle hauteur. Un arbre garde donc sa place, sa graine et sa forme d'un palier au suivant. La caméra se cadre toute seule sur le bord du tableau et les sommets. Changer de palier reconstruit le tableau ; la transition animée reste à concevoir.
+  - **Douze paliers, progressifs (demande du propriétaire, 2026-11-22).** Plus de paliers donnent plus d'occasions de progresser : chaque palier est un petit pas, et la plupart apportent une seule nouveauté. Les valeurs sont écrites en colonnes, une ligne par paramètre et une valeur par palier (`RELIEF_BY_STAGE` pour le relief, `LIFE` dans `src/scene/render/richness.ts` pour les densités et la vie), ce qui rend chaque progression lisible et facile à régler. La lumière glisse entre cinq ambiances (matin brumeux, matin clair, midi, après-midi chaud, heure dorée), atteintes aux paliers 0, 3, 6, 9 et 11. Le nombre de paliers est déclaré une seule fois (`STAGES` dans `src/scene/description.ts`).
 - **Contenu en TypeScript, pas en YAML :** c'est toujours l'agent qui ajoute les notions et les quêtes, à la demande du propriétaire. Le compilateur et les tests vérifient tout, sans schéma ni validateur à part.
 - **Un module par domaine** (`src/domains/<domain>/`), branché sur un registre. Le moteur (sentier, maîtrise, rafale, défis) est générique et ne connaît aucun domaine en particulier.
 - **Sauvegarde :** un seul enfant, IndexedDB sous le préfixe `numebois:` (l'origine github.io est partagée avec les autres dépôts), export/import JSON. Les identifiants de notions sont stables. La compatibilité devient obligatoire dès que le propriétaire déclare « l'enfant joue pour de vrai » (voir [GITHUB_WORKFLOW.md](GITHUB_WORKFLOW.md#compatibilité-des-sauvegardes)).
@@ -146,7 +147,7 @@ Ajouter un décor (« fais un tableau de montagne ») :
 1. Terrain : un module `src/scene/terrain/<nom>.ts` qui implémente l'interface `Terrain` (sol, eau, hauteur en tout point, emplacements d'arbres par rôle, gros rochers, cascades, berges, cadrage). Tout le reste (arbres, végétation, lumière, effets) est partagé.
 2. Couleurs : une nouvelle couleur est une nouvelle case dans `src/scene/atlas.ts` (jamais une case d'origine), puis `npm run assets`.
 3. Modèles KayKit : les ajouter à `src/scene/asset-catalog.ts`, puis `npm run assets` (le manifeste est régénéré). Un modèle manquant est généré en TypeScript (`src/scene/props.ts`) ; le MCP Blender n'est qu'un recours.
-4. Ambiance : les 5 paliers de richesse sont dans `src/scene/render/richness.ts` (lumière, ciel, brouillard, densités, vie) ; un nouvel effet déclare son comportement à chaque palier de qualité dans `render/quality.ts`.
+4. Ambiance : les 12 paliers de richesse sont dans `src/scene/render/richness.ts` (lumière, ciel, brouillard, densités, vie) ; un nouvel effet déclare son comportement à chaque palier de qualité dans `render/quality.ts`.
 5. Plus tard, avec le jeu : emplacements, 3 grands moments, effet inédit, ambiance sonore, vocabulaire des problèmes.
 6. Vérifier : tests Vitest (budget de triangles, plan valide sur des centaines de graines), spec Playwright, puis revue visuelle avec le skill `visual-review`.
 
@@ -200,19 +201,26 @@ C'est le cœur de la motivation. Chaque bonne réponse doit se voir, et chaque t
    - la caméra respire très légèrement entre les questions.
 4. **Vie :** animaux animés (déplacements courts, réactions au toucher entre deux questions), oiseaux qui traversent, papillons, pollen, feuilles qui tombent, lucioles le soir.
 5. **Pousse :** chaque nouvel élément sort de terre avec un effet d'étirement, une gerbe d'étincelles et de feuilles, et un léger mouvement de caméra vers lui. Les arbres passent par des stades visibles.
-6. **Paliers de richesse dans chaque tableau :** la richesse ne fait pas que s'accumuler. Chaque palier change visiblement l'ambiance (lumière, ciel, vie, son) **et le relief** : le tableau s'agrandit, de nouvelles zones apparaissent, les montagnes montent. Les paliers doivent être très distincts : on part de presque rien pour finir sur un paysage spectaculaire.
-   - 0 « clairière » : une petite prairie nue, une source et son ruisseau, un grand arbre, trois jeunes pousses ; dépouillée mais déjà jolie ;
-   - 1 « verdoyant » : le tableau s'étend, une corniche rocheuse et la première cascade, herbes plus denses, premières fleurs, début de forêt ;
-   - 2 « fleuri » : la montagne apparaît au fond avec une deuxième chute, un ruisseau venu de l'est rejoint le premier, couleurs plus saturées, papillons ;
-   - 3 « vivant » : sommet enneigé, cascade en trois chutes, deuxième et troisième sommets, troisième ruisseau, lac, forêt dense, oiseaux, rayons de lumière ;
-   - 4 « féerique », le grand final : massif au plus haut, lumière dorée, lucioles, cascades étincelantes et arc-en-ciel.
+6. **Paliers de richesse dans chaque tableau : 12 paliers (0 à 11), nombreux et progressifs.** La richesse ne fait pas que s'accumuler. Chaque palier change visiblement l'ambiance (lumière, ciel, vie, son) **et le relief** : le tableau s'agrandit un peu, et la plupart des paliers apportent une nouveauté. On part de presque rien pour finir sur un paysage spectaculaire, par petits pas.
+   - 0 « prairie » : une petite prairie nue, une source et son ruisseau, un grand arbre, trois jeunes pousses ; dépouillée mais déjà jolie ;
+   - 1 « premières fleurs » : la prairie s'étend, premières fleurs, premier arbre de la forêt ;
+   - 2 « cascade » : une corniche rocheuse et la première cascade, nénuphars ;
+   - 3 « colline » : une colline derrière la corniche, herbes et buissons plus denses ;
+   - 4 « montagne » : la colline devient une montagne, deuxième chute ;
+   - 5 « confluent » : un ruisseau venu de l'est, avec sa chute et son bassin, rejoint le premier ; papillons, champignons ;
+   - 6 « neiges » : sommet enneigé, lumière de midi, prairie en fleurs ;
+   - 7 « grande cascade » : troisième chute de la cascade principale, la forêt s'épaissit ;
+   - 8 « oiseaux » : deuxième chute à l'est, une colline se lève à l'ouest, oiseaux ;
+   - 9 « trois ruisseaux » : un troisième ruisseau descend de l'ouest jusqu'au lac ; rayons de soleil, cascades qui scintillent ;
+   - 10 « doré » : massif plus haut, forêt dense, la lumière tourne à l'or, premières lucioles ;
+   - 11 « féerique », le grand final : massif au plus haut, heure dorée, lucioles, rond de sorcières et arc-en-ciel.
 7. **Escalade d'un tableau à l'autre :** les décors sont ordonnés pour être de plus en plus spectaculaires (clairière, puis ruisseau avec cascade, puis verger fleuri, puis forêt d'automne avec feuilles qui volent, puis nuit étoilée, puis neige…). Chaque nouveau décor apporte au moins un effet inédit. Les variantes de couleur KayKit et la lumière font l'essentiel des saisons.
-8. **Ambiance sonore en couches : un axe de progrès des paliers, au même titre que la lumière.** Chaque palier ajoute une couche, qu'on entend arriver quand le palier change :
-   - 0 : vent léger, cascade au loin ;
-   - 1 : ruisseau plus présent, premiers chants d'oiseaux ;
-   - 2 : oiseaux variés, bourdonnement des insectes ;
-   - 3 : animaux (pic-vert, coucou), bruissement des feuilles dans les rafales ;
-   - 4 : grillons, chouette et petite nappe musicale féerique.
+8. **Ambiance sonore en couches : un axe de progrès des paliers, au même titre que la lumière.** Cinq couches, une par ambiance de lumière ; on entend chacune arriver quand le palier l'atteint :
+   - palier 0 : vent léger, ruisseau ;
+   - palier 3 : cascade plus présente, premiers chants d'oiseaux ;
+   - palier 6 : oiseaux variés, bourdonnement des insectes ;
+   - palier 9 : animaux (pic-vert, coucou), bruissement des feuilles dans les rafales ;
+   - palier 11 : grillons, chouette et petite nappe musicale féerique.
 
    Règles :
    - les couches sont déclarées par palier dans `src/scene/render/richness.ts`, avec la lumière et les densités, et la saison les ajuste (pas d'insectes en hiver) ;
@@ -299,7 +307,7 @@ Principe : le contenu grandit, mais la charge par session reste fixe. Tout est l
 
 Chaque jalon est livré en ligne et jouable. Les jalons GitHub portent les mêmes noms.
 
-- **M0 « Tranche verticale visuelle »** (phases 0 et R) : assets gratuits et compléments générés, chaîne de traitement des assets, un décor complet (clairière) avec ses 5 paliers de richesse, à la qualité visée, fluide sur la vraie tablette. Validation par le propriétaire et test de la réaction de l'enfant avant d'aller plus loin.
+- **M0 « Tranche verticale visuelle »** (phases 0 et R) : assets gratuits et compléments générés, chaîne de traitement des assets, un décor complet (clairière) avec ses 12 paliers de richesse, à la qualité visée, fluide sur la vraie tablette. Validation par le propriétaire et test de la réaction de l'enfant avant d'aller plus loin.
 - **M1 « Boucle jouable »** (phases 1 à 4) : forêt en tableaux avec Album, nombres, calcul mental, tables, sentier, sauvegarde.
 - **M2 « Rafale et défis »** (phases 7 et 8) : automatisation des tables et du calcul mental.
 - **M3 « Opérations posées et leçons »** (phases 5a et 6).
@@ -332,15 +340,15 @@ Dépend de 0. Bloque les phases 3 et 4. Peut avancer en parallèle de la phase 1
 5. **Moteur de rendu** (`src/scene/render/`) :
    - `stage.ts` (moteur de rendu, caméra, redimensionnement), `sky.ts` (ciel, brouillard), `lighting.ts` (lumière hémisphérique, soleil, ombres, halos) ;
    - `instancing.ts` (végétation en `InstancedMesh`), `wind.ts` (shader de vent), `water.ts`, `particles.ts`, `ambient-life.ts` (animaux, oiseaux, papillons) ;
-   - `growth-fx.ts` (pousse, étincelles, caméra), `richness.ts` (paliers 0 à 4 : lumière, densité, effets, ambiance) ;
+   - `growth-fx.ts` (pousse, étincelles, caméra), `richness.ts` (paliers 0 à 11 : lumière, densité, effets, ambiance) ;
    - `src/scene/trees/` : forêt procédurale (squelette, tubes, touffes KayKit, âge de pousse), avec un test qui vérifie qu'une graine donne toujours le même arbre et le temps de génération mesuré sur la tablette ;
    - `quality.ts` (paliers de qualité automatiques).
 6. **Deux maquettes comparées,** une île de tuiles hexagonales (Medieval Hexagon gratuit) et une clairière à relief libre générée par le code, avec les mêmes arbres et effets, chacune avec des captures aux paliers 0, 2 et 4. Première étape : la scène de démonstration sans mécanisme de jeu (`.github/prompts/scene-validation.prompt.md`), qui valide seulement le look sur la station de travail. Le propriétaire choisit ensuite la forme du tableau ; la tablette vient après. **Fait le 2026-11-22** (`?debug&form=clearing|hex&stage=0..4&season=…&seed=…&quality=…`, pousse avec la touche G). Choix du propriétaire : la clairière.
-7. **Décor « Clairière » complet** : composition, environ 25 emplacements, 3 grands moments (pistes du propriétaire, ticket #7 : l'apparition d'un lac, une grande montagne en fond, le déblocage d'une nouvelle saison), les 5 paliers de richesse, ambiance sonore en couches par palier (`src/scene/audio/`, voir [Ce que le code ajoute](#ce-que-le-code-ajoute-la-vie)).
-8. **Mode démo** `?debug&stage=0..4&fill=0..100` : curseur pour parcourir la richesse, compteur d'images par seconde, mesures de mémoire graphique, d'appels de dessin et de triangles.
+7. **Décor « Clairière » complet** : composition, environ 25 emplacements, 3 grands moments (pistes du propriétaire, ticket #7 : l'apparition d'un lac, une grande montagne en fond, le déblocage d'une nouvelle saison), les 12 paliers de richesse, ambiance sonore en couches par palier (`src/scene/audio/`, voir [Ce que le code ajoute](#ce-que-le-code-ajoute-la-vie)).
+8. **Mode démo** `?debug&stage=0..11&fill=0..100` : curseur pour parcourir la richesse, compteur d'images par seconde, mesures de mémoire graphique, d'appels de dessin et de triangles.
 9. **Fait quand :**
    - sur la vraie tablette : 50 images par seconde ou plus en qualité haute, au moins 30 en moyenne ;
-   - le propriétaire valide les captures des paliers 0, 2 et 4 ;
+   - le propriétaire valide les captures des paliers 0, 6 et 11 ;
    - L'enfant regarde la démo et veut voir la suite (critère qualitatif, noté dans le journal).
 
 ## Phase 1 : moteur générique et premiers modules
@@ -537,10 +545,10 @@ Dépend de 4, puis à chaque jalon.
 6. Captures en paysage et en portrait de chaque widget, relues à l'œil.
 7. Test sur la vraie tablette via l'URL Pages.
 8. Contrôle qualité du rendu pour chaque nouveau décor, élément ou effet :
-   - captures avant/après depuis une caméra fixe, aux paliers 0, 2 et 4 ;
+   - captures avant/après depuis une caméra fixe, aux paliers 0, 6 et 11 ;
    - mesure des images par seconde, de la mémoire graphique, des appels de dessin et des triangles, en qualité haute et basse ;
    - validation du propriétaire obligatoire pour un nouveau décor.
-9. Vitest : chaque référence de modèle existe dans le manifeste généré ; chaque décor a ses 5 paliers, ses 3 grands moments et au moins un effet inédit ; chaque modèle utilise la texture de dégradé partagée.
+9. Vitest : chaque référence de modèle existe dans le manifeste généré ; chaque décor a ses 12 paliers, ses 3 grands moments et au moins un effet inédit ; chaque modèle utilise la texture de dégradé partagée.
 
 ## Workflow GitHub
 
@@ -571,8 +579,8 @@ Tout est rangé dans le dépôt (`.github/`), donc versionné avec le code. Chaq
 | `work-on-issue` (prompt, `/work-on-issue`)       | invocation explicite                                                               | Livrer les X tickets les plus pertinents                                                                                                                                                             | Oui                           |
 | `scene-validation` (prompt, `/scene-validation`) | invocation explicite                                                               | Scène de démonstration sans mécanisme de jeu, en deux formes (clairière, île hexagonale), pour valider le style sur la station de travail                                                            | Oui                           |
 | `tablet-ui-check`                                | vérifier l'affichage, capture, tablette, interface                                 | Émulation Playwright Galaxy Tab S4, paysage et portrait, processeur ralenti, `?debug`, vérifications DOM d'abord, 4 captures au maximum par session                                                  | Phase 0, avec Playwright      |
-| `visual-review`                                  | rendu, plus joli, embellir, effet, paysage, décor moche                            | `npm run capture` : captures avant/après à caméra fixe aux paliers 0, 2 et 4, budget tablette, liste de contrôle de la direction artistique, validation du propriétaire                              | Oui                           |
-| `add-biome`                                      | nouveau décor, tableau de montagne, biome                                          | Modèle tiré de la clairière, terrain et variante de couleurs, lumière et ciel, emplacements, 5 paliers, effet inédit, ambiance sonore, puis `visual-review`                                          | Phase R                       |
+| `visual-review`                                  | rendu, plus joli, embellir, effet, paysage, décor moche                            | `npm run capture` : captures avant/après à caméra fixe aux paliers 0, 6 et 11, budget tablette, liste de contrôle de la direction artistique, validation du propriétaire                             | Oui                           |
+| `add-biome`                                      | nouveau décor, tableau de montagne, biome                                          | Modèle tiré de la clairière, terrain et variante de couleurs, lumière et ciel, emplacements, 12 paliers, effet inédit, ambiance sonore, puis `visual-review`                                         | Phase R                       |
 | `blender-asset`                                  | créer un modèle, asset manquant, Blender, low-poly                                 | MCP Blender : partir d'un modèle KayKit proche, réutiliser la texture de dégradé, respecter l'échelle et le nombre de polygones, exporter en glTF, passer la chaîne de traitement, rendu de contrôle | Phase R, après le premier lot |
 | `add-skill`                                      | ajouter les divisions, l'enfant doit travailler…, nouvelle notion, nouveau domaine | La recette, une liste de contrôle, un modèle tiré de `times-tables`                                                                                                                                  | Fin de phase 1                |
 | `write-lesson`                                   | leçon, astuce de Plume, explique-lui…                                              | Types d'étapes, scripts de démo des widgets, règles de formulation, au plus 6 étapes                                                                                                                 | Phase 6                       |
@@ -588,7 +596,7 @@ Vérification : frontmatter YAML valide, `name` identique au nom du dossier, `de
 2. Sons : vent et eau synthétisés par le code ou enregistrés ; source CC0 pour les oiseaux et les animaux. À trancher à l'écoute, sur un premier essai au palier 0.
 3. Grands moments : un grand moment peut être une transformation de la scène (lac, montagne en fond, nouvelle saison) et pas seulement un objet. Comment l'annoncer dès le départ quand il n'a pas de silhouette (une saison) : à concevoir dans le ticket #7. Dans la scène de démonstration, la montagne et le lac arrivent avec les paliers : à articuler avec les grands moments.
 4. Changement de palier : aujourd'hui le tableau est reconstruit d'un coup. Animer la transition (le tableau qui s'étend, la montagne qui monte, l'eau qui arrive) serait un moment fort : à concevoir.
-5. Taille du tableau : au palier 4 la caméra est nettement plus loin qu'avant, donc les fleurs et les petits détails sont plus petits à l'écran (entre 1,5 et 2 fois, estimé sur les captures, pas mesuré). Lisibilité et fluidité à vérifier sur la vraie tablette (ticket #3).
+5. Taille du tableau : au dernier palier la caméra est nettement plus loin qu'avant, donc les fleurs et les petits détails sont plus petits à l'écran (entre 1,5 et 2 fois, estimé sur les captures, pas mesuré). Lisibilité et fluidité à vérifier sur la vraie tablette (ticket #3).
 6. Méthode de multiplication posée de l'école (position des retenues) : à vérifier sur un cahier de l'enfant.
 7. Notation de l'heure attendue (« 14 h 10 », « 14:10 » ou « 2 h 10 de l'après-midi ») : réglable par exercice.
 8. Fractions vues en classe : liste des dénominateurs.
@@ -618,3 +626,4 @@ Vérification : frontmatter YAML valide, `name` identique au nom du dossier, `de
 - 2026-11-22 : décision : la forme du tableau est la clairière ; l'île hexagonale est écartée et son code sera retiré. L'ambiance sonore devient un axe de progrès des paliers (une couche par palier, déclarée avec la lumière). Suite du projet : petites tâches, un ticket et une conversation par tâche.
 - 2026-11-22 : tickets #2 à #7 créés (jalon M0). Décisions : les modèles optimisés `kaykit.glb` entrent dans le dépôt (ticket #3) ; pistes de grands moments pour la clairière : apparition d'un lac, grande montagne en fond, déblocage d'une nouvelle saison (ticket #7).
 - 2026-11-22 : grosse itération sur la clairière, à la demande du propriétaire (« plus de relief, plus grand, paliers plus distincts, plus wahou »). Le relief devient un axe de progrès des paliers : tableau qui s'agrandit, massif de trois sommets enneigés au fond, cascade principale en trois chutes, trois ruisseaux qui se rejoignent, lac, arc-en-ciel au palier 4. Palier 0 bien plus dépouillé (6 arbres, environ 28 000 triangles), palier 4 bien plus riche (63 arbres, 7 chutes, environ 135 000 triangles, 42 appels de dessin, 25 Mo). Nouveau niveau de détail `far` pour la forêt lointaine, cadrage automatique de la caméra, emplacements d'arbres stables d'un palier à l'autre. À valider par le propriétaire ; fluidité sur la tablette non mesurée.
+- 2026-11-22 : 12 paliers au lieu de 5, à la demande du propriétaire (« plus nombreux et plus progressifs, pour avoir plus de possibilités de progression »). Mêmes extrêmes (palier 0 inchangé, palier 11 = ancien palier 4), découpés en petits pas : le tableau grandit à chaque palier et la plupart apportent une seule nouveauté (cascade, colline, montagne, confluent, neige, troisième chute, oiseaux, troisième ruisseau, lumière dorée, arc-en-ciel). Valeurs écrites en colonnes, une par palier ; lumière qui glisse entre cinq ambiances. D'un palier au suivant, la scène gagne entre 7 % et 27 % de triangles (de 28 000 à 135 000). Captures de contrôle aux paliers 0, 6 et 11. À valider par le propriétaire.

@@ -27,7 +27,7 @@ export interface TreeSpot {
   size: number;
   /** Prefer a conifer (high or far spots). */
   conifer?: boolean;
-  /** Edge spots are planted once the stage reaches this fraction (0 to 1). */
+  /** Edge and clearing spots are planted once the stage reaches this fraction (0 to 1). */
   rank?: number;
   /** Stable index of the spot in its role, so a tree keeps its family at every stage. */
   slot?: number;
