@@ -232,10 +232,28 @@ describe('clearing terrain', () => {
 
   it('makes the relief an axis of progress: larger, higher, with more water', () => {
     const highest = (terrain: ReturnType<typeof createClearing>) => {
+      const height = (x: number, z: number) => terrain.surfaceAt(x, z)?.y ?? -Infinity;
       let top = -Infinity;
+      let best = [0, 0];
       for (let x = -terrain.extent.x; x <= terrain.extent.x; x += 1) {
         for (let z = -terrain.extent.z; z <= terrain.extent.z; z += 1) {
-          top = Math.max(top, terrain.surfaceAt(x, z)?.y ?? -Infinity);
+          const y = height(x, z);
+          if (y > top) [top, best] = [y, [x, z]];
+        }
+      }
+      // Climb to the summit itself, which lies between the samples.
+      for (let step = 0.5; step > 0.01; step /= 2) {
+        for (let moved = true; moved;) {
+          moved = false;
+          for (const [dx, dz] of [
+            [step, 0],
+            [-step, 0],
+            [0, step],
+            [0, -step],
+          ]) {
+            const y = height(best[0] + dx, best[1] + dz);
+            if (y > top) [top, best, moved] = [y, [best[0] + dx, best[1] + dz], true];
+          }
         }
       }
       return top;
@@ -245,9 +263,9 @@ describe('clearing terrain', () => {
     for (let seed = 0; seed < 6; seed++) {
       const terrains = STAGES.map((stage) => createClearing(seed, stage));
       const tops = terrains.map(highest);
-      // One new thing at a time: a fall, a stream with its pool.
+      // One new thing at a time: a fall, the stream out of the lake (3), a stream with its pool.
       expect(terrains.map((t) => t.waterfalls.length)).toEqual([
-        1, 1, 2, 2, 3, 4, 4, 5, 6, 7, 7, 7,
+        0, 0, 1, 2, 3, 4, 4, 5, 6, 7, 7, 7,
       ]);
       expect(terrains.map((t) => t.ponds.length)).toEqual([1, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3]);
       for (let stage = 1; stage < terrains.length; stage++) {
@@ -265,6 +283,26 @@ describe('clearing terrain', () => {
       expect(tops[LAST_STAGE], `seed ${seed}`).toBeGreaterThan(20);
       expect(edges(terrains[LAST_STAGE])).toBeGreaterThan(35);
     }
+  });
+
+  it('draws a different clearing from each seed', () => {
+    const exits = new Set<number>();
+    const summits = new Set<number>();
+    const pines = new Set<number>();
+    for (let seed = 0; seed < 16; seed++) {
+      const terrain = createClearing(seed, LAST_STAGE);
+      // The stream leaves the diorama at a different place.
+      const exit = terrain.waterfalls.find((fall) => !fall.splash)!;
+      exits.add(Math.round(exit.top[0] / 3));
+      // The summits differ in height.
+      const top = Math.max(...terrain.waterfalls.map((fall) => fall.top[1]));
+      summits.add(Math.round(top));
+      const edges = terrain.treeSpots.filter((s) => s.role === 'edge');
+      pines.add(Math.round((edges.filter((s) => s.conifer).length / edges.length) * 5));
+    }
+    expect(exits.size).toBeGreaterThanOrEqual(6);
+    expect(summits.size).toBeGreaterThanOrEqual(4);
+    expect(pines.size).toBeGreaterThanOrEqual(3);
   });
 
   it('keeps a tree in place and in shape from one stage to the next', () => {
