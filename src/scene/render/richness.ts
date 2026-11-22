@@ -193,10 +193,66 @@ function lightOf(stage: Stage): Light {
   };
 }
 
+/** Pull of a season on one colour of the stage light: target colour and amount (0 to 1). */
+type Tint = readonly [color: number, amount: number];
+
+interface SeasonLight {
+  zenith?: Tint;
+  horizon?: Tint;
+  nadir?: Tint;
+  fog?: Tint;
+  hemisphereSky?: Tint;
+  hemisphereGround?: Tint;
+  sun?: Tint;
+  sunIntensity?: number;
+}
+
+// Each season pulls the light of the stage towards its own colours: the golden finale stays
+// golden in autumn, turns pink and lilac over the snow in winter. Summer keeps the stage light.
+const SEASON_LIGHT: Record<Season, SeasonLight> = {
+  spring: {
+    zenith: [0x7cc4f0, 0.15],
+    horizon: [0xffe6f0, 0.3],
+    hemisphereGround: [0x9ad07a, 0.25],
+    sun: [0xfffaf0, 0.2],
+  },
+  summer: {},
+  autumn: {
+    horizon: [0xf8dcb4, 0.4],
+    fog: [0xf3d2a8, 0.35],
+    hemisphereGround: [0xc98a4a, 0.5],
+    sun: [0xffb060, 0.3],
+  },
+  winter: {
+    zenith: [0x7f9fe0, 0.55],
+    horizon: [0xf1dcef, 0.65],
+    nadir: [0xdfe3f3, 0.65],
+    fog: [0xe3e6f5, 0.7],
+    hemisphereSky: [0xc9dcff, 0.6],
+    hemisphereGround: [0xe6effa, 0.8],
+    sun: [0xfff0f0, 0.6],
+    sunIntensity: 0.9,
+  },
+};
+
+function tint(color: number, pull: Tint | undefined): number {
+  return pull ? mixColor(color, pull[0], pull[1]) : color;
+}
+
 /** Ambience of a stage, adjusted for the season. */
 export function ambienceFor(stage: Stage, season: Season): Ambience {
+  const light = lightOf(stage);
+  const s = SEASON_LIGHT[season];
+  light.sky.zenith = tint(light.sky.zenith, s.zenith);
+  light.sky.horizon = tint(light.sky.horizon, s.horizon);
+  light.sky.nadir = tint(light.sky.nadir, s.nadir);
+  light.fog.color = tint(light.fog.color, s.fog);
+  light.hemisphere.sky = tint(light.hemisphere.sky, s.hemisphereSky);
+  light.hemisphere.ground = tint(light.hemisphere.ground, s.hemisphereGround);
+  light.sun.color = tint(light.sun.color, s.sun);
+  light.sun.intensity *= s.sunIntensity ?? 1;
   const a: Ambience = {
-    ...lightOf(stage),
+    ...light,
     name: STAGE_NAMES[stage],
     grass: LIFE.grass[stage],
     flowers: LIFE.flowers[stage],
@@ -218,24 +274,12 @@ export function ambienceFor(stage: Stage, season: Season): Ambience {
   };
   if (season === 'spring') {
     a.flowers *= 1.3;
-    a.sky.horizon = mixColor(a.sky.horizon, 0xffe6f0, 0.25);
   } else if (season === 'autumn') {
-    a.sun.color = mixColor(a.sun.color, 0xffb060, 0.3);
-    a.hemisphere.ground = mixColor(a.hemisphere.ground, 0xc98a4a, 0.5);
-    a.fog.color = mixColor(a.fog.color, 0xf3d2a8, 0.35);
-    a.sky.horizon = mixColor(a.sky.horizon, 0xf8dcb4, 0.4);
     a.flowers *= 0.25;
     a.butterflies *= 0.3;
     a.fallingLeaves = Math.min(1.6, a.fallingLeaves * 3 + 0.5);
     a.mushrooms = Math.max(a.mushrooms, 0.6) * 1.3;
   } else if (season === 'winter') {
-    a.sun.color = mixColor(a.sun.color, 0xf2f6ff, 0.45);
-    a.sun.intensity *= 0.9;
-    a.hemisphere.ground = mixColor(a.hemisphere.ground, 0xe6effa, 0.8);
-    a.hemisphere.sky = mixColor(a.hemisphere.sky, 0xe4eeff, 0.5);
-    a.fog.color = mixColor(a.fog.color, 0xe8f0f8, 0.6);
-    a.sky.horizon = mixColor(a.sky.horizon, 0xeef4fa, 0.6);
-    a.sky.zenith = mixColor(a.sky.zenith, 0x9fc0e6, 0.4);
     a.grass *= 0.3;
     a.flowers = 0;
     a.butterflies = 0;

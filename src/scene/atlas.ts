@@ -163,6 +163,13 @@ export const SWATCHES = {
       [1, '#cb935e'],
     ],
   ),
+  // Snow on the ground: white in the sun, blue-grey in the hollows and shade.
+  SnowGround: ramp(2, 3, [
+    [0, '#ffffff'],
+    [0.35, '#eef4fb'],
+    [0.7, '#d3e0f1'],
+    [1, '#b3c4e0'],
+  ]),
   HexCloud: hex(
     2,
     4,

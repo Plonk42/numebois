@@ -185,7 +185,7 @@ export function groundSwatch(season: Season): { swatch: SwatchName; from: number
     case 'autumn':
       return { swatch: 'DryGrass', from: 0.04, to: 0.96 };
     case 'winter':
-      return { swatch: 'Snow', from: 0.02, to: 0.33 };
+      return { swatch: 'SnowGround', from: 0.02, to: 0.98 };
   }
 }
 
@@ -898,7 +898,12 @@ class Clearing implements Terrain {
           1,
           Math.max(0, 0.3 + this.layout.lush + slope * 1.3 + patch * 0.36 + shade + jitter),
         );
-        uv = swatchUV(grass.swatch, lerp(grass.from, grass.to, tone));
+        // Thin snow under the forest and on the bumps: frosty grass shows through.
+        const bare = season === 'winter' ? patch + shade * 0.5 - 0.41 : 0;
+        uv =
+          bare > 0
+            ? swatchUV('Snow', 0.41 + Math.min(0.06, bare * 0.5))
+            : swatchUV(grass.swatch, lerp(grass.from, grass.to, tone));
       }
       out.facet(a, b, c, uv);
     };
