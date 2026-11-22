@@ -1,0 +1,47 @@
+name: Bug
+description: Signaler un comportement incorrect et reproductible du jeu.
+labels: [bug, 'priority:p2']
+body:
+  - type: markdown
+    attributes:
+      value: Chercher d'abord les tickets existants. Ne joindre ni sauvegarde de Sacha, ni asset du pack, ni identifiant, ni chemin privé. Le tri ajoute la priorité, le domaine, le statut et le jalon.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Domaine principal
+      options:
+        - Paysage, effets, décors (area:render)
+        - Notions, exercices, leçons, quêtes (area:pedagogy)
+        - Interface, widgets (area:ui)
+        - Sentier, rafale, maîtrise, défis (area:engine)
+        - Sauvegarde, Album (area:save)
+        - Pack, licences, chaîne de traitement (area:assets)
+        - CI, déploiement, tests (area:ci)
+        - Workflow, docs, Copilot (area:workflow)
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: Comportement observé
+      description: Ce qui se passe, sur quel appareil (tablette, navigateur), en quelle orientation.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Comportement attendu
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Étapes pour reproduire
+      description: Les plus courtes possibles. Indiquer si le problème se reproduit en émulation tablette.
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact pour Sacha
+      description: Gêne le jeu, donne une réponse attendue fausse, perd de la progression, casse le hors-ligne… Sert à justifier la priorité.
