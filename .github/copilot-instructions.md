@@ -4,7 +4,7 @@ Répondre en français. Réponses courtes ; signaler les limites restantes.
 
 Numebois est un jeu web de maths pour un enfant de CE2 (8 ans, grande difficulté à se concentrer), sur une tablette Lenovo Tab M10 Gen 3 (Android, GPU d'entrée de gamme Mali-G52 MP2, 4 Go de RAM). Chaque exercice réussi fait grandir une forêt en 3D cartoon low-poly (Three.js, modèles KayKit CC0 complétés avec le MCP Blender). La vision, les décisions, le glossaire et les recettes sont dans `doc/PLAN_ACTION.md` (source de vérité). Le workflow GitHub est dans `doc/GITHUB_WORKFLOW.md`. Lire la section concernée avant d'agir, sans tout relire.
 
-État actuel : socle réduit (Vite, TypeScript, Three.js, tests, CI) et scène de démonstration du paysage dans `src/scene/` (forme retenue : la clairière, dont le relief grandit avec les paliers ; sans mécanisme de jeu). Le jeu lui-même (moteur, domaines, interface, sauvegarde, PWA) reste à créer. La scène est publiée sur https://plonk42.github.io/numebois/ à chaque push sur `main` qui passe la CI.
+État actuel : socle réduit (Vite, TypeScript, Three.js, tests, CI) et scène de démonstration du paysage dans `src/scene/` (forme retenue : la clairière, dont le relief grandit avec les paliers ; sans mécanisme de jeu). Le jeu lui-même (moteur, domaines, interface, sauvegarde) reste à créer. La scène est publiée sur https://plonk42.github.io/numebois/ à chaque push sur `main` qui passe la CI, installable et jouable hors-ligne (PWA).
 
 ## Règles non négociables
 

@@ -38,10 +38,10 @@ const OUT_FILE = 'kaykit.glb';
 const MANIFEST = join(ROOT, 'src', 'scene', 'assets.gen.ts');
 
 interface Geometry {
-  positions: Float32Array;
-  normals: Float32Array;
-  uvs: Float32Array;
-  indices: Uint32Array;
+  positions: Float32Array<ArrayBuffer>;
+  normals: Float32Array<ArrayBuffer>;
+  uvs: Float32Array<ArrayBuffer>;
+  indices: Uint32Array<ArrayBuffer>;
 }
 
 type Files = Map<string, Uint8Array>;
