@@ -4,7 +4,7 @@ Répondre en français. Réponses courtes ; signaler les limites restantes.
 
 Numebois est un jeu web de maths pour un enfant de CE2 (8 ans, grande difficulté à se concentrer), sur tablette Android milieu de gamme. Chaque exercice réussi fait grandir une forêt en 3D cartoon low-poly (Three.js, modèles KayKit CC0 complétés avec le MCP Blender). La vision, les décisions, le glossaire et les recettes sont dans `doc/PLAN_ACTION.md` (source de vérité). Le workflow GitHub est dans `doc/GITHUB_WORKFLOW.md`. Lire la section concernée avant d'agir, sans tout relire.
 
-État actuel : seuls les docs et les personnalisations Copilot existent. Le socle (phase 0) reste à créer.
+État actuel : socle réduit (Vite, TypeScript, Three.js, tests, CI) et scène de démonstration du paysage dans `src/scene/` (deux formes de tableau, sans mécanisme de jeu). Le jeu lui-même (moteur, domaines, interface, sauvegarde, PWA, déploiement) reste à créer.
 
 ## Règles non négociables
 
@@ -41,7 +41,7 @@ Numebois est un jeu web de maths pour un enfant de CE2 (8 ans, grande difficult�
 ## Tenir le plan et les personnalisations à jour
 
 - À chaque demande de fonctionnalité, mettre à jour dans le même commit le plan (décisions, recettes, journal en bas du fichier). Le tableau de couverture se met à jour à chaque jalon terminé.
-- Utiliser le skill adapté s'il existe (liste dans le plan, section « Personnalisations Copilot »).
+- Utiliser le skill adapté s'il existe (liste dans le plan, section « Personnalisations Copilot ») : `visual-review` pour tout changement de rendu.
 - **Auto-amélioration :** quand le propriétaire exprime une préférence durable ou corrige la façon de faire, l'enregistrer au bon endroit dans le même commit, puis le signaler en une ligne à la fin de la réponse :
   - règle transversale → ce fichier ;
   - règle liée à certains fichiers → `.github/instructions/*.instructions.md` ;

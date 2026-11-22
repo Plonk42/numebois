@@ -1,0 +1,9 @@
+dist
+node_modules
+assets
+assets-private
+public/assets
+test-results
+playwright-report
+package-lock.json
+src/scene/assets.gen.ts
