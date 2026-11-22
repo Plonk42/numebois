@@ -65,10 +65,7 @@ export interface Pond {
   radius: number;
 }
 
-/**
- * A diorama form. Both forms give the same kind of information, so trees, vegetation,
- * light and effects are shared.
- */
+/** The diorama: what trees, vegetation, light and effects need to know of the ground. */
 export interface Terrain {
   /** Ground geometry, merged in the static mesh of the scene. */
   buildGround(out: MeshWriter, season: Season): void;

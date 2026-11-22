@@ -75,7 +75,7 @@ export class SceneApp {
     this.onVisibility();
   }
 
-  /** Rebuild the painting from the description (form, stage, season, seed or quality change). */
+  /** Rebuild the painting from the description (stage, season, seed or quality change). */
   rebuild(): void {
     if (!this.assets) return;
     this.painting?.dispose();

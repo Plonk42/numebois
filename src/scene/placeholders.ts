@@ -1,4 +1,4 @@
-import { CATALOG, COAST_TILES, RIVER_TILES, SLOPE_LOW_EDGE, type ModelName } from './asset-catalog';
+import { CATALOG, type ModelName } from './asset-catalog';
 import { MODELS } from './assets.gen';
 import { shadeOf, swatchUV, type SwatchName } from './atlas';
 import { MeshWriter, type MeshData } from './mesh-data';
@@ -27,8 +27,6 @@ export function placeholderModel(name: ModelName): MeshData {
       return disc(min, max, 'HexLily');
     case 'grass':
       return blades(min, max);
-    case 'tile':
-      return tile(name);
   }
 }
 
@@ -191,61 +189,6 @@ function blades(min: readonly number[], max: readonly number[]): MeshData {
       if (flip) out.triangle(i0, i2, i1);
       else out.triangle(i0, i1, i2);
     }
-  }
-  return out.toMeshData();
-}
-
-const DEG = Math.PI / 180;
-const CORNER_RADIUS = 2 / Math.sqrt(3);
-
-/**
- * Hexagon tile as a fan of 12 triangles around the centre. Ring heights say where the
- * ground is low (river bed, shore), so the tile reads like the real one.
- */
-function tile(name: ModelName): MeshData {
-  const info = MODELS[name];
-  const base = info.min[1];
-  const ring = new Array<number>(12).fill(0);
-  let center = 0;
-  const low = -0.3;
-  const river = RIVER_TILES.find((t) => t.model === name);
-  const coast = COAST_TILES.find((t) => t.model === name);
-  if (river) {
-    center = low;
-    ring[river.from * 2] = low;
-    ring[river.to * 2] = low;
-  } else if (coast) {
-    const water = new Array<boolean>(6).fill(false);
-    for (let i = 0; i < coast.length; i++) water[(coast.start + i) % 6] = true;
-    for (let c = 0; c < 6; c++) if (water[c]) ring[c * 2 + 1] = low;
-    for (let e = 0; e < 6; e++) if (water[(e + 5) % 6] && water[e]) ring[e * 2] = low;
-    if (coast.length >= 3) center = low;
-  } else if (name === 'hex_grass_sloped_high') {
-    center = info.max[1];
-    ring.fill(info.max[1]);
-    ring[SLOPE_LOW_EDGE * 2] = 0.1;
-    ring[(SLOPE_LOW_EDGE * 2 + 11) % 12] = 0.1;
-    ring[(SLOPE_LOW_EDGE * 2 + 1) % 12] = 0.1;
-  }
-  const out = new MeshWriter(128, 256);
-  const point = (k: number, y: number) => {
-    const angle = k * 30 * DEG;
-    const r = k % 2 === 0 ? 1 : CORNER_RADIUS;
-    return [Math.cos(angle) * r, y, Math.sin(angle) * r];
-  };
-  const bottom = name === 'hex_grass_bottom';
-  for (let k = 0; k < 12; k++) {
-    const k1 = (k + 1) % 12;
-    const a = point(k, ring[k]);
-    const b = point(k1, ring[k1]);
-    const wet = (ring[k] + ring[k1] + center) / 3 < -0.08;
-    const swatch: SwatchName = wet ? 'HexSand' : 'HexGrass';
-    out.facet([0, center, 0], b, a, swatchUV(swatch, bottom ? 0.6 : 0.12));
-    const a0 = point(k, base);
-    const b0 = point(k1, base);
-    const side = swatchUV(wet ? 'HexSand' : 'HexGrass', 0.6);
-    out.facet(a, b, b0, side);
-    out.facet(a, b0, a0, side);
   }
   return out.toMeshData();
 }

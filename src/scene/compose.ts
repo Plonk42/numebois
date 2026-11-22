@@ -7,14 +7,7 @@ import type { QualitySettings } from './render/quality';
 import type { Ambience } from './render/richness';
 import { WaterBuilder } from './render/water';
 import { createClearing } from './terrain/clearing';
-import { createHexIsland, remapHexGrass } from './terrain/hex';
 import type { Terrain } from './terrain/types';
-
-export function createTerrain(description: SceneDescription, assets: AssetLibrary): Terrain {
-  return description.form === 'hex'
-    ? createHexIsland(description.seed, assets)
-    : createClearing(description.seed, description.stage);
-}
 
 /** Everything of a painting that is plain data: no GPU object, usable in tests. */
 export interface Composition {
@@ -36,10 +29,9 @@ export function composeScene(
   ambience: Ambience,
   quality: QualitySettings,
 ): Composition {
-  const terrain = createTerrain(description, assets);
+  const terrain = createClearing(description.seed, description.stage);
   const ground = new MeshWriter(24000, 24000);
   terrain.buildGround(ground, description.season);
-  const firstModel = ground.vertexCount;
   for (const m of terrain.staticModels) {
     ground.append(
       assets.data(m.model),
@@ -52,7 +44,6 @@ export function composeScene(
       m.scale,
     );
   }
-  if (description.form === 'hex') remapHexGrass(ground, firstModel, description.season);
 
   const water = new WaterBuilder(2048, 4096);
   terrain.buildWater(water);

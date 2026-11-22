@@ -1,10 +1,9 @@
 import type { SceneApp, SceneCounters } from './app';
-import { FORMS, STAGES, writeDescription, type Form, type Stage } from './description';
+import { STAGES, writeDescription, type Stage } from './description';
 import { QUALITIES, type Quality } from './render/quality';
 import { STAGE_NAMES } from './render/richness';
 import { SEASONS, type Season } from './trees/builder';
 
-const FORM_LABELS: Record<Form, string> = { clearing: 'Clairière', hex: 'Île hexagonale' };
 const SEASON_LABELS: Record<Season, string> = {
   spring: 'Printemps',
   summer: 'Été',
@@ -63,7 +62,7 @@ function select<T extends string>(
 /** Budget of the tablet: counters over it are highlighted. */
 export const BUDGET = { drawCalls: 100, triangles: 150_000, memoryMb: 64 };
 
-/** Debug panel (`?debug`): form, stage, season, seed and quality controls, live counters. */
+/** Debug panel (`?debug`): stage, season, seed and quality controls, live counters. */
 export function mountDebugPanel(app: SceneApp, autoQuality: boolean): void {
   document.head.append(element('style', { textContent: STYLE }));
   const panel = element('div', { id: 'debug-panel' });
@@ -107,13 +106,6 @@ export function mountDebugPanel(app: SceneApp, autoQuality: boolean): void {
   const stats = element('dl');
   const note = element('p');
   panel.append(
-    element('label', {}, [
-      'Forme',
-      select('debug-form', FORMS, FORM_LABELS, app.description.form, (form) => {
-        app.description = { ...app.description, form };
-        apply();
-      }),
-    ]),
     element('label', {}, ['Palier', stage]),
     stageValue,
     element('label', {}, [

@@ -1,11 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  CATALOG,
-  COAST_TILES,
-  RIVER_TILES,
-  type ModelName,
-  type ModelSource,
-} from '../../src/scene/asset-catalog';
+import { CATALOG, type ModelName, type ModelSource } from '../../src/scene/asset-catalog';
 import { ASSET_FILE, MODELS, type ModelInfo } from '../../src/scene/assets.gen';
 import {
   ATLAS_COLS,
@@ -147,20 +141,7 @@ describe('asset manifest', () => {
         for (let a = 0; a < 3; a++)
           expect(Math.abs(info.min[a] + info.max[a]), name).toBeLessThan(0.01);
       }
-      if (source.kind === 'tile') {
-        // A tile fits in the unit hexagon (waterless coast tiles only keep their land).
-        expect(info.min[0], name).toBeGreaterThanOrEqual(-1.001);
-        expect(info.max[0], name).toBeLessThanOrEqual(1.001);
-        expect(info.min[1], name).toBeCloseTo(-1, 2);
-      }
     }
-  });
-
-  it('only refers to tile models in the tile tables', () => {
-    for (const tile of [...COAST_TILES, ...RIVER_TILES]) {
-      expect(MODELS[tile.model].kind).toBe('tile');
-    }
-    expect(COAST_TILES.map((t) => t.length).sort()).toEqual([1, 2, 3, 4, 5]);
   });
 
   it('has a placeholder of the same size for every model', () => {
@@ -168,8 +149,6 @@ describe('asset manifest', () => {
       const info: ModelInfo = MODELS[name];
       const data = placeholderModel(name);
       expect(triangleCount(data), name).toBeGreaterThan(0);
-      // Placeholder tiles are whole hexagons, whatever the land part of the real tile.
-      if (info.kind === 'tile') continue;
       const b = boundsOf(data);
       for (let a = 0; a < 3; a++) {
         const size = info.max[a] - info.min[a];

@@ -6,7 +6,7 @@
 export type Pack = 'forest' | 'hex';
 
 export type ModelKind =
-  'tuft' | 'bush' | 'grass' | 'rock' | 'tile' | 'mountain' | 'lily' | 'waterplant' | 'cloud';
+  'tuft' | 'bush' | 'grass' | 'rock' | 'mountain' | 'lily' | 'waterplant' | 'cloud';
 
 export interface ModelSource {
   pack: Pack;
@@ -67,20 +67,7 @@ export const CATALOG = {
   Rock_3_K: forest('Rock_3_K', 'rock'),
   Rock_3_M: forest('Rock_3_M', 'rock'),
 
-  // Medieval Hexagon tiles. Water is drawn by the game, hence the waterless variants.
-  hex_grass: hex('hex_grass', 'tile'),
-  hex_grass_bottom: hex('hex_grass_bottom', 'tile'),
-  hex_grass_sloped_high: hex('hex_grass_sloped_high', 'tile'),
-  hex_coast_A: hex('hex_coast_A_waterless', 'tile'),
-  hex_coast_B: hex('hex_coast_B_waterless', 'tile'),
-  hex_coast_C: hex('hex_coast_C_waterless', 'tile'),
-  hex_coast_D: hex('hex_coast_D_waterless', 'tile'),
-  hex_coast_E: hex('hex_coast_E_waterless', 'tile'),
-  hex_river_A: hex('hex_river_A_waterless', 'tile'),
-  hex_river_A_curvy: hex('hex_river_A_curvy_waterless', 'tile'),
-  hex_river_B: hex('hex_river_B_waterless', 'tile'),
-  hex_river_C: hex('hex_river_C_waterless', 'tile'),
-
+  // Medieval Hexagon models. Mountains are kept for a large background mountain (#7).
   mountain_A_grass: hex('mountain_A_grass', 'mountain'),
   mountain_B_grass: hex('mountain_B_grass', 'mountain'),
   mountain_C_grass: hex('mountain_C_grass', 'mountain'),
@@ -102,32 +89,3 @@ export const PACK_TEXTURES: Record<Pack, string> = {
   forest: 'forest_texture.png',
   hex: 'hexagons_medieval.png',
 };
-
-/**
- * Hexagon tiles are pointy-top: flat sides at x = ±1, corners at 30° + 60°·c, edges at
- * 60°·e (angles from +x towards +z). Coast tiles follow the land or water state of the six
- * corners: their water corners form one run.
- */
-export const COAST_TILES: readonly { model: ModelName; start: number; length: number }[] = [
-  { model: 'hex_coast_E', start: 1, length: 1 },
-  { model: 'hex_coast_A', start: 0, length: 2 },
-  { model: 'hex_coast_B', start: 0, length: 3 },
-  { model: 'hex_coast_C', start: 5, length: 4 },
-  { model: 'hex_coast_D', start: 4, length: 5 },
-];
-
-/** River tiles by the gap between their two open edges (first open edge given). */
-export const RIVER_TILES: readonly { model: ModelName; from: number; to: number }[] = [
-  { model: 'hex_river_A', from: 3, to: 0 },
-  { model: 'hex_river_A_curvy', from: 3, to: 0 },
-  { model: 'hex_river_B', from: 3, to: 5 },
-  { model: 'hex_river_C', from: 3, to: 4 },
-];
-
-/** `hex_grass_sloped_high` is one level high and ramps down towards this edge. */
-export const SLOPE_LOW_EDGE = 3;
-
-/** Heights in tile units (the tile top is at 0, its base at -1). */
-export const TILE_RIVER_SURFACE = -0.1;
-export const TILE_SEA_SURFACE = -0.2;
-export const TILE_RIVER_HALF_WIDTH = 0.5;

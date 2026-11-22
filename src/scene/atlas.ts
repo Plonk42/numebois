@@ -163,15 +163,6 @@ export const SWATCHES = {
       [1, '#cb935e'],
     ],
   ),
-  HexDirt: hex(
-    2,
-    3,
-    [2, 1],
-    [
-      [0, '#b27052'],
-      [1, '#7d3d2c'],
-    ],
-  ),
   HexCloud: hex(
     2,
     4,
