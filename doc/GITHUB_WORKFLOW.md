@@ -9,7 +9,7 @@ Différence majeure avec PasCap : **`main` est la production**. Chaque push sur 
 | Changement                                                                                                                                                                                                                  | Route                                                 |
 | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
 | **Courant :** interface, widgets, notions et leçons, quêtes, problèmes, textes, docs, tests, petites corrections, refactorisations                                                                                          | Contrôle local rapide, commit, push direct sur `main` |
-| **Risqué :** format de sauvegarde ou de l'Album, service worker et cache PWA, moteur de rendu partagé et budget tablette, chaîne de traitement des assets et dépôt privé, CI/workflows/secrets, mises à jour de dépendances | Branche courte et PR en squash auto-merge             |
+| **Risqué :** format de sauvegarde ou de l'Album, service worker et cache PWA, moteur de rendu partagé et budget tablette, chaîne de traitement des assets, CI/workflows/secrets, mises à jour de dépendances | Branche courte et PR en squash auto-merge             |
 
 En cas de doute, la route risquée. Un mauvais service worker peut bloquer l'app hors-ligne sur la tablette, et un mauvais format de sauvegarde peut faire perdre l'Album : ces deux-là ne passent jamais en direct.
 
@@ -35,10 +35,10 @@ Un échec qui n'arrive que sur les runners hébergés est un signal réel, pas u
 ### Commits, fermeture des tickets et accords
 
 - Résumé à l'impératif, par exemple `Ajoute la rafale des tables (#12)`. Référencer les tickets liés avec `(#N)`. Mettre `Closes #N` dans le message de commit (push direct) ou dans la description de la PR quand le travail termine le ticket.
-- Ne jamais faire de force-push sur `main`, affaiblir ou sauter des tests pour obtenir du vert, ni commiter des chemins privés, des fichiers bruts des packs payants, des identifiants, des caches ou des rapports générés.
+- Ne jamais faire de force-push sur `main`, affaiblir ou sauter des tests pour obtenir du vert, ni commiter des chemins privés, des fichiers bruts des packs, des identifiants, des caches ou des rapports générés.
 - Les actions suivantes demandent l'accord explicite du propriétaire :
   - la fermeture d'un jalon ;
-  - l'achat d'un pack ;
+  - l'ajout d'un nouveau pack d'assets ;
   - la validation d'un nouveau décor ;
   - la déclaration « l'enfant joue pour de vrai ».
 
@@ -51,9 +51,9 @@ Le workflow `.github/workflows/ci.yml` (créé en phase 0) tourne sur les PR, le
 | `checks`        | `npm run check` en étapes séparées : format, lint, types, Vitest, build                                         |
 | `e2e`           | Playwright en émulation tablette (Galaxy Tab S4, paysage et portrait)                                           |
 | `Delivery gate` | Réussit seulement si tous les jobs ci-dessus ont réussi                                                         |
-| `deploy`        | Seulement sur `main`, après le `Delivery gate` : récupère les assets privés, construit, publie sur GitHub Pages |
+| `deploy`        | Seulement sur `main`, après le `Delivery gate` : construit et publie sur GitHub Pages                           |
 
-- Les fichiers bruts des packs (versions payantes de KayKit, nos `.blend`, les sons) viennent du dépôt privé `numebois-assets`, récupéré avec un jeton fine-grained en lecture seule stocké en secret. Les PR externes et les forks construisent avec les seuls modèles de la version gratuite, ou des formes de remplacement.
+- Seulement des assets gratuits (KayKit CC0) et des compléments générés : pas de pack payant ni de dépôt privé. Les fichiers bruts des packs restent hors du dépôt pour l'instant ; la chaîne de traitement décidera ce qui y entre.
 - Une nouvelle version de la PWA s'active au lancement suivant, jamais au milieu d'une session.
 - Protection de `main` :
   - PR obligatoire pour les non-administrateurs, avec le **Delivery gate** comme seul contrôle requis (les branches n'ont pas besoin d'être à jour) ;
@@ -90,7 +90,7 @@ Le workflow `.github/workflows/ci.yml` (créé en phase 0) tourne sur les PR, le
 | `area:ui`       | Interface, widgets, pavé, Carnet, Album (écran)           |
 | `area:engine`   | Sentier, rafale, maîtrise, révision, défis                |
 | `area:save`     | Sauvegarde, Album (données), export/import, compatibilité |
-| `area:assets`   | Packs KayKit et autres, licences, modèles Blender, dépôt privé, chaîne de traitement |
+| `area:assets`   | Packs KayKit et autres, licences, modèles générés ou Blender, chaîne de traitement |
 | `area:ci`       | CI, déploiement, tests e2e                                |
 | `area:workflow` | Workflow, personnalisations Copilot, docs                 |
 

@@ -11,7 +11,7 @@ Traiter les **X** tickets ouverts les plus pertinents de `Plonk42/numebois`, X �
 
 Rappel : `main` est la production. Un push sur `main` déploie sur la tablette de l'enfant si la CI passe.
 
-L'invocation autorise l'implémentation des tickets choisis. Elle n'autorise pas la fermeture d'un jalon, l'achat d'un pack, la validation d'un nouveau décor, la déclaration « l'enfant joue pour de vrai », ni les décisions qu'un ticket laisse ouvertes.
+L'invocation autorise l'implémentation des tickets choisis. Elle n'autorise pas la fermeture d'un jalon, l'ajout d'un nouveau pack d'assets, la validation d'un nouveau décor, la déclaration « l'enfant joue pour de vrai », ni les décisions qu'un ticket laisse ouvertes.
 
 ## 1. Choisir
 
@@ -26,7 +26,7 @@ L'invocation autorise l'implémentation des tickets choisis. Elle n'autorise pas
 4. Écarter, en expliquant pourquoi, les tickets :
    - `status:blocked` ou avec des liens « blocked by » encore ouverts ;
    - qui attendent une décision ou un accord du propriétaire ;
-   - qui demandent un achat, des identifiants ou l'accès au dépôt privé des assets s'il n'est pas disponible ;
+   - qui demandent des identifiants ou un nouveau pack d'assets ;
    - qui demandent la validation visuelle d'un nouveau décor par le propriétaire avant livraison ;
    - qui dépendent de la PR non fusionnée d'un autre ticket choisi. Ne jamais empiler des PR risquées dépendantes.
 5. Annoncer les X tickets choisis et les candidats écartés en une courte liste, puis continuer sans attendre de confirmation.
@@ -37,7 +37,7 @@ Pour chaque ticket choisi, dans l'ordre du classement :
 
 1. `git pull --ff-only` sur `main`. Lire le ticket, ses commentaires, les tickets liés et les sections concernées de `doc/PLAN_ACTION.md`. Vérifier le comportement actuel dans le code avant de changer quoi que ce soit.
 2. Classer le changement en courant ou risqué selon le tableau du workflow (en cas de doute : risqué). Pour un travail risqué : `git fetch origin`, puis `git switch -c issue/<N>-<court-slug> origin/main`.
-3. Implémenter le plus petit changement complet qui remplit les critères d'acceptation, avec ses tests et la mise à jour du plan (décisions, recettes, journal). Respecter les règles non négociables (bienveillance, rendu prioritaire, budget tablette, assets hors du dépôt public, compatibilité des sauvegardes). Utiliser les skills existants (`add-skill`, `add-biome`, `write-lesson`, `weekly-quest`, `visual-review`, `tablet-ui-check`) quand ils s'appliquent.
+3. Implémenter le plus petit changement complet qui remplit les critères d'acceptation, avec ses tests et la mise à jour du plan (décisions, recettes, journal). Respecter les règles non négociables (bienveillance, rendu prioritaire, budget tablette, fichiers bruts des packs hors du dépôt, compatibilité des sauvegardes). Utiliser les skills existants (`add-skill`, `add-biome`, `write-lesson`, `weekly-quest`, `visual-review`, `tablet-ui-check`) quand ils s'appliquent.
 4. Valider comme l'exigent les instructions :
    - tests unitaires concernés ;
    - vérification en émulation tablette (paysage et portrait) pour un changement d'interface ;

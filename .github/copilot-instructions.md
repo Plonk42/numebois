@@ -25,7 +25,7 @@ Numebois est un jeu web de maths pour un enfant de CE2 (8 ans, grande difficult�
 
   Tout le contenu est en TypeScript (pas de YAML).
 
-- Les fichiers bruts des packs (versions payantes) et nos `.blend` ne sont jamais commités dans ce dépôt public (dépôt privé `numebois-assets`).
+- Seulement des assets gratuits (KayKit CC0) et des compléments générés (code ou MCP Blender) : pas de pack payant, pas de dépôt privé. Les fichiers bruts des packs et nos `.blend` ne sont pas commités pour l'instant (`assets/`, `assets-private/` ignorés).
 
 ## Livrer
 
