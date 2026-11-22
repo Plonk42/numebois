@@ -284,7 +284,7 @@ Chaque jalon est livré en ligne et jouable. Les jalons GitHub portent les même
 1. Vite + TS strict + Preact, ESLint, Prettier, Vitest, Playwright. `base: '/numebois/'`.
 2. vite-plugin-pwa : manifest (paysage, plein écran, icônes), précache.
 3. `.github/workflows/ci.yml` (voir [GITHUB_WORKFLOW.md](GITHUB_WORKFLOW.md#ci-et-déploiement)) : jobs `checks`, `e2e` et `Delivery gate`, puis `deploy` sur `main`. Côté propriétaire : Settings → Pages → source « GitHub Actions », protection de `main`, squash et auto-merge, secret de lecture du dépôt privé `numebois-assets`.
-4. Docs et personnalisations : ce plan, [GITHUB_WORKFLOW.md](GITHUB_WORKFLOW.md), les formulaires de tickets, le modèle de PR et les personnalisations Copilot initiales (fichiers créés, pas encore commités). Reste à créer les labels et les jalons M0 à M5.
+4. Docs et personnalisations : ce plan, [GITHUB_WORKFLOW.md](GITHUB_WORKFLOW.md), les formulaires de tickets, le modèle de PR et les personnalisations Copilot initiales (commités). Labels, jalons M0 à M5 et réglages de fusion (squash seul, titre de la PR, suppression des branches) en place. Le dépôt est privé sur un compte gratuit : protection de `main`, fusion automatique et GitHub Pages restent bloquées tant qu'il n'est pas public (ou sans GitHub Pro).
 5. Fait quand : la page vide est en ligne et installable.
 
 ## Phase R : tranche verticale visuelle (priorité n°1)
@@ -580,3 +580,4 @@ Vérification : frontmatter YAML valide, `name` identique au nom du dossier, `de
 - 2026-11-22 : décision : forêt procédurale dans le style KayKit (squelette procédural, tubes low-poly, touffes KayKit), avec croissance par âge ; prototype `kaykit_tree.py`.
 - 2026-11-22 : décision : les arbres sont générés dans le jeu en TypeScript (`src/scene/trees/`), même coût d'affichage que des modèles exportés, itérations plus simples ; Blender reste disponible en cas de blocage.
 - 2026-11-22 : les 249 arbres faits dans Blender ne sont pas à valider : ils servent de référence pour la palette des saisons et les recettes (touffe par touffe en automne, neige par le dégradé) du générateur du jeu.
+- 2026-11-22 : plan, workflow et personnalisations commités ; labels, jalons M0 à M5 et réglages de fusion créés. Dépôt privé sur compte gratuit : protection, fusion automatique et Pages en attente d'une décision (public ou GitHub Pro).
