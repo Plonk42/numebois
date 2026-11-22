@@ -1,0 +1,55 @@
+name: Fonctionnalité
+description: Proposer une notion, un décor, un mode de jeu ou une amélioration bien délimitée.
+labels: [enhancement, 'priority:p2', 'status:backlog']
+body:
+  - type: markdown
+    attributes:
+      value: Chercher d'abord les tickets existants. Une proposition, une priorité ou un jalon n'autorisent pas l'implémentation. Ne joindre ni asset du pack, ni identifiant, ni chemin privé.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Domaine principal
+      options:
+        - Paysage, effets, décors (area:render)
+        - Notions, exercices, leçons, quêtes (area:pedagogy)
+        - Interface, widgets (area:ui)
+        - Sentier, rafale, maîtrise, défis (area:engine)
+        - Sauvegarde, Album (area:save)
+        - Pack, licences, chaîne de traitement (area:assets)
+        - CI, déploiement, tests (area:ci)
+        - Workflow, docs, Copilot (area:workflow)
+    validations:
+      required: true
+  - type: textarea
+    id: goal
+    attributes:
+      label: Objectif
+      description: Ce que l'enfant pourra faire ou verra de plus, et pourquoi cela l'aide ou le motive.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Périmètre et hors périmètre
+      description: Ce qui est inclus et explicitement exclu. Rappeler les contraintes concernées (aucune punition, rendu prioritaire, budget tablette, compatibilité des sauvegardes).
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Critères d'acceptation
+      description: Comportement observable, tests attendus, vérification en émulation tablette ou revue visuelle (paliers 0, 2 et 4).
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dépendances et jalon
+      description: Prérequis (tickets ou notions), jalon proposé, vrais blocages.
+  - type: textarea
+    id: next
+    attributes:
+      label: Prochaine action et accord
+      description: Plus petite étape concrète, justification de la priorité, décision ou validation du propriétaire encore attendue.
+    validations:
+      required: true

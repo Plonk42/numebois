@@ -1,0 +1,49 @@
+name: Tâche
+description: Ingénierie, vérification, documentation ou exploitation (CI, assets, performances, workflow).
+labels: [task, 'priority:p2']
+body:
+  - type: markdown
+    attributes:
+      value: Chercher d'abord les tickets existants. Les changements courants n'ont pas besoin de ticket. Ne joindre ni asset du pack, ni identifiant, ni chemin privé.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Domaine principal
+      options:
+        - Paysage, effets, décors (area:render)
+        - Notions, exercices, leçons, quêtes (area:pedagogy)
+        - Interface, widgets (area:ui)
+        - Sentier, rafale, maîtrise, défis (area:engine)
+        - Sauvegarde, Album (area:save)
+        - Pack, licences, chaîne de traitement (area:assets)
+        - CI, déploiement, tests (area:ci)
+        - Workflow, docs, Copilot (area:workflow)
+    validations:
+      required: true
+  - type: textarea
+    id: goal
+    attributes:
+      label: Objectif
+      description: Le résultat attendu et la situation actuelle vérifiée.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Périmètre et hors périmètre
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: Critères de fin
+      description: Vérifications observables (commandes, mesures sur tablette, captures).
+    validations:
+      required: true
+  - type: textarea
+    id: next
+    attributes:
+      label: Dépendances, jalon et prochaine action
+      description: Prérequis, jalon proposé, plus petite étape concrète, accord du propriétaire attendu le cas échéant.
+    validations:
+      required: true
