@@ -1,6 +1,6 @@
 name: Bug
 description: Signaler un comportement incorrect et reproductible du jeu.
-labels: [bug, 'priority:p2']
+labels: [bug, "priority:p2"]
 body:
   - type: markdown
     attributes:

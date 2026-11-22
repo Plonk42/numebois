@@ -1,6 +1,6 @@
 name: Fonctionnalité
 description: Proposer une notion, un décor, un mode de jeu ou une amélioration bien délimitée.
-labels: [enhancement, 'priority:p2', 'status:backlog']
+labels: [enhancement, "priority:p2", "status:backlog"]
 body:
   - type: markdown
     attributes:

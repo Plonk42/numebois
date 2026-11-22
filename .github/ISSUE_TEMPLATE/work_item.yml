@@ -1,6 +1,6 @@
 name: Tâche
 description: Ingénierie, vérification, documentation ou exploitation (CI, assets, performances, workflow).
-labels: [task, 'priority:p2']
+labels: [task, "priority:p2"]
 body:
   - type: markdown
     attributes:

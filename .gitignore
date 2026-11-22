@@ -1,2 +1,7 @@
 assets-private/
 /assets/*.zip
+/public/assets/
+node_modules/
+dist/
+test-results/
+playwright-report/
