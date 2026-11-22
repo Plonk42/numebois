@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6fb7ee"/>
+      <stop offset="1" stop-color="#d4ecf8"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#sky)"/>
+  <!-- Floating island: earth underside, then the meadow. -->
+  <path d="M96 318 L416 318 L352 392 L282 440 L226 428 L160 388 Z" fill="#a66546"/>
+  <path d="M160 388 L226 428 L282 440 L256 392 Z" fill="#813223"/>
+  <ellipse cx="256" cy="318" rx="164" ry="44" fill="#8cc247"/>
+  <ellipse cx="256" cy="310" rx="150" ry="34" fill="#bfe05a"/>
+  <!-- Pond. -->
+  <ellipse cx="330" cy="318" rx="42" ry="12" fill="#29abe2"/>
+  <!-- Round KayKit tree. -->
+  <path d="M244 312 L250 236 L262 236 L268 312 Z" fill="#c36532"/>
+  <path d="M250 262 L222 236 L228 230 L254 252 Z" fill="#c36532"/>
+  <circle cx="256" cy="186" r="74" fill="#46973b"/>
+  <circle cx="214" cy="222" r="46" fill="#46973b"/>
+  <circle cx="300" cy="224" r="48" fill="#46973b"/>
+  <circle cx="240" cy="168" r="50" fill="#88c33f"/>
+  <circle cx="204" cy="212" r="28" fill="#88c33f"/>
+  <circle cx="290" cy="206" r="30" fill="#6fb03d"/>
+</svg>
