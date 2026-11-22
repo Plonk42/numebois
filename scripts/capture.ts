@@ -2,7 +2,7 @@
  * Visual review captures: fixed camera, frozen time. Writes one PNG per scene and a contact
  * sheet under `test-results/captures/`.
  *
- *   npm run capture -- --forms clearing,hex --stages 0,6,11 --seasons summer [--seed 7]
+ *   npm run capture -- --forms clearing,hex --stages 0,6,11 --seasons summer [--seed 7,8,9]
  *     [--size 1280x800] [--url http://127.0.0.1:5173/numebois/] [--name review] [--time 12]
  *
  * Needs a running server (`npm run dev` or `npm run preview`).
@@ -19,14 +19,14 @@ function option(name: string, fallback: string): string {
 const forms = option('forms', 'clearing,hex').split(',');
 const stages = option('stages', '0,6,11').split(',');
 const seasons = option('seasons', 'summer').split(',');
-const seed = option('seed', '7');
+const seeds = option('seed', '7').split(',');
 const time = option('time', '12');
 const quality = option('quality', 'high');
 const extra = option('query', '');
 const url = option('url', 'http://127.0.0.1:5173/numebois/');
 const name = option('name', 'review');
 const [width, height] = option('size', '1280x800').split('x').map(Number);
-const columns = Number(option('columns', String(stages.length * seasons.length)));
+const columns = Number(option('columns', String(stages.length * seasons.length * seeds.length)));
 const out = resolve('test-results', 'captures');
 mkdirSync(out, { recursive: true });
 
@@ -42,40 +42,41 @@ page.on('pageerror', (error) => console.error(`[page] ${error.message}`));
 const files: { file: string; label: string }[] = [];
 for (const form of forms) {
   for (const season of seasons) {
-    for (const stage of stages) {
-      const query = `?form=${form}&stage=${stage}&season=${season}&seed=${seed}&quality=${quality}&time=${time}${extra ? `&${extra}` : ''}`;
-      await page.goto(url + query);
-      await page.evaluate(() => window.__numebois!.ready);
-      // Two frames, so the shadow map and the instanced buffers are drawn.
-      await page.evaluate(
-        () => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))),
-      );
-      const counters = await page.evaluate(() => window.__numebois!.counters());
-      if (process.argv.includes('--trees')) {
-        const trees = await page.evaluate(() => window.__numebois!.trees());
-        const groups = new Map<string, number[]>();
-        for (const t of trees) {
-          const k = `${t.family}/${t.detail}`;
-          groups.set(k, [...(groups.get(k) ?? []), t.triangles]);
+    for (const stage of stages)
+      for (const seed of seeds) {
+        const query = `?form=${form}&stage=${stage}&season=${season}&seed=${seed}&quality=${quality}&time=${time}${extra ? `&${extra}` : ''}`;
+        await page.goto(url + query);
+        await page.evaluate(() => window.__numebois!.ready);
+        // Two frames, so the shadow map and the instanced buffers are drawn.
+        await page.evaluate(
+          () => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))),
+        );
+        const counters = await page.evaluate(() => window.__numebois!.counters());
+        if (process.argv.includes('--trees')) {
+          const trees = await page.evaluate(() => window.__numebois!.trees());
+          const groups = new Map<string, number[]>();
+          for (const t of trees) {
+            const k = `${t.family}/${t.detail}`;
+            groups.set(k, [...(groups.get(k) ?? []), t.triangles]);
+          }
+          for (const [k, list] of groups) {
+            console.log(
+              `  ${k}: ${list.length} × ~${Math.round(list.reduce((a, b) => a + b, 0) / list.length)} (max ${Math.max(...list)})`,
+            );
+          }
         }
-        for (const [k, list] of groups) {
-          console.log(
-            `  ${k}: ${list.length} × ~${Math.round(list.reduce((a, b) => a + b, 0) / list.length)} (max ${Math.max(...list)})`,
-          );
-        }
+        const file = `${name}-${form}-${season}-${stage}-${seed}.png`;
+        await page.screenshot({ path: join(out, file) });
+        files.push({ file, label: `${form} · ${season} · palier ${stage} · graine ${seed}` });
+        console.log(
+          `${file}: ${counters.drawCalls} appels, ${counters.triangles} triangles ` +
+            `(${counters.renderedTriangles} avec ombres), ${counters.sceneMemoryMb.toFixed(1)} Mo, ` +
+            `arbres ${counters.trees} en ${counters.treeGenerationMs.toFixed(1)} ms ` +
+            `[arbres ${counters.treeTriangles}, sol ${counters.groundTriangles}, eau ${counters.waterTriangles}, ` +
+            `instances ${counters.instancedTriangles}, nuages ${counters.cloudTriangles}]` +
+            (counters.placeholders ? ' [formes de remplacement]' : ''),
+        );
       }
-      const file = `${name}-${form}-${season}-${stage}.png`;
-      await page.screenshot({ path: join(out, file) });
-      files.push({ file, label: `${form} · ${season} · palier ${stage}` });
-      console.log(
-        `${file}: ${counters.drawCalls} appels, ${counters.triangles} triangles ` +
-          `(${counters.renderedTriangles} avec ombres), ${counters.sceneMemoryMb.toFixed(1)} Mo, ` +
-          `arbres ${counters.trees} en ${counters.treeGenerationMs.toFixed(1)} ms ` +
-          `[arbres ${counters.treeTriangles}, sol ${counters.groundTriangles}, eau ${counters.waterTriangles}, ` +
-          `instances ${counters.instancedTriangles}, nuages ${counters.cloudTriangles}]` +
-          (counters.placeholders ? ' [formes de remplacement]' : ''),
-      );
-    }
   }
 }
 

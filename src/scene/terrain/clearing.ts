@@ -12,6 +12,18 @@ import {
 } from '../render/water';
 import type { Season } from '../trees/builder';
 import {
+  STREAM_END_LEVEL,
+  drawLayout,
+  dryness,
+  hidesWater,
+  lakeCenter,
+  pathLength,
+  rimValue,
+  type Layout,
+  type Point,
+  type StepDef,
+} from './clearing-layout';
+import {
   distanceToPath,
   lerp,
   smoothstep,
@@ -26,11 +38,11 @@ import {
 } from './types';
 
 const TAU = Math.PI * 2;
-const POWER = 3.4;
 /** Size of a ground facet. */
 const CELL = 0.72;
 /** No tree grows above this height. */
-const TREE_LINE = 8.5;
+const TREE_LINE = 9.5;
+const MAX_EDGE_TREES = 48;
 
 /**
  * Relief of the clearing at a richness stage. Relief is an axis of progress, like light
@@ -52,6 +64,8 @@ interface Relief {
   east: number;
   /** The west brook and its fall. */
   west: boolean;
+  /** The lake overflows into the main stream, down to the rim. */
+  river: boolean;
   /** Radius of the pond, which becomes a lake. */
   lake: number;
   /** Half width of the main stream. */
@@ -63,9 +77,9 @@ interface Relief {
 }
 
 // One value per stage, so each line reads as a progression. Every stage is a little larger
-// than the one before, and most bring one new thing: ledge and first fall (2), hill (3),
-// mountain and second fall (4), east stream and confluence (5), snow (6), third fall (7),
-// second east fall (8), west brook (9).
+// than the one before, and most bring one new thing: ledge and first fall (2), the lake
+// overflows into a stream (3), mountain and second fall (4), east stream and confluence (5),
+// snow (6), third fall (7), second east fall (8), west brook (9).
 const RELIEF_BY_STAGE = {
   hx: [13.5, 15.5, 17.5, 19, 21, 22.5, 24, 25.5, 27, 28.5, 29.3, 30],
   hz: [10.5, 12, 14.5, 18.5, 20, 21.25, 22.25, 23.5, 24.5, 25.5, 26.3, 27],
@@ -77,6 +91,7 @@ const RELIEF_BY_STAGE = {
   tiers: [0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 2],
   east: [0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 2],
   west: [false, false, false, false, false, false, false, false, false, true, true, true],
+  river: [false, false, false, true, true, true, true, true, true, true, true, true],
   lake: [2.4, 2.7, 2.9, 3.1, 3.3, 3.6, 3.8, 4, 4.3, 4.5, 4.8, 5],
   stream: [0.62, 0.7, 0.76, 0.82, 0.88, 0.94, 0.98, 1.02, 1.06, 1.1, 1.13, 1.15],
   snow: [99, 99, 99, 99, 99, 99, 12, 12.5, 12.5, 13, 13.2, 13.5],
@@ -94,6 +109,7 @@ function reliefOf(stage: Stage): Relief {
     tiers: r.tiers[stage],
     east: r.east[stage],
     west: r.west[stage],
+    river: r.river[stage],
     lake: r.lake[stage],
     stream: r.stream[stage],
     snow: r.snow[stage],
@@ -101,127 +117,19 @@ function reliefOf(stage: Stage): Relief {
   };
 }
 const FINAL = reliefOf(LAST_STAGE);
+const FIRST = reliefOf(0);
 
-// Features are placed by hand in a reference layout (possibly mirrored by the seed) and
-// never move: a stage only decides which ones are there and how high the relief is.
-const PEAKS = [
-  { x: -9, z: -22, radius: 16 },
-  { x: 15.5, z: -17.5, radius: 11.5 },
-  { x: -22.5, z: -11, radius: 8 },
-] as const;
-
-/** Flat step cut in the relief: a stream crosses it and falls from its edge. */
-interface StepDef {
-  x: number;
-  z: number;
-  radius: number;
-  /** Width of the rim of the step, from flat to the surrounding relief. */
-  edge: number;
+// Features are placed once in a layout drawn from the seed, and never move: a stage only
+// decides which ones are there and how high the relief is.
+const layouts = new Map<number, Layout>();
+function layoutOf(seed: number): Layout {
+  let layout = layouts.get(seed);
+  if (!layout) {
+    layout = drawLayout(seed, FIRST, FINAL);
+    layouts.set(seed, layout);
+  }
+  return layout;
 }
-const LEDGE: StepDef = { x: -7.3, z: -9.6, radius: 4.6, edge: 1.4 };
-const TIER: StepDef = { x: -9, z: -15.2, radius: 3, edge: 1.3 };
-const TOP: StepDef = { x: -9.2, z: -18.6, radius: 1.3, edge: 0.9 };
-const EAST_STEP: StepDef = { x: 13.2, z: -11.4, radius: 2.7, edge: 1.3 };
-const EAST_TOP: StepDef = { x: 14.9, z: -14.4, radius: 1.8, edge: 1.0 };
-const WEST_STEP: StepDef = { x: -18.6, z: -8.2, radius: 2.4, edge: 1.2 };
-const STEPS = [LEDGE, TIER, TOP, EAST_STEP, EAST_TOP, WEST_STEP];
-
-const LAKE = { x: -4.8, z: -3.2, level: -0.5 };
-/** The lake grows away from the ledge, so the fall always lands near its shore. */
-function lakeCenter(radius: number): [number, number] {
-  const dx = LAKE.x - LEDGE.x;
-  const dz = LAKE.z - LEDGE.z;
-  const grow = Math.max(0, radius - 3) / Math.hypot(dx, dz);
-  return [LAKE.x + dx * grow, LAKE.z + dz * grow];
-}
-const EAST_POOL = { x: 11.7, z: -7.4, radius: 1.8, level: 0.25 };
-const WEST_POOL = { x: -16.4, z: -5.5, radius: 1.6, level: 0.15 };
-const STREAM_END_LEVEL = -1.2;
-
-const MAIN_PATH = spline(
-  [
-    [-3.0, -1.8],
-    [-0.8, 0.2],
-    [1.2, 2.8],
-    [3.0, 5.4],
-    [5.6, 7.6],
-    [7.5, 10.6],
-    [8.0, 14.6],
-    [7.0, 18.6],
-    [6.5, 22.0],
-    [6.8, 26.5],
-  ],
-  5,
-);
-// Ends on the main stream: the confluence.
-const EAST_PATH = spline(
-  [
-    [11.2, -6.2],
-    [10.5, -4.2],
-    [9.7, -1.6],
-    [9.3, 1.2],
-    [8.4, 3.9],
-    [6.9, 6.1],
-    [5.6, 7.6],
-  ],
-  4,
-);
-// Ends in the lake.
-const WEST_PATH = spline(
-  [
-    [-15.5, -4.7],
-    [-13.6, -3.9],
-    [-11.4, -3.6],
-    [-9.2, -3.3],
-    [-7.2, -3.2],
-  ],
-  4,
-);
-/** Stream on the ledge while there is no mountain above it: a spring on the ledge itself. */
-const LEDGE_SOURCE = [
-  [-8.6, -12.2],
-  [-8.1, -10.8],
-  [-7.2, -8.8],
-];
-
-// Tree spots keep the view open: from the camera, a tree hides the ground far behind it, so
-// none stands in front of the lake, the falls, the pools or the confluence.
-const DEMO_SPOTS = [
-  [4.6, 0.6],
-  [2.4, -5.8],
-  [-7.5, 15.5],
-];
-/** Large foreground trees: position and size. */
-const HERO_SPOTS = [
-  [-10.6, 6.0, 1.3],
-  [16.5, 10.5, 1.05],
-  [-21, 12.5, 1.25],
-];
-/** Trees of the clearing, in planting order. */
-const CLEARING_SPOTS = [
-  [6.4, -5.2],
-  [-11.4, 1.6],
-  [-1.8, -8.0],
-  [14.6, 4.6],
-  [15.6, -2.2],
-  [11.5, 10.2],
-  [-14.5, 8.5],
-  [13.8, 13.4],
-  [-0.5, 17],
-  [-14, 14.5],
-  [19.5, 3.0],
-  [-21.5, 5.0],
-  [20.5, -6.5],
-];
-/** Boulders: model, position, scale and how deep they sink in the ground. */
-const MEADOW_ROCKS: readonly (readonly [ModelName, number, number, number, number])[] = [
-  ['Rock_3_M', 3.4, 2.6, 0.4, 0.1],
-  ['Rock_3_K', -11.5, 9.6, 0.7, 0.2],
-  ['Rock_1_G', 12.6, 2.2, 0.8, 0.15],
-  ['Rock_3_K', 17.5, 12.5, 0.8, 0.2],
-  ['Rock_1_G', -18.2, 9.0, 0.9, 0.15],
-  ['Rock_3_M', -1.5, 13.2, 0.5, 0.15],
-];
 
 interface Step extends StepDef {
   level: number;
@@ -267,16 +175,6 @@ interface Fall {
   halfWidth: number;
 }
 
-function pathLength(path: readonly (readonly number[])[]): number {
-  let length = 0;
-  for (let i = 0; i + 1 < path.length; i++) {
-    length += Math.hypot(path[i + 1][0] - path[i][0], path[i + 1][1] - path[i][1]);
-  }
-  return length;
-}
-
-const MAIN_LENGTH = pathLength(MAIN_PATH);
-
 /** Colour of the ground for a season: swatch and usable part of its gradient. */
 export function groundSwatch(season: Season): { swatch: SwatchName; from: number; to: number } {
   switch (season) {
@@ -303,16 +201,15 @@ class Clearing implements Terrain {
   readonly shadow: Terrain['shadow'];
 
   private readonly relief: Relief;
+  private readonly layout: Layout;
   private readonly mirror: number;
-  private readonly wobble: [number, number];
-  /** Phase of the ridges of each summit. */
-  private readonly ridges: number[];
   /** Highest first. */
   private readonly steps: Step[] = [];
   private readonly pools: Pool[] = [];
   private readonly streams: Stream[] = [];
   private readonly falls: Fall[] = [];
-  private readonly main: Stream;
+  /** The main stream, once the lake overflows. */
+  private readonly main: Stream | null = null;
 
   constructor(
     private readonly seed: number,
@@ -320,10 +217,9 @@ class Clearing implements Terrain {
     /** Without its scenery, a terrain only answers questions about its ground. */
     scenery = true,
   ) {
-    const rng = new Rng(seed).fork('clearing');
-    this.mirror = rng.chance(0.5) ? -1 : 1;
-    this.wobble = [rng.range(0, TAU), rng.range(0, TAU)];
-    this.ridges = PEAKS.map(() => rng.range(0, TAU));
+    const layout = layoutOf(seed);
+    this.layout = layout;
+    this.mirror = layout.mirror;
     const relief = reliefOf(stage);
     this.relief = relief;
     this.extent = { x: relief.hx, z: relief.hz + Math.abs(relief.cz) };
@@ -332,16 +228,19 @@ class Clearing implements Terrain {
       center: [0, 2, relief.cz],
       radius: Math.hypot(relief.hx, relief.hz) * 0.8 + 3,
     };
-    const [lakeX, lakeZ] = lakeCenter(relief.lake);
+    const lake = layout.lake;
+    const [lakeX, lakeZ] = lakeCenter(layout, relief.lake);
     this.pools.push({
       x: lakeX,
       z: lakeZ,
       radius: relief.lake,
-      level: LAKE.level,
-      bed: LAKE.level - 0.8,
+      level: lake.level,
+      bed: lake.level - 0.8,
       flat: relief.lake - 1.3,
     });
-    this.main = this.stream(MAIN_PATH, LAKE.level, STREAM_END_LEVEL, relief.stream, false);
+    if (relief.river) {
+      this.main = this.stream(layout.mainPath, lake.level, STREAM_END_LEVEL, relief.stream, false);
+    }
     this.mainCascade();
     this.eastStream();
     this.westBrook();
@@ -353,26 +252,37 @@ class Clearing implements Terrain {
   /** Ledge above the pond, then up to two more falls up the mountain. */
   private mainCascade(): void {
     const r = this.relief;
+    const l = this.layout;
     if (r.ledge <= 0) return;
     const half = 0.8 * r.stream;
-    const ledge = this.step(LEDGE, r.ledge);
+    const ledge = this.step(l.ledge, r.ledge);
     const water = ledge.level - 0.32;
-    const fall = this.fall(LEDGE, [LAKE.x, LAKE.z], water, LAKE.level, 1.7, half);
-    let upper: number[][] = LEDGE_SOURCE;
+    const fall = this.fall(l.ledge, [l.lake.x, l.lake.z], water, l.lake.level, 1.7, half);
+    let upper: number[][] = l.ledgeSource;
     if (r.tiers >= 1) {
-      const tier = this.step(TIER, Math.max(ledge.level + 3.4, this.raw(TIER.x, TIER.z, r) + 0.2));
+      const tier = this.step(
+        l.tier,
+        Math.max(ledge.level + 3.4, this.raw(l.tier.x, l.tier.z, r) + 0.2),
+      );
       const tierWater = tier.level - 0.3;
-      const tierFall = this.fall(TIER, [-8.2, -12], tierWater, water, 1.5, half * 0.72);
-      let source = [-9.1, -16.4];
+      const tierFall = this.fall(l.tier, l.tierToward, tierWater, water, 1.5, half * 0.72);
+      let source: Point = l.tierSource;
       if (r.tiers >= 2) {
-        const top = this.step(TOP, Math.max(tier.level + 3, this.raw(TOP.x, TOP.z, r) - 0.4));
+        const top = this.step(l.top, Math.max(tier.level + 3, this.raw(l.top.x, l.top.z, r) - 0.4));
         const topWater = top.level - 0.25;
-        const topFall = this.fall(TOP, [TIER.x, TIER.z], topWater, tierWater, 1.5, half * 0.5);
-        this.stream(spline([[-9.25, -19], topFall.lip], 2), topWater, topWater, half * 0.5, true);
+        const topFall = this.fall(
+          l.top,
+          [l.tier.x, l.tier.z],
+          topWater,
+          tierWater,
+          1.5,
+          half * 0.5,
+        );
+        this.stream(spline([l.topSource, topFall.lip], 2), topWater, topWater, half * 0.5, true);
         source = topFall.foot;
       }
       this.stream(spline([source, tierFall.lip], 3), tierWater, tierWater, half * 0.72, true);
-      upper = [tierFall.foot, [-8, -11], [-7.2, -8.8]];
+      upper = [tierFall.foot, ...l.ledgeUpper];
     }
     this.stream(spline([...upper, fall.lip], 4), water, water, half, true);
   }
@@ -380,46 +290,41 @@ class Clearing implements Terrain {
   /** Stream from the east summit, joining the main stream in the meadow. */
   private eastStream(): void {
     const r = this.relief;
-    if (r.east === 0) return;
+    const l = this.layout;
+    if (r.east === 0 || !this.main) return;
     const half = 0.65 * r.stream;
+    const pool = l.eastPool;
     // A wide flat bed: the fall lands in water even with a steep slope behind the pool.
     this.pools.push({
-      ...EAST_POOL,
-      bed: EAST_POOL.level - 0.7,
-      flat: EAST_POOL.radius * 0.75,
+      ...pool,
+      bed: pool.level - 0.7,
+      flat: pool.radius * 0.75,
     });
-    const end = EAST_PATH[EAST_PATH.length - 1];
-    const joint = distanceToPath(MAIN_PATH, end[0], end[1]).along / MAIN_LENGTH;
-    this.stream(EAST_PATH, EAST_POOL.level, lerp(LAKE.level, STREAM_END_LEVEL, joint), half, false);
+    const end = l.eastPath[l.eastPath.length - 1];
+    const joint = distanceToPath(this.main.path, end[0], end[1]).along / this.main.length;
+    this.stream(l.eastPath, pool.level, lerp(l.lake.level, STREAM_END_LEVEL, joint), half, false);
     const step = this.step(
-      EAST_STEP,
-      Math.max(EAST_POOL.level + 3.2, this.raw(EAST_STEP.x, EAST_STEP.z, r) + 0.2),
+      l.eastStep,
+      Math.max(pool.level + 3.2, this.raw(l.eastStep.x, l.eastStep.z, r) + 0.2),
     );
     const water = step.level - 0.3;
-    const fall = this.fall(
-      EAST_STEP,
-      [EAST_POOL.x, EAST_POOL.z],
-      water,
-      EAST_POOL.level,
-      1.6,
-      half * 0.95,
-    );
-    let source = [13.55, -12.2];
+    const fall = this.fall(l.eastStep, [pool.x, pool.z], water, pool.level, 1.6, half * 0.95);
+    let source: Point = l.eastSource;
     if (r.east >= 2) {
       const top = this.step(
-        EAST_TOP,
-        Math.max(step.level + 2.8, this.raw(EAST_TOP.x, EAST_TOP.z, r)),
+        l.eastTop,
+        Math.max(step.level + 2.8, this.raw(l.eastTop.x, l.eastTop.z, r)),
       );
       const topWater = top.level - 0.25;
       const topFall = this.fall(
-        EAST_TOP,
-        [EAST_STEP.x, EAST_STEP.z],
+        l.eastTop,
+        [l.eastStep.x, l.eastStep.z],
         topWater,
         water,
         1.4,
         half * 0.7,
       );
-      this.stream(spline([[15.3, -15.1], topFall.lip], 2), topWater, topWater, half * 0.7, true);
+      this.stream(spline([l.eastTopSource, topFall.lip], 2), topWater, topWater, half * 0.7, true);
       source = topFall.foot;
     }
     this.stream(spline([source, fall.lip], 3), water, water, half * 0.95, true);
@@ -428,28 +333,23 @@ class Clearing implements Terrain {
   /** Brook from the west shoulder to the lake. */
   private westBrook(): void {
     const r = this.relief;
+    const l = this.layout;
     if (!r.west) return;
     const half = 0.5;
+    const pool = l.westPool;
     this.pools.push({
-      ...WEST_POOL,
-      bed: WEST_POOL.level - 0.7,
-      flat: WEST_POOL.radius * 0.75,
+      ...pool,
+      bed: pool.level - 0.7,
+      flat: pool.radius * 0.75,
     });
-    this.stream(WEST_PATH, WEST_POOL.level, LAKE.level, half, false);
+    this.stream(l.westPath, pool.level, l.lake.level, half, false);
     const step = this.step(
-      WEST_STEP,
-      Math.max(WEST_POOL.level + 2.8, this.raw(WEST_STEP.x, WEST_STEP.z, r) + 0.2),
+      l.westStep,
+      Math.max(pool.level + 2.8, this.raw(l.westStep.x, l.westStep.z, r) + 0.2),
     );
     const water = step.level - 0.3;
-    const fall = this.fall(
-      WEST_STEP,
-      [WEST_POOL.x, WEST_POOL.z],
-      water,
-      WEST_POOL.level,
-      1.5,
-      half,
-    );
-    this.stream(spline([[-19.3, -9], fall.lip], 3), water, water, half, true);
+    const fall = this.fall(l.westStep, [pool.x, pool.z], water, pool.level, 1.5, half);
+    this.stream(spline([l.westSource, fall.lip], 3), water, water, half, true);
   }
 
   private step(def: StepDef, level: number): Step {
@@ -528,36 +428,30 @@ class Clearing implements Terrain {
 
   /** Outline: 1 on the rim of the diorama, less inside. */
   private rim(fx: number, z: number, relief = this.relief): number {
-    const a = fx / relief.hx;
-    const b = (z - relief.cz) / relief.hz;
-    const theta = Math.atan2(b, a);
-    const wobble =
-      1 + 0.03 * Math.sin(3 * theta + this.wobble[0]) + 0.02 * Math.sin(5 * theta + this.wobble[1]);
-    return (
-      Math.pow(Math.pow(Math.abs(a), POWER) + Math.pow(Math.abs(b), POWER), 1 / POWER) / wobble
-    );
+    return rimValue(this.layout, relief, fx, z);
   }
 
   /** Height of the mountains alone: pointed summits with ridges running down from them. */
   private mountains(fx: number, z: number, relief: Relief): number {
     let sum = 0;
-    for (let i = 0; i < PEAKS.length; i++) {
-      const height = relief.peaks[i];
-      if (height <= 0) continue;
-      const peak = PEAKS[i];
+    const peaks = this.layout.peaks;
+    for (let i = 0; i < peaks.length; i++) {
+      if (relief.peaks[i] <= 0) continue;
+      const peak = peaks[i];
+      const height = relief.peaks[i] * peak.scale;
       const dx = fx - peak.x;
       const dz = z - peak.z;
       const d = Math.hypot(dx, dz);
-      const radius = peak.radius * Math.sqrt(height / FINAL.peaks[i]);
+      const radius = peak.radius * Math.sqrt(relief.peaks[i] / FINAL.peaks[i]);
       if (d > radius * 1.4) continue;
       const theta = Math.atan2(dz, dx);
       const ridge =
         1 +
-        0.22 * Math.sin(3 * theta + this.ridges[i]) +
-        0.1 * Math.sin(7 * theta + this.ridges[i] * 2.3);
+        peak.ridge * Math.sin(peak.lobes * theta + peak.phase) +
+        0.1 * Math.sin(7 * theta + peak.phase * 2.3);
       const t = d / (radius * ridge);
       if (t >= 1) continue;
-      const h = height * Math.pow(1 - t, 1.35);
+      const h = height * Math.pow(1 - t, peak.sharp);
       sum += h * h;
     }
     return Math.sqrt(sum);
@@ -565,9 +459,13 @@ class Clearing implements Terrain {
 
   /** Ground height before any water is dug: rolling meadow and mountains. */
   private raw(fx: number, z: number, relief: Relief): number {
-    const n1 = valueNoise2(this.seed, fx / 9 + 40, z / 9 + 40) - 0.5;
+    const l = this.layout;
+    const n1 = valueNoise2(this.seed, fx / l.rollScale + 40, z / l.rollScale + 40) - 0.5;
     const n2 = valueNoise2(this.seed + 1, fx / 3.3 + 40, z / 3.3 + 40) - 0.5;
-    let h = 0.9 * n1 + 0.3 * n2;
+    let h = l.roll * n1 + 0.3 * n2;
+    for (const k of l.knolls) {
+      h += k.height * smoothstep(k.radius, 0, Math.hypot(fx - k.x, z - k.z));
+    }
     h += 1.3 * smoothstep(-3, -12, z);
     h += 0.9 * smoothstep(0.58, 0.95, Math.abs(fx) / relief.hx);
     h -= 0.4 * smoothstep(0.5, 0.95, (z - relief.cz) / relief.hz);
@@ -658,12 +556,14 @@ class Clearing implements Terrain {
       });
     }
     const exit = this.streamExit();
-    this.waterfalls.push({
-      top: [exit.x * m, exit.y, exit.z],
-      foot: [(exit.x + exit.tx * 1.2) * m, exit.y - this.voidDrop(), exit.z + exit.tz * 1.2],
-      width: r.stream * 1.6,
-      splash: false,
-    });
+    if (exit) {
+      this.waterfalls.push({
+        top: [exit.x * m, exit.y, exit.z],
+        foot: [(exit.x + exit.tx * 1.2) * m, exit.y - this.voidDrop(), exit.z + exit.tz * 1.2],
+        width: r.stream * 1.6,
+        splash: false,
+      });
+    }
     this.rocks();
 
     const inside = (p: number[]) => this.rim(p[0], p[1]) < 0.97;
@@ -694,6 +594,7 @@ class Clearing implements Terrain {
   private rocks(): void {
     const m = this.mirror;
     const r = this.relief;
+    const l = this.layout;
     const rock = (
       model: ModelName,
       fx: number,
@@ -724,7 +625,13 @@ class Clearing implements Terrain {
         rock('Rock_1_M', lx - px * 2.9 + dx * 0.7, lz - pz * 2.9 + dz * 0.7, 1.35 * k, 0.9);
         rock('Rock_1_N', lx + px * 5 + dx * 1.5, lz + pz * 5 + dz * 1.5, k, 0.7);
         rock('Rock_2_G', lx - px * 5.4 + dx * 1.6, lz - pz * 5.4 + dz * 1.6, 0.95 * k, 0.5);
-        rock('Rock_1_J', LEDGE.x - px * 3.2 - dx * 2.4, LEDGE.z - pz * 3.2 - dz * 2.4, 0.9, 0.4);
+        rock(
+          'Rock_1_J',
+          l.ledge.x - px * 3.2 - dx * 2.4,
+          l.ledge.z - pz * 3.2 - dz * 2.4,
+          0.9,
+          0.4,
+        );
         rock('Rock_1_G', lx + px * 1.5 - dx * 0.4, lz + pz * 1.5 - dz * 0.4, 0.9, 0.35);
         rock('Rock_1_G', lx - px * 1.6 - dx * 0.5, lz - pz * 1.6 - dz * 0.5, 0.8, 0.3);
         const pond = f.bottom;
@@ -740,27 +647,29 @@ class Clearing implements Terrain {
     });
     if (r.ledge === 0) {
       // The spring: a few rocks behind the pond.
-      rock('Rock_1_G', LAKE.x - 1.5, LAKE.z - r.lake - 0.4, 0.85, 0.3);
-      rock('Rock_3_K', LAKE.x + 0.7, LAKE.z - r.lake - 0.1, 0.6, 0.15);
-      rock('Rock_3_M', LAKE.x - 2.9, LAKE.z - r.lake + 0.9, 0.35, 0.1);
+      const { x, z } = l.lake;
+      rock('Rock_1_G', x - 1.5, z - r.lake - 0.4, 0.85, 0.3);
+      rock('Rock_3_K', x + 0.7, z - r.lake - 0.1, 0.6, 0.15);
+      rock('Rock_3_M', x - 2.9, z - r.lake + 0.9, 0.35, 0.1);
     }
-    for (const [model, fx, z, scale, sink] of MEADOW_ROCKS) rock(model, fx, z, scale, sink);
+    for (const [model, fx, z, scale, sink] of l.rocks) rock(model, fx, z, scale, sink);
   }
 
   private spots(): void {
     const m = this.mirror;
+    const l = this.layout;
     const open = (fx: number, z: number) => {
       if (this.rim(fx, z) > 0.93) return false;
       const kind = this.surfaceAt(fx * m, z)?.kind;
       return kind === 'grass' || kind === 'rock';
     };
-    DEMO_SPOTS.forEach(([fx, z], slot) => {
+    l.demo.forEach(([fx, z], slot) => {
       if (open(fx, z)) this.treeSpots.push({ x: fx * m, z, role: 'demo', size: 1, slot });
     });
-    HERO_SPOTS.forEach(([fx, z, size], slot) => {
+    l.hero.forEach(([fx, z, size], slot) => {
       if (open(fx, z)) this.treeSpots.push({ x: fx * m, z, role: 'hero', size, slot });
     });
-    CLEARING_SPOTS.forEach(([fx, z], slot) => {
+    l.clearing.forEach(([fx, z], slot) => {
       if (!open(fx, z)) return;
       this.treeSpots.push({
         x: fx * m,
@@ -768,7 +677,7 @@ class Clearing implements Terrain {
         role: 'clearing',
         size: lerp(0.85, 1.05, this.at(fx, z).next()),
         slot,
-        rank: (slot + 0.5) / CLEARING_SPOTS.length,
+        rank: (slot + 0.5) / l.clearing.length,
         // The last ones planted are far from the camera.
         detail: slot < 6 ? 'full' : 'light',
       });
@@ -785,52 +694,50 @@ class Clearing implements Terrain {
   private forest(): void {
     const rng = new Rng(this.seed).fork('forest');
     const m = this.mirror;
+    const l = this.layout;
     const final = this.stage === LAST_STAGE ? this : new Clearing(this.seed, LAST_STAGE, false);
-    const placed = [...DEMO_SPOTS, ...HERO_SPOTS, ...CLEARING_SPOTS].map(([x, z]) => ({
-      x,
-      z,
-      r: 3.6,
-    }));
-    const [lakeX, lakeZ] = lakeCenter(FINAL.lake);
-    for (let attempt = 0; attempt < 5200; attempt++) {
+    const placed = [...l.demo, ...l.hero, ...l.clearing].map(([x, z]) => ({ x, z, r: 3.6 }));
+    const spots: (TreeSpot & { fx: number })[] = [];
+    for (let attempt = 0; attempt < 8000; attempt++) {
       const fx = rng.range(-FINAL.hx, FINAL.hx);
       const z = rng.range(FINAL.cz - FINAL.hz, FINAL.cz + FINAL.hz * 0.78);
       const rank = rng.next();
       const size = rng.next();
       const kind = rng.next();
       if (this.rim(fx, z, FINAL) > 0.93) continue;
-      const back = smoothstep(-4.5, -7.5, z);
-      const side = smoothstep(0.62, 0.72, Math.abs(fx) / FINAL.hx) * smoothstep(17, 12, z);
+      const back = smoothstep(l.forestBack, l.forestBack - 3, z);
+      const side =
+        smoothstep(l.forestSide, l.forestSide + 0.1, Math.abs(fx) / FINAL.hx) *
+        smoothstep(17, 12, z);
       if (Math.max(back, side) < 0.5) continue;
-      if (STEPS.some((s) => Math.hypot(fx - s.x, z - s.z) < s.radius + 0.8)) continue;
-      if (Math.hypot(fx - lakeX, z - lakeZ) < FINAL.lake + 2.4) continue;
-      if (Math.hypot(fx - EAST_POOL.x, z - EAST_POOL.z) < EAST_POOL.radius + 1.8) continue;
-      if (Math.hypot(fx - WEST_POOL.x, z - WEST_POOL.z) < WEST_POOL.radius + 1.8) continue;
-      if (distanceToPath(MAIN_PATH, fx, z).distance < 3.2) continue;
-      if (distanceToPath(EAST_PATH, fx, z).distance < 2.6) continue;
-      if (distanceToPath(WEST_PATH, fx, z).distance < 2.4) continue;
-      // Nothing in front of the west fall and its pool.
-      if (fx > -20.5 && fx < -13.5 && z > -6 && z < 9) continue;
+      if (dryness(l, FINAL.lake, fx, z) < 0 || hidesWater(l, FINAL.lake, fx, z)) continue;
       const deep = z < -9;
-      const spacing = deep ? 3 : 3.5;
+      const spacing = deep ? 2.8 : 3.3;
       if (placed.some((p) => Math.hypot(p.x - fx, p.z - z) < (p.r + spacing) / 2)) continue;
       placed.push({ x: fx, z, r: spacing });
 
       const ground = final.surfaceAt(fx * m, z);
       if (!ground || ground.kind === 'water' || ground.kind === 'sand') continue;
       if (ground.slope > 0.8 || ground.y > TREE_LINE) continue;
-      if (this.rim(fx, z) > 0.93) continue;
-      const surface = this.surfaceAt(fx * m, z);
-      if (!surface || surface.kind === 'water' || surface.kind === 'sand') continue;
-      this.treeSpots.push({
+      spots.push({
+        fx,
         x: fx * m,
         z,
         role: 'edge',
         rank,
         size: deep ? 1.1 + 0.3 * size : 0.95 + 0.3 * size,
-        conifer: this.mountains(fx, z, FINAL) > 2.5 || (deep && kind < 0.45),
+        conifer:
+          this.mountains(fx, z, FINAL) > 2.5 || kind < (deep ? l.conifers : l.conifers * 0.6),
         detail: deep ? 'far' : 'light',
       });
+    }
+    // A dense layout keeps its first trees only: the tablet budget holds for every seed.
+    spots.sort((a, b) => a.rank! - b.rank!);
+    for (const { fx, ...spot } of spots.slice(0, MAX_EDGE_TREES)) {
+      if (this.rim(fx, spot.z) > 0.93) continue;
+      const surface = this.surfaceAt(spot.x, spot.z);
+      if (!surface || surface.kind === 'water' || surface.kind === 'sand') continue;
+      this.treeSpots.push(spot);
     }
   }
 
@@ -840,18 +747,19 @@ class Clearing implements Terrain {
     const m = this.mirror;
     const points: [number, number, number][] = [];
     const n = 28;
+    const power = this.layout.power;
     for (let i = 0; i < n; i++) {
       const c = Math.cos((i / n) * TAU);
       const s = Math.sin((i / n) * TAU);
       const k =
-        0.97 / Math.pow(Math.pow(Math.abs(c), POWER) + Math.pow(Math.abs(s), POWER), 1 / POWER);
+        0.97 / Math.pow(Math.pow(Math.abs(c), power) + Math.pow(Math.abs(s), power), 1 / power);
       const fx = c * k * r.hx;
       const z = r.cz + s * k * r.hz;
       // Room for the trees at the back and on the sides.
       points.push([fx * m, Math.max(0, this.heightRef(fx, z)) + (s < 0.3 ? 4.5 : 1.5), z]);
       points.push([fx * m, (-2.6 * r.hx) / 20, z]);
     }
-    PEAKS.forEach((peak, i) => {
+    this.layout.peaks.forEach((peak, i) => {
       if (r.peaks[i] > 0 && this.rim(peak.x, peak.z) < 0.97) {
         points.push([peak.x * m, this.heightRef(peak.x, peak.z) + 1.5, peak.z]);
       }
@@ -877,8 +785,10 @@ class Clearing implements Terrain {
   }
 
   /** Point where the main stream leaves the diorama, with its water level and direction. */
-  private streamExit(): { x: number; y: number; z: number; tx: number; tz: number } {
-    const path = this.main.path;
+  private streamExit(): { x: number; y: number; z: number; tx: number; tz: number } | null {
+    const main = this.main;
+    if (!main) return null;
+    const path = main.path;
     let along = 0;
     for (let i = 0; i + 1 < path.length; i++) {
       const a = path[i];
@@ -895,7 +805,7 @@ class Clearing implements Terrain {
         }
         return {
           x: lerp(a[0], b[0], lo),
-          y: this.levelOf(this.main, along + len * lo) - 0.02,
+          y: this.levelOf(main, along + len * lo) - 0.02,
           z: lerp(a[1], b[1], lo),
           tx: (b[0] - a[0]) / len,
           tz: (b[1] - a[1]) / len,
@@ -932,13 +842,11 @@ class Clearing implements Terrain {
         if (s > 1e-6) {
           const a = u / s;
           const b = v / s;
+          const { power, wobble: w } = this.layout;
           const k =
-            s / Math.pow(Math.pow(Math.abs(a), POWER) + Math.pow(Math.abs(b), POWER), 1 / POWER);
+            s / Math.pow(Math.pow(Math.abs(a), power) + Math.pow(Math.abs(b), power), 1 / power);
           const theta = Math.atan2(b, a);
-          const wobble =
-            1 +
-            0.03 * Math.sin(3 * theta + this.wobble[0]) +
-            0.02 * Math.sin(5 * theta + this.wobble[1]);
+          const wobble = 1 + w[0] * Math.sin(3 * theta + w[1]) + w[2] * Math.sin(5 * theta + w[3]);
           fx = a * k * r.hx * wobble;
           z = r.cz + b * k * r.hz * wobble;
         }
@@ -986,7 +894,10 @@ class Clearing implements Terrain {
           smoothstep(-4.5, -9, cz) * 0.2 +
           smoothstep(0.6, 0.8, Math.abs(fx) / FINAL.hx) * 0.12 +
           smoothstep(2.5, 8, cy) * 0.25;
-        const tone = Math.min(1, Math.max(0, 0.3 + slope * 1.3 + patch * 0.36 + shade + jitter));
+        const tone = Math.min(
+          1,
+          Math.max(0, 0.3 + this.layout.lush + slope * 1.3 + patch * 0.36 + shade + jitter),
+        );
         uv = swatchUV(grass.swatch, lerp(grass.from, grass.to, tone));
       }
       out.facet(a, b, c, uv);
@@ -1184,9 +1095,11 @@ class Clearing implements Terrain {
     for (const pool of this.pools) this.disc(out, pool);
 
     // Main stream, from the pond to the rim of the diorama.
-    const path = this.main.path;
-    const half = this.main.halfWidth;
+    const main = this.main;
     const exit = this.streamExit();
+    if (!main || !exit) return;
+    const path = main.path;
+    const half = main.halfWidth;
     const lower: RibbonPoint[] = [];
     let along = 0;
     for (let i = 0; i < path.length; i++) {
@@ -1197,7 +1110,7 @@ class Clearing implements Terrain {
       const l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
       const sx = -(b[1] - a[1]) / l;
       const sz = (b[0] - a[0]) / l;
-      const level = this.levelOf(this.main, along) - 0.02;
+      const level = this.levelOf(main, along) - 0.02;
       const past = this.rim(p[0], p[1]) >= 1;
       const q = past ? [exit.x, exit.z] : p;
       lower.push({

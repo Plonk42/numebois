@@ -18,7 +18,7 @@ Pour tout changement de rendu (décor, modèle, effet, lumière). Règles de fon
    npm run capture -- --name saisons --stages 11 --seasons spring,summer,autumn,winter --columns 4
    ```
 
-   Caméra fixe et temps figé (`time=12`) : deux captures de la même description sont comparables. Autres options : `--seed`, `--size 800x1280` (portrait), `--quality low`, `--query assets=placeholder` (formes de remplacement), `--trees` (triangles par famille d'arbres).
+   Caméra fixe et temps figé (`time=12`) : deux captures de la même description sont comparables. Autres options : `--seed 1,2,3,4` (plusieurs graines), `--size 800x1280` (portrait), `--quality low`, `--query assets=placeholder` (formes de remplacement), `--trees` (triangles par famille d'arbres).
 
 4. Les images vont dans `test-results/captures/` (ignoré par git), avec une planche `<name>-sheet.jpg`. Regarder les planches plutôt que chaque image : quelques images par session suffisent.
 
@@ -30,6 +30,7 @@ Le script affiche pour chaque capture les appels de dessin, les triangles (scèn
 - Cohérence KayKit : formes simples, couleurs franches de l'atlas, pas de transparence ni de style étranger.
 - Paliers (0 à 11) : nombreux et progressifs. 0 presque nu mais déjà joli ; chaque palier est un petit pas visible, sur l'ambiance (lumière, ciel, vie) ou le relief (taille, montagnes, chutes), pas seulement la densité ; 11 spectaculaire. Pour un changement de relief ou de palier, capturer les douze (`--stages 0,1,2,3,4,5,6,7,8,9,10,11 --columns 4`) et vérifier qu'aucun palier ne ressemble à son voisin ni ne fait un saut.
 - Saisons : seuls les UV changent ; neige par le dégradé.
+- Variété : chaque graine doit donner un tableau nettement différent. Pour un changement de disposition ou de terrain, comparer au moins quatre graines au même palier (`--stages 11 --seed 1,2,3,4 --columns 4`).
 - Forme retenue : la clairière (`--forms clearing`).
 - Budget : moins de 100 appels de dessin, moins de 150 000 triangles, environ 64 Mo. Vérifier aussi `--quality low` et les formes de remplacement.
 - Mouvement (vent, eau, pousse avec la touche G) : à regarder dans le navigateur, `?debug`.

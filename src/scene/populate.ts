@@ -29,8 +29,35 @@ const CLEARING_FAMILIES: readonly FamilyName[] = [
   'Cube',
   'Umbrella',
 ];
-const HERO_FAMILIES: readonly FamilyName[] = ['Gnarly', 'Umbrella', 'Round'];
+const HERO_FAMILIES: readonly FamilyName[] = ['Gnarly', 'Umbrella', 'Round', 'Cube', 'Birch'];
 const DEMO_FAMILIES: readonly FamilyName[] = ['Round', 'Cube', 'Umbrella', 'Birch'];
+const FAVOURITES: readonly FamilyName[] = ['Round', 'Cube', 'Birch', 'Umbrella'];
+
+/** Character of the vegetation of a painting, drawn from its seed. */
+interface Flora {
+  edge: readonly FamilyName[];
+  favourite: FamilyName;
+  /** Shift of the family lists, so two seeds do not plant the same sequence. */
+  shift: number;
+  flower: FlowerKind;
+  petal: SwatchName;
+}
+
+function floraOf(seed: number): Flora {
+  const rng = new Rng(seed).fork('flora');
+  const favourite = rng.pick(FAVOURITES);
+  const flower = rng.pick(FLOWERS);
+  return {
+    // Umbrellas are too heavy for the many trees of the edge.
+    edge: EDGE_FAMILIES.includes(favourite)
+      ? [...EDGE_FAMILIES, favourite, favourite, favourite]
+      : EDGE_FAMILIES,
+    favourite,
+    shift: rng.int(0, 8),
+    flower,
+    petal: rng.pick(flower.colors),
+  };
+}
 
 export interface Planting {
   trees: PlantedTree[];
@@ -46,6 +73,7 @@ export function plantTrees(
 ): Planting {
   const trees: PlantedTree[] = [];
   const demo: number[] = [];
+  const flora = floraOf(description.seed);
   const clearingSpots = terrain.treeSpots.filter((s) => s.role === 'clearing');
   const clearingCount = Math.round(clearingSpots.length * ambience.clearingTrees);
   const counters = { clearing: 0, hero: 0, demo: 0 };
@@ -66,11 +94,12 @@ export function plantTrees(
     if (spot.role === 'edge') {
       if (spot.rank !== undefined && spot.rank >= ambience.edgeTrees) continue;
       detail = spot.detail ?? 'light';
-      const families = detail === 'far' ? FAR_FAMILIES : EDGE_FAMILIES;
+      const families = detail === 'far' ? FAR_FAMILIES : flora.edge;
       family = spot.conifer ? 'Pine' : families[Math.floor(pick * families.length)];
       age = ambience.edgeAge[0] + (ambience.edgeAge[1] - ambience.edgeAge[0]) * ageDraw;
     } else if (spot.role === 'hero') {
-      family = HERO_FAMILIES[(spot.slot ?? counters.hero++) % HERO_FAMILIES.length];
+      const slot = spot.slot ?? counters.hero++;
+      family = HERO_FAMILIES[(slot + flora.shift) % HERO_FAMILIES.length];
       age = Math.max(ambience.edgeAge[0], 0.85);
     } else if (spot.role === 'clearing') {
       const index = counters.clearing++;
@@ -83,7 +112,11 @@ export function plantTrees(
         if (index >= clearingCount) continue;
         t = clearingCount > 1 ? index / (clearingCount - 1) : 0;
       }
-      family = CLEARING_FAMILIES[(spot.slot ?? index) % CLEARING_FAMILIES.length];
+      const slot = spot.slot ?? index;
+      family =
+        slot % 3 === 1
+          ? flora.favourite
+          : CLEARING_FAMILIES[(slot + flora.shift) % CLEARING_FAMILIES.length];
       age = ambience.clearingAge[1] - (ambience.clearingAge[1] - ambience.clearingAge[0]) * t;
     } else {
       family = DEMO_FAMILIES[(spot.slot ?? counters.demo++) % DEMO_FAMILIES.length];
@@ -283,15 +316,17 @@ export function scatterVegetation(
     placed++;
   }
 
-  // Flowers, in drifts of one kind and mostly one colour.
+  // Flowers, in drifts of one kind and mostly one colour; most of them the painting's favourite.
+  const flora = floraOf(description.seed);
   const flowerSpots: Population['flowerSpots'] = [];
   const drifts = Math.round(15 * ambience.flowers * Math.sqrt(cover));
   for (let attempt = 0; attempt < drifts * 8 && flowerSpots.length < drifts; attempt++) {
     const { x, z } = sample();
     const center = terrain.surfaceAt(x, z);
     if (!center || center.kind !== 'grass' || center.slope > 0.3 || !free(x, z, 0.8)) continue;
-    const kind = rng.pick(FLOWERS);
-    const color = rng.pick(kind.colors);
+    const favourite = rng.chance(0.6);
+    const kind = favourite ? flora.flower : rng.pick(FLOWERS);
+    const color = favourite ? flora.petal : rng.pick(kind.colors);
     const count = rng.int(5, 9);
     flowerSpots.push({ x, y: center.y, z });
     for (let i = 0; i < count; i++) {
