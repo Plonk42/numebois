@@ -33,7 +33,7 @@ Sacha a beaucoup de mal à se concentrer. Le but n°1 est qu'il ait envie de rev
 
 - **Stack :** Vite + TS strict + Preact (interface et widgets en DOM/SVG, par-dessus la scène) + Three.js en WebGL2 (paysage 3D uniquement). PWA hors-ligne via vite-plugin-pwa.
 - **Visuels : le rendu est la priorité n°1, c'est la motivation première de Sacha.** Style cartoon low-poly en 3D temps réel. Base : les packs **KayKit** de Kay Lousberg (Forest Nature Pack et Medieval Hexagon Pack, licence CC0, conçus pour le mobile, une seule texture de dégradé partagée). Le MCP Blender sert à compléter dans le même style (stades de croissance, cabane, grands moments, animaux si besoin). Le code ajoute la vie : lumière, ciel, brouillard, vent, eau, particules, animations de pousse, ambiance qui s'enrichit. Le rendu est validé par une tranche verticale avant de construire le reste du jeu.
-- **Assets :** KayKit est en CC0, la licence n'est donc pas une contrainte. Par respect pour l'auteur, les fichiers bruts des versions payantes (Extra, Source) et nos fichiers `.blend` restent dans un dépôt privé (`numebois-assets`), récupéré par la CI grâce à un jeton en lecture seule. Le site publié ne contient que les modèles glTF optimisés. Tout autre pack (animaux, sons) doit avoir une licence vérifiée compatible (CC0 de préférence).
+- **Assets :** seulement les versions gratuites de KayKit (CC0) ; pas de pack payant, les modèles et variantes manquants sont générés (code ou MCP Blender). Pas de dépôt privé. Les fichiers des packs et nos sources Blender restent hors du dépôt pour l'instant (`assets/` et `assets-private/` en local, ignorés par git) ; leur entrée dans le build se décidera avec la chaîne de traitement. Le site publié ne contient que les modèles glTF optimisés. Tout autre pack (animaux, sons) doit avoir une licence vérifiée compatible (CC0 de préférence).
 - **Contenu en TypeScript, pas en YAML :** c'est toujours l'agent qui ajoute les notions et les quêtes, à la demande du propriétaire. Le compilateur et les tests vérifient tout, sans schéma ni validateur à part.
 - **Un module par domaine** (`src/domains/<domain>/`), branché sur un registre. Le moteur (sentier, maîtrise, rafale, défis) est générique et ne connaît aucun domaine en particulier.
 - **Sauvegarde :** un seul enfant, IndexedDB sous le préfixe `numebois:` (l'origine github.io est partagée avec les autres dépôts), export/import JSON. Les identifiants de notions sont stables. La compatibilité devient obligatoire dès que le propriétaire déclare « Sacha joue pour de vrai » (voir [GITHUB_WORKFLOW.md](GITHUB_WORKFLOW.md#compatibilité-des-sauvegardes)).
@@ -149,7 +149,7 @@ C'est le cœur de la motivation. Chaque bonne réponse doit se voir, et chaque t
 
 1. **Style cartoon low-poly en 3D temps réel,** celui des packs KayKit : formes simples et arrondies, couleurs franches et chaleureuses, une seule texture de dégradé partagée par tous les modèles. Aucun asset d'un autre style ne s'y mélange.
 2. **Sources d'assets :**
-   - [KayKit Forest Nature Pack](https://kaylousberg.itch.io/kaykit-forest) : arbres, buissons, herbes, rochers, terrain modulaire. La version Extra (9,99 $) apporte 8 variantes de couleur par modèle, de quoi faire les saisons et les décors. La version Source (14,99 $) fournit le `.blend`, ce qui permet de dériver de nouveaux modèles dans exactement le même style.
+   - [KayKit Forest Nature Pack](https://kaylousberg.itch.io/kaykit-forest) : arbres, buissons, herbes, rochers. Version gratuite uniquement : les variantes de couleur et les modèles manquants sont générés.
    - [KayKit Medieval Hexagon Pack](https://kaylousberg.itch.io/kaykit-medieval-hexagon) : tuiles hexagonales (rivières, lacs, côtes), moulins à vent et à eau, maisons, puits, montagnes, nuages.
    - **MCP Blender :** compléments dans le même style, en réutilisant la texture de dégradé KayKit. Il produit les fleurs et champignons, la cabane, les grands moments et les éléments rares (les arbres sont générés dans le jeu). Il exporte aussi en lot et fait les rendus de contrôle.
    - **Répartition proposée (à valider) : le code compose, KayKit fournit les pièces.** Procédural en TypeScript pour ce qui est continu ou dépend de la forme du décor ; assets pour les objets posés.
@@ -271,7 +271,7 @@ Principe : le contenu grandit, mais la charge par session reste fixe. Tout est l
 
 Chaque jalon est livré en ligne et jouable. Les jalons GitHub portent les mêmes noms.
 
-- **M0 « Tranche verticale visuelle »** (phases 0 et R) : choix et achat du pack, chaîne de traitement des assets, un décor complet (clairière) avec ses 5 paliers de richesse, à la qualité visée, fluide sur la vraie tablette. Validation par le propriétaire et test de la réaction de Sacha avant d'aller plus loin.
+- **M0 « Tranche verticale visuelle »** (phases 0 et R) : assets gratuits et compléments générés, chaîne de traitement des assets, un décor complet (clairière) avec ses 5 paliers de richesse, à la qualité visée, fluide sur la vraie tablette. Validation par le propriétaire et test de la réaction de Sacha avant d'aller plus loin.
 - **M1 « Boucle jouable »** (phases 1 à 4) : forêt en tableaux avec Album, nombres, calcul mental, tables, sentier, sauvegarde.
 - **M2 « Rafale et défis »** (phases 7 et 8) : automatisation des tables et du calcul mental.
 - **M3 « Opérations posées et leçons »** (phases 5a et 6).
@@ -283,8 +283,8 @@ Chaque jalon est livré en ligne et jouable. Les jalons GitHub portent les même
 
 1. Vite + TS strict + Preact, ESLint, Prettier, Vitest, Playwright. `base: '/numebois/'`.
 2. vite-plugin-pwa : manifest (paysage, plein écran, icônes), précache.
-3. `.github/workflows/ci.yml` (voir [GITHUB_WORKFLOW.md](GITHUB_WORKFLOW.md#ci-et-déploiement)) : jobs `checks`, `e2e` et `Delivery gate`, puis `deploy` sur `main`. Côté propriétaire : Settings → Pages → source « GitHub Actions », protection de `main`, squash et auto-merge, secret de lecture du dépôt privé `numebois-assets`.
-4. Docs et personnalisations : ce plan, [GITHUB_WORKFLOW.md](GITHUB_WORKFLOW.md), les formulaires de tickets, le modèle de PR et les personnalisations Copilot initiales (commités). Labels, jalons M0 à M5 et réglages de fusion (squash seul, titre de la PR, suppression des branches) en place. Le dépôt est privé sur un compte gratuit : protection de `main`, fusion automatique et GitHub Pages restent bloquées tant qu'il n'est pas public (ou sans GitHub Pro).
+3. `.github/workflows/ci.yml` (voir [GITHUB_WORKFLOW.md](GITHUB_WORKFLOW.md#ci-et-déploiement)) : jobs `checks`, `e2e` et `Delivery gate`, puis `deploy` sur `main`. Pages (source « GitHub Actions »), protection de `main`, squash et fusion automatique sont configurés.
+4. Docs et personnalisations : ce plan, [GITHUB_WORKFLOW.md](GITHUB_WORKFLOW.md), les formulaires de tickets, le modèle de PR et les personnalisations Copilot initiales (commités). Dépôt public ; labels, jalons M0 à M5, réglages de fusion (squash seul, titre de la PR, suppression des branches, fusion automatique) et protection de `main` (`Delivery gate` requis) en place.
 5. Fait quand : la page vide est en ligne et installable.
 
 ## Phase R : tranche verticale visuelle (priorité n°1)
@@ -293,12 +293,8 @@ Dépend de 0. Bloque les phases 3 et 4. Peut avancer en parallèle de la phase 1
 
 1. **Assets de départ :**
    - télécharger KayKit Forest et Medieval Hexagon en version gratuite pour les maquettes ;
-   - chercher un pack CC0 d'animaux low-poly animés au style compatible et vérifier sa licence ;
-   - le propriétaire achète les versions Extra/Source de KayKit quand la maquette le convainc.
-2. **Dépôt privé `numebois-assets` :** fichiers bruts des packs (versions payantes comprises), nos fichiers `.blend`, les sons, plus un fichier `LICENSES.md`.
-   - En local : clone dans `assets-private/`, ignoré par git.
-   - Dans la CI : checkout avec un jeton fine-grained en lecture seule, stocké en secret.
-   - Les forks et les PR externes construisent avec les seuls modèles de la version gratuite, ou des formes de remplacement.
+   - chercher un pack CC0 d'animaux low-poly animés au style compatible et vérifier sa licence.
+2. **Sources des assets :** les packs gratuits et nos sources Blender restent en local, hors du dépôt, pour l'instant. La chaîne de traitement décidera ce qui entre dans le dépôt (modèles gratuits utilisés, ou leurs versions optimisées), avec un fichier `LICENSES.md`.
 3. **MCP Blender :** configuration et premier lot de compléments dans le style KayKit (fleurs, champignons, cabane, cascade), avec la même texture de dégradé, exportés en glTF. Rendus de contrôle pour le propriétaire. Les arbres, eux, sont générés dans le jeu (étape 5).
 4. **Chaîne de traitement des assets** (`scripts/build-assets.ts`, avec glTF-Transform) :
    - fusion, élagage, quantification, compression meshopt, texture de dégradé partagée ;
@@ -546,7 +542,7 @@ Tout est rangé dans le dépôt (`.github/`), donc versionné avec le code. Chaq
 | `tablet-ui-check`                          | vérifier l'affichage, capture, tablette, interface                              | Émulation Playwright Galaxy Tab S4, paysage et portrait, processeur ralenti, `?debug`, vérifications DOM d'abord, 4 captures au maximum par session                                                                      | Phase 0, avec Playwright      |
 | `visual-review`                            | rendu, plus joli, embellir, effet, paysage, décor moche                         | Captures avant/après à caméra fixe aux paliers 0, 2 et 4, budget tablette, liste de contrôle de la direction artistique, validation du propriétaire                                                                      | Phase R                       |
 | `add-biome`                                | nouveau décor, tableau de montagne, biome                                       | Modèle tiré de la clairière, terrain et variante de couleurs, lumière et ciel, emplacements, 5 paliers, effet inédit, ambiance sonore, puis `visual-review`                                                              | Phase R                       |
-| `blender-asset`                            | créer un modèle, asset manquant, Blender, low-poly                              | MCP Blender : partir d'un modèle KayKit proche, réutiliser la texture de dégradé, respecter l'échelle et le nombre de polygones, exporter en glTF dans le dépôt privé, passer la chaîne de traitement, rendu de contrôle | Phase R, après le premier lot |
+| `blender-asset`                            | créer un modèle, asset manquant, Blender, low-poly                              | MCP Blender : partir d'un modèle KayKit proche, réutiliser la texture de dégradé, respecter l'échelle et le nombre de polygones, exporter en glTF, passer la chaîne de traitement, rendu de contrôle | Phase R, après le premier lot |
 | `add-skill`                                | ajouter les divisions, Sacha doit travailler…, nouvelle notion, nouveau domaine | La recette, une liste de contrôle, un modèle tiré de `times-tables`                                                                                                                                                      | Fin de phase 1                |
 | `write-lesson`                             | leçon, astuce de Plume, explique-lui…                                           | Types d'étapes, scripts de démo des widgets, règles de formulation, au plus 6 étapes                                                                                                                                     | Phase 6                       |
 | `weekly-quest`                             | devoirs de la semaine, cette semaine Sacha doit…, photo du cahier, quête        | Relier les devoirs aux notions (ou passer par `add-skill`), choisir rafale, leçon, défi et décor, respecter les limites, aperçu `?quest=`                                                                                | Phase 9                       |
@@ -581,3 +577,4 @@ Vérification : frontmatter YAML valide, `name` identique au nom du dossier, `de
 - 2026-11-22 : décision : les arbres sont générés dans le jeu en TypeScript (`src/scene/trees/`), même coût d'affichage que des modèles exportés, itérations plus simples ; Blender reste disponible en cas de blocage.
 - 2026-11-22 : les 249 arbres faits dans Blender ne sont pas à valider : ils servent de référence pour la palette des saisons et les recettes (touffe par touffe en automne, neige par le dégradé) du générateur du jeu.
 - 2026-11-22 : plan, workflow et personnalisations commités ; labels, jalons M0 à M5 et réglages de fusion créés. Dépôt privé sur compte gratuit : protection, fusion automatique et Pages en attente d'une décision (public ou GitHub Pro).
+- 2026-11-22 : dépôt rendu public ; protection de `main`, fusion automatique et Pages configurées. Pas de pack payant : les assets manquants sont générés ; pas de dépôt privé ; les fichiers des packs restent hors du dépôt pour l'instant.

@@ -34,7 +34,7 @@ Les changements courants (petits ajustements d'interface, corrections mineures, 
 Titre concis et actionnable, en français, puis ces sections (adaptées au formulaire) :
 
 - **Objectif :** le résultat attendu pour Sacha ou le projet, et le comportement actuel vérifié.
-- **Périmètre et hors périmètre :** comportement délimité. Rappeler les contraintes concernées : bienveillance (aucune punition), rendu prioritaire, budget tablette, compatibilité des sauvegardes, assets sous licence hors du dépôt public.
+- **Périmètre et hors périmètre :** comportement délimité. Rappeler les contraintes concernées : bienveillance (aucune punition), rendu prioritaire, budget tablette, compatibilité des sauvegardes, fichiers bruts des packs hors du dépôt.
 - **Critères d'acceptation :** liste observable, avec les tests et la vérification visuelle attendus. Distinguer l'acceptation proposée de la livraison vérifiée.
 - **Dépendances et jalon :** tickets liés (`#N`, plus le lien natif), jalon proposé, vrais blocages.
 - **État et accord :** proposition ou travail approuvé.

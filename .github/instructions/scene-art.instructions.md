@@ -36,7 +36,7 @@ Le rendu est la priorité n°1 : un paysage de plus en plus riche et joli est la
 
 - Un tableau est décrit par des données compactes et déterministes (décor, graine, éléments posés). Le même rendu doit se rejouer à l'identique dans l'Album.
 - Le code ne référence les modèles qu'à travers le manifeste généré (`src/scene/assets.gen.ts`), jamais par un chemin écrit à la main.
-- Les fichiers bruts des packs (versions payantes) et nos `.blend` restent dans le dépôt privé `numebois-assets` (`assets-private/` en local, ignoré par git). Seuls les glTF optimisés par la chaîne de traitement entrent dans le build.
+- Seulement les packs KayKit gratuits ; les modèles manquants sont générés. Les fichiers bruts des packs et nos `.blend` restent en local (`assets/`, `assets-private/`, ignorés par git) pour l'instant. Seuls les glTF optimisés par la chaîne de traitement entrent dans le build.
 
 ## Vérification
 
