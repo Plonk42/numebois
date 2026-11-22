@@ -28,7 +28,7 @@ applyTo: "src/ui/**, src/scene/**, src/domains/**/lessons/**, src/domains/**/pro
 - Cibles tactiles de 56 px minimum. Réaction dès que le doigt touche (`pointerdown`), sans attendre le `click`.
 - Zones à faire glisser (aiguilles, règle, repère) : `touch-action: none`, tolérance généreuse, aimantation aux valeurs utiles.
 - Pavé numérique intégré : ne jamais ouvrir le clavier Android (pas d'`<input>` focalisable pour les réponses).
-- Paysage d'abord (1280×800), portrait toléré.
+- Paysage seulement (1280×800) : la tablette n'est jamais utilisée en portrait, pas de mise en page portrait.
 
 ## Concentration
 

@@ -40,7 +40,7 @@ Pour chaque ticket choisi, dans l'ordre du classement :
 3. Implémenter le plus petit changement complet qui remplit les critères d'acceptation, avec ses tests et la mise à jour du plan (décisions, recettes, journal). Respecter les règles non négociables (bienveillance, rendu prioritaire, budget tablette, fichiers bruts des packs hors du dépôt, compatibilité des sauvegardes). Utiliser les skills existants (`add-skill`, `add-biome`, `write-lesson`, `weekly-quest`, `visual-review`, `tablet-ui-check`) quand ils s'appliquent.
 4. Valider comme l'exigent les instructions :
    - tests unitaires concernés ;
-   - vérification en émulation tablette (paysage et portrait) pour un changement d'interface ;
+   - vérification en émulation tablette (paysage) pour un changement d'interface ;
    - captures avant/après aux paliers 0, 6 et 11 et budget tablette pour un changement de rendu ;
    - `npm run format`, `npm run check` et chaque spec Playwright concernée, trouvée en cherchant dans `tests/e2e`.
 

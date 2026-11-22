@@ -36,7 +36,7 @@ Le rendu est la priorité n°1 : un paysage de plus en plus riche et joli est la
 - Aucune allocation à chaque image dans la boucle de rendu (vecteurs et matrices réutilisés). Animations en pause quand l'onglet est caché.
 - Libérer (`dispose`) géométries, matériaux et textures quand on quitte un tableau ou l'Album.
 - Paliers de qualité automatiques : tout nouvel effet ajoute son champ à `QualitySettings` (`src/scene/render/quality.ts`), ce qui oblige à déclarer son comportement en qualité moyenne et basse.
-- Le brouillard et les sprites se règlent par rapport à la distance de la caméra, qui change avec le format de l'écran (portrait).
+- Le brouillard et les sprites se règlent par rapport à la distance de la caméra, qui change avec le format de l'écran (toujours paysage).
 
 ## Données et assets
 

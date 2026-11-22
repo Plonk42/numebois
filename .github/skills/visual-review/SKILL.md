@@ -18,7 +18,7 @@ Pour tout changement de rendu (décor, modèle, effet, lumière). Règles de fon
    npm run capture -- --name saisons --stages 11 --seasons spring,summer,autumn,winter --columns 4
    ```
 
-   Caméra fixe et temps figé (`time=12`) : deux captures de la même description sont comparables. Autres options : `--seed 1,2,3,4` (plusieurs graines), `--size 800x1280` (portrait), `--quality low`, `--query assets=placeholder` (formes de remplacement), `--trees` (triangles par famille d'arbres).
+   Caméra fixe et temps figé (`time=12`) : deux captures de la même description sont comparables. Autres options : `--seed 1,2,3,4` (plusieurs graines), `--quality low`, `--query assets=placeholder` (formes de remplacement), `--trees` (triangles par famille d'arbres).
 
 4. Les images vont dans `test-results/captures/` (ignoré par git), avec une planche `<name>-sheet.jpg`. Regarder les planches plutôt que chaque image : quelques images par session suffisent.
 

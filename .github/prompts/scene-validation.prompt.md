@@ -90,7 +90,7 @@ La fluidité n'est pas validée à cette étape, mais les compteurs, qui ne dép
   - nombres de triangles par arbre et pour toute la scène sous le budget ;
   - la disposition de l'atlas ne touche pas les cases d'origine ;
   - le manifeste est cohérent.
-- Playwright (émulation tablette, paysage 1280×800 et portrait) :
+- Playwright (émulation tablette, paysage 1280×800) :
   - la scène se charge sans erreur dans la console, avec les formes de remplacement en CI ;
   - captures depuis une caméra fixe, pour chacune des deux formes, aux paliers 0, 2 et 4, et une capture par saison au palier 4.
 - Revue visuelle itérative : prendre des captures, les critiquer honnêtement (composition, lisibilité, profondeur, couleurs, cohérence avec KayKit), corriger, recommencer. Donner aux deux formes le même soin pour que la comparaison soit juste. Limiter le nombre d'images par session.
