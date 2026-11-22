@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { loadAssets, type AssetLibrary } from './assets';
+import { Soundscape } from './audio/soundscape';
 import { parseDescription, type SceneDescription } from './description';
 import { Painting, type PaintingStats } from './painting';
 import { QUALITY, QualityGovernor, parseQuality, type Quality } from './render/quality';
@@ -29,6 +30,7 @@ function textureBytes(texture: THREE.Texture | null | undefined): number {
 /** The demonstration scene: loads the assets, builds the painting, runs the frame loop. */
 export class SceneApp {
   readonly stage: Stage;
+  readonly sound = new Soundscape();
   description: SceneDescription;
   painting: Painting | null = null;
   assets: AssetLibrary | null = null;
@@ -82,6 +84,7 @@ export class SceneApp {
     const settings = QUALITY[this.quality];
     this.stage.setQuality(settings);
     this.painting = new Painting(this.stage, this.assets, this.description, settings);
+    this.sound.setLevels(this.painting.ambience.sound);
     this.stage.frame(this.painting.terrain.frame);
     this.painting.resized();
     this.renderFrame(0);
@@ -117,9 +120,10 @@ export class SceneApp {
     if (!this.running) this.renderFrame(0);
   };
 
-  /** The animation pauses while the tab is hidden. */
+  /** The animation and the sound pause while the tab is hidden. */
   private readonly onVisibility = () => {
     const visible = document.visibilityState === 'visible';
+    this.sound.setHidden(!visible);
     if (visible && !this.running) {
       this.running = true;
       this.last = performance.now();
@@ -213,6 +217,7 @@ export class SceneApp {
     document.removeEventListener('visibilitychange', this.onVisibility);
     this.painting?.dispose();
     this.assets?.dispose();
+    this.sound.dispose();
     this.stage.dispose();
   }
 }

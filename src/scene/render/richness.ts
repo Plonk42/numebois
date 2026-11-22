@@ -50,6 +50,16 @@ export interface Ambience extends Light {
   sparkle: number;
   /** Rainbow over the main waterfall. */
   rainbow: number;
+  /** Volume of each layer of the soundscape (0 = silent). */
+  sound: SoundLevels;
+}
+
+/** Layers of the ambient sound, synthesised by `src/scene/audio/`. */
+export interface SoundLevels {
+  /** Soft wind in the trees. */
+  wind: number;
+  /** Water heard from afar: the spring, then the falls. */
+  water: number;
 }
 
 /** What each stage brings, in a word or two. */
@@ -144,6 +154,8 @@ const LIFE = {
   sunRays: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0.7, 0.85, 1],
   sparkle: [0, 0, 0, 0, 0, 0.08, 0.15, 0.2, 0.25, 0.3, 0.6, 1],
   rainbow: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+  windSound: [0.7, 0.7, 0.72, 0.74, 0.76, 0.78, 0.8, 0.8, 0.8, 0.8, 0.75, 0.7],
+  waterSound: [0.35, 0.38, 0.5, 0.58, 0.62, 0.68, 0.72, 0.8, 0.84, 0.9, 0.95, 1],
 } satisfies Record<string, PerStage<number>>;
 
 function mix(a: number, b: number, t: number): number {
@@ -271,6 +283,7 @@ export function ambienceFor(stage: Stage, season: Season): Ambience {
     sunRays: LIFE.sunRays[stage],
     sparkle: LIFE.sparkle[stage],
     rainbow: LIFE.rainbow[stage],
+    sound: { wind: LIFE.windSound[stage], water: LIFE.waterSound[stage] },
   };
   if (season === 'spring') {
     a.flowers *= 1.3;

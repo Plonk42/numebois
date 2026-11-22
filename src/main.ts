@@ -1,4 +1,6 @@
 import { SceneApp, type SceneCounters } from './scene/app';
+import { mountSoundButton } from './scene/audio/sound-button';
+import type { SoundState } from './scene/audio/soundscape';
 import type { SceneDescription } from './scene/description';
 import { mountDebugPanel } from './scene/debug';
 import { parseQuality } from './scene/render/quality';
@@ -12,6 +14,7 @@ declare global {
       describe(): SceneDescription;
       trees(): { family: string; detail: string; triangles: number }[];
       grow(): void;
+      sound(): { state: SoundState; context: AudioContextState | 'none' };
     };
   }
 }
@@ -26,7 +29,9 @@ window.__numebois = {
   describe: () => app.description,
   trees: () => app.painting?.treeInfos() ?? [],
   grow: () => app.grow(),
+  sound: () => ({ state: app.sound.state, context: app.sound.contextState }),
 };
+mountSoundButton(app.sound);
 
 window.addEventListener('keydown', (event) => {
   if (event.key === 'g' || event.key === 'G') app.grow();
