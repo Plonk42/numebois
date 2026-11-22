@@ -46,14 +46,14 @@ Un échec qui n'arrive que sur les runners hébergés est un signal réel, pas u
 
 Le workflow `.github/workflows/ci.yml` tourne sur les PR, les pushs sur `main` et le déclenchement manuel, avec des permissions en lecture seule (sauf pour le déploiement). Un push plus récent sur la même branche annule l'exécution précédente.
 
-| Job             | Rôle                                                                                                    |
-| --------------- | ------------------------------------------------------------------------------------------------------- |
-| `checks`        | `npm run check` en étapes séparées : format, lint, types, Vitest, build                                 |
-| `e2e`           | Playwright en émulation de la tablette cible (Lenovo Tab M10 Gen 3, paysage 1280×800)                   |
-| `Delivery gate` | Réussit seulement si tous les jobs ci-dessus ont réussi                                                 |
-| `deploy`        | Seulement sur `main`, après le `Delivery gate` : construit et publie sur GitHub Pages (pas encore créé) |
+| Job             | Rôle                                                                                                                        |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `checks`        | `npm run check` en étapes séparées : format, lint, types, Vitest, build                                                     |
+| `e2e`           | Playwright en émulation de la tablette cible (Lenovo Tab M10 Gen 3, paysage 1280×800)                                       |
+| `Delivery gate` | Réussit seulement si tous les jobs ci-dessus ont réussi                                                                     |
+| `deploy`        | Seulement sur `main`, après le `Delivery gate` : construit et publie sur GitHub Pages (https://plonk42.github.io/numebois/) |
 
-- Seulement des assets gratuits (KayKit CC0) et des compléments générés : pas de pack payant ni de dépôt privé. Les fichiers bruts des packs restent hors du dépôt pour l'instant ; la chaîne de traitement décidera ce qui y entre.
+- Seulement des assets gratuits (KayKit CC0) et des compléments générés : pas de pack payant ni de dépôt privé. Les fichiers bruts des packs restent hors du dépôt ; seuls les modèles optimisés (`public/assets/kaykit.glb`) y entrent, avec `LICENSES.md`.
 - Une nouvelle version de la PWA s'active au lancement suivant, jamais au milieu d'une session.
 - Protection de `main` :
   - PR obligatoire pour les non-administrateurs, avec le **Delivery gate** comme seul contrôle requis (les branches n'ont pas besoin d'être à jour) ;

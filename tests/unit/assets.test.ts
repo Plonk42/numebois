@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { CATALOG, type ModelName, type ModelSource } from '../../src/scene/asset-catalog';
 import { ASSET_FILE, MODELS, type ModelInfo } from '../../src/scene/assets.gen';
@@ -126,6 +127,28 @@ describe('asset manifest', () => {
   it('lists exactly the models of the catalog', () => {
     expect(Object.keys(MODELS).sort()).toEqual([...names].sort());
     expect(ASSET_FILE).toMatch(/^assets\/.+\.glb$/);
+  });
+
+  it('matches the committed GLB (run `npm run assets` after a catalog change)', () => {
+    const glb = readFileSync(`public/${ASSET_FILE}`);
+    expect(glb.toString('latin1', 0, 4)).toBe('glTF');
+    const json = JSON.parse(glb.toString('utf8', 20, 20 + glb.readUInt32LE(12))) as {
+      nodes: { name: string; mesh: number }[];
+      meshes: { primitives: { indices: number }[] }[];
+      accessors: { count: number }[];
+    };
+    const triangles = Object.fromEntries(
+      json.nodes.map((node) => [
+        node.name,
+        json.meshes[node.mesh].primitives.reduce(
+          (sum, p) => sum + json.accessors[p.indices].count / 3,
+          0,
+        ),
+      ]),
+    );
+    expect(triangles).toEqual(
+      Object.fromEntries(names.map((name) => [name, MODELS[name].triangles])),
+    );
   });
 
   it('describes every model consistently', () => {
