@@ -1,6 +1,7 @@
 assets-private/
 /assets/*.zip
-/public/assets/
+/public/assets/*
+!/public/assets/kaykit.glb
 node_modules/
 dist/
 test-results/

@@ -1,8 +1,8 @@
 /**
  * Asset pipeline: extracts the models listed in `src/scene/asset-catalog.ts` from the local
  * KayKit zips (`assets/*.zip`, never committed), paints the extended atlas, optimises
- * everything into one GLB under `public/assets/` (ignored by git) and writes the typed
- * manifest `src/scene/assets.gen.ts`.
+ * everything into one GLB under `public/assets/` (committed, CC0: see LICENSES.md) and
+ * writes the typed manifest `src/scene/assets.gen.ts`.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
