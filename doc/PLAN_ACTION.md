@@ -46,6 +46,7 @@ L'enfant a beaucoup de mal à se concentrer. Le but n°1 est qu'il ait envie de 
 - **Contenu en TypeScript, pas en YAML :** c'est toujours l'agent qui ajoute les notions et les quêtes, à la demande du propriétaire. Le compilateur et les tests vérifient tout, sans schéma ni validateur à part.
 - **Un module par domaine** (`src/domains/<domain>/`), branché sur un registre. Le moteur (sentier, maîtrise, rafale, défis) est générique et ne connaît aucun domaine en particulier.
 - **Sauvegarde :** un seul enfant, IndexedDB sous le préfixe `numebois:` (l'origine github.io est partagée avec les autres dépôts), export/import JSON. Les identifiants de notions sont stables. La compatibilité devient obligatoire dès que le propriétaire déclare « l'enfant joue pour de vrai » (voir [GITHUB_WORKFLOW.md](GITHUB_WORKFLOW.md#compatibilité-des-sauvegardes)).
+- **Paysage seulement (propriétaire, 2026-11-22) :** la tablette n'est jamais utilisée en portrait. Ni mise en page ni tests en portrait ; la PWA verrouillera l'orientation (`orientation: "landscape"` dans le manifeste).
 - **Pas de synthèse vocale :** textes courts, gros caractères.
 - **Bienveillance partout :** aucune perte d'énergie, indices progressifs, comparaison uniquement avec soi-même, aucune formulation d'échec.
 - **Opérations posées V1 :** addition (2 ou 3 nombres, jusqu'à 4 chiffres) et multiplication par un nombre à 1 chiffre. Pas de soustraction posée.
@@ -233,7 +234,7 @@ C'est le cœur de la motivation. Chaque bonne réponse doit se voir, et chaque t
 
 ### Contraintes tablette
 
-1. **Rendu :** WebGL2, résolution plafonnée à `min(devicePixelRatio, 1.5)` (2 en qualité haute), caméra adaptée au format de l'écran (paysage d'abord, portrait toléré).
+1. **Rendu :** WebGL2, résolution plafonnée à `min(devicePixelRatio, 1.5)` (2 en qualité haute), caméra adaptée au format de l'écran (paysage seulement).
 2. **Modèles :** glTF optimisés par la chaîne de traitement (fusion, élagage, quantification, compression meshopt). Une seule texture de dégradé de 1024² au maximum, réductible à 256².
 3. **Budget :**
    - moins de 100 appels de dessin, grâce à `InstancedMesh` pour la végétation répétée et au matériau partagé ;
@@ -370,7 +371,7 @@ Dépend de 1.
 1. Carte question, pavé numérique dans le jeu (réaction dès que le doigt touche, touches clavier, jamais le clavier Android).
 2. Widgets `Keypad`, `Choice`, `FractionInput`, `TimeInput`.
 3. Jauge d'énergie, retour immédiat.
-4. Paysage en priorité, portrait toléré, cibles de 56 px minimum, `touch-action: none` sur les zones à faire glisser.
+4. Paysage seulement, cibles de 56 px minimum, `touch-action: none` sur les zones à faire glisser.
 
 ## Phase 3 : scène de jeu et tableaux
 
@@ -543,7 +544,7 @@ Dépend de 4, puis à chaque jalon.
    - compléter un tableau (horloge et énergie accélérées en mode test) : grand final, choix du décor, nouveau tableau ; après rechargement, le tableau terminé est dans l'Album et se rouvre animé ;
    - choix de l'emplacement d'un élément au toucher ;
    - mode hors-ligne.
-6. Captures en paysage et en portrait de chaque widget, relues à l'œil.
+6. Captures en paysage de chaque widget, relues à l'œil.
 7. Test sur la vraie tablette via l'URL Pages.
 8. Contrôle qualité du rendu pour chaque nouveau décor, élément ou effet :
    - captures avant/après depuis une caméra fixe, aux paliers 0, 6 et 11 ;
@@ -579,7 +580,7 @@ Tout est rangé dans le dépôt (`.github/`), donc versionné avec le code. Chaq
 | `github-issue` (skill, `/github-issue`)          | invocation explicite                                                               | Créer ou réutiliser un ticket trié                                                                                                                                                                   | Oui                           |
 | `work-on-issue` (prompt, `/work-on-issue`)       | invocation explicite                                                               | Livrer les X tickets les plus pertinents                                                                                                                                                             | Oui                           |
 | `scene-validation` (prompt, `/scene-validation`) | invocation explicite                                                               | Scène de démonstration sans mécanisme de jeu, en deux formes (clairière, île hexagonale), pour valider le style sur la station de travail                                                            | Oui                           |
-| `tablet-ui-check`                                | vérifier l'affichage, capture, tablette, interface                                 | Émulation Playwright Galaxy Tab S4, paysage et portrait, processeur ralenti, `?debug`, vérifications DOM d'abord, 4 captures au maximum par session                                                  | Phase 0, avec Playwright      |
+| `tablet-ui-check`                                | vérifier l'affichage, capture, tablette, interface                                 | Émulation Playwright Galaxy Tab S4, paysage, processeur ralenti, `?debug`, vérifications DOM d'abord, 4 captures au maximum par session                                                              | Phase 0, avec Playwright      |
 | `visual-review`                                  | rendu, plus joli, embellir, effet, paysage, décor moche                            | `npm run capture` : captures avant/après à caméra fixe aux paliers 0, 6 et 11, budget tablette, liste de contrôle de la direction artistique, validation du propriétaire                             | Oui                           |
 | `add-biome`                                      | nouveau décor, tableau de montagne, biome                                          | Modèle tiré de la clairière, terrain et variante de couleurs, lumière et ciel, emplacements, 12 paliers, effet inédit, ambiance sonore, puis `visual-review`                                         | Phase R                       |
 | `blender-asset`                                  | créer un modèle, asset manquant, Blender, low-poly                                 | MCP Blender : partir d'un modèle KayKit proche, réutiliser la texture de dégradé, respecter l'échelle et le nombre de polygones, exporter en glTF, passer la chaîne de traitement, rendu de contrôle | Phase R, après le premier lot |
@@ -629,3 +630,4 @@ Vérification : frontmatter YAML valide, `name` identique au nom du dossier, `de
 - 2026-11-22 : grosse itération sur la clairière, à la demande du propriétaire (« plus de relief, plus grand, paliers plus distincts, plus wahou »). Le relief devient un axe de progrès des paliers : tableau qui s'agrandit, massif de trois sommets enneigés au fond, cascade principale en trois chutes, trois ruisseaux qui se rejoignent, lac, arc-en-ciel au palier 4. Palier 0 bien plus dépouillé (6 arbres, environ 28 000 triangles), palier 4 bien plus riche (63 arbres, 7 chutes, environ 135 000 triangles, 42 appels de dessin, 25 Mo). Nouveau niveau de détail `far` pour la forêt lointaine, cadrage automatique de la caméra, emplacements d'arbres stables d'un palier à l'autre. À valider par le propriétaire ; fluidité sur la tablette non mesurée.
 - 2026-11-22 : 12 paliers au lieu de 5, à la demande du propriétaire (« plus nombreux et plus progressifs, pour avoir plus de possibilités de progression »). Mêmes extrêmes (palier 0 inchangé, palier 11 = ancien palier 4), découpés en petits pas : le tableau grandit à chaque palier et la plupart apportent une seule nouveauté (cascade, colline, montagne, confluent, neige, troisième chute, oiseaux, troisième ruisseau, lumière dorée, arc-en-ciel). Valeurs écrites en colonnes, une par palier ; lumière qui glisse entre cinq ambiances. D'un palier au suivant, la scène gagne entre 7 % et 27 % de triangles (de 28 000 à 135 000). Captures de contrôle aux paliers 0, 6 et 11. À valider par le propriétaire.
 - 2026-11-22 : chaque graine donne une clairière différente, à la demande du propriétaire (« les scènes se ressemblent énormément, quelle que soit la graine ; le jeu sera vite ennuyeux »). La disposition est tirée de la graine (`src/scene/terrain/clearing-layout.ts`) : massif, cascade et lac déplacés, sommets de hauteurs, de profils et d'arêtes différents, tracés des trois ruisseaux et sortie du ruisseau principal, bord du tableau, buttes dans la prairie, emplacements d'arbres et rochers, lisière plus ou moins profonde, part de sapins, essence et fleurs préférées, teinte de la prairie. Les règles (rien devant l'eau, ruisseaux qui ne se croisent pas, emplacements de démonstration sur le premier tableau) sont vérifiées et la graine est retirée tant qu'elles ne tiennent pas. La lisière est plafonnée à 48 arbres pour tenir le budget (palier 11 entre 121 000 et 139 000 triangles sur 40 graines). Le ruisseau n'apparaît plus qu'au palier 3, quand le lac déborde (palier « ruisseau », qui remplace « colline »). `npm run capture` accepte plusieurs graines (`--seed 1,2,3,4`). À valider par le propriétaire.
+- 2026-11-22 : la tablette n'est utilisée qu'en paysage (propriétaire). Le portrait sort des règles d'interface, des vérifications et de la CI (projet Playwright `tablet-portrait` retiré) ; la PWA verrouillera l'orientation.

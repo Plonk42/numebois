@@ -50,7 +50,7 @@ jobs:
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       # The KayKit packs are not in the repository: the scene runs with placeholder shapes.
-      - name: Playwright (tablet landscape and portrait)
+      - name: Playwright (tablet landscape)
         run: npm run test:e2e
       - name: Upload report and captures
         if: ${{ !cancelled() }}

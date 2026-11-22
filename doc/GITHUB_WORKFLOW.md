@@ -16,7 +16,7 @@ En cas de doute, la route risquée. Un mauvais service worker peut bloquer l'app
 ### Changements courants
 
 1. `git pull --ff-only` sur `main`. Ne jamais mettre de côté (stash), réinitialiser, jeter ni commiter des modifications sans rapport déjà présentes : les laisser non indexées.
-2. Modifier, en lançant les tests unitaires concernés et le serveur de dev. Pour un changement d'interface, faire aussi une vérification visuelle en émulation tablette (paysage et portrait). Pour un changement de rendu, faire la revue visuelle (captures avant/après aux paliers 0, 6 et 11).
+2. Modifier, en lançant les tests unitaires concernés et le serveur de dev. Pour un changement d'interface, faire aussi une vérification visuelle en émulation tablette (paysage). Pour un changement de rendu, faire la revue visuelle (captures avant/après aux paliers 0, 6 et 11).
 3. Contrôle rapide : `npm run format`, puis `npm run check` (format, lint, types, Vitest, build), plus les specs Playwright concernées. Pour les trouver, chercher dans `tests/e2e` les sélecteurs et les textes modifiés, renommés ou masqués. Un changement de docs seul ne demande que `npm run format`.
 4. Commiter chaque étape cohérente avec ses tests et ses docs, puis `git push origin main`. GitHub signale que le push contourne la règle de PR : c'est normal pour un changement courant.
 5. La CI tourne sur `main` et déploie si elle passe. Si elle échoue, la corriger est la tâche suivante. On corrige en avançant plutôt que de revenir en arrière, sauf si la casse bloque autre chose. Tant que la CI est rouge, rien n'est déployé.
@@ -49,7 +49,7 @@ Le workflow `.github/workflows/ci.yml` tourne sur les PR, les pushs sur `main` e
 | Job             | Rôle                                                                                                    |
 | --------------- | ------------------------------------------------------------------------------------------------------- |
 | `checks`        | `npm run check` en étapes séparées : format, lint, types, Vitest, build                                 |
-| `e2e`           | Playwright en émulation tablette (Galaxy Tab S4, paysage et portrait)                                   |
+| `e2e`           | Playwright en émulation tablette (Galaxy Tab S4, paysage)                                               |
 | `Delivery gate` | Réussit seulement si tous les jobs ci-dessus ont réussi                                                 |
 | `deploy`        | Seulement sur `main`, après le `Delivery gate` : construit et publie sur GitHub Pages (pas encore créé) |
 

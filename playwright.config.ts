@@ -23,10 +23,6 @@ export default defineConfig({
       name: 'tablet-landscape',
       use: { ...tablet, viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1 },
     },
-    {
-      name: 'tablet-portrait',
-      use: { ...tablet, viewport: { width: 800, height: 1280 }, deviceScaleFactor: 1 },
-    },
   ],
   webServer: {
     command: `npm run build && npx vite preview --host 127.0.0.1 --port ${PORT} --strictPort`,
