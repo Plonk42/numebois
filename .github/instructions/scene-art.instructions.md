@@ -19,7 +19,7 @@ Le rendu est la priorité n°1 : un paysage de plus en plus riche et joli est la
 - Les formes de tableau partagent tout sauf le terrain (interface `Terrain`, `src/scene/terrain/`) : arbres, végétation, lumière et effets ne dépendent jamais d'une forme.
 - Les effets du code (lumière, brouillard, particules, halos) restent dans la palette de la texture de dégradé et de la lumière du tableau.
 - Les emplacements sont composés à la main et lisibles depuis la caméra. Chaque choix proposé à l'enfant doit donner une belle scène.
-- Chaque palier de richesse (0 à 4) change visiblement l'ambiance (lumière, ciel, densité, vie), et pas seulement le nombre d'objets. Le palier 0 est déjà joli.
+- Chaque palier de richesse (0 à 4) change visiblement l'ambiance (lumière, ciel, densité, vie, couche sonore), et pas seulement le nombre d'objets. Le palier 0 est déjà joli.
 - Chaque nouveau décor apporte au moins un effet inédit et dépasse le précédent.
 - Les animations de pousse et de récompense ne sont jamais coupées, même en qualité basse.
 

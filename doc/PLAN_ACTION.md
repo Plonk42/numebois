@@ -181,7 +181,7 @@ C'est le cœur de la motivation. Chaque bonne réponse doit se voir, et chaque t
    - **Forêt procédurale dans le style KayKit (décision du propriétaire) :** le code génère le squelette de l'arbre (tronc, racines, branches), habillé de tubes low-poly lisses collés à la case d'écorce KayKit ; les feuillages sont les touffes du pack, posées au bout des branches. Une graine donne un arbre ; couper le même squelette selon l'âge (0 à 1) donne ses stades de croissance, donc un arbre peut pousser branche par branche à chaque bonne réponse. Environ 2 000 à 5 000 triangles par arbre adulte. Prototype : `assets-private/procedural-trees/kaykit_tree.py` (familles `Round`, `Cube`, `Gnarly`, `Umbrella`). Le style « peint » à cartes de feuilles (`gen_tree.py`) est écarté.
      - **Générée dans le jeu, en TypeScript (décision du propriétaire, tant qu'on n'est pas bloqué) :** `src/scene/trees/` porte l'algorithme du prototype. Générateur aléatoire à graine (jamais `Math.random`) pour que l'Album rejoue les mêmes arbres ; touffes KayKit chargées depuis le manifeste ; arbres d'un tableau regroupés en un seul appel de dessin (fusion ou `BatchedMesh`) ; pousse et vent par attributs de sommets (âge d'apparition, souplesse) dans le shader. Blender reste disponible pour créer de nouvelles pièces et faire des rendus de contrôle.
    - **Animaux** (écureuil, hérisson, oiseaux, cerf, Plume la chouette) : les packs KayKit n'en ont pas. On cherche d'abord un pack CC0 d'animaux low-poly animés au style compatible (par exemple Quaternius, à vérifier). À défaut, on les modélise avec le MCP Blender, avec des animations simples (respiration, saut, clignement).
-3. **Forme du tableau :** un diorama 3D, vu en légère plongée avec une caméra presque fixe. La proposition par défaut est une petite île de tuiles hexagonales qui grandit, et l'Album devient une collection d'îles. Une variante en clairière rectangulaire bordée de forêt est aussi maquettée ; le choix se fait pendant la tranche verticale.
+3. **Forme du tableau : la clairière à relief libre (décision du propriétaire, 2026-11-22).** Un diorama 3D flottant, vu en légère plongée avec une caméra presque fixe, bordé de forêt, avec cascade, étang et ruisseau. L'île de tuiles hexagonales, maquettée pour comparaison, est écartée : son code (`src/scene/terrain/hex.ts`, tuiles du catalogue) est à retirer.
 4. **Compositions faites à la main :** pour chaque décor, l'agent place les emplacements selon de vraies règles de composition (premier plan qui encadre, profondeur, lisibilité depuis la caméra, respiration). L'enfant choisit entre 2 ou 3 emplacements qui sont tous beaux : son choix ne peut pas enlaidir la scène.
 
 ### Ce que le code ajoute (la vie)
@@ -206,7 +206,20 @@ C'est le cœur de la motivation. Chaque bonne réponse doit se voir, et chaque t
    - 3 « vivant » : animaux, oiseaux, rayons de lumière ;
    - 4 « féerique », le grand final : lumière dorée, lucioles, arc-en-ciel ou cascade étincelante.
 7. **Escalade d'un tableau à l'autre :** les décors sont ordonnés pour être de plus en plus spectaculaires (clairière, puis ruisseau avec cascade, puis verger fleuri, puis forêt d'automne avec feuilles qui volent, puis nuit étoilée, puis neige…). Chaque nouveau décor apporte au moins un effet inédit. Les variantes de couleur KayKit et la lumière font l'essentiel des saisons.
-8. **Ambiance sonore en couches** qui grandit avec la richesse : vent léger, puis oiseaux, puis ruisseau, puis grillons et chouette la nuit. Les sons viennent d'un pack audio de licence compatible, avec un bouton pour couper le son.
+8. **Ambiance sonore en couches : un axe de progrès des paliers, au même titre que la lumière.** Chaque palier ajoute une couche, qu'on entend arriver quand le palier change :
+   - 0 : vent léger, cascade au loin ;
+   - 1 : ruisseau plus présent, premiers chants d'oiseaux ;
+   - 2 : oiseaux variés, bourdonnement des insectes ;
+   - 3 : animaux (pic-vert, coucou), bruissement des feuilles dans les rafales ;
+   - 4 : grillons, chouette et petite nappe musicale féerique.
+
+   Règles :
+   - les couches sont déclarées par palier dans `src/scene/render/richness.ts`, avec la lumière et les densités, et la saison les ajuste (pas d'insectes en hiver) ;
+   - des sons courts accompagnent la pousse et le changement de palier ; ce sont des récompenses, jamais coupées ;
+   - pendant une question, l'ambiance reste basse et continue, sans événement sonore qui distrait ;
+   - le son démarre au premier toucher (règle des navigateurs), se met en pause quand l'onglet est caché, et un bouton le coupe ;
+   - budget : boucles courtes, environ 1 Mo par décor, mises en cache hors-ligne ;
+   - sources : vent et eau synthétisés par le code (Web Audio, bruit filtré) si le résultat est bon, sinon des sons de licence vérifiée (CC0 de préférence).
 
 ### Contraintes tablette
 
@@ -321,8 +334,8 @@ Dépend de 0. Bloque les phases 3 et 4. Peut avancer en parallèle de la phase 1
    - `growth-fx.ts` (pousse, étincelles, caméra), `richness.ts` (paliers 0 à 4 : lumière, densité, effets, ambiance) ;
    - `src/scene/trees/` : forêt procédurale (squelette, tubes, touffes KayKit, âge de pousse), avec un test qui vérifie qu'une graine donne toujours le même arbre et le temps de génération mesuré sur la tablette ;
    - `quality.ts` (paliers de qualité automatiques).
-6. **Deux maquettes comparées,** une île de tuiles hexagonales (Medieval Hexagon gratuit) et une clairière à relief libre générée par le code, avec les mêmes arbres et effets, chacune avec des captures aux paliers 0, 2 et 4. Première étape : la scène de démonstration sans mécanisme de jeu (`.github/prompts/scene-validation.prompt.md`), qui valide seulement le look sur la station de travail. Le propriétaire choisit ensuite la forme du tableau ; la tablette vient après. **Fait le 2026-11-22** (`?debug&form=clearing|hex&stage=0..4&season=…&seed=…&quality=…`, pousse avec la touche G) : en attente du choix du propriétaire.
-7. **Décor « Clairière » complet** dans la forme choisie : composition, environ 25 emplacements, 3 grands moments, les 5 paliers de richesse, ambiance sonore.
+6. **Deux maquettes comparées,** une île de tuiles hexagonales (Medieval Hexagon gratuit) et une clairière à relief libre générée par le code, avec les mêmes arbres et effets, chacune avec des captures aux paliers 0, 2 et 4. Première étape : la scène de démonstration sans mécanisme de jeu (`.github/prompts/scene-validation.prompt.md`), qui valide seulement le look sur la station de travail. Le propriétaire choisit ensuite la forme du tableau ; la tablette vient après. **Fait le 2026-11-22** (`?debug&form=clearing|hex&stage=0..4&season=…&seed=…&quality=…`, pousse avec la touche G). Choix du propriétaire : la clairière.
+7. **Décor « Clairière » complet** : composition, environ 25 emplacements, 3 grands moments, les 5 paliers de richesse, ambiance sonore en couches par palier (`src/scene/audio/`, voir [Ce que le code ajoute](#ce-que-le-code-ajoute-la-vie)).
 8. **Mode démo** `?debug&stage=0..4&fill=0..100` : curseur pour parcourir la richesse, compteur d'images par seconde, mesures de mémoire graphique, d'appels de dessin et de triangles.
 9. **Fait quand :**
    - sur la vraie tablette : 50 images par seconde ou plus en qualité haute, au moins 30 en moyenne ;
@@ -571,12 +584,13 @@ Vérification : frontmatter YAML valide, `name` identique au nom du dossier, `de
 ## Points ouverts
 
 1. Animaux : trouver un pack CC0 d'animaux low-poly animés compatible avec le style KayKit (licence à vérifier), sinon les modéliser avec le MCP Blender. Les sons demandent aussi une licence vérifiée.
-2. Forme du tableau (île hexagonale ou clairière à relief libre) : les deux sont maquettées dans la scène de démonstration ; choix du propriétaire sur captures et dans le navigateur.
-3. Méthode de multiplication posée de l'école (position des retenues) : à vérifier sur un cahier de l'enfant.
-4. Notation de l'heure attendue (« 14 h 10 », « 14:10 » ou « 2 h 10 de l'après-midi ») : réglable par exercice.
-5. Fractions vues en classe : liste des dénominateurs.
-6. Seuil d'automatisation (environ 3 s) : à ajuster après quelques sessions réelles, grâce au tableau de bord.
-7. Durée cible d'un tableau (environ 40 minutes de jeu) et longueur du sentier (10 pierres) : à ajuster selon l'attention réelle de l'enfant. Les deux réglages sont centralisés.
+2. Sons : vent et eau synthétisés par le code ou enregistrés ; source CC0 pour les oiseaux et les animaux. À trancher à l'écoute, sur un premier essai au palier 0.
+3. Test sur la tablette : les modèles optimisés (`kaykit.glb`, 229 ko, CC0) ne sont pas dans le dépôt, donc pas dans le site publié. Décision du propriétaire : les commiter, ou garder les formes de remplacement en ligne.
+4. Méthode de multiplication posée de l'école (position des retenues) : à vérifier sur un cahier de l'enfant.
+5. Notation de l'heure attendue (« 14 h 10 », « 14:10 » ou « 2 h 10 de l'après-midi ») : réglable par exercice.
+6. Fractions vues en classe : liste des dénominateurs.
+7. Seuil d'automatisation (environ 3 s) : à ajuster après quelques sessions réelles, grâce au tableau de bord.
+8. Durée cible d'un tableau (environ 40 minutes de jeu) et longueur du sentier (10 pierres) : à ajuster selon l'attention réelle de l'enfant. Les deux réglages sont centralisés.
 
 ## Journal des évolutions
 
@@ -598,3 +612,4 @@ Vérification : frontmatter YAML valide, `name` identique au nom du dossier, `de
 - 2026-11-22 : répartition procédural / assets validée : terrain, eau et squelettes d'arbres par le code ; touffes, rochers, buissons, herbes et objets par KayKit (ou Blender s'ils manquent), posés par le code.
 - 2026-11-22 : d'abord une scène de démonstration sans mécanisme de jeu pour valider le style sur la station de travail (prompt `scene-validation`) ; les deux formes de tableau (île hexagonale, clairière à relief libre) restent en lice ; test sur la tablette ensuite.
 - 2026-11-22 : scène de démonstration livrée avec le socle réduit et la CI : deux formes sur la même description (graine, palier, saison), forêt procédurale en un appel de dessin avec pousse et vent dans le shader, atlas unique pour les deux packs, 5 paliers de richesse, 4 saisons, 3 paliers de qualité, mode `?debug`, formes de remplacement sans les packs. Compteurs au palier 4 : environ 41 appels de dessin, 83 000 à 108 000 triangles, 23 Mo. Skill `visual-review` créé. Forme du tableau : en attente du choix du propriétaire ; fluidité sur la tablette non mesurée.
+- 2026-11-22 : décision : la forme du tableau est la clairière ; l'île hexagonale est écartée et son code sera retiré. L'ambiance sonore devient un axe de progrès des paliers (une couche par palier, déclarée avec la lumière). Suite du projet : petites tâches, un ticket et une conversation par tâche.

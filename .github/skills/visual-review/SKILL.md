@@ -30,7 +30,7 @@ Le script affiche pour chaque capture les appels de dessin, les triangles (scèn
 - Cohérence KayKit : formes simples, couleurs franches de l'atlas, pas de transparence ni de style étranger.
 - Paliers : 0 déjà joli ; 2 et 4 changent l'ambiance (lumière, ciel, vie), pas seulement la densité.
 - Saisons : seuls les UV changent ; neige par le dégradé.
-- Les deux formes reçoivent le même soin tant que le propriétaire n'a pas choisi.
+- Forme retenue : la clairière (`--forms clearing`).
 - Budget : moins de 100 appels de dessin, moins de 150 000 triangles, environ 64 Mo. Vérifier aussi `--quality low` et les formes de remplacement.
 - Mouvement (vent, eau, pousse avec la touche G) : à regarder dans le navigateur, `?debug`.
 
