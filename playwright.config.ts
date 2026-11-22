@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 const PORT = 4173;
+// Target: Lenovo Tab M10 Gen 3 (no preset); Android tablet user agent and touch from this one.
 const tablet = devices['Galaxy Tab S4'];
 
 export default defineConfig({

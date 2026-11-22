@@ -25,7 +25,9 @@ Le rendu est la priorité n°1 : un paysage de plus en plus riche et joli est la
 - Chaque nouveau décor apporte au moins un effet inédit et dépasse le précédent.
 - Les animations de pousse et de récompense ne sont jamais coupées, même en qualité basse.
 
-## Budget tablette (Android milieu de gamme)
+## Budget tablette (Lenovo Tab M10 Gen 3, GPU Mali-G52 MP2)
+
+- GPU d'entrée de gamme : le remplissage des pixels (jusqu'à 1920×1200 avec la résolution plafonnée à 1,5) pèse autant que les triangles. Seule une mesure sur la tablette fait foi.
 
 - Moins de 100 appels de dessin, moins de 150 000 triangles visibles, environ 64 Mo de mémoire graphique, 50 images par seconde visées et 30 au minimum. Le dernier palier de la clairière est à environ 135 000 triangles : tout ajout se paie ailleurs (mesurer par partie avant d'ajouter).
 - `InstancedMesh` pour la végétation répétée, et un matériau partagé.

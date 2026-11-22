@@ -75,7 +75,7 @@ Exercices, interface de jeu, sentier, Album, sauvegarde, PWA et service worker, 
 
 ## Budget tablette (guide de conception, compteurs mesurés)
 
-La fluidité n'est pas validée à cette étape, mais les compteurs, qui ne dépendent pas de la machine, doivent déjà respecter le budget, et la conception doit rester réaliste pour une tablette Android milieu de gamme.
+La fluidité n'est pas validée à cette étape, mais les compteurs, qui ne dépendent pas de la machine, doivent déjà respecter le budget, et la conception doit rester réaliste pour la tablette cible (Lenovo Tab M10 Gen 3, GPU Mali-G52 MP2).
 
 - Moins de 100 appels de dessin, moins de 150 000 triangles visibles, environ 64 Mo de mémoire graphique.
 - 50 images par seconde visées, 30 au minimum.

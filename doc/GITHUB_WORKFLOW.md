@@ -49,7 +49,7 @@ Le workflow `.github/workflows/ci.yml` tourne sur les PR, les pushs sur `main` e
 | Job             | Rôle                                                                                                    |
 | --------------- | ------------------------------------------------------------------------------------------------------- |
 | `checks`        | `npm run check` en étapes séparées : format, lint, types, Vitest, build                                 |
-| `e2e`           | Playwright en émulation tablette (Galaxy Tab S4, paysage)                                               |
+| `e2e`           | Playwright en émulation de la tablette cible (Lenovo Tab M10 Gen 3, paysage 1280×800)                   |
 | `Delivery gate` | Réussit seulement si tous les jobs ci-dessus ont réussi                                                 |
 | `deploy`        | Seulement sur `main`, après le `Delivery gate` : construit et publie sur GitHub Pages (pas encore créé) |
 
