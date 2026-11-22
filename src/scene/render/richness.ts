@@ -3,7 +3,8 @@ import type { Season } from '../trees/builder';
 
 /**
  * Richness stages of a painting. Each stage changes the mood (light, sky, density, life),
- * not only the number of objects; stage 0 is already pretty, stage 4 is the fairy finale.
+ * not only the number of objects; stage 0 is bare but already pretty, stage 4 is the fairy
+ * finale. The relief of a stage (size, mountains, water) belongs to the terrain.
  */
 export interface Ambience {
   name: string;
@@ -27,9 +28,10 @@ export interface Ambience {
   bushes: number;
   mushrooms: number;
   lilies: number;
-  /** Trees of the clearing itself (the forest edge is always there), and their ages. */
+  /** Trees of the clearing itself and of the forest around it, and their ages. */
   clearingTrees: number;
   clearingAge: readonly [number, number];
+  edgeTrees: number;
   edgeAge: readonly [number, number];
   /** Ambient life. */
   pollen: number;
@@ -40,13 +42,15 @@ export interface Ambience {
   sunRays: number;
   /** Glints on the water and sparkles around the waterfall. */
   sparkle: number;
+  /** Rainbow over the main waterfall. */
+  rainbow: number;
   clouds: number;
 }
 
 export const STAGE_NAMES = ['clairière', 'verdoyant', 'fleuri', 'vivant', 'féerique'] as const;
 
 const STAGES: Record<Stage, Ambience> = {
-  // Quiet misty morning: soft light, few plants, already a pleasant place.
+  // Quiet misty morning: soft light, a bare meadow with a few saplings, a pleasant start.
   0: {
     name: STAGE_NAMES[0],
     sky: { zenith: 0x8ec3ea, horizon: 0xe3f0f4, nadir: 0xcfe2ea },
@@ -54,14 +58,15 @@ const STAGES: Record<Stage, Ambience> = {
     hemisphere: { sky: 0xdcecf7, ground: 0x93aa86, intensity: 1.25 },
     sun: { color: 0xfff0d8, intensity: 2.0, azimuth: -42, elevation: 40, glow: 0.35 },
     wind: 0.45,
-    grass: 0.3,
+    grass: 0.22,
     flowers: 0,
-    bushes: 0.35,
+    bushes: 0.2,
     mushrooms: 0,
     lilies: 0,
-    clearingTrees: 0.25,
-    clearingAge: [0.3, 0.5],
-    edgeAge: [0.72, 0.92],
+    clearingTrees: 1,
+    clearingAge: [0.25, 0.45],
+    edgeTrees: 0.45,
+    edgeAge: [0.5, 0.75],
     pollen: 0.15,
     butterflies: 0,
     fallingLeaves: 0.1,
@@ -69,7 +74,8 @@ const STAGES: Record<Stage, Ambience> = {
     birds: 0,
     sunRays: 0,
     sparkle: 0,
-    clouds: 0.5,
+    rainbow: 0,
+    clouds: 0.4,
   },
   // Greener and brighter, first flowers.
   1: {
@@ -79,14 +85,15 @@ const STAGES: Record<Stage, Ambience> = {
     hemisphere: { sky: 0xd4ebff, ground: 0x8fb873, intensity: 1.25 },
     sun: { color: 0xfff4de, intensity: 2.35, azimuth: -38, elevation: 48, glow: 0.4 },
     wind: 0.6,
-    grass: 0.6,
-    flowers: 0.3,
-    bushes: 0.6,
+    grass: 0.5,
+    flowers: 0.25,
+    bushes: 0.5,
     mushrooms: 0,
     lilies: 0.4,
-    clearingTrees: 0.45,
-    clearingAge: [0.45, 0.7],
-    edgeAge: [0.8, 0.97],
+    clearingTrees: 0.7,
+    clearingAge: [0.4, 0.65],
+    edgeTrees: 0.6,
+    edgeAge: [0.65, 0.9],
     pollen: 0.3,
     butterflies: 0,
     fallingLeaves: 0.2,
@@ -94,7 +101,8 @@ const STAGES: Record<Stage, Ambience> = {
     birds: 0,
     sunRays: 0,
     sparkle: 0,
-    clouds: 0.7,
+    rainbow: 0,
+    clouds: 0.6,
   },
   // Full bloom at midday: saturated colours, butterflies.
   2: {
@@ -104,14 +112,15 @@ const STAGES: Record<Stage, Ambience> = {
     hemisphere: { sky: 0xcfe9ff, ground: 0x8ec46a, intensity: 1.2 },
     sun: { color: 0xfffaf0, intensity: 2.6, azimuth: -34, elevation: 56, glow: 0.45 },
     wind: 0.7,
-    grass: 0.8,
-    flowers: 1,
+    grass: 0.75,
+    flowers: 0.9,
     bushes: 0.8,
     mushrooms: 0.3,
     lilies: 0.8,
-    clearingTrees: 0.65,
-    clearingAge: [0.6, 0.85],
-    edgeAge: [0.88, 1],
+    clearingTrees: 0.67,
+    clearingAge: [0.55, 0.85],
+    edgeTrees: 0.8,
+    edgeAge: [0.8, 1],
     pollen: 0.6,
     butterflies: 0.7,
     fallingLeaves: 0.3,
@@ -119,6 +128,7 @@ const STAGES: Record<Stage, Ambience> = {
     birds: 0,
     sunRays: 0,
     sparkle: 0.15,
+    rainbow: 0,
     clouds: 0.8,
   },
   // Warm afternoon full of life: birds, sun rays.
@@ -136,6 +146,7 @@ const STAGES: Record<Stage, Ambience> = {
     lilies: 1,
     clearingTrees: 0.85,
     clearingAge: [0.75, 0.95],
+    edgeTrees: 0.92,
     edgeAge: [0.93, 1],
     pollen: 0.8,
     butterflies: 1,
@@ -144,9 +155,11 @@ const STAGES: Record<Stage, Ambience> = {
     birds: 1,
     sunRays: 0.7,
     sparkle: 0.3,
+    rainbow: 0,
     clouds: 0.9,
   },
-  // Grand finale at golden hour: gold light, violet shade, fireflies, sparkling waterfall.
+  // Grand finale at golden hour: gold light, violet shade, fireflies, sparkling waterfalls
+  // and a rainbow.
   4: {
     name: STAGE_NAMES[4],
     sky: { zenith: 0x5a70d2, horizon: 0xffc98f, nadir: 0xf0b094 },
@@ -161,6 +174,7 @@ const STAGES: Record<Stage, Ambience> = {
     lilies: 1,
     clearingTrees: 1,
     clearingAge: [0.9, 1],
+    edgeTrees: 1,
     edgeAge: [1, 1],
     pollen: 1,
     butterflies: 0.8,
@@ -169,6 +183,7 @@ const STAGES: Record<Stage, Ambience> = {
     birds: 0.6,
     sunRays: 1,
     sparkle: 1,
+    rainbow: 1,
     clouds: 1,
   },
 };

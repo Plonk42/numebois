@@ -428,6 +428,7 @@ class HexIsland implements Terrain {
     pitch: 31,
   };
   readonly shadow = { center: [0, 2, 0] as [number, number, number], radius: 27 };
+  readonly cover = 1;
   private readonly path: number[][];
 
   constructor(

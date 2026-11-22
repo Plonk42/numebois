@@ -16,8 +16,8 @@ export interface TreeSpec {
   z: number;
   yaw: number;
   scale: number;
-  /** `light` trees (forest edge) have fewer forks and larger tufts. */
-  detail: 'full' | 'light';
+  /** `light` trees (forest edge) have fewer forks and larger tufts; `far` ones even fewer. */
+  detail: 'full' | 'light' | 'far';
 }
 
 export interface TreeInfo {
@@ -464,16 +464,18 @@ export function buildTree(
 ): TreeInfo {
   const family = FAMILIES[spec.family];
   const rng = new Rng(hashSeed(spec.seed, spec.family));
-  const light = spec.detail === 'light';
+  const far = spec.detail === 'far';
+  const light = spec.detail !== 'full';
   const firstVertex = out.vertexCount;
   const firstIndex = out.indexCount;
   const conifer = family.shape === 'conifer';
-  const clump = family.clump * (light && !conifer ? 1.3 : 1);
-  const depth = light ? Math.max(1, family.depth - 1) : family.depth;
+  const clump = family.clump * (conifer ? 1 : far ? 1.45 : light ? 1.3 : 1);
+  const depth = far ? 0 : light ? Math.max(1, family.depth - 1) : family.depth;
   const sk = buildSkeleton(
     rng,
     conifer ? { ...family, height: family.height * 0.8 } : family,
     depth,
+    !far,
   );
   const ages = sk.ages();
   const total = conifer ? family.height : sk.height() + clump * 0.6;
@@ -484,11 +486,11 @@ export function buildTree(
     season,
     tree: treeIndex,
     top: total,
-    sides: light ? 5 : 6,
+    sides: far ? 4 : light ? 5 : 6,
   };
   for (const chain of chains(sk)) if (chain.length >= 2) tube(ctx, sk, ages, chain);
   const column = foliagePicker(rng, family, season);
-  if (conifer) coniferBlobs(ctx, assets, sk, total, light ? 4 : 5, column);
+  if (conifer) coniferBlobs(ctx, assets, sk, total, far ? 3 : light ? 4 : 5, column);
   else broadleafBlobs(ctx, assets, sk, ages, clump, light, column);
 
   // Local space to world: scale, yaw, translation (pivots too).

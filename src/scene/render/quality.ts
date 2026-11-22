@@ -22,6 +22,8 @@ export interface QualitySettings {
   particles: number;
   /** Sun ray sprites. */
   sunRays: boolean;
+  /** Rainbow of the last stage (one small translucent arc: kept at every tier). */
+  rainbow: boolean;
   /** Factor on the number of drifting clouds. */
   clouds: number;
   /** Factor on grass and flower density. */
@@ -40,6 +42,7 @@ export const QUALITY: Record<Quality, QualitySettings> = {
     waterWaves: true,
     particles: 1,
     sunRays: true,
+    rainbow: true,
     clouds: 1,
     groundCover: 1,
     growthFx: 1,
@@ -53,6 +56,7 @@ export const QUALITY: Record<Quality, QualitySettings> = {
     waterWaves: true,
     particles: 0.6,
     sunRays: true,
+    rainbow: true,
     clouds: 1,
     groundCover: 0.8,
     growthFx: 1,
@@ -66,6 +70,7 @@ export const QUALITY: Record<Quality, QualitySettings> = {
     waterWaves: false,
     particles: 0.3,
     sunRays: false,
+    rainbow: true,
     clouds: 0.5,
     groundCover: 0.55,
     growthFx: 1,

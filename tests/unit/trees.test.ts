@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createPlaceholderLibrary } from '../../src/scene/assets';
+import { FAR_FAMILIES } from '../../src/scene/populate';
 import {
   TreeWriter,
   buildTree,
@@ -78,10 +79,16 @@ describe('procedural trees', () => {
           const full = build(spec({ family, seed }), season, budget).info.triangles;
           const light = build(spec({ family, seed, detail: 'light' }), season, budget).info
             .triangles;
+          const far = build(spec({ family, seed, detail: 'far' }), season, budget).info.triangles;
           expect(full, `${family} ${seed} ${season}`).toBeLessThanOrEqual(5000);
           expect(full, `${family} ${seed} ${season}`).toBeGreaterThan(300);
           expect(light, `${family} ${seed} ${season} light`).toBeLessThanOrEqual(2500);
           expect(light, `${family} ${seed} ${season} light`).toBeLessThanOrEqual(full);
+          // Far trees are only cheap for the families the forest plants far away.
+          if (family === 'Pine' || FAR_FAMILIES.includes(family)) {
+            expect(far, `${family} ${seed} ${season} far`).toBeLessThanOrEqual(700);
+          }
+          expect(far, `${family} ${seed} ${season} far`).toBeLessThanOrEqual(light);
         }
       }
     }

@@ -31,7 +31,8 @@ async function checkScene(page: Page, name: string): Promise<void> {
   expect(counters.sceneMemoryMb + counters.bufferMemoryMb, 'GPU memory').toBeLessThan(
     BUDGET.memoryMb,
   );
-  expect(counters.trees).toBeGreaterThan(10);
+  // The first stage of the clearing is bare: a few saplings only.
+  expect(counters.trees).toBeGreaterThan(3);
 
   const capture = await page.screenshot();
   await test.info().attach(name, { body: capture, contentType: 'image/png' });

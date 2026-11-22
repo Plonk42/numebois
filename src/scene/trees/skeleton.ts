@@ -142,7 +142,7 @@ function grow(
 }
 
 /** Build the skeleton of a tree of this family. `depth` can lower the family's fork levels. */
-export function buildSkeleton(rng: Rng, f: Family, depth = f.depth): Skeleton {
+export function buildSkeleton(rng: Rng, f: Family, depth = f.depth, roots = true): Skeleton {
   const sk = new Skeleton();
   let node = sk.add(0, -0.25, 0, f.radius * 1.3, -1);
   sk.anchor[node] = node;
@@ -187,8 +187,8 @@ export function buildSkeleton(rng: Rng, f: Family, depth = f.depth): Skeleton {
       );
     }
   }
-  const roots = rng.int(3, 5);
-  for (let i = 0; i < roots; i++) {
+  const rootCount = roots ? rng.int(3, 5) : 0;
+  for (let i = 0; i < rootCount; i++) {
     const a = a0 + (i * TAU) / 4 + rng.range(-0.4, 0.4);
     const ox = Math.cos(a);
     const oz = Math.sin(a);
