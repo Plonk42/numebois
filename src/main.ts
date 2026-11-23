@@ -52,7 +52,7 @@ const gameReady =
             (data) => void writeSave(data).catch((error: unknown) => console.warn(error)),
           );
           // During a question, the soundscape stays low and plays no calls.
-          app.sound.quiet = () => game?.phase !== 'reward' && game?.phase !== 'summary';
+          app.sound.quiet = () => !['seed', 'reward', 'summary'].includes(game?.phase ?? '');
         });
 
 window.__numebois = {

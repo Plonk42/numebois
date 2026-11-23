@@ -52,4 +52,32 @@ describe('session', () => {
     const fact = complements.facts!.of(exercise)!;
     expect(session.facts.get(fact)).toMatchObject({ tries: 1, right: 1, fastDays: [100] });
   });
+
+  it('reports a notion acquired and a fact automated, once', () => {
+    const session = new Session(SKILLS, new Rng(1), () => 100);
+    const complements = SKILLS.find((skill) => skill.id === 'mental-math.complements')!;
+    const top = complements.levels - 1;
+    // A fact of the first level; the answer counts at the notion's level all the same.
+    const exercise = complements.generate(new Rng(1), 0);
+    const fact = complements.facts!.of(exercise)!;
+    session.restore({
+      progress: [
+        {
+          skill: complements.id,
+          stage: 'learning',
+          level: top,
+          recent: Array.from({ length: 4 }, () => ({ level: top, right: true, day: 99 })),
+          box: 0,
+          due: null,
+        },
+      ],
+      facts: [{ fact, tries: 2, right: 2, fastDays: [98, 99], times: [900, 900] }],
+      history: [],
+    });
+    expect(session.conclude(complements, exercise, true, 900, false)).toEqual([
+      { kind: 'acquired', skill: complements.id },
+      { kind: 'automated', fact },
+    ]);
+    expect(session.conclude(complements, exercise, true, 900, false)).toEqual([]);
+  });
 });

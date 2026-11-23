@@ -25,7 +25,7 @@ describe('sauvegarde', () => {
   it('survives an export and an import', () => {
     const session = played();
     const json = serializeSave(
-      { ...session.snapshot(), energy: 3, trailLength: 'short' },
+      { ...session.snapshot(), leaves: 3, seeds: 1, trailLength: 'short' },
       new Date('2026-11-23T10:00:00Z'),
     );
     const parsed = parseSave(json, SKILLS);
@@ -34,7 +34,8 @@ describe('sauvegarde', () => {
     expect(parsed.data).toMatchObject({
       version: SAVE_SCHEMA_VERSION,
       savedAt: '2026-11-23T10:00:00.000Z',
-      energy: 3,
+      leaves: 3,
+      seeds: 1,
       trailLength: 'short',
     });
     const restored = new Session(SKILLS, new Rng(9), () => 200);
@@ -51,7 +52,8 @@ describe('sauvegarde', () => {
         ...snapshot,
         progress: [...snapshot.progress, { ...snapshot.progress[0], skill: 'gone.skill' }],
         facts: [{ fact: 'gone.skill:1', tries: 1, right: 1, fastDays: [1], times: [900] }],
-        energy: 0,
+        leaves: 0,
+        seeds: 0,
         trailLength: 'normal',
       },
       new Date(),
@@ -68,7 +70,7 @@ describe('sauvegarde', () => {
     ['another file', '[1, 2]', 'pas une sauvegarde'],
     ['a newer version', JSON.stringify({ version: SAVE_SCHEMA_VERSION + 1 }), 'plus récente'],
     ['an older version', JSON.stringify({ version: 0 }), 'ancienne version'],
-    ['missing data', JSON.stringify({ version: SAVE_SCHEMA_VERSION, energy: 1 }), 'abîmée'],
+    ['missing data', JSON.stringify({ version: SAVE_SCHEMA_VERSION, leaves: 1 }), 'abîmée'],
   ])('refuses %s with a reason', (_, json, reason) => {
     const parsed = parseSave(json, SKILLS);
     expect(parsed.ok).toBe(false);
@@ -81,7 +83,8 @@ describe('sauvegarde', () => {
         progress: [{ skill: 'mental-math.add', stage: 'lost' } as never],
         facts: [],
         history: [],
-        energy: 0,
+        leaves: 0,
+        seeds: 0,
         trailLength: 'normal',
       },
       new Date(),

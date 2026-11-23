@@ -1,5 +1,5 @@
-import { recordFact, newFact, type FactProgress } from './facts';
-import { newProgress, record, type SkillProgress } from './mastery';
+import { isAutomated, recordFact, newFact, type FactProgress } from './facts';
+import { isAcquired, newProgress, record, type SkillProgress } from './mastery';
 import type { Rng } from './rng';
 import { composeTrail, revisit, stepLevel, type TrailLength, type TrailStep } from './trail';
 import type { Exercise, FactId, Skill, SkillId } from './types';
@@ -8,6 +8,10 @@ import type { Exercise, FactId, Skill, SkillId } from './types';
 const HISTORY = 30;
 /** Easy questions added at most when the last one ended with the answer shown. */
 const MAX_EXTRA = 2;
+
+/** Something learnt with an answer: each brings golden seeds. */
+export type Achievement =
+  { kind: 'acquired'; skill: SkillId } | { kind: 'automated'; fact: FactId };
 
 /**
  * The trails of a player, one after the other: composes them, asks their questions and
@@ -71,16 +75,31 @@ export class Session {
 
   /**
    * The question is over: `right` at the first try or not, `ms` until the first answer,
-   * `revealed` when the answer was shown (a close question comes back later).
+   * `revealed` when the answer was shown (a close question comes back later). Returns what
+   * the answer achieved: the notion acquired, the fact automated.
    */
-  conclude(skill: Skill, exercise: Exercise, right: boolean, ms: number, revealed: boolean): void {
+  conclude(
+    skill: Skill,
+    exercise: Exercise,
+    right: boolean,
+    ms: number,
+    revealed: boolean,
+  ): Achievement[] {
+    const achievements: Achievement[] = [];
     const day = this.today();
     const progress = this.progress.get(skill.id) ?? newProgress(skill.id);
-    this.progress.set(skill.id, record(progress, { right, day }, skill.levels));
+    const recorded = record(progress, { right, day }, skill.levels);
+    this.progress.set(skill.id, recorded);
+    if (!isAcquired(progress) && isAcquired(recorded)) {
+      achievements.push({ kind: 'acquired', skill: skill.id });
+    }
     const fact = skill.facts?.of(exercise);
     if (fact) {
       const before = this.facts.get(fact) ?? newFact(fact);
-      this.facts.set(fact, recordFact(before, { right, ms, day }, skill.facts!.seconds));
+      const after = recordFact(before, { right, ms, day }, skill.facts!.seconds);
+      this.facts.set(fact, after);
+      if (!isAutomated(before) && isAutomated(after))
+        achievements.push({ kind: 'automated', fact });
     }
     this.results.push(right);
     if (revealed) this.trail = revisit(this.trail, this.index);
@@ -89,6 +108,7 @@ export class Session {
       this.trail.push({ ...this.trail[this.index], role: 'finish', easy: true });
       this.extra++;
     }
+    return achievements;
   }
 
   /** Moves to the next step; false when the trail is over. */
