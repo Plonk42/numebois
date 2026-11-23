@@ -125,6 +125,23 @@ export const SOUND_CATALOG = {
     cuts: [[1.3, 5.3]],
   },
   chimes: { kind: 'calls', ...source(389789, 6152820, 'fmceretta', 'Chimes'), cuts: [[0.5, 6.1]] },
+  // Rewards of the trail (#36), from one synthesised pack so they sound alike.
+  right: {
+    kind: 'calls',
+    ...source(878606, 19512113, 'Qvantor', 'Task Complete Pop'),
+    cuts: [[0, 0.7]],
+  },
+  seed: { kind: 'calls', ...source(878614, 19512113, 'Qvantor', 'Gem Sparkle'), cuts: [[0, 2.3]] },
+  stage: {
+    kind: 'calls',
+    ...source(878598, 19512113, 'Qvantor', 'Level Up Magic Harp'),
+    cuts: [[0, 3.45]],
+  },
+  finale: {
+    kind: 'calls',
+    ...source(878605, 19512113, 'Qvantor', 'Quest Complete'),
+    cuts: [[0, 4]],
+  },
 } as const satisfies Record<string, LoopSound | CallSound>;
 
 export type SoundName = keyof typeof SOUND_CATALOG;

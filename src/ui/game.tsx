@@ -45,6 +45,8 @@ export interface GameForest extends SpotsForest {
   adopt(animal: AnimalName): Promise<unknown>;
   /** Picture of an animal for the shop, null while the animals load. */
   portrait(animal: AnimalName): string | null;
+  /** Short sound of a reward of the trail. */
+  reward(kind: 'right' | 'seed'): void;
 }
 
 /** Read by the end-to-end tests. */
@@ -247,6 +249,7 @@ function Game(props: Props) {
     );
     setPraise(rng.pick(PRAISES));
     setPhase('right');
+    forest.reward('right');
     setLeaves(leaves + LEAVES_PER_RIGHT_ANSWER);
     setLeavesHere(leavesHere + LEAVES_PER_RIGHT_ANSWER);
     const steps: Step[] = [];
@@ -257,7 +260,10 @@ function Game(props: Props) {
         {
           phase: 'seed',
           ms: SEED_SHOW_MS,
-          start: () => setGift({ count, reason, leaving: false }),
+          start: () => {
+            setGift({ count, reason, leaving: false });
+            forest.reward('seed');
+          },
         },
         {
           phase: 'seed',

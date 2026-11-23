@@ -33,7 +33,16 @@ const CALLS: Record<CallLevel, { sounds: readonly CallName[]; gain: number }> = 
   owl: { sounds: ['owl'], gain: 0.4 },
   magic: { sounds: ['chimes'], gain: 0.25 },
 };
-const REWARD_GAIN = 0.6;
+/** Moments of the game that a short sound rewards. */
+export type Reward = 'right' | 'seed' | 'element' | 'stage' | 'finale';
+/** Recording and gain of each reward: the right answer comes often, so it stays soft. */
+const REWARDS: Record<Reward, { sound: CallName; gain: number }> = {
+  right: { sound: 'right', gain: 0.35 },
+  seed: { sound: 'seed', gain: 0.55 },
+  element: { sound: 'chime', gain: 0.6 },
+  stage: { sound: 'stage', gain: 0.6 },
+  finale: { sound: 'finale', gain: 0.7 },
+};
 /** Never two calls of a kind closer than this, in seconds. */
 const MIN_CALL_GAP = 6;
 
@@ -80,6 +89,8 @@ export function familyWeights(levels: SoundLevels, time: number): Record<Family,
 export class Soundscape {
   private context: AudioContext | null = null;
   private master: GainNode | null = null;
+  /** Rewards skip the master: a question lowers the ambience, never them. */
+  private rewards: GainNode | null = null;
   private wind: GainNode | null = null;
   private readonly families = new Map<Family, GainNode>();
   private readonly loops = new Map<LoopName, GainNode>();
@@ -145,9 +156,15 @@ export class Soundscape {
     this.nextCall.clear();
   }
 
-  /** Short chime of a reward (an element grows): never skipped while the sound plays. */
-  chime(): void {
-    if (this.state === 'playing') this.play('chime', REWARD_GAIN, this.rng.range(-0.3, 0.3));
+  /** Rewards played so far, for the tests. */
+  readonly played: Reward[] = [];
+
+  /** Short sound of a reward: never skipped while the sound plays, even during a question. */
+  reward(kind: Reward): void {
+    if (this.state !== 'playing' || !this.rewards) return;
+    const { sound, gain } = REWARDS[kind];
+    this.play(sound, gain, this.rng.range(-0.3, 0.3), this.rewards);
+    this.played.push(kind);
   }
 
   dispose(): void {
@@ -186,6 +203,10 @@ export class Soundscape {
     master.gain.value = 0;
     master.connect(context.destination);
     this.master = master;
+    const rewards = context.createGain();
+    rewards.gain.value = MASTER;
+    rewards.connect(context.destination);
+    this.rewards = rewards;
     for (const family of FAMILIES) {
       const gain = context.createGain();
       gain.connect(master);
@@ -266,10 +287,10 @@ export class Soundscape {
     this.loops.set(name, gain);
   }
 
-  private play(name: CallName, gain: number, pan: number): void {
+  private play(name: CallName, gain: number, pan: number, output = this.master): void {
     const context = this.context;
     const buffer = this.buffers.get(name);
-    if (!context || !buffer || !this.master) return;
+    if (!context || !buffer || !output) return;
     const cuts = SOUND_FILES[name].cuts;
     const [start, duration] = cuts[this.rng.int(0, cuts.length - 1)];
     const source = context.createBufferSource();
@@ -278,7 +299,7 @@ export class Soundscape {
     volume.gain.value = gain;
     const panner = context.createStereoPanner();
     panner.pan.value = pan;
-    source.connect(volume).connect(panner).connect(this.master);
+    source.connect(volume).connect(panner).connect(output);
     source.start(0, start, duration);
   }
 

@@ -48,3 +48,7 @@ Enregistrements de [Freesound](https://freesound.org), tous en [CC0 1.0](https:/
 | `owl.ogg`        | [Owl Hoot](https://freesound.org/s/465697/)                                  | Breviceps     |
 | `chime.ogg`      | [GLEAM-GLOW-SFX-CHIME](https://freesound.org/s/351408/)                      | newagesoup    |
 | `chimes.ogg`     | [Chimes](https://freesound.org/s/389789/)                                    | fmceretta     |
+| `right.ogg`      | [Task Complete Pop](https://freesound.org/s/878606/)                         | Qvantor       |
+| `seed.ogg`       | [Gem Sparkle](https://freesound.org/s/878614/)                               | Qvantor       |
+| `stage.ogg`      | [Level Up Magic Harp](https://freesound.org/s/878598/)                       | Qvantor       |
+| `finale.ogg`     | [Quest Complete](https://freesound.org/s/878605/)                            | Qvantor       |
