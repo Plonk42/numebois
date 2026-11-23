@@ -44,9 +44,20 @@ jobs:
           path: dist
 
   e2e:
-    name: e2e
+    name: e2e (${{ matrix.group }})
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # Software rendering keeps each runner busy: groups of similar length on parallel runners.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - group: game
+            args: game.spec
+          - group: notions
+            args: notions.spec save.spec sound.spec
+          - group: scene
+            args: --grep-invert "(game|notions|save|sound)\.spec"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -58,12 +69,12 @@ jobs:
         run: npx playwright install --with-deps chromium
       # The optimised KayKit models are committed; placeholders are tested with ?assets=placeholder.
       - name: Playwright (tablet landscape)
-        run: npm run test:e2e
+        run: npx playwright test ${{ matrix.args }}
       - name: Upload report and captures
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.group }}
           path: |
             playwright-report
             test-results
