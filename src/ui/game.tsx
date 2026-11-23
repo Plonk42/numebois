@@ -13,9 +13,11 @@ import { serializeSave, type ParsedSave } from '../save/save';
 import type { AnimalName } from '../scene/animal-catalog';
 import { MAX_ELEMENTS, type SceneDescription } from '../scene/description';
 import { canBuy, shopItems, type ShopItem } from '../scene/shop';
+import type { Season } from '../scene/trees/builder';
 import { ParentMenu } from './parent-menu';
 import { Plume, type PlumeMood } from './plume';
 import { plural, Reserve, SeedIcon } from './reserve';
+import { SEASON_LABELS, SeasonPicker } from './seasons';
 import { ANIMAL_LABELS, Shop } from './shop';
 import { Slate, type SlateHint } from './slate';
 import { Spots, type SpotsForest } from './spots';
@@ -32,7 +34,18 @@ const PRAISES = ['Bravo !', 'Super !', 'Oui !', 'Bien vu !', 'Génial !'];
 const DAY_MS = 86_400_000;
 
 type Phase =
-  'asking' | 'right' | 'reveal' | 'seed' | 'summary' | 'choosing' | 'planting' | 'adopting';
+  | 'asking'
+  | 'right'
+  | 'reveal'
+  | 'seed'
+  | 'summary'
+  | 'choosing'
+  | 'planting'
+  | 'adopting'
+  | 'turning';
+
+/** Phases of the end of the trail, when the forest has the stage. */
+const SUMMARY_PHASES: readonly Phase[] = ['summary', 'choosing', 'planting', 'adopting', 'turning'];
 
 /** The painting in progress, as the game sees it. */
 export interface GameForest extends SpotsForest {
@@ -43,6 +56,8 @@ export interface GameForest extends SpotsForest {
   plant(slot: number, day: number): Promise<unknown>;
   /** Brings a bought animal into the meadow; resolves once it has settled. */
   adopt(animal: AnimalName): Promise<unknown>;
+  /** Shows the painting in another season (a bought one joins its seasons); resolves once shown. */
+  changeSeason(season: Season): Promise<unknown>;
   /** Picture of an animal for the shop, null while the animals load. */
   portrait(animal: AnimalName): string | null;
   /** Short sound of a reward of the trail. */
@@ -122,12 +137,12 @@ function Game(props: Props) {
   const [menu, setMenu] = useState(false);
   const [length, setLength] = useState<TrailLength>(session.length);
   const [spots, setSpots] = useState<readonly number[]>([]);
-  const [arrival, setArrival] = useState<AnimalName | null>(null);
+  const [arrival, setArrival] = useState<string | null>(null);
   const timer = useRef(0);
   const shownAt = useRef(performance.now());
   const firstAnswerMs = useRef<number | null>(null);
 
-  const summary = ['summary', 'choosing', 'planting', 'adopting'].includes(phase);
+  const summary = SUMMARY_PHASES.includes(phase);
   useEffect(() => {
     Object.assign(probe, {
       exercise,
@@ -183,7 +198,7 @@ function Game(props: Props) {
     ask();
   };
 
-  /** One touch in the shop: an element waits for its place, an animal comes at once. */
+  /** One touch in the shop: an element waits for its place, an animal or a season comes at once. */
   const buy = (item: ShopItem) => {
     if (phase !== 'summary' || !canBuy(item, leaves, seeds)) return;
     const { article } = item;
@@ -196,10 +211,24 @@ function Game(props: Props) {
     }
     setLeaves(leaves - item.leaves);
     setSeeds(seeds - item.seeds);
-    setArrival(article.animal);
+    if (article.kind === 'season') {
+      setArrival(`${SEASON_LABELS[article.season]} arrive !`);
+      turn(article.season);
+      return;
+    }
+    setArrival(`${ANIMAL_LABELS[article.animal]} arrive !`);
     setPhase('adopting');
     void forest.adopt(article.animal).then(() => {
       setGrownHere((g) => g + 1);
+      setArrival(null);
+      setPhase('summary');
+    });
+  };
+
+  /** The painting passes to another of its seasons. */
+  const turn = (season: Season) => {
+    setPhase('turning');
+    void forest.changeSeason(season).then(() => {
       setArrival(null);
       setPhase('summary');
     });
@@ -289,6 +318,7 @@ function Game(props: Props) {
     };
   }
   const placed = forest.description().elements.length;
+  const { season, seasons } = forest.description();
   // A golden seed: the slate steps aside, the forest lights up.
   const away = phase === 'seed';
   let plume: PlumeMood = 'calm';
@@ -297,6 +327,14 @@ function Game(props: Props) {
   return (
     <>
       <Reserve leaves={leaves} seeds={seeds} onLongPress={() => setMenu(true)} />
+      <SeasonPicker
+        seasons={seasons}
+        season={season}
+        active={phase === 'summary'}
+        onPick={(s) => {
+          if (phase === 'summary') turn(s);
+        }}
+      />
       <TrailPath stones={session.stones} current={summary ? session.stones : session.stone} />
       {/* During a question, the forest dims: one thing at a time. */}
       <div id="dim" class={summary || away ? '' : 'on'} />
@@ -304,7 +342,7 @@ function Game(props: Props) {
       {phase === 'choosing' && <Spots forest={forest} slots={spots} onPick={plant} />}
       {arrival && (
         <section id="arrival" aria-live="polite">
-          <p class="title">{ANIMAL_LABELS[arrival]} arrive !</p>
+          <p class="title">{arrival}</p>
         </section>
       )}
       {menu && (

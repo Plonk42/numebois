@@ -247,7 +247,7 @@ test('la boutique : une biche achetée en graines dorées rejoint la prairie et 
   await page.goto('./?seed=3');
   await page.evaluate(() => window.__numebois!.ready);
   await loadSave(page, {
-    version: 2,
+    version: 3,
     savedAt: '2026-11-23T10:00:00.000Z',
     leaves: 0,
     seeds: 2,
@@ -256,6 +256,7 @@ test('la boutique : une biche achetée en graines dorées rejoint la prairie et 
       seed: 3,
       stage: 3,
       season: 'summer',
+      seasons: ['summer'],
       elements: [0, 1, 2].map((slot) => ({ slot, day: 1 })),
       animals: [],
     },
@@ -322,6 +323,113 @@ test('la boutique : une biche achetée en graines dorées rejoint la prairie et 
   expect(errors).toEqual([]);
 });
 
+test('les saisons : l’automne acheté, l’enfant choisit la saison de son tableau', async ({
+  page,
+}) => {
+  // A short trail, then two seasons under the veil: about a minute on CI.
+  test.setTimeout(180_000);
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto('./?seed=3');
+  await page.evaluate(() => window.__numebois!.ready);
+  await loadSave(page, {
+    version: 3,
+    savedAt: '2026-11-23T10:00:00.000Z',
+    leaves: 0,
+    seeds: 3,
+    trailLength: 'short',
+    painting: {
+      seed: 3,
+      stage: 3,
+      season: 'summer',
+      seasons: ['summer'],
+      elements: [0, 1, 2].map((slot) => ({ slot, day: 1 })),
+      animals: [],
+    },
+    progress: [],
+    facts: [],
+    history: [],
+  });
+  const describe = () => page.evaluate(() => window.__numebois!.describe());
+  const picker = page.locator('#seasons');
+  const summer = picker.getByRole('button', { name: 'L’été' });
+  const autumn = picker.getByRole('button', { name: 'L’automne' });
+  // During a question, the season of the painting stays: one season, nothing to touch.
+  await expect(picker.getByRole('button')).toHaveCount(1);
+  await expect(summer).toBeDisabled();
+  await expect(summer).toHaveAttribute('aria-pressed', 'true');
+  const [bar, trail, sound] = await Promise.all(
+    ['#seasons', '#trail', '#sound-toggle'].map(async (s) => (await boxes(page, s))[0]),
+  );
+  expect(apart(bar, trail) && apart(bar, sound)).toBe(true);
+
+  const { stones } = await game(page);
+  for (let stone = 0; stone < stones; stone++) {
+    const exercise = await current(page);
+    await page.keyboard.type(exercise.answer);
+    await page.keyboard.press('Enter');
+    await expect.poll(async () => (await game(page)).stone, { timeout: 8000 }).toBe(stone + 1);
+  }
+  const end = page.locator('#trail-end');
+  const offer = end.locator('.shop').getByRole('button', { name: 'L’automne, 3 graines dorées' });
+  await expect(offer).toBeEnabled();
+  await expect(summer).toBeEnabled();
+
+  // One touch: the seeds are spent and autumn comes over the painting, which keeps summer.
+  // The announcement is short and the page busy under the veil: an observer keeps what showed.
+  await page.evaluate(() => {
+    const doc = globalThis.document;
+    const seen: string[] = [];
+    Object.assign(window, { seen });
+    new MutationObserver(() => {
+      const text = doc.querySelector('#arrival')?.textContent;
+      if (text && !seen.includes(text)) seen.push(text);
+      if (doc.querySelector('#trail-end.away') && !seen.includes('away')) seen.push('away');
+    }).observe(doc.querySelector('#ui')!, { childList: true, subtree: true, attributes: true });
+  });
+  await offer.click();
+  await expect(autumn).toHaveAttribute('aria-pressed', 'true', { timeout: 12_000 });
+  await expect(end).not.toHaveClass(/away/, { timeout: 12_000 });
+  await expect(page.locator('#arrival')).toHaveCount(0);
+  const seen = await page.evaluate(() => (window as unknown as { seen: string[] }).seen);
+  expect(seen.sort()).toEqual(['away', 'L’automne arrive !'].sort());
+  expect((await game(page)).seeds).toBe(0);
+  expect(await describe()).toMatchObject({ season: 'autumn', seasons: ['summer', 'autumn'] });
+  await expect(picker.getByRole('button')).toHaveCount(2);
+  await expect(end.locator('.shop').getByRole('button', { name: /^L’automne/ })).toHaveCount(0);
+  await test.info().attach('automne', { body: await page.screenshot(), contentType: 'image/png' });
+
+  // One touch on the bar: summer again, nothing else bought.
+  await summer.click();
+  await expect(summer).toHaveAttribute('aria-pressed', 'true', { timeout: 12_000 });
+  await expect(end).not.toHaveClass(/away/, { timeout: 12_000 });
+  expect(await describe()).toMatchObject({ season: 'summer', seasons: ['summer', 'autumn'] });
+  expect((await game(page)).seeds).toBe(0);
+
+  // The season chosen and the one bought stay in the painting, once written.
+  const saved = () =>
+    page.evaluate(
+      () =>
+        new Promise<string>((resolve) => {
+          const request = indexedDB.open('numebois', 1);
+          request.onsuccess = () => {
+            const get = request.result.transaction('kv').objectStore('kv').get('numebois:save');
+            get.onsuccess = () => {
+              request.result.close();
+              resolve(JSON.parse(String(get.result)).painting.season);
+            };
+          };
+        }),
+    );
+  await expect.poll(saved).toBe('summer');
+  await page.reload();
+  await page.evaluate(() => window.__numebois!.ready);
+  expect(await describe()).toMatchObject({ season: 'summer', seasons: ['summer', 'autumn'] });
+  await expect(picker.getByRole('button')).toHaveCount(2);
+  await expect(autumn).toBeDisabled();
+  expect(errors).toEqual([]);
+});
+
 test('le choix : comparer avec <, = ou >, d’une touche, sans rouge', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
@@ -329,7 +437,7 @@ test('le choix : comparer avec <, = ou >, d’une touche, sans rouge', async ({ 
   await page.evaluate(() => window.__numebois!.ready);
   // A save where « comparer » is in progress: the trail warms up with it.
   await loadSave(page, {
-    version: 2,
+    version: 3,
     savedAt: '2026-11-23T10:00:00.000Z',
     leaves: 0,
     seeds: 0,
@@ -369,7 +477,7 @@ test('une notion acquise : une graine dorée, seule à l’écran, rejoint la r�
   // « Écrire en chiffres » at its last level: one more right answer acquires it.
   const recent = Array.from({ length: 4 }, () => ({ level: 3, right: true, day: 1 }));
   await loadSave(page, {
-    version: 2,
+    version: 3,
     savedAt: '2026-11-23T10:00:00.000Z',
     leaves: 7,
     seeds: 0,

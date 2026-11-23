@@ -63,13 +63,29 @@ describe('procedural trees', () => {
   it('keeps the same shape in every season (only UVs change)', () => {
     const summer = build(spec({ family: 'Cube' }), 'summer');
     const autumn = build(spec({ family: 'Cube' }), 'autumn');
-    expect(autumn.out.vertexCount).toBe(summer.out.vertexCount);
-    expect(hashFloats(autumn.out.positions.subarray(0, autumn.out.vertexCount * 3))).toBe(
-      hashFloats(summer.out.positions.subarray(0, summer.out.vertexCount * 3)),
-    );
     expect(hashFloats(autumn.out.uvs.subarray(0, autumn.out.vertexCount * 2))).not.toBe(
       hashFloats(summer.out.uvs.subarray(0, summer.out.vertexCount * 2)),
     );
+    // The child changes the season of the painting (#82): no tree may move.
+    for (const family of FAMILY_NAMES) {
+      for (const seed of [1, 2, 3, 4, 5]) {
+        for (const detail of ['full', 'light', 'far'] as const) {
+          const shapes = SEASONS.map((season) => {
+            const { out } = build(spec({ family, seed, detail }), season);
+            // Triangle corners: winter snow duplicates vertices without moving them.
+            const corners = new Float32Array(out.indexCount * 3);
+            for (let i = 0; i < out.indexCount; i++) {
+              corners.set(
+                out.positions.subarray(out.indices[i] * 3, out.indices[i] * 3 + 3),
+                i * 3,
+              );
+            }
+            return hashFloats(corners);
+          });
+          expect(new Set(shapes).size, `${family} ${seed} ${detail}`).toBe(1);
+        }
+      }
+    }
   });
 
   it('stays under the triangle budget of a tree, with the real tuft sizes', () => {

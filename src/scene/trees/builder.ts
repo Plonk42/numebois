@@ -489,7 +489,11 @@ export function buildTree(
     sides: far ? 4 : light ? 5 : 6,
   };
   for (const chain of chains(sk)) if (chain.length >= 2) tube(ctx, sk, ages, chain);
-  const column = foliagePicker(rng, family, season);
+  const column = foliagePicker(
+    new Rng(hashSeed(spec.seed, `${spec.family}:foliage`)),
+    family,
+    season,
+  );
   if (conifer) coniferBlobs(ctx, assets, sk, total, far ? 3 : light ? 4 : 5, column);
   else broadleafBlobs(ctx, assets, sk, ages, clump, light, column);
 

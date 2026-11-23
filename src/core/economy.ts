@@ -8,3 +8,5 @@ export const SEEDS_PER_ACHIEVEMENT = 1;
 export const LEAVES_PER_ELEMENT = 4;
 /** Golden seeds of an animal in the shop of the forest (#83). */
 export const SEEDS_PER_ANIMAL = 2;
+/** Golden seeds of a season for the painting in progress (#82). */
+export const SEEDS_PER_SEASON = 3;

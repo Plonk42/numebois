@@ -56,6 +56,7 @@ function scene(
     seed,
     stage,
     season,
+    seasons: [season],
     elements: demoElements(seed, fill),
     animals: demoAnimals(stage),
     ...more,
@@ -113,6 +114,7 @@ describe('scene description', () => {
     expect(d).toEqual({
       stage: 4,
       season: 'winter',
+      seasons: ['winter'],
       seed: 12,
       elements: demoElements(12, 0.5),
       animals: ['Deer'],
@@ -525,11 +527,32 @@ describe('slots and grand moments', () => {
       { ...valid, animals: ['Bear'] },
       { ...valid, animals: ['Fox', 'Fox'] },
       { ...valid, animals: ['Deer', 'Deer', 'Deer'] },
+      { ...valid, seasons: undefined },
+      { ...valid, seasons: [] },
+      { ...valid, seasons: ['summer'] },
+      { ...valid, seasons: ['autumn', 'monsoon'] },
+      { ...valid, seasons: ['autumn', 'winter', 'autumn'] },
     ]) {
       expect(readDescription(broken), JSON.stringify(broken)).toBeNull();
     }
     const twoDeer = { ...valid, animals: ['Deer', 'Wolf', 'Deer'] };
     expect(readDescription(JSON.parse(JSON.stringify(twoDeer)))).toEqual(twoDeer);
+    const bought = { ...valid, seasons: ['spring', 'summer', 'autumn'] };
+    expect(readDescription(JSON.parse(JSON.stringify(bought)))).toEqual(bought);
+  });
+
+  it('moves no tree and no animal when the child changes the season (#82)', () => {
+    for (const seed of [2, 9]) {
+      const terrain = createClearing(seed, LAST_STAGE);
+      const plans = SEASONS.map((season) => {
+        const description = scene(seed, LAST_STAGE, season);
+        return {
+          trees: plantTrees(terrain, description, ambienceFor(LAST_STAGE, season)),
+          herd: planHerd(terrain, description.animals, seed),
+        };
+      });
+      for (const plan of plans.slice(1)) expect(plan).toEqual(plans[0]);
+    }
   });
 
   it('plants the filled slots and keeps the candidate ones ready to grow', () => {

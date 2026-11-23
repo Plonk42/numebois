@@ -1,7 +1,7 @@
 import { Rng } from '../core/rng';
 import { ANIMAL_NAMES, type AnimalName } from './animal-catalog';
 import { SLOT_COUNT } from './terrain/clearing-layout';
-import type { Season } from './trees/builder';
+import { SEASONS, type Season } from './trees/builder';
 
 export const STAGES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] as const;
 export type Stage = (typeof STAGES)[number];
@@ -37,6 +37,17 @@ export const ANIMAL_OFFERS: readonly { animal: AnimalName; stage: Stage }[] = [
   { animal: 'Wolf', stage: 10 },
 ];
 
+/**
+ * Stage from which the shop sells the second, third and fourth season of a painting (#82):
+ * the year turns as the painting grows.
+ */
+export const SEASON_STAGES: readonly Stage[] = [3, 7, 10];
+
+/** The season after this one, in the order of the year. */
+export function nextSeason(season: Season): Season {
+  return SEASONS[(SEASONS.indexOf(season) + 1) % SEASONS.length];
+}
+
 /** Stage of a painting with this many elements placed. */
 export function stageFor(elements: number): Stage {
   let stage = 0;
@@ -51,7 +62,10 @@ export function stageFor(elements: number): Stage {
 export interface SceneDescription {
   seed: number;
   stage: Stage;
+  /** Season shown, chosen by the child among `seasons`. */
   season: Season;
+  /** Seasons of this painting: the one it started with, then those bought, in buying order. */
+  seasons: readonly Season[];
   /** Elements placed by the child, in placing order. */
   elements: readonly PlacedElement[];
   /** Animals the child brought from the shop, in buying order. */
@@ -86,21 +100,21 @@ export function fillOf(description: SceneDescription): number {
 
 /** A painting where the child has placed nothing yet. */
 export function newPainting(seed: number, season: Season): SceneDescription {
-  return { seed, stage: 0, season, elements: [], animals: [] };
+  return { seed, stage: 0, season, seasons: [season], elements: [], animals: [] };
 }
 
 export const DEFAULT_DESCRIPTION: SceneDescription = {
   seed: 7,
   stage: 6,
   season: 'summer',
+  seasons: ['summer'],
   elements: demoElements(7, DEMO_FILL[6]),
   animals: demoAnimals(6),
 };
 
-const SEASON_NAMES: readonly Season[] = ['spring', 'summer', 'autumn', 'winter'];
-
 export function parseDescription(params: URLSearchParams): SceneDescription {
-  const season = params.get('season');
+  const asked = params.get('season') as Season;
+  const season = SEASONS.includes(asked) ? asked : DEFAULT_DESCRIPTION.season;
   const stage = Number(params.get('stage') ?? DEFAULT_DESCRIPTION.stage);
   const seed = Number(params.get('seed') ?? DEFAULT_DESCRIPTION.seed);
   const knownStage = STAGES.includes(stage as Stage) ? (stage as Stage) : DEFAULT_DESCRIPTION.stage;
@@ -109,9 +123,8 @@ export function parseDescription(params: URLSearchParams): SceneDescription {
   return {
     seed: knownSeed,
     stage: knownStage,
-    season: SEASON_NAMES.includes(season as Season)
-      ? (season as Season)
-      : DEFAULT_DESCRIPTION.season,
+    season,
+    seasons: [season],
     elements: demoElements(
       knownSeed,
       Number.isFinite(fill) ? Math.min(1, Math.max(0, fill / 100)) : DEMO_FILL[knownStage],
@@ -133,10 +146,23 @@ const isObject = (value: unknown): value is Record<string, unknown> =>
 /**
  * Reads a description kept in a save or the Album; null when anything is out of place
  * (unknown stage, season or animal, slot outside the painting or placed twice, more animals
- * of a kind than the shop offers).
+ * of a kind than the shop offers, season shown but not owned or owned twice).
  */
 export function readDescription(value: unknown): SceneDescription | null {
-  if (!isObject(value) || !Array.isArray(value.elements) || !Array.isArray(value.animals)) {
+  if (
+    !isObject(value) ||
+    !Array.isArray(value.elements) ||
+    !Array.isArray(value.animals) ||
+    !Array.isArray(value.seasons)
+  ) {
+    return null;
+  }
+  const seasons = value.seasons as unknown[];
+  if (
+    !seasons.every((s) => SEASONS.includes(s as Season)) ||
+    new Set(seasons).size !== seasons.length ||
+    !seasons.includes(value.season)
+  ) {
     return null;
   }
   const animals = value.animals as unknown[];
@@ -158,18 +184,14 @@ export function readDescription(value: unknown): SceneDescription | null {
     slots.add(slot as number);
     elements.push({ slot: slot as number, day: day as number });
   }
-  if (
-    !Number.isInteger(seed) ||
-    (seed as number) < 0 ||
-    !STAGES.includes(stage as Stage) ||
-    !SEASON_NAMES.includes(season as Season)
-  ) {
+  if (!Number.isInteger(seed) || (seed as number) < 0 || !STAGES.includes(stage as Stage)) {
     return null;
   }
   return {
     seed: seed as number,
     stage: stage as Stage,
     season: season as Season,
+    seasons: seasons as Season[],
     elements,
     animals: animals as AnimalName[],
   };
