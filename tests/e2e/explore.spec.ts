@@ -1,5 +1,5 @@
 import { expect, test, type CDPSession, type Page } from '@playwright/test';
-import { apart, boxes, startTrail } from './helpers';
+import { apart, boxes } from './helpers';
 
 type Point = [number, number];
 
@@ -67,8 +67,10 @@ test('se promener dans la forêt : gestes dans leurs limites, retour au cadrage,
   await page.getByRole('button', { name: 'Se promener' }).click();
   await expect(welcome).toHaveClass(/away/);
   const walk = page.locator('#walk');
-  const back = walk.getByRole('button', { name: 'Revenir' });
+  const back = walk.getByRole('button', { name: 'Toute la forêt' });
+  const hint = walk.locator('.hint');
   await expect(walk).toBeVisible();
+  await expect(hint).toBeVisible();
   await expect(back).toBeHidden();
   expect((await view(page)).active).toBe(true);
   for (const box of await boxes(page, '#walk button')) {
@@ -91,6 +93,8 @@ test('se promener dans la forêt : gestes dans leurs limites, retour au cadrage,
   );
   expect((await view(page)).goal.zoom).toBe(2.5);
   await expect(back).toBeVisible();
+  // Once the child has moved, the hint has done its work.
+  await expect(hint).toHaveCount(0);
 
   // One finger moves the view; far away, it stops at the edge of the painting.
   await touch(cdp, drag([300, 330], [1000, 330]));
@@ -140,15 +144,15 @@ test('se promener dans la forêt : gestes dans leurs limites, retour au cadrage,
   await page.mouse.wheel(0, -400);
   await expect.poll(async () => (await view(page)).goal.zoom).toBeGreaterThan(1.5);
 
-  // The end of the walk brings the welcome card back, and the view glides home.
-  await walk.getByRole('button', { name: 'J’ai fini' }).click();
+  // From the welcome card, the walk ends on the trail; the view glides home.
+  await walk.getByRole('button', { name: 'Commencer le sentier' }).click();
   await expect(walk).toHaveCount(0);
-  await expect(welcome).not.toHaveClass(/away/);
+  await expect(welcome).toHaveCount(0);
+  await expect(page.locator('#question')).toBeVisible();
   expect(await view(page)).toMatchObject({ goal: home, active: false });
   await expect.poll(async () => (await view(page)).now).toEqual(home);
 
   // During a question, the forest stays where it is, whatever the fingers do.
-  await startTrail(page);
   await touch(cdp, drag([120, 300], [120, 600]));
   await touch(
     cdp,

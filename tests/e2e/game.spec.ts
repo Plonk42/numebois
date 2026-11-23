@@ -199,7 +199,7 @@ test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt po
   await end.getByRole('button', { name: 'Se promener' }).click();
   await expect(end).toHaveClass(/away/);
   await expect(page.locator('#walk')).toBeVisible();
-  await page.getByRole('button', { name: 'J’ai fini' }).click();
+  await page.getByRole('button', { name: 'Retour à la boutique' }).click();
   await expect(page.locator('#walk')).toHaveCount(0);
   await expect(end).not.toHaveClass(/away/);
 

@@ -226,9 +226,9 @@ function Game(props: Props) {
     firstAnswerMs.current = null;
   };
 
-  /** From the welcome card: the first question, already drawn. */
+  /** From the welcome card, or from a walk that started there: the first question, already drawn. */
   const begin = () => {
-    if (phase !== 'welcome') return;
+    if (!welcome) return;
     setPhase('asking');
     shownAt.current = performance.now();
   };
@@ -399,8 +399,9 @@ function Game(props: Props) {
       {walking && (
         <Walk
           away={viewAway}
+          from={walkFrom}
           onRecenter={() => forest.recenter()}
-          onDone={() => setPhase(walkFrom)}
+          onDone={walkFrom === 'welcome' ? begin : () => setPhase('summary')}
         />
       )}
       {arrival && (
@@ -513,28 +514,42 @@ function Welcome({ away, onStart, onWalk }: WelcomeProps) {
 interface WalkProps {
   /** The view has left the framing. */
   away: boolean;
+  /** The card the walk started from. */
+  from: 'welcome' | 'summary';
   onRecenter(): void;
   onDone(): void;
 }
 
-/** During a walk in the forest: how to move, back to the framing, and the end of the walk. */
-function Walk({ away, onRecenter, onDone }: WalkProps) {
+/**
+ * During a walk in the forest: how to move until the child has moved, the whole forest again
+ * once the view has left it, and the way on (the trail, or back to the shop).
+ */
+function Walk({ away, from, onRecenter, onDone }: WalkProps) {
+  const [moved, setMoved] = useState(false);
+  useEffect(() => {
+    if (away) setMoved(true);
+  }, [away]);
   return (
-    <section id="walk">
-      <p class="instruction">Un doigt pour bouger, deux pour tourner et zoomer.</p>
-      <div class="actions">
-        <button
-          type="button"
-          class="recenter"
-          style={{ visibility: away ? 'visible' : 'hidden' }}
-          onPointerDown={onRecenter}
-        >
-          Revenir
+    <section id="walk" aria-label="Promenade dans la forêt">
+      {away && (
+        <button type="button" class="whole" onPointerDown={onRecenter}>
+          <svg viewBox="0 0 32 32" aria-hidden="true">
+            <path d="M4 11V5h6M22 5h6v6M28 21v6h-6M10 27H4v-6" />
+            <path class="hill" d="M8 22l5-7 4 5 3-3 4 5z" />
+          </svg>
+          Toute la forêt
         </button>
-        <button type="button" class="next" onPointerDown={onDone}>
-          J’ai fini
-        </button>
-      </div>
+      )}
+      {!moved && (
+        <p class="hint">
+          Glisse un doigt pour te promener,
+          <br />
+          deux doigts pour t’approcher et tourner.
+        </p>
+      )}
+      <button type="button" class="next" onPointerDown={onDone}>
+        {from === 'welcome' ? 'Commencer le sentier' : 'Retour à la boutique'}
+      </button>
     </section>
   );
 }

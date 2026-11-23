@@ -310,37 +310,68 @@
   stroke-width: 5;
 }
 
-/* A walk in the forest: a small card at the bottom, the forest everywhere else. */
+/* A walk in the forest: the forest everywhere, a hint at the bottom, the way on bottom right. */
 #walk {
   position: fixed;
-  bottom: 20px;
-  left: 50%;
+  left: 24px;
+  right: 24px;
+  bottom: 24px;
   z-index: 5;
-  transform: translateX(-50%);
-  padding: 10px 14px 14px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  border-radius: 24px;
-  background: rgba(255, 251, 240, 0.9);
-  box-shadow: 0 6px 24px rgba(0, 40, 80, 0.2);
+  height: 72px;
+  pointer-events: none;
+}
+#walk > * {
+  position: absolute;
+  bottom: 0;
+  pointer-events: auto;
   animation: slate-in 0.4s cubic-bezier(0.3, 1.3, 0.5, 1);
 }
-#walk p {
+#walk .whole {
+  left: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 22px 0 16px;
+  color: #3f6f2f;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 4px 0 #c9d9c0;
+}
+#walk .whole svg {
+  width: 34px;
+  height: 34px;
+  fill: none;
+  stroke: #3f6f2f;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+#walk .whole .hill {
+  fill: #8cc56c;
+  stroke-width: 2;
+}
+#walk .hint {
+  left: 50%;
+  bottom: 4px;
   margin: 0;
+  padding: 10px 22px;
+  transform: translateX(-50%);
   font-size: 20px;
   line-height: 26px;
+  text-align: center;
+  white-space: nowrap;
+  color: #2f4a26;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 2px 8px rgba(0, 40, 80, 0.18);
+  pointer-events: none;
+  animation: none;
 }
-#walk .actions {
-  display: flex;
-  gap: 12px;
-}
-#walk button {
-  min-width: 180px;
+#walk .next {
+  right: 0;
+  padding: 0 28px;
 }
 
-/* The path of stones, top centre: the end of the trail is always in sight. */
+/* The trail, top centre: a dirt path through the grass, a stone per question, to a tree. */
 #trail {
   position: fixed;
   top: 12px;
@@ -348,34 +379,65 @@
   z-index: 5;
   transform: translateX(-50%);
   height: 56px;
-  margin: 0;
-  padding: 0 16px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  list-style: none;
+  overflow: hidden;
   border-radius: 28px;
-  background: rgba(255, 255, 255, 0.72);
+  background: linear-gradient(#d7eec0, #b4d995);
   box-shadow: 0 2px 8px rgba(0, 40, 80, 0.18);
 }
+#trail svg {
+  display: block;
+}
+#trail .verge,
+#trail .dirt {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+#trail .verge {
+  stroke: #a98153;
+  stroke-width: 26px;
+}
+#trail .dirt {
+  stroke: #e2c38e;
+  stroke-width: 21px;
+}
 #trail .stone {
-  width: 30px;
-  height: 22px;
-  border-radius: 50% 50% 46% 46%;
-  background: #d8d0bf;
-  box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.12);
+  transform-box: fill-box;
+  transform-origin: center;
+}
+#trail .stone .halo {
+  fill: none;
+}
+#trail .stone .rock {
+  fill: #b9b3a7;
+  stroke: #857e72;
+  stroke-width: 1.5px;
+}
+#trail .stone .shine {
+  fill: rgba(255, 255, 255, 0.5);
 }
 #trail .stone.crossed {
-  background: #8cc56c;
   animation: leaf-pop 0.5s cubic-bezier(0.3, 1.7, 0.5, 1);
 }
-#trail .stone.here {
-  width: 36px;
-  height: 26px;
-  background: #ffe27a;
-  box-shadow:
-    inset 0 -4px 0 rgba(0, 0, 0, 0.1),
-    0 0 0 3px rgba(255, 226, 122, 0.45);
+#trail .stone.crossed .rock {
+  fill: #8cc56c;
+  stroke: #4f8a3a;
+}
+#trail .stone.here .rock {
+  fill: #ffe27a;
+  stroke: #c9971f;
+}
+/* Still: the trail shows during questions, where nothing may draw the eye. */
+#trail .stone.here .halo {
+  fill: rgba(255, 244, 190, 0.9);
+}
+#trail .trunk {
+  fill: #8a5a32;
+}
+#trail .crown {
+  fill: #4e9a35;
+  stroke: #3a7527;
+  stroke-width: 1.5px;
 }
 
 /* Hidden parent menu, over everything. */
