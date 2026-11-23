@@ -58,13 +58,16 @@ const ready = sceneOnly
           {
             description: () => app.description,
             candidates: () => app.candidates(),
+            slotKind: (slot) => app.slotKind(slot),
+            slotOnScreen: (slot) => app.slotOnScreen(slot),
             plant: (slot, day) => app.plant(slot, day),
           },
           saved,
           (data) => void writeSave(data).catch((error: unknown) => console.warn(error)),
         );
         // During a question, the soundscape stays low and plays no calls.
-        app.sound.quiet = () => !['seed', 'planting', 'summary'].includes(game?.phase ?? '');
+        app.sound.quiet = () =>
+          !['seed', 'summary', 'choosing', 'planting'].includes(game?.phase ?? '');
         return started;
       });
 

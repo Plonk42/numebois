@@ -15,6 +15,7 @@ import { ParentMenu } from './parent-menu';
 import { Plume, type PlumeMood } from './plume';
 import { LeafIcon, plural, Reserve, SeedIcon } from './reserve';
 import { Slate, type SlateHint } from './slate';
+import { Spots, type SpotsForest } from './spots';
 import { TrailPath } from './trail-path';
 import { Widget } from './widgets';
 import './game.css';
@@ -27,10 +28,10 @@ const SEED_FLY_MS = 1000;
 const PRAISES = ['Bravo !', 'Super !', 'Oui !', 'Bien vu !', 'Génial !'];
 const DAY_MS = 86_400_000;
 
-type Phase = 'asking' | 'right' | 'reveal' | 'seed' | 'summary' | 'planting';
+type Phase = 'asking' | 'right' | 'reveal' | 'seed' | 'summary' | 'choosing' | 'planting';
 
 /** The painting in progress, as the game sees it. */
-export interface GameForest {
+export interface GameForest extends SpotsForest {
   description(): SceneDescription;
   /** Free slots offered for the next element. */
   candidates(): readonly number[];
@@ -110,11 +111,12 @@ function Game(props: Props) {
   const [praise, setPraise] = useState(PRAISES[0]);
   const [menu, setMenu] = useState(false);
   const [length, setLength] = useState<TrailLength>(session.length);
+  const [spots, setSpots] = useState<readonly number[]>([]);
   const timer = useRef(0);
   const shownAt = useRef(performance.now());
   const firstAnswerMs = useRef<number | null>(null);
 
-  const summary = phase === 'summary' || phase === 'planting';
+  const summary = phase === 'summary' || phase === 'choosing' || phase === 'planting';
   useEffect(() => {
     Object.assign(probe, {
       exercise,
@@ -170,11 +172,18 @@ function Game(props: Props) {
     ask();
   };
 
-  /** Until the shop of the forest (#83): leaves make the next element grow. */
-  const plant = () => {
+  /** Until the shop of the forest (#83): leaves make an element grow where the child wants. */
+  const choose = () => {
     if (phase !== 'summary' || leaves < LEAVES_PER_ELEMENT) return;
-    const slot = forest.candidates()[0];
-    if (slot === undefined) return;
+    const slots = forest.candidates();
+    if (slots.length === 0) return;
+    setSpots(slots);
+    setPhase('choosing');
+  };
+
+  const plant = (slot: number) => {
+    if (phase !== 'choosing') return;
+    setSpots([]);
     setLeaves(leaves - LEAVES_PER_ELEMENT);
     setPhase('planting');
     void forest.plant(slot, today()).then(() => {
@@ -264,6 +273,7 @@ function Game(props: Props) {
       {/* During a question, the forest dims: one thing at a time. */}
       <div id="dim" class={summary || away ? '' : 'on'} />
       {gift && phase === 'seed' && <SeedGift {...gift} />}
+      {phase === 'choosing' && <Spots forest={forest} slots={spots} onPick={plant} />}
       {menu && (
         <ParentMenu
           skills={props.skills}
@@ -285,8 +295,8 @@ function Game(props: Props) {
           grown={grownHere}
           reserve={leaves}
           complete={placed >= MAX_ELEMENTS}
-          planting={phase === 'planting'}
-          onPlant={plant}
+          away={phase !== 'summary'}
+          onPlant={choose}
           onAgain={restart}
         />
       ) : (
@@ -339,8 +349,8 @@ interface SummaryProps {
   reserve: number;
   /** Every slot of the painting holds an element. */
   complete: boolean;
-  /** An element is growing: the card steps aside. */
-  planting: boolean;
+  /** The forest has the stage: the card steps aside. */
+  away: boolean;
   onPlant(): void;
   onAgain(): void;
 }
@@ -364,7 +374,7 @@ function Summary(props: SummaryProps) {
   } else if (grown > 0) forest = 'Ta forêt a grandi !';
   const canPlant = !props.complete && reserve >= LEAVES_PER_ELEMENT;
   return (
-    <section id="trail-end" class={props.planting ? 'away' : ''} aria-live="polite">
+    <section id="trail-end" class={props.away ? 'away' : ''} aria-live="polite">
       <Plume mood="cheer" />
       <p class="praise">Sentier terminé !</p>
       <p class="statement text">Tu as franchi {stones} pierres.</p>

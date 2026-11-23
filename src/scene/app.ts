@@ -141,6 +141,24 @@ export class SceneApp {
     return this.painting?.candidates ?? [];
   }
 
+  /** What grows in a slot: a tree or a grove. */
+  slotKind(slot: number): 'tree' | 'grove' | null {
+    return this.painting?.terrain.slots.find((s) => s.index === slot)?.kind ?? null;
+  }
+
+  /** Where a slot shows on the screen, in CSS pixels, a little above the ground. */
+  slotOnScreen(slot: number): { x: number; y: number } | null {
+    const point = this.painting?.slotPoint(slot);
+    if (!point) return null;
+    point.y += 1.2;
+    point.project(this.stage.camera);
+    const canvas = this.stage.canvas;
+    return {
+      x: ((point.x + 1) / 2) * canvas.clientWidth,
+      y: ((1 - point.y) / 2) * canvas.clientHeight,
+    };
+  }
+
   /**
    * The child places an element in a candidate slot: it grows, then a new stage comes under
    * a veil of light when due. Resolves once everything is over, with the new description.

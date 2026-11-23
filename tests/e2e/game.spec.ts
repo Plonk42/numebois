@@ -163,7 +163,7 @@ test('une boucle jouable : questions, indices et feuilles', async ({ page }) => 
   expect(errors).toEqual([]);
 });
 
-test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt pousse', async ({
+test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt pousse où l’enfant choisit', async ({
   page,
 }) => {
   const errors: string[] = [];
@@ -209,16 +209,43 @@ test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt po
   }
   await test.info().attach('résumé', { body: await page.screenshot(), contentType: 'image/png' });
 
-  // Four leaves each: two elements grow, and each passes a stage under a veil of light.
+  // Four leaves each: the child chooses among the glowing places, the element grows there,
+  // and passes a stage under a veil of light.
   const describe = () => page.evaluate(() => window.__numebois!.describe());
   expect(await describe()).toMatchObject({ seed: 3, stage: 0, elements: [] });
   for (let placed = 1; placed <= 2; placed++) {
     await page.getByRole('button', { name: 'Faire pousser' }).click();
     await expect(end).toHaveClass(/away/);
+    const spots = page.getByRole('button', { name: 'Planter ici' });
+    await expect(spots).toHaveCount(3);
+    await expect(page.locator('#spots-hint')).toContainText('Touche une place qui brille.');
+    for (const spot of await spots.all()) {
+      const box = (await spot.boundingBox())!;
+      expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(56);
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.y).toBeGreaterThanOrEqual(56);
+      expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
+      expect(box.y + box.height).toBeLessThanOrEqual(viewport.height);
+    }
+    // Nothing is spent before the choice.
+    await expect(page.locator('#reserve')).toHaveAttribute(
+      'aria-label',
+      reserveLabel(10 - 4 * (placed - 1)),
+    );
+    if (placed === 1) {
+      await test
+        .info()
+        .attach('choix', { body: await page.screenshot(), contentType: 'image/png' });
+    }
+    const chosen = spots.nth(placed === 1 ? 2 : 1);
+    const slot = Number(await chosen.getAttribute('data-slot'));
+    await chosen.tap();
+    await expect(spots).toHaveCount(0);
     await expect(page.locator('#reserve')).toHaveAttribute(
       'aria-label',
       reserveLabel(10 - 4 * placed),
     );
+    expect((await describe()).elements.map((e) => e.slot).at(-1)).toBe(slot);
     expect((await describe()).elements).toHaveLength(placed);
     if (placed === 1) {
       await test.info().attach('pousse', {
