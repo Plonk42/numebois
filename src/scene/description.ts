@@ -112,6 +112,21 @@ export function fillOf(description: SceneDescription): number {
   return description.elements.length / SLOT_COUNT;
 }
 
+/** Every slot is filled: the grand finale, then the Album (#33). */
+export function isComplete(description: SceneDescription): boolean {
+  return description.elements.length >= MAX_ELEMENTS;
+}
+
+/** What a new painting will look like once complete, with every animal (choice of the next one). */
+export function completed(description: SceneDescription): SceneDescription {
+  return {
+    ...description,
+    stage: LAST_STAGE,
+    elements: demoElements(description.seed, 1),
+    animals: demoAnimals(description.biome, LAST_STAGE),
+  };
+}
+
 /** A painting where the child has placed nothing yet. */
 export function newPainting(seed: number, season: Season, biome: BiomeId): SceneDescription {
   return { biome, seed, stage: 0, season, seasons: [season], elements: [], animals: [] };

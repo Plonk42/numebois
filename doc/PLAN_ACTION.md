@@ -104,6 +104,7 @@ Le code (identifiants, fichiers, dossiers) est en anglais. Les textes affichés,
 | défi                          | `Challenge`      |
 | tableau                       | `Painting`       |
 | Album                         | `Album`          |
+| grand final                   | `finale`         |
 | décor                         | `Biome`          |
 | grand moment                  | `Reveal`         |
 | emplacement                   | `Slot`           |
@@ -462,13 +463,16 @@ Dépend de 2 et 3.
 
 1. Sentier complet, avec son chemin de 10 pierres visible : question → micro-retour → feuille dans la réserve → suite, puis résumé de fin et boutique (acheter, poser).
 2. Calibrage des gains et des prix : de quoi acheter au moins un élément par sentier court, un tableau en environ 40 minutes de jeu (#29). Le réglage est centralisé dans un seul fichier.
-3. Fin de tableau : grand final, encadrement, entrée dans l'Album, puis choix du décor suivant (celui de la quête s'il y en a un, sinon 2 ou 3 au choix) et démarrage immédiat.
+3. Fin de tableau : grand final, encadrement, entrée dans l'Album, puis choix du décor suivant (celui de la quête s'il y en a un, sinon 2 ou 3 au choix) et démarrage immédiat. **Fait le 2026-11-23 (#33) :** le dernier élément posé, le grand final dure 9 s (« Ton tableau est terminé ! », son du grand final, la caméra balaie le tableau de gauche à droite et s'élève un peu, `Stage.tour`, pendant que 8 gerbes d'étincelles et de feuilles jaillissent d'élément en élément, `Painting.finale`) ; puis un cadre en bois se referme autour de l'écran, avec sa plaque (nom du décor, dates) et « Il rejoint ton album ! » ; puis, sous le voile de lumière, « Un nouveau tableau ! » propose les décors (`nextBiomes` : celui de la quête de la semaine s'il en impose un, sinon jusqu'à 3, les moins peints d'abord), chacun montré tel qu'il sera une fois complet (sa propre graine au palier 11, image rendue sous le voile). Un toucher démarre le tableau, dans sa saison de départ. Un tableau complet retrouvé au chargement (jeu fermé pendant le grand final) rejoue le grand final, ou repropose le choix s'il est déjà dans l'Album.
 4. Album des forêts :
    - une grille de vignettes, une page par tableau, avec le tableau rejoué en vie à partir de sa description ;
    - les dates, et ce qu'il a appris pendant ce tableau (notions acquises, faits automatisés, records) ;
    - les vignettes sont générées à la fin du tableau (rendu Three.js hors écran, WebP d'environ 30 Ko).
+
+   **Fait le 2026-11-23 (#34) :** le livre de l'Album (`#album-button`, sous le bouton du son) apparaît dès le premier tableau encadré, seulement sur l'accueil et pendant la promenade. L'Album (`src/ui/album.tsx`) montre les tableaux encadrés, le dernier d'abord (nom, « Fini le 3 décembre ») ; un toucher rejoue le tableau en vie sous le voile (`SceneApp.show`, la description du tableau en cours ne bouge pas), où l'enfant peut se promener aux doigts, avec une petite carte : dates, notions apprises, nombre de calculs par cœur, « Retour à l'album ». Vignette : le cadrage du tableau rendu en WebP de 480 px (`Stage.capture`, environ 20 ko). Les records attendront les défis (M2).
+
 5. (Abandonnée : petite nouveauté du lendemain, #35, voir le journal.)
-6. Sauvegarde IndexedDB versionnée (`SAVE_SCHEMA_VERSION`) : tableau en cours, Album (descriptions et vignettes), progression. `navigator.storage.persist()`. Export/import dans le menu parent caché (appui long), Album compris.
+6. Sauvegarde IndexedDB versionnée (`SAVE_SCHEMA_VERSION`) : tableau en cours, Album (descriptions et vignettes), progression. `navigator.storage.persist()`. Export/import dans le menu parent caché (appui long), Album compris. L'Album est gardé à part (`numebois:album`, écrit seulement quand un tableau est encadré), la sauvegarde écrite à chaque réponse reste légère ; elle porte le journal du tableau en cours (`journal` : jour de départ, notions acquises, faits automatisés). Le fichier exporté contient les deux ; un Album illisible, comme une sauvegarde illisible, n'est jamais écrasé.
 7. Effets sonores Web Audio débloqués au premier toucher, bouton pour couper le son.
 
 ## Phase 5 : ateliers interactifs
@@ -613,7 +617,7 @@ Dépend de 4, puis à chaque jalon.
    - leçon jusqu'au bout et page ajoutée au Carnet ;
    - défi de 30 s avec horloge simulée ;
    - rechargement : la forêt reste identique ;
-   - compléter un tableau (horloge et énergie accélérées en mode test) : grand final, choix du décor, nouveau tableau ; après rechargement, le tableau terminé est dans l'Album et se rouvre animé ;
+   - compléter un tableau (horloge et énergie accélérées en mode test) : grand final, choix du décor, nouveau tableau ; après rechargement, le tableau terminé est dans l'Album et se rouvre animé (`tests/e2e/album.spec.ts`, à partir d'une sauvegarde où il manque un élément) ;
    - choix de l'emplacement d'un élément au toucher ;
    - mode hors-ligne.
 6. Captures en paysage de chaque widget, relues à l'œil.
@@ -768,3 +772,4 @@ Vérification : frontmatter YAML valide, `name` identique au nom du dossier, `de
 - 2026-11-23 : suivi des notions et notions disponibles dans le tableau de bord parent (demande du propriétaire, #47). Constat : une sauvegarde neuve n'ouvre qu'« écrire en chiffres », qui remplit tout le premier sentier, puis reste parmi les notions en cours jusqu'à son acquisition. Le parent voit la progression notion par notion et règle chacune : Auto, Fermée, Ouverte (sans attendre les prérequis) ou Focus (au moins la moitié du sentier). À faire plus tard (décision du propriétaire).
 - 2026-11-23 : fin de sentier sans résumé (demande du propriétaire). Après « Sentier terminé ! » et le panier versé, l'enfant est directement dans la promenade. La boutique n'a plus de nom : un appui sur la réserve l'ouvre (la réserve brille quand un article est à portée), avec un seul bouton « Fermer ». Un panneau en bois « Nouveau sentier », au départ du chemin de pierres, remplace « Encore un sentier ». « Retour à la boutique » et « Ta forêt a grandi ! » disparaissent.
 - 2026-11-23 : sentier et panneau en 3D (retour du propriétaire : « simpliste, un peu moche »). Le chemin de pierres devient un petit diorama (tuile d'herbe sur un bloc de terre, chemin de terre, herbes, fleurs, buissons, arbre au bout), les pierres trois images (grise, dorée, verte) et le panneau « Nouveau sentier » une planche en flèche sur un poteau, dessinés une seule fois au chargement avec les modèles KayKit et la palette de la forêt (`src/scene/render/trail-art.ts`). `Stage.cutout` rend dans un coin du canevas, sur fond noir puis blanc, et en déduit la transparence. Aucun coût par image ; une dizaine de petits rendus au démarrage.
+- 2026-11-23 : fin de tableau et Album (#33, #34). Le dernier élément posé lance le grand final (caméra qui balaie le tableau, gerbes d'étincelles d'élément en élément, son du grand final), puis le cadre en bois et sa plaque ; le tableau entre dans l'Album avec une vignette WebP (environ 20 ko), ses dates et ce que l'enfant a appris pendant ce tableau. Sous le voile, il choisit le décor suivant entre la clairière et le verger, chacun montré complet avec sa propre graine (le moins peint d'abord ; la quête de la semaine peut l'imposer). L'Album s'ouvre par un livre sous le bouton du son, hors des questions ; chaque page rejoue le tableau en vie, où l'on peut se promener. Sauvegarde en version 5 (journal du tableau en cours), Album gardé à part et exporté avec la sauvegarde. Reste : la simulation de six mois vérifiera l'Album quand elle modélisera les tableaux (#29) ; les records viendront avec les défis.

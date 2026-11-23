@@ -2,8 +2,8 @@ import { useState } from 'preact/hooks';
 import type { TrailLength } from '../core/trail';
 import type { Skill } from '../core/types';
 import { QUALITIES, QUALITY_LABELS, type Quality } from '../scene/render/quality';
-import { parseSave } from '../save/save';
-import { writeSave } from '../save/store';
+import { importFile } from '../save/album';
+import { writeAlbum, writeSave } from '../save/store';
 
 interface Props {
   skills: readonly Skill[];
@@ -17,7 +17,7 @@ interface Props {
   onClose(): void;
 }
 
-/** Hidden parent menu (long press on the gauge): trail length, quality, export and import. */
+/** Hidden parent menu (long press on the gauge): trail length, quality, export and import (Album included). */
 export function ParentMenu({
   skills,
   length,
@@ -48,12 +48,13 @@ export function ParentMenu({
     input.addEventListener('change', async () => {
       const text = await input.files?.[0]?.text();
       if (text === undefined) return;
-      const parsed = parseSave(text, skills);
+      const parsed = importFile(text, skills);
       if (!parsed.ok) {
         setMessage(`Import refusé : ${parsed.reason}`);
         return;
       }
-      await writeSave(text);
+      await writeAlbum(parsed.album);
+      await writeSave(parsed.save);
       window.location.reload();
     });
     input.click();

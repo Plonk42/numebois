@@ -40,6 +40,9 @@ import type { Season } from './trees/builder';
 import { Forest } from './trees/forest';
 
 const GROWTH_SECONDS = 3.6;
+/** Bursts of the grand finale, and time left after the last one for its sparks to fall. */
+const FINALE_BURSTS = 8;
+const FINALE_LAST_BURST_S = 1.5;
 const TAU = Math.PI * 2;
 
 function foliagePalette(season: Season): readonly SwatchName[] {
@@ -133,6 +136,8 @@ export class Painting {
   >();
   private readonly sprouting: { slot: number; start: number }[] = [];
   private readonly spinners: { pivot: THREE.Group; speed: number }[] = [];
+  /** Bursts of the grand finale still to come, the first one last. */
+  private readonly finaleBursts: { point: THREE.Vector3; at: number }[] = [];
   private readonly burstOrigin = new THREE.Vector3();
   private readonly scratch = new THREE.Matrix4();
   /** Free slots offered for the next element, prepared hidden. */
@@ -580,6 +585,24 @@ export class Painting {
     return true;
   }
 
+  /**
+   * The grand finale of a complete painting (#33): sparks and leaves burst over its elements
+   * one after the other, from left to right while the camera tours it (`Stage.tour`).
+   */
+  finale(time: number, seconds: number): void {
+    const points = this.description.elements
+      .map((element) => this.slotPoint(element.slot))
+      .filter((point) => point !== null)
+      .sort((a, b) => a.x - b.x);
+    const count = Math.min(FINALE_BURSTS, points.length);
+    const step = (seconds - FINALE_LAST_BURST_S) / Math.max(1, count);
+    this.finaleBursts.length = 0;
+    for (let i = count - 1; i >= 0; i--) {
+      const point = points[Math.floor(((i + 0.5) * points.length) / count)];
+      this.finaleBursts.push({ point, at: time + step * (i + 0.5) });
+    }
+  }
+
   private startGrowth(tree: number, from: number, to: number, time: number, sprout: boolean) {
     for (let i = this.growing.length - 1; i >= 0; i--) {
       if (this.growing[i].tree === tree) this.growing.splice(i, 1);
@@ -602,6 +625,13 @@ export class Painting {
     this.clouds.update(time);
     this.herd.update(time);
     for (const s of this.spinners) s.pivot.rotation.z = time * s.speed;
+    const burst = this.finaleBursts.at(-1);
+    if (burst && time >= burst.at) {
+      this.finaleBursts.pop();
+      this.burstOrigin.copy(burst.point).y += 0.4;
+      this.glow.burst(this.burstOrigin, time);
+      this.leaves.burst(this.burstOrigin, time);
+    }
     for (let i = this.growing.length - 1; i >= 0; i--) {
       const g = this.growing[i];
       const a = Math.min(1, Math.max(0, (time - g.start) / GROWTH_SECONDS));

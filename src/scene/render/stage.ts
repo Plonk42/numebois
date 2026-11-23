@@ -14,6 +14,8 @@ export interface Frame {
 
 const FOV = 30;
 const NEAR = 5;
+/** The camera tour of the grand finale (#33), in seconds. */
+export const TOUR_SECONDS = 9;
 
 /**
  * Renderer, camera and frame loop. The camera frames a box and breathes slightly; the child
@@ -39,6 +41,7 @@ export class Stage {
 
   private readonly focusPoint = new THREE.Vector3();
   private focusStart = -100;
+  private tourStart = -100;
   private readonly lookAt = new THREE.Vector3();
   private readonly offset = new THREE.Vector3();
 
@@ -158,12 +161,25 @@ export class Stage {
     this.focusStart = time;
   }
 
-  /** Exploration, breathing and focus. No allocation: called every frame. */
+  /** The grand finale: the camera swings slowly over the whole painting, rises, and comes back. */
+  tour(time: number): void {
+    this.tourStart = time;
+  }
+
+  /** Exploration, breathing, focus and tour. No allocation: called every frame. */
   update(time: number): void {
     const view = this.explorer.step();
-    const yaw = this.yaw + (view.yaw * Math.PI) / 180 + 0.011 * Math.sin(time * 0.21);
-    const pitch = this.pitch + (view.pitch * Math.PI) / 180 + 0.005 * Math.sin(time * 0.17 + 1.3);
+    let yaw = this.yaw + (view.yaw * Math.PI) / 180 + 0.011 * Math.sin(time * 0.21);
+    let pitch = this.pitch + (view.pitch * Math.PI) / 180 + 0.005 * Math.sin(time * 0.17 + 1.3);
     let distance = (this.distance / view.zoom) * (1 + 0.006 * Math.sin(time * 0.13 + 2.1));
+    const tour = (time - this.tourStart) / TOUR_SECONDS;
+    if (tour >= 0 && tour < 1) {
+      // Left, then right, within the limits of the exploration; a little higher and further.
+      const swell = Math.sin(Math.PI * tour);
+      yaw += 0.32 * Math.sin(2 * Math.PI * tour) * swell;
+      pitch += 0.07 * swell * swell;
+      distance *= 1 + 0.08 * swell * swell;
+    }
     const age = time - this.focusStart;
     let weight = 0;
     if (age >= 0 && age < 5) {
@@ -266,6 +282,22 @@ export class Stage {
     }
     onBlack.putImageData(pixels, 0, 0);
     return onBlack.canvas.toDataURL('image/png');
+  }
+
+  /**
+   * The painting at its framing, without breathing nor exploration, as a WebP image `width`
+   * pixels wide (Album, choice of the next painting); the frame loop draws over it next.
+   */
+  capture(width: number): string {
+    this.renderer.render(this.scene, this.home);
+    const source = this.renderer.domElement;
+    const image = document.createElement('canvas');
+    image.width = width;
+    image.height = Math.round((width * source.height) / source.width);
+    const context = image.getContext('2d')!;
+    context.imageSmoothingQuality = 'high';
+    context.drawImage(source, 0, 0, image.width, image.height);
+    return image.toDataURL('image/webp', 0.8);
   }
 
   dispose(): void {

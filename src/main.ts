@@ -1,12 +1,14 @@
 import { curriculum } from './core/registry';
+import { today } from './core/day';
 import { DOMAINS } from './domains';
 import { SceneApp, type SceneCounters } from './scene/app';
 import { mountSoundButton } from './scene/audio/sound-button';
 import type { Reward, SoundState } from './scene/audio/soundscape';
 import { newPainting, parseDescription, type SceneDescription } from './scene/description';
 import { mountDebugPanel } from './scene/debug';
+import { parseAlbum, type ParsedAlbum } from './save/album';
 import { parseSave, practiceSave } from './save/save';
-import { persistStorage, readSave, writeSave } from './save/store';
+import { persistStorage, readAlbum, readSave, writeAlbum, writeSave } from './save/store';
 import { mountGame, type GameProbe } from './ui/game';
 
 declare global {
@@ -42,12 +44,12 @@ const sceneOnly = params.has('scene') || params.has('debug');
 if (sceneOnly) app.explore(() => undefined);
 const ready = sceneOnly
   ? app.start()
-  : readSave()
+  : Promise.all([readSave(), readAlbum()])
       .catch((error: unknown) => {
         console.warn('sauvegarde illisible', error);
-        return undefined;
+        return [undefined, undefined];
       })
-      .then((json) => {
+      .then(([json, albumJson]) => {
         // Every notion, in the order of the curriculum: the trail chooses among them.
         const all = curriculum(DOMAINS);
         // `?practice=<notion>&level=<n>`: that notion alone from that level, on a new painting,
@@ -55,6 +57,8 @@ const ready = sceneOnly
         const practice = all.find((skill) => skill.id === params.get('practice'));
         const skills = practice ? [practice] : all;
         const saved = json === undefined || practice ? null : parseSave(json, skills);
+        const album: ParsedAlbum =
+          albumJson === undefined || practice ? { ok: true, entries: [] } : parseAlbum(albumJson);
         // The painting in progress, or a new one (`?seed=`, `?season=` and `?biome=` choose it).
         const asked = parseDescription(params);
         app.description = saved?.ok
@@ -77,16 +81,27 @@ const ready = sceneOnly
             portrait: (animal) => app.portrait(animal),
             trailArt: (stones) => app.trailArt(stones),
             ready: started,
+            finale: () => app.finale(),
+            picture: () => app.picture(),
+            show: (description) => app.show(description),
+            start: (description) => app.setDescription(description),
+            cover: (on) => app.cover(on),
             reward: (kind) => app.sound.reward(kind),
             explore: (onAway) => app.explore(onAway),
             recenter: () => app.recenter(),
             quality: () => ({ chosen: app.qualityChoice, current: app.quality }),
             setQuality: (quality) => app.setQuality(quality),
           },
-          practice ? practiceSave(practice, Number(params.get('level')), app.description) : saved,
+          practice
+            ? practiceSave(practice, Number(params.get('level')), app.description, today())
+            : saved,
+          album,
           practice
             ? () => undefined
             : (data) => void writeSave(data).catch((error: unknown) => console.warn(error)),
+          practice
+            ? () => undefined
+            : (data) => void writeAlbum(data).catch((error: unknown) => console.warn(error)),
           // A notion alone starts on its first question; the game on the welcome card.
           !practice,
         );
@@ -101,6 +116,11 @@ const ready = sceneOnly
             'planting',
             'adopting',
             'turning',
+            'finale',
+            'framing',
+            'next',
+            'album',
+            'visiting',
           ].includes(game?.phase ?? '');
         return started;
       });
@@ -108,7 +128,7 @@ const ready = sceneOnly
 window.__numebois = {
   ready,
   counters: () => app.counters(),
-  describe: () => app.description,
+  describe: () => app.shown,
   trees: () => app.painting?.treeInfos() ?? [],
   grow: () => app.grow(),
   sound: () => ({

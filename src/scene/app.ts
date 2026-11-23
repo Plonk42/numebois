@@ -3,12 +3,12 @@ import type { AnimalName } from './animal-catalog';
 import { loadAnimals, type AnimalLibrary } from './animals';
 import { loadAssets, type AssetLibrary } from './assets';
 import { Soundscape } from './audio/soundscape';
-import { MAX_ELEMENTS, parseDescription, stageFor, type SceneDescription } from './description';
+import { parseDescription, stageFor, type SceneDescription } from './description';
 import { Painting, type PaintingStats } from './painting';
 import { animalPortrait } from './render/portrait';
 import { parseViewShares, type View } from './render/explore';
 import { QUALITY, QualityGovernor, parseQuality, type Quality } from './render/quality';
-import { Stage } from './render/stage';
+import { Stage, TOUR_SECONDS } from './render/stage';
 import { trailArt, type TrailArt } from './render/trail-art';
 import type { Season } from './trees/builder';
 
@@ -41,6 +41,8 @@ const VEIL_OUT_MS = 1400;
 const ARRIVAL_MS = 3200;
 /** Side of the animal portraits of the shop, in pixels of the image. */
 const PORTRAIT_PX = 256;
+/** Width of the pictures of whole paintings (Album, next painting), in pixels. */
+const PICTURE_PX = 480;
 
 /** Quality chosen in the parent menu or the debug panel: a setting of the device, not of the save. */
 const QUALITY_KEY = 'numebois.quality';
@@ -51,7 +53,10 @@ const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 export class SceneApp {
   readonly stage: Stage;
   readonly sound = new Soundscape();
+  /** The painting in progress. */
   description: SceneDescription;
+  /** Another painting shown instead for a while (Album, next painting), null for the one in progress. */
+  private other: SceneDescription | null = null;
   painting: Painting | null = null;
   assets: AssetLibrary | null = null;
   animals: AnimalLibrary | null = null;
@@ -115,13 +120,13 @@ export class SceneApp {
     this.onVisibility();
   }
 
-  /** Rebuild the painting from the description (stage, season, seed or quality change). */
+  /** Rebuild the painting shown (stage, season, seed or quality change). */
   rebuild(): void {
     if (!this.assets || !this.animals) return;
     this.painting?.dispose();
     const settings = QUALITY[this.quality];
     this.stage.setQuality(settings);
-    this.painting = new Painting(this.stage, this.assets, this.animals, this.description, settings);
+    this.painting = new Painting(this.stage, this.assets, this.animals, this.shown, settings);
     this.sound.setLevels(this.painting.ambience.sound);
     this.stage.frame(this.painting.terrain.frame);
     if (this.viewShares && this.stage.explorer.active) {
@@ -131,9 +136,31 @@ export class SceneApp {
     this.renderFrame(0);
   }
 
+  /** A new painting in progress, shown at once. */
   setDescription(description: SceneDescription): void {
     this.description = description;
+    this.other = null;
     this.rebuild();
+  }
+
+  /** The painting on screen: the one in progress, or another shown for a while. */
+  get shown(): SceneDescription {
+    return this.other ?? this.description;
+  }
+
+  /**
+   * Shows another painting (Album, choice of the next one), built at once; null comes back to
+   * the painting in progress. The game covers the screen while it is built.
+   */
+  show(description: SceneDescription | null): void {
+    if (description === this.other) return;
+    this.other = description;
+    this.rebuild();
+  }
+
+  /** The painting shown, at its framing, as a small WebP image. */
+  picture(): string {
+    return this.stage.capture(PICTURE_PX);
   }
 
   get qualityChoice(): Quality | 'auto' {
@@ -232,8 +259,29 @@ export class SceneApp {
       this.sound.reward('stage');
       await wait(VEIL_OUT_MS);
     }
-    if (elements.length === MAX_ELEMENTS) this.sound.reward('finale');
     return next;
+  }
+
+  /**
+   * The grand finale of a complete painting (#33): its sound, the camera tours the painting
+   * while sparks burst over the elements. Resolves once the camera is back.
+   */
+  async finale(): Promise<void> {
+    this.sound.reward('finale');
+    this.stage.tour(this.time);
+    this.painting?.finale(this.time, TOUR_SECONDS);
+    await wait(TOUR_SECONDS * 1000);
+  }
+
+  /** The light over the whole scene, without words: the game covers a change with it. */
+  cover(on: boolean): void {
+    this.veil.classList.add('quiet');
+    this.veil.classList.toggle('on', on);
+    if (!on) {
+      setTimeout(() => {
+        if (!this.veil.classList.contains('on')) this.veil.classList.remove('quiet');
+      }, VEIL_OUT_MS);
+    }
   }
 
   /** A bought animal comes into the meadow. Resolves once it has settled, with the new description. */

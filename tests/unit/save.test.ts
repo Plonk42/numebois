@@ -14,6 +14,7 @@ const PAINTING = {
     { slot: 2, day: 200 },
   ],
 };
+const JOURNAL = { started: 198, acquired: ['numbers.write-digits'], automated: [] };
 
 /** A session that has played two trails. */
 function played(): Session {
@@ -34,7 +35,14 @@ describe('sauvegarde', () => {
   it('survives an export and an import', () => {
     const session = played();
     const json = serializeSave(
-      { ...session.snapshot(), leaves: 3, seeds: 1, trailLength: 'short', painting: PAINTING },
+      {
+        ...session.snapshot(),
+        leaves: 3,
+        seeds: 1,
+        trailLength: 'short',
+        painting: PAINTING,
+        journal: JOURNAL,
+      },
       new Date('2026-11-23T10:00:00Z'),
     );
     const parsed = parseSave(json, SKILLS);
@@ -47,6 +55,7 @@ describe('sauvegarde', () => {
       seeds: 1,
       trailLength: 'short',
       painting: PAINTING,
+      journal: JOURNAL,
     });
     const restored = new Session(SKILLS, new Rng(9), () => 200);
     restored.restore(parsed.data);
@@ -66,6 +75,7 @@ describe('sauvegarde', () => {
         seeds: 0,
         trailLength: 'normal',
         painting: PAINTING,
+        journal: JOURNAL,
       },
       new Date(),
     );
@@ -88,8 +98,8 @@ describe('sauvegarde', () => {
     expect(!parsed.ok && parsed.reason).toContain(reason);
   });
 
-  it('refuses a damaged progress or painting', () => {
-    const save = (progress: never[], painting: object) =>
+  it('refuses a damaged progress, painting or journal', () => {
+    const save = (progress: never[], painting: object, journal: object = JOURNAL) =>
       serializeSave(
         {
           progress,
@@ -99,6 +109,7 @@ describe('sauvegarde', () => {
           seeds: 0,
           trailLength: 'normal',
           painting: painting as typeof PAINTING,
+          journal: journal as typeof JOURNAL,
         },
         new Date(),
       );
@@ -108,11 +119,13 @@ describe('sauvegarde', () => {
     const twice = { ...PAINTING, elements: [...PAINTING.elements, { slot: 0, day: 201 }] };
     expect(parseSave(save([], twice), SKILLS).ok).toBe(false);
     expect(parseSave(save([], { ...PAINTING, stage: 12 }), SKILLS).ok).toBe(false);
+    expect(parseSave(save([], PAINTING, { ...JOURNAL, started: 1.5 }), SKILLS).ok).toBe(false);
+    expect(parseSave(save([], PAINTING, { ...JOURNAL, acquired: [3] }), SKILLS).ok).toBe(false);
   });
 
   it('practises one notion from a level: the trail asks only it, at that level', () => {
     const compare = SKILLS.find((skill) => skill.id === 'numbers.compare')!;
-    const practice = practiceSave(compare, 2, PAINTING);
+    const practice = practiceSave(compare, 2, PAINTING, 200);
     expect(practice.ok && practice.data.progress).toEqual([
       { skill: compare.id, stage: 'learning', level: 2, recent: [], box: 0, due: null },
     ]);
@@ -122,7 +135,7 @@ describe('sauvegarde', () => {
     expect(new Set(session.trail.map((step) => step.skill))).toEqual(new Set([compare.id]));
     expect(session.trail.find((step) => step.role === 'core')).toBeDefined();
     for (const level of [Number.NaN, -1, 99]) {
-      const clamped = practiceSave(compare, level, PAINTING);
+      const clamped = practiceSave(compare, level, PAINTING, 200);
       expect(clamped.ok && clamped.data.progress[0].level).toBe(
         level === 99 ? compare.levels - 1 : 0,
       );

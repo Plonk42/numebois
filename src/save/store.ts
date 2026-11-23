@@ -1,7 +1,9 @@
-/** The save in IndexedDB, as the JSON text that export and import also use. */
+/** The save in IndexedDB, as the JSON text that export and import also use; the Album beside it. */
 const DB = 'numebois';
 const STORE = 'kv';
 export const SAVE_KEY = 'numebois:save';
+/** Apart from the save, written at every answer: the Album only changes with a new painting. */
+export const ALBUM_KEY = 'numebois:album';
 
 function open(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -31,7 +33,15 @@ function run<T>(mode: IDBTransactionMode, action: (store: IDBObjectStore) => IDB
 }
 
 export function readSave(): Promise<string | undefined> {
-  return run<unknown>('readonly', (store) => store.get(SAVE_KEY)).then((value) =>
+  return read(SAVE_KEY);
+}
+
+export function readAlbum(): Promise<string | undefined> {
+  return read(ALBUM_KEY);
+}
+
+function read(key: string): Promise<string | undefined> {
+  return run<unknown>('readonly', (store) => store.get(key)).then((value) =>
     typeof value === 'string' ? value : undefined,
   );
 }
@@ -40,12 +50,20 @@ let writing: Promise<unknown> = Promise.resolve();
 
 /** Writes one after the other, so the last save always wins. */
 export function writeSave(json: string): Promise<void> {
-  const write = writing
+  return write(SAVE_KEY, json);
+}
+
+export function writeAlbum(json: string): Promise<void> {
+  return write(ALBUM_KEY, json);
+}
+
+function write(key: string, json: string): Promise<void> {
+  const next = writing
     .catch(() => undefined)
-    .then(() => run('readwrite', (store) => store.put(json, SAVE_KEY)))
+    .then(() => run('readwrite', (store) => store.put(json, key)))
     .then(() => undefined);
-  writing = write;
-  return write;
+  writing = next;
+  return next;
 }
 
 /** Asks the browser not to evict the save when space runs low. */
