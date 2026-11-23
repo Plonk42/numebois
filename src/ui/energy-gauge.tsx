@@ -15,20 +15,34 @@ interface Props {
 export function EnergyGauge({ energy, onLongPress }: Props) {
   const full = energy >= ENERGY_PER_ELEMENT;
   const timer = useRef(0);
-  const release = () => clearTimeout(timer.current);
+  const pressedAt = useRef<number | null>(null);
+  const cancel = () => {
+    clearTimeout(timer.current);
+    pressedAt.current = null;
+  };
+  const open = () => {
+    cancel();
+    onLongPress();
+  };
   return (
     <div
       id="energy"
       class={full ? 'full' : ''}
       role="img"
       aria-label={`Énergie : ${energy} sur ${ENERGY_PER_ELEMENT}`}
-      onPointerDown={() => {
-        release();
-        timer.current = window.setTimeout(onLongPress, LONG_PRESS_MS);
+      onPointerDown={(event) => {
+        cancel();
+        pressedAt.current = event.timeStamp;
+        timer.current = window.setTimeout(open, LONG_PRESS_MS);
       }}
-      onPointerUp={release}
-      onPointerLeave={release}
-      onPointerCancel={release}
+      // A busy page can fire the timer late: the hold time decides, measured on the events.
+      onPointerUp={(event) => {
+        const held = pressedAt.current !== null && event.timeStamp - pressedAt.current;
+        if (held !== false && held >= LONG_PRESS_MS) open();
+        else cancel();
+      }}
+      onPointerLeave={cancel}
+      onPointerCancel={cancel}
       onContextMenu={(event) => event.preventDefault()}
     >
       {Array.from({ length: ENERGY_PER_ELEMENT }, (_, i) => (
