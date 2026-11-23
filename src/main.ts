@@ -26,6 +26,7 @@ declare global {
         played: readonly Reward[];
       };
       game(): GameProbe | null;
+      view(): ReturnType<SceneApp['view']>;
     };
   }
 }
@@ -38,6 +39,8 @@ const randomSeed = () => Math.floor(Math.random() * 1_000_000);
 // `?scene` (captures) and `?debug` show the landscape alone, as the address describes it.
 let game: GameProbe | null = null;
 const sceneOnly = params.has('scene') || params.has('debug');
+// The landscape alone can always be explored.
+if (sceneOnly) app.explore(() => undefined);
 const ready = sceneOnly
   ? app.start()
   : readSave()
@@ -74,17 +77,28 @@ const ready = sceneOnly
             changeSeason: (season) => app.changeSeason(season),
             portrait: (animal) => app.portrait(animal),
             reward: (kind) => app.sound.reward(kind),
+            explore: (onAway) => app.explore(onAway),
+            recenter: () => app.recenter(),
           },
           practice ? practiceSave(practice, Number(params.get('level')), app.description) : saved,
           practice
             ? () => undefined
             : (data) => void writeSave(data).catch((error: unknown) => console.warn(error)),
+          // A notion alone starts on its first question; the game on the welcome card.
+          !practice,
         );
         // During a question, the soundscape stays low and plays no calls.
         app.sound.quiet = () =>
-          !['seed', 'summary', 'choosing', 'planting', 'adopting', 'turning'].includes(
-            game?.phase ?? '',
-          );
+          ![
+            'welcome',
+            'walking',
+            'seed',
+            'summary',
+            'choosing',
+            'planting',
+            'adopting',
+            'turning',
+          ].includes(game?.phase ?? '');
         return started;
       });
 
@@ -101,6 +115,7 @@ window.__numebois = {
     played: [...app.sound.played],
   }),
   game: () => game && { ...game },
+  view: () => app.view(),
 };
 mountSoundButton(app.sound);
 

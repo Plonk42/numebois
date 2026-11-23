@@ -470,7 +470,7 @@ export class Painting {
       Math.sqrt(Math.max(1, this.terrain.extent.x / 20)),
     );
     this.sky.setAspect(this.stage.camera.aspect);
-    this.backdrop.place(this.stage.camera, this.stage.distance, height);
+    this.backdrop.place(this.stage.home, this.stage.distance, height);
     this.fog.near = this.ambience.fog.near * this.stage.distance;
     this.fog.far = this.ambience.fog.far * this.stage.distance;
     applyFog(this.fogged, this.fog);

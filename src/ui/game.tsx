@@ -34,6 +34,8 @@ const PRAISES = ['Bravo !', 'Super !', 'Oui !', 'Bien vu !', 'Génial !'];
 const DAY_MS = 86_400_000;
 
 type Phase =
+  | 'welcome'
+  | 'walking'
   | 'asking'
   | 'right'
   | 'reveal'
@@ -62,6 +64,13 @@ export interface GameForest extends SpotsForest {
   portrait(animal: AnimalName): string | null;
   /** Short sound of a reward of the trail. */
   reward(kind: 'right' | 'seed'): void;
+  /**
+   * Gestures explore the forest, told when the view leaves or comes back to the framing;
+   * null stops them and the view glides back.
+   */
+  explore(onAway: ((away: boolean) => void) | null): void;
+  /** Back to the framing. */
+  recenter(): void;
 }
 
 /** Read by the end-to-end tests. */
@@ -106,6 +115,8 @@ interface Props {
   forest: GameForest;
   save(json: string): void;
   probe: GameProbe;
+  /** Opens on the welcome card rather than on the first question. */
+  welcome: boolean;
 }
 
 /** Why golden seeds came: the first thing learnt. */
@@ -132,17 +143,22 @@ function Game(props: Props) {
   const [round, setRound] = useState(0);
   const [{ skill, exercise }, setQuestion] = useState(() => session.ask());
   const [mistakes, setMistakes] = useState(0);
-  const [phase, setPhase] = useState<Phase>('asking');
+  const [phase, setPhase] = useState<Phase>(props.welcome ? 'welcome' : 'asking');
   const [praise, setPraise] = useState(PRAISES[0]);
   const [menu, setMenu] = useState(false);
   const [length, setLength] = useState<TrailLength>(session.length);
   const [spots, setSpots] = useState<readonly number[]>([]);
   const [arrival, setArrival] = useState<string | null>(null);
+  /** The card the walk started from, and whether the view has left the framing. */
+  const [walkFrom, setWalkFrom] = useState<'welcome' | 'summary'>('welcome');
+  const [viewAway, setViewAway] = useState(false);
   const timer = useRef(0);
   const shownAt = useRef(performance.now());
   const firstAnswerMs = useRef<number | null>(null);
 
-  const summary = SUMMARY_PHASES.includes(phase);
+  const walking = phase === 'walking';
+  const summary = SUMMARY_PHASES.includes(phase) || (walking && walkFrom === 'summary');
+  const welcome = phase === 'welcome' || (walking && walkFrom === 'welcome');
   useEffect(() => {
     Object.assign(probe, {
       exercise,
@@ -156,6 +172,11 @@ function Game(props: Props) {
     });
   });
   useEffect(() => () => clearTimeout(timer.current), []);
+  // Gestures move the view only during a walk; after it, the view glides back to the framing.
+  useEffect(() => {
+    forest.explore(walking ? setViewAway : null);
+    if (!walking) setViewAway(false);
+  }, [walking]);
 
   const saveData = () =>
     serializeSave(
@@ -183,6 +204,19 @@ function Game(props: Props) {
     setPhase('asking');
     shownAt.current = performance.now();
     firstAnswerMs.current = null;
+  };
+
+  /** From the welcome card: the first question, already drawn. */
+  const begin = () => {
+    if (phase !== 'welcome') return;
+    setPhase('asking');
+    shownAt.current = performance.now();
+  };
+
+  const walk = () => {
+    if (phase !== 'welcome' && phase !== 'summary') return;
+    setWalkFrom(phase);
+    setPhase('walking');
   };
 
   const proceed = () => {
@@ -337,9 +371,16 @@ function Game(props: Props) {
       />
       <TrailPath stones={session.stones} current={summary ? session.stones : session.stone} />
       {/* During a question, the forest dims: one thing at a time. */}
-      <div id="dim" class={summary || away ? '' : 'on'} />
+      <div id="dim" class={summary || welcome || away ? '' : 'on'} />
       {gift && phase === 'seed' && <SeedGift {...gift} />}
       {phase === 'choosing' && <Spots forest={forest} slots={spots} onPick={plant} />}
+      {walking && (
+        <Walk
+          away={viewAway}
+          onRecenter={() => forest.recenter()}
+          onDone={() => setPhase(walkFrom)}
+        />
+      )}
       {arrival && (
         <section id="arrival" aria-live="polite">
           <p class="title">{arrival}</p>
@@ -358,7 +399,9 @@ function Game(props: Props) {
           onClose={() => setMenu(false)}
         />
       )}
-      {summary ? (
+      {welcome ? (
+        <Welcome away={walking} onStart={begin} onWalk={walk} />
+      ) : summary ? (
         <Summary
           stones={session.stones}
           leaves={leavesHere}
@@ -367,6 +410,7 @@ function Game(props: Props) {
           complete={placed >= MAX_ELEMENTS}
           away={phase !== 'summary'}
           onAgain={restart}
+          onWalk={walk}
         >
           <Shop
             items={shopItems(forest.description())}
@@ -415,6 +459,61 @@ function SeedGift({ count, reason, leaving }: Gift) {
   );
 }
 
+interface WelcomeProps {
+  /** The child walks in the forest: the card steps aside. */
+  away: boolean;
+  onStart(): void;
+  onWalk(): void;
+}
+
+/** The game opens on the forest: start the trail, or walk in the forest first. */
+function Welcome({ away, onStart, onWalk }: WelcomeProps) {
+  return (
+    <section id="welcome" class={`card${away ? ' away' : ''}`} aria-live="polite">
+      <Plume mood="cheer" />
+      <p class="praise">Bonjour !</p>
+      <p class="instruction">Ta forêt t’attend.</p>
+      <div class="actions">
+        <button type="button" class="walk" onPointerDown={onWalk}>
+          Se promener
+        </button>
+        <button type="button" class="next" onPointerDown={onStart}>
+          Commencer le sentier
+        </button>
+      </div>
+    </section>
+  );
+}
+
+interface WalkProps {
+  /** The view has left the framing. */
+  away: boolean;
+  onRecenter(): void;
+  onDone(): void;
+}
+
+/** During a walk in the forest: how to move, back to the framing, and the end of the walk. */
+function Walk({ away, onRecenter, onDone }: WalkProps) {
+  return (
+    <section id="walk">
+      <p class="instruction">Un doigt pour bouger, deux pour tourner et zoomer.</p>
+      <div class="actions">
+        <button
+          type="button"
+          class="recenter"
+          style={{ visibility: away ? 'visible' : 'hidden' }}
+          onPointerDown={onRecenter}
+        >
+          Revenir
+        </button>
+        <button type="button" class="next" onPointerDown={onDone}>
+          J’ai fini
+        </button>
+      </div>
+    </section>
+  );
+}
+
 interface SummaryProps {
   stones: number;
   /** Earned on this trail. */
@@ -427,6 +526,8 @@ interface SummaryProps {
   /** The forest has the stage: the card steps aside. */
   away: boolean;
   onAgain(): void;
+  /** A walk in the forest, the card aside. */
+  onWalk(): void;
   /** The shop of the forest. */
   children: ComponentChildren;
 }
@@ -445,16 +546,21 @@ function Summary(props: SummaryProps) {
   if (props.complete) forest = 'Ton tableau est complet !';
   else if (grown > 0) forest = 'Ta forêt a grandi !';
   return (
-    <section id="trail-end" class={props.away ? 'away' : ''} aria-live="polite">
+    <section id="trail-end" class={`card${props.away ? ' away' : ''}`} aria-live="polite">
       <Plume mood="cheer" />
       <p class="praise">Sentier terminé !</p>
       <p class="statement text">Tu as franchi {stones} pierres.</p>
       {earned && <p class="instruction earned">{earned}</p>}
       {forest && <p class="instruction">{forest}</p>}
       {props.children}
-      <button type="button" class="next" onPointerDown={props.onAgain}>
-        Encore un sentier
-      </button>
+      <div class="actions">
+        <button type="button" class="walk" onPointerDown={props.onWalk}>
+          Se promener
+        </button>
+        <button type="button" class="next" onPointerDown={props.onAgain}>
+          Encore un sentier
+        </button>
+      </div>
     </section>
   );
 }
@@ -471,6 +577,7 @@ export function mountGame(
   forest: GameForest,
   saved: ParsedSave | null,
   write: (json: string) => void,
+  welcome = true,
 ) {
   const rng = new Rng(seed);
   const session = new Session(skills, rng.fork('trail'), today);
@@ -484,7 +591,7 @@ export function mountGame(
     leaves: 0,
     seeds: 0,
     grown: 0,
-    phase: 'asking',
+    phase: welcome ? 'welcome' : 'asking',
     stone: 0,
     stones: session.stones,
     role: null,
@@ -504,6 +611,7 @@ export function mountGame(
       forest={forest}
       save={problem ? () => undefined : write}
       probe={probe}
+      welcome={welcome}
     />,
     root,
   );

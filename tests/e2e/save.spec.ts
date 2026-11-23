@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { startTrail } from './helpers';
 
 async function game(page: Page) {
   return (await page.evaluate(() => window.__numebois!.game()))!;
@@ -30,6 +31,7 @@ test('la progression et la réserve survivent au rechargement ; export et import
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('./?seed=3');
   await page.evaluate(() => window.__numebois!.ready);
+  await startTrail(page);
   const reserve = page.locator('#reserve');
   for (let i = 1; i <= 2; i++) {
     await answerRight(page);
@@ -83,6 +85,7 @@ test('la progression et la réserve survivent au rechargement ; export et import
   await expect(page.locator('#trail .stone')).toHaveCount(6);
 
   // Importing the exported save brings it back after a reload.
+  await startTrail(page);
   await answerRight(page);
   await expect(reserve).toHaveAttribute('aria-label', reserveLabel(3));
   await openParentMenu(page);

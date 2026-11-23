@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { Explorer } from './explore';
 import type { QualitySettings } from './quality';
 
 export interface Frame {
@@ -12,12 +13,19 @@ export interface Frame {
 }
 
 const FOV = 30;
+const NEAR = 5;
 
-/** Renderer, camera and frame loop. The camera frames a box and breathes slightly. */
+/**
+ * Renderer, camera and frame loop. The camera frames a box and breathes slightly; the child
+ * may explore around that framing when the game allows it.
+ */
 export class Stage {
   readonly renderer: THREE.WebGLRenderer;
   readonly scene = new THREE.Scene();
-  readonly camera = new THREE.PerspectiveCamera(FOV, 1, 5, 600);
+  readonly camera = new THREE.PerspectiveCamera(FOV, 1, NEAR, 600);
+  /** The camera at the framing, without breathing nor exploration: what the backdrop faces. */
+  readonly home = new THREE.PerspectiveCamera(FOV, 1, NEAR, 600);
+  readonly explorer: Explorer;
   /** Unit vector from the framed box towards the camera. */
   readonly viewOffset = new THREE.Vector3(0, 0.45, 0.9).normalize();
 
@@ -42,6 +50,15 @@ export class Stage {
     });
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.info.autoReset = false;
+    this.explorer = new Explorer(canvas, () => {
+      const view = this.explorer.view;
+      const tan = Math.tan((this.camera.fov * Math.PI) / 360);
+      return {
+        yaw: this.yaw + (view.yaw * Math.PI) / 180,
+        pitch: this.pitch + (view.pitch * Math.PI) / 180,
+        unitsPerPixel: (2 * tan * this.distance) / view.zoom / (canvas.clientHeight || 1),
+      };
+    });
   }
 
   setQuality(quality: QualitySettings): void {
@@ -117,6 +134,13 @@ export class Stage {
       }
     }
     this.distance = distance;
+    this.explorer.setRoom([box.size[0] / 2, box.size[2] / 2]);
+    this.home.copy(this.camera);
+    this.home.near = NEAR;
+    this.home.position.copy(this.target).addScaledVector(dir, distance);
+    this.home.lookAt(this.target);
+    this.home.updateProjectionMatrix();
+    this.home.updateMatrixWorld();
     this.update(0);
   }
 
@@ -134,11 +158,12 @@ export class Stage {
     this.focusStart = time;
   }
 
-  /** Breathing and focus. No allocation: called every frame. */
+  /** Exploration, breathing and focus. No allocation: called every frame. */
   update(time: number): void {
-    const yaw = this.yaw + 0.011 * Math.sin(time * 0.21);
-    const pitch = this.pitch + 0.005 * Math.sin(time * 0.17 + 1.3);
-    let distance = this.distance * (1 + 0.006 * Math.sin(time * 0.13 + 2.1));
+    const view = this.explorer.step();
+    const yaw = this.yaw + (view.yaw * Math.PI) / 180 + 0.011 * Math.sin(time * 0.21);
+    const pitch = this.pitch + (view.pitch * Math.PI) / 180 + 0.005 * Math.sin(time * 0.17 + 1.3);
+    let distance = (this.distance / view.zoom) * (1 + 0.006 * Math.sin(time * 0.13 + 2.1));
     const age = time - this.focusStart;
     let weight = 0;
     if (age >= 0 && age < 5) {
@@ -146,11 +171,20 @@ export class Stage {
       const fall = Math.min(1, Math.max(0, (age - 3.2) / 1.8));
       weight = rise * rise * (3 - 2 * rise) * (1 - fall * fall * (3 - 2 * fall));
     }
-    this.lookAt.copy(this.target).lerp(this.focusPoint, 0.3 * weight);
+    this.lookAt.copy(this.target);
+    this.lookAt.x += view.x;
+    this.lookAt.z += view.z;
+    this.lookAt.lerp(this.focusPoint, 0.3 * weight);
     distance *= 1 - 0.1 * weight;
     this.direction(yaw, pitch, this.offset);
     this.camera.position.copy(this.lookAt).addScaledVector(this.offset, distance);
     this.camera.lookAt(this.lookAt);
+    // Up close, a nearer clipping plane keeps the trees in front of the camera whole.
+    const near = Math.min(NEAR, distance * 0.2);
+    if (Math.abs(near - this.camera.near) > 0.02) {
+      this.camera.near = near;
+      this.camera.updateProjectionMatrix();
+    }
   }
 
   render(): void {
@@ -187,6 +221,7 @@ export class Stage {
   }
 
   dispose(): void {
+    this.explorer.dispose();
     this.renderer.dispose();
   }
 }

@@ -5,6 +5,12 @@ export async function game(page: Page) {
   return (await page.evaluate(() => window.__numebois!.game()))!;
 }
 
+/** The game opens on the welcome card: one touch starts the trail. */
+export async function startTrail(page: Page) {
+  await page.getByRole('button', { name: 'Commencer le sentier' }).click();
+  await expect(page.locator('#question')).toBeVisible();
+}
+
 /** The exercise on the slate. */
 export async function current(page: Page) {
   const statement = await page.locator('#question .statement').textContent();

@@ -49,7 +49,7 @@
   }
 }
 #question p,
-#trail-end p {
+.card p {
   margin: 0;
 }
 #question header {
@@ -181,9 +181,10 @@
   height: 100%;
 }
 
-/* Buttons of the slate and of the end of the trail: big, soft, pressed under the finger. */
+/* Buttons of the slate, of the cards and of the walk: big, soft, pressed under the finger. */
 #question button,
-#trail-end button {
+.card button,
+#walk button {
   min-height: 64px;
   border: 0;
   border-radius: 18px;
@@ -196,7 +197,8 @@
   touch-action: manipulation;
 }
 #question button:active:not(:disabled),
-#trail-end button:active {
+.card button:active,
+#walk button:active {
   transform: translateY(3px);
   box-shadow: 0 1px 0 #c9d9c0;
 }
@@ -205,13 +207,15 @@
 }
 #question .submit,
 #question .next,
-#trail-end .next {
+.card .next,
+#walk .next {
   color: #fff;
   background: #4e9a35;
   box-shadow: 0 4px 0 #3a7527;
 }
 #question .next,
-#trail-end .next {
+.card .actions button,
+#walk button {
   font-size: 28px;
 }
 #question .erase {
@@ -280,8 +284,8 @@
   opacity: 0.4;
 }
 
-/* End of the trail: the slate is gone, the whole forest shows, a card at the bottom. */
-#trail-end {
+/* Welcome and end of the trail: the slate is gone, the whole forest shows, a card at the bottom. */
+.card {
   position: fixed;
   left: 50%;
   bottom: 24px;
@@ -303,24 +307,33 @@
     transform 0.45s ease,
     opacity 0.45s ease;
 }
-/* While an element grows or an animal comes, the card steps aside. */
-#trail-end.away {
+/* While an element grows, an animal comes or the child walks, the card steps aside. */
+.card.away {
   opacity: 0;
   transform: translateX(-50%) translateY(48px) scale(0.94);
   pointer-events: none;
 }
-#trail-end .praise {
+.card .praise {
   font-size: 38px;
   line-height: 44px;
 }
-#trail-end .plume {
+.card .plume {
   left: -94px;
   top: -88px;
   bottom: auto;
 }
-#trail-end .next {
+/* The way on, wide, and a walk in the forest beside it. */
+.card .actions {
   align-self: stretch;
   margin-top: 10px;
+  display: flex;
+  gap: 12px;
+}
+.card .actions .walk {
+  flex: 1;
+}
+.card .actions .next {
+  flex: 2;
 }
 
 /* The shop of the forest: a few big articles, one touch to buy. */

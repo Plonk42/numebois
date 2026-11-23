@@ -1,0 +1,163 @@
+import { expect, test, type CDPSession, type Page } from '@playwright/test';
+import { apart, boxes, startTrail } from './helpers';
+
+type Point = [number, number];
+
+const view = (page: Page) => page.evaluate(() => window.__numebois!.view());
+
+/** Real touches on the screen (one or two fingers), moved in steps along `at(t)`. */
+async function touch(cdp: CDPSession, at: (t: number) => Point[], steps = 6) {
+  const points = (t: number) => at(t).map(([x, y], id) => ({ x, y, id }));
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: points(0) });
+  for (let s = 1; s <= steps; s++) {
+    await cdp.send('Input.dispatchTouchEvent', {
+      type: 'touchMove',
+      touchPoints: points(s / steps),
+    });
+  }
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+}
+
+const drag =
+  (from: Point, to: Point) =>
+  (t: number): Point[] => [[from[0] + (to[0] - from[0]) * t, from[1] + (to[1] - from[1]) * t]];
+
+/** Two fingers around a centre: apart by `gap(t)`, turned by `angle(t)` radians. */
+const pair =
+  (centre: Point, gap: (t: number) => number, angle: (t: number) => number, slide = 0) =>
+  (t: number): Point[] => {
+    const [dx, dy] = [(Math.cos(angle(t)) * gap(t)) / 2, (Math.sin(angle(t)) * gap(t)) / 2];
+    const y = centre[1] + slide * t;
+    return [
+      [centre[0] - dx, y - dy],
+      [centre[0] + dx, y + dy],
+    ];
+  };
+
+test('se promener dans la forêt : gestes dans leurs limites, retour au cadrage, rien pendant une question', async ({
+  page,
+}) => {
+  // About a minute with three workers on the workstation: room for CI.
+  test.setTimeout(180_000);
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto('./?seed=3');
+  await page.evaluate(() => window.__numebois!.ready);
+  const cdp = await page.context().newCDPSession(page);
+  const home = { yaw: 0, pitch: 0, zoom: 1, x: 0, z: 0 };
+
+  // The game opens on the forest, lit, with the welcome card at the bottom.
+  const welcome = page.locator('#welcome');
+  await expect(welcome).toBeVisible();
+  await expect(page.locator('#question')).toHaveCount(0);
+  await expect(page.locator('#dim')).not.toHaveClass(/on/);
+  const viewport = page.viewportSize()!;
+  const [card] = await boxes(page, '#welcome');
+  expect(card.y + card.height).toBeLessThanOrEqual(viewport.height);
+  expect(Math.abs(card.x + card.width / 2 - viewport.width / 2)).toBeLessThan(2);
+  for (const box of await boxes(page, '#welcome button')) {
+    expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(56);
+  }
+  await test.info().attach('accueil', { body: await page.screenshot(), contentType: 'image/png' });
+
+  // Not walking yet: a finger on the forest does nothing.
+  await touch(cdp, drag([640, 300], [400, 200]));
+  expect(await view(page)).toMatchObject({ goal: home, active: false });
+
+  await page.getByRole('button', { name: 'Se promener' }).click();
+  await expect(welcome).toHaveClass(/away/);
+  const walk = page.locator('#walk');
+  const back = walk.getByRole('button', { name: 'Revenir' });
+  await expect(walk).toBeVisible();
+  await expect(back).toBeHidden();
+  expect((await view(page)).active).toBe(true);
+  for (const box of await boxes(page, '#walk button')) {
+    expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(56);
+  }
+  const [walkBox] = await boxes(page, '#walk');
+  for (const other of ['#reserve', '#trail', '#sound-toggle']) {
+    const [box] = await boxes(page, other);
+    expect(apart(box, walkBox), other).toBe(true);
+  }
+
+  // Pinch: zoom in, up to its limit and no further.
+  await touch(
+    cdp,
+    pair(
+      [640, 330],
+      (t) => 120 + 800 * t,
+      () => 0,
+    ),
+  );
+  expect((await view(page)).goal.zoom).toBe(2.5);
+  await expect(back).toBeVisible();
+
+  // One finger moves the view; far away, it stops at the edge of the painting.
+  await touch(cdp, drag([300, 330], [1000, 330]));
+  const moved = (await view(page)).goal;
+  expect(moved.x).toBeLessThan(0);
+  await touch(cdp, drag([300, 330], [1000, 330]));
+  await touch(cdp, drag([300, 330], [1000, 330]));
+  const edge = (await view(page)).goal;
+  await touch(cdp, drag([300, 330], [1000, 330]));
+  expect((await view(page)).goal.x).toBeCloseTo(edge.x, 5);
+  expect(edge.x).toBeLessThan(moved.x);
+
+  // Twist and slide with two fingers: turn and tilt, a few tens of degrees at most.
+  await touch(
+    cdp,
+    pair(
+      [640, 330],
+      () => 300,
+      (t) => 1.6 * t,
+    ),
+  );
+  expect((await view(page)).goal.yaw).toBe(35);
+  await touch(
+    cdp,
+    pair(
+      [640, 250],
+      () => 300,
+      () => 0,
+      300,
+    ),
+  );
+  expect((await view(page)).goal.pitch).toBe(8);
+  await page.waitForTimeout(500);
+  await test.info().attach('au plus loin', {
+    body: await page.screenshot(),
+    contentType: 'image/png',
+  });
+
+  // One touch back to the framing, gliding.
+  await back.click();
+  expect((await view(page)).goal).toEqual(home);
+  await expect(back).toBeHidden();
+  await expect.poll(async () => (await view(page)).now).toEqual(home);
+
+  // The mouse too: the wheel zooms.
+  await page.mouse.move(640, 330);
+  await page.mouse.wheel(0, -400);
+  await expect.poll(async () => (await view(page)).goal.zoom).toBeGreaterThan(1.5);
+
+  // The end of the walk brings the welcome card back, and the view glides home.
+  await walk.getByRole('button', { name: 'J’ai fini' }).click();
+  await expect(walk).toHaveCount(0);
+  await expect(welcome).not.toHaveClass(/away/);
+  expect(await view(page)).toMatchObject({ goal: home, active: false });
+  await expect.poll(async () => (await view(page)).now).toEqual(home);
+
+  // During a question, the forest stays where it is, whatever the fingers do.
+  await startTrail(page);
+  await touch(cdp, drag([120, 300], [120, 600]));
+  await touch(
+    cdp,
+    pair(
+      [120, 450],
+      (t) => 80 + 200 * t,
+      (t) => t,
+    ),
+  );
+  expect(await view(page)).toMatchObject({ goal: home, now: home, active: false });
+  expect(errors).toEqual([]);
+});
