@@ -149,7 +149,7 @@ test('un tableau complet : grand final, cadre, nouveau décor ; il reste vivant 
   await expect
     .poll(() => page.evaluate(() => window.__numebois!.counters().fps), { timeout: 10_000 })
     .toBeGreaterThan(0);
-  for (const other of ['#reserve', '#trail', '#seasons', '#sound-toggle']) {
+  for (const other of ['#reserve', '#trail', '#sound-toggle']) {
     const [box] = await boxes(page, other);
     expect(apart(box, (await boxes(page, '#album-page'))[0]), other).toBe(true);
   }

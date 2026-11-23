@@ -204,10 +204,12 @@ test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt po
   const sign = page.getByRole('button', { name: 'Nouveau sentier' });
   const [signBox] = await boxes(page, '#new-trail');
   expect(Math.min(signBox.width, signBox.height)).toBeGreaterThanOrEqual(56);
-  for (const other of ['#reserve', '#trail', '#seasons', '#sound-toggle']) {
+  for (const other of ['#reserve', '#trail', '#sound-toggle']) {
     const [box] = await boxes(page, other);
     expect(apart(box, signBox), other).toBe(true);
   }
+  // A single season: nothing to choose, no bar.
+  await expect(page.locator('#seasons')).toHaveCount(0);
 
   // A touch on the reserve opens the shop: an element in leaves, the doe three elements away.
   const shopCard = page.locator('#shop');
@@ -437,14 +439,8 @@ test('les saisons : l’automne acheté, l’enfant choisit la saison de son tab
   const picker = page.locator('#seasons');
   const summer = picker.getByRole('button', { name: 'L’été' });
   const autumn = picker.getByRole('button', { name: 'L’automne' });
-  // During a question, the season of the painting stays: one season, nothing to touch.
-  await expect(picker.getByRole('button')).toHaveCount(1);
-  await expect(summer).toBeDisabled();
-  await expect(summer).toHaveAttribute('aria-pressed', 'true');
-  const [bar, trail, sound] = await Promise.all(
-    ['#seasons', '#trail', '#sound-toggle'].map(async (s) => (await boxes(page, s))[0]),
-  );
-  expect(apart(bar, trail) && apart(bar, sound)).toBe(true);
+  // One season, nothing to choose: no bar, during a question as after it.
+  await expect(picker).toHaveCount(0);
 
   const { stones } = await game(page);
   for (let stone = 0; stone < stones; stone++) {
@@ -459,7 +455,7 @@ test('les saisons : l’automne acheté, l’enfant choisit la saison de son tab
     .getByRole('button', { name: 'L’automne, 3 graines dorées' });
   // Once Plume has poured her basket into the reserve, a touch on it opens the shop.
   await expect(page.locator('#reserve')).toHaveClass(/ready/, { timeout: 20_000 });
-  await expect(summer).toBeEnabled();
+  await expect(picker).toHaveCount(0);
   await page.locator('#reserve').click();
   await expect(offer).toBeEnabled();
 
@@ -494,6 +490,16 @@ test('les saisons : l’automne acheté, l’enfant choisit la saison de son tab
   expect(await describe()).toMatchObject({ season: 'summer', seasons: ['summer', 'autumn'] });
   expect((await game(page)).seeds).toBe(0);
 
+  // During the walk, the bar stays clear of the other buttons.
+  await end.getByRole('button', { name: 'Fermer' }).click();
+  await expect(summer).toBeEnabled();
+  const [bar, ...others] = await Promise.all(
+    ['#seasons', '#trail', '#new-trail', '#sound-toggle'].map(
+      async (s) => (await boxes(page, s))[0],
+    ),
+  );
+  for (const other of others) expect(apart(bar, other)).toBe(true);
+
   // The season chosen and the one bought stay in the painting, once written.
   const saved = () =>
     page.evaluate(
@@ -513,8 +519,16 @@ test('les saisons : l’automne acheté, l’enfant choisit la saison de son tab
   await page.reload();
   await page.evaluate(() => window.__numebois!.ready);
   expect(await describe()).toMatchObject({ season: 'summer', seasons: ['summer', 'autumn'] });
+  // On the welcome card, the season can change too; the card stays.
   await expect(picker.getByRole('button')).toHaveCount(2);
-  await expect(autumn).toBeDisabled();
+  await autumn.click();
+  await expect(autumn).toHaveAttribute('aria-pressed', 'true', { timeout: 12_000 });
+  await expect(autumn).toBeEnabled({ timeout: 12_000 });
+  await expect(page.locator('#welcome')).toBeVisible();
+  expect(await describe()).toMatchObject({ season: 'autumn', seasons: ['summer', 'autumn'] });
+  // During a question, nothing else: the bar goes.
+  await startTrail(page);
+  await expect(picker).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 

@@ -55,7 +55,7 @@ interface Props {
   /** Seasons of the painting. */
   seasons: readonly Season[];
   season: Season;
-  /** Off during a question: the forest stays as it is. */
+  /** Off while the season changes under the light. */
   active: boolean;
   onPick(season: Season): void;
 }

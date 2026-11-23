@@ -220,6 +220,8 @@ function Game(props: Props) {
   const [page, setPage] = useState<AlbumEntry | null>(null);
   /** Where the Album was opened from, to come back there. */
   const albumFrom = useRef<Phase>('welcome');
+  /** Where a change of season started: the screen stays as it was under the light. */
+  const [turnFrom, setTurnFrom] = useState<Phase>('walking');
   /** After the grand finale, the walk; the welcome card when it resumed at start. */
   const finaleTo = useRef<'walking' | 'welcome'>('walking');
   const timer = useRef(0);
@@ -228,15 +230,19 @@ function Game(props: Props) {
 
   const walking = phase === 'walking';
   const browsing = ALBUM_PHASES.has(phase);
+  const shown = phase === 'turning' ? turnFrom : phase;
   const ended =
-    SHOP_PHASES.has(phase) ||
-    FINALE_PHASES.has(phase) ||
-    ((walking || browsing) && walkFrom === 'end');
-  const welcome = phase === 'welcome' || ((walking || browsing) && walkFrom === 'welcome');
-  /** The forest is the child's: the reserve opens the shop, the seasons answer, the sign waits. */
+    SHOP_PHASES.has(shown) ||
+    FINALE_PHASES.has(shown) ||
+    ((shown === 'walking' || browsing) && walkFrom === 'end');
+  const welcome =
+    shown === 'welcome' || ((shown === 'walking' || browsing) && walkFrom === 'welcome');
+  /** The forest is the child's: the reserve opens the shop, the sign waits. */
   const free = ended && !done && (walking || phase === 'shop');
   /** Nothing else on the screen: the Album can open. */
   const idle = !done && (phase === 'welcome' || walking);
+  /** The seasons answer on the welcome card, during a walk and in the shop. */
+  const canTurn = idle || phase === 'shop';
   /** Gestures move the view during a walk, in the forest or in a painting of the Album. */
   const roaming = walking || phase === 'visiting';
   useEffect(() => {
@@ -377,9 +383,10 @@ function Game(props: Props) {
     });
   };
 
-  /** The painting passes to another of its seasons, then back to the walk or the shop. */
+  /** The painting passes to another of its seasons, then back to where it was. */
   const turn = (season: Season) => {
     const back = phase;
+    setTurnFrom(back);
     setPhase('turning');
     void forest.changeSeason(season).then(() => {
       setArrival(null);
@@ -586,14 +593,17 @@ function Game(props: Props) {
         }}
         onLongPress={() => setMenu(true)}
       />
-      <SeasonPicker
-        seasons={seasons}
-        season={season}
-        active={free}
-        onPick={(s) => {
-          if (free) turn(s);
-        }}
-      />
+      {/* Only when there is a choice: a single season is nothing to touch. */}
+      {seasons.length > 1 && (canTurn || phase === 'turning') && (
+        <SeasonPicker
+          seasons={seasons}
+          season={season}
+          active={canTurn}
+          onPick={(s) => {
+            if (canTurn) turn(s);
+          }}
+        />
+      )}
       <TrailPath
         art={art}
         stones={session.stones}
@@ -656,7 +666,7 @@ function Game(props: Props) {
         />
       )}
       {FINALE_PHASES.has(phase) || browsing ? null : welcome ? (
-        <Welcome away={walking} onStart={begin} onWalk={walk} />
+        <Welcome away={shown === 'walking'} onStart={begin} onWalk={walk} />
       ) : ended ? (
         <>
           {done && <TrailDone leaves={leavesHere} seeds={seedsHere} basket={basket} />}
