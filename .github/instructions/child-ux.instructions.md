@@ -19,7 +19,7 @@ applyTo: "src/ui/**, src/scene/**, src/domains/**/lessons/**, src/domains/**/pro
   - « Faux », « Erreur », « Raté », « Perdu » ;
   - tout son d'échec, du rouge pour signaler une faute, un compte à rebours ;
   - « tu as perdu ta série », une comparaison avec d'autres enfants.
-- 1re erreur : indice de méthode. 2e erreur : on montre la réponse avec la méthode, puis on avance. Jamais de perte d'énergie.
+- 1re erreur : indice de méthode. 2e erreur : on montre la réponse avec la méthode, puis on avance. Jamais de ressource perdue.
 - Un score plus bas que d'habitude se présente sans comparaison négative (« 12 glands. Ton record : 14 »).
 - Le mot « leçon » n'apparaît pas : « Plume te montre une astuce ». Les devoirs de la semaine sont des « quêtes ».
 

@@ -11,13 +11,13 @@ Stack : Vite + TypeScript + Preact, scène 3D Three.js en style cartoon low-poly
 L'enfant a beaucoup de mal à se concentrer. Le but n°1 est qu'il ait envie de revenir de lui-même pour embellir sa forêt, et qu'il travaille ses leçons sans s'en rendre compte. Chaque choix de conception est jugé à cette aune.
 
 1. **Boucles très courtes :**
-   - un micro-retour à chaque bonne réponse (une pousse qui grandit un peu, une étincelle) ;
-   - un nouvel élément environ toutes les 1 à 1,5 minute ;
+   - un micro-retour à chaque bonne réponse (une feuille qui jaillit et rejoint sa réserve, une étincelle) ;
+   - à la fin de chaque sentier, de quoi acheter au moins un élément (voir [Boucle de progression](#boucle-de-progression)) ;
    - jamais plus de quelques questions sans changement visible.
 2. **La fin toujours visible :** le sentier s'affiche comme un chemin de 10 pierres. Il sait à tout moment combien il en reste. Longueur par défaut : court (environ 5 minutes). Une mini-session de 2 minutes compte aussi.
-3. **C'est sa forêt :** à chaque nouvel élément, il choisit où le placer parmi 2 ou 3 emplacements qui brillent. C'est un seul toucher, qui ne casse pas le rythme.
-4. **Un but visible pour le tableau :** les grands moments du tableau (dans la clairière : un lac, une grande montagne, les saisons) sont des paliers annoncés dès le départ (étincelles dorées, cuvette sèche, silhouette dans la brume, arbre aux couleurs de la saison suivante) et se révèlent au fil du jeu, avec un grand final quand le tableau est complet. Une saison débloquée reste ensuite au choix de l'enfant pour ce tableau.
-5. **De petites surprises :** de temps en temps, une visite imprévue (oiseau rare, papillons, arc-en-ciel). Rien à acheter, pas de tirage au sort, une seule monnaie (l'énergie).
+3. **C'est sa forêt :** il accumule des ressources et décide lui-même quoi acheter, quand, et où le poser parmi 2 ou 3 emplacements qui brillent.
+4. **Un but visible pour le tableau :** les grands moments du tableau (dans la clairière : un lac, une grande montagne) sont des paliers annoncés dès le départ (étincelles dorées, cuvette sèche, silhouette dans la brume) et se révèlent au fil du jeu, avec un grand final quand le tableau est complet. Une saison achetée reste ensuite au choix de l'enfant pour ce tableau.
+5. **De petites surprises :** de temps en temps, une visite imprévue et offerte (oiseau rare, papillons, arc-en-ciel). Pas de tirage au sort.
 6. **Le travail déguisé :**
    - le mot « leçon » n'apparaît jamais : c'est « Plume te montre une astuce » ;
    - les exercices parlent du décor du tableau (glands, cabane, ruisseau, horloge du moulin) ;
@@ -27,7 +27,31 @@ L'enfant a beaucoup de mal à se concentrer. Le but n°1 est qu'il ait envie de 
    - les animaux et les éléments ne sont interactifs (les toucher les fait réagir) qu'entre deux questions ou à la fin du sentier.
 8. **Manipuler plutôt qu'écrire :** horloge, règle, parts et opérations posées se manipulent au doigt, ce qui est plus engageant que la saisie seule.
 9. **Revenir le lendemain sans punition :** si l'enfant a joué la veille, une petite nouveauté l'attend (une fleur éclose, un animal arrivé). Aucune série qu'on peut perdre, aucun message de manque.
-10. **À éviter :** chronomètre imposé, classement, plusieurs monnaies, notifications, compte à rebours, tout ce qui ressemble à une punition.
+10. **À éviter :** chronomètre imposé, classement, tirage au sort ou pochette surprise, ressource qu'on peut perdre, notifications, compte à rebours, tout ce qui ressemble à une punition.
+
+## Boucle de progression
+
+Décisions du propriétaire (2026-11-23) : l'enfant accumule des ressources et les dépense quand il le décide. C'est la référence pour toute la mécanique de jeu.
+
+```mermaid
+flowchart LR
+  A[Bonne réponse] -->|une feuille| R[Réserve]
+  L[Notion acquise, fait automatisé, défi tenté] -->|graines dorées| R
+  R -->|fin du sentier : il achète ou garde| B[Boutique de la forêt]
+  B -->|élément, animal, élément rare| P[Il choisit l'emplacement]
+  B -->|saison| S[Saison du tableau, au choix ensuite]
+  P --> N[Nombre d'éléments posés]
+  N --> T[Palier 0 à 11, grands moments compris]
+  T --> F[Tableau complet : grand final, Album]
+```
+
+1. **Deux ressources, jamais perdues :** les **feuilles**, une par bonne réponse (sentier, rafale, défis) ; les **graines dorées**, plus rares, gagnées en apprenant (notion acquise, fait automatisé, défi tenté). La réserve passe d'un tableau au suivant ; une erreur ou une absence ne retire rien.
+2. **Il dépense quand il le décide, à la fin du sentier :** après le résumé, la boutique de la forêt s'ouvre (plus tard aussi à la fin d'une rafale ou d'un défi). Il achète, ou garde tout pour plus tard. Pendant le sentier, rien à acheter : seule la réserve grossit.
+3. **Ce qui s'achète** (catalogue propre à chaque décor) : les éléments à poser (arbres, massifs, rochers, objets), les animaux et les éléments rares, les saisons du tableau en cours. Proposition à calibrer (#29) : éléments en feuilles ; animaux, éléments rares et saisons en graines dorées. Un article peut demander un palier (le loup a besoin du promontoire du palier 10). Un article hors de portée montre ce qu'il reste à gagner, jamais un message de manque.
+4. **Les paliers avancent tout seuls** avec le nombre d'éléments posés ; ils ne s'achètent pas. Les grands moments (lac, montagne) sont des paliers (#81). Le tableau est complet quand ses emplacements sont remplis.
+5. **À surveiller avec l'enfant (#12) :** la forêt ne change plus pendant le sentier, seulement à la fin (environ toutes les 5 minutes en sentier court) ; la boutique doit rester courte (quelques articles, grandes images, un toucher) pour ne pas devenir un menu où il se perd.
+
+Tickets : réserve et micro-retour (#22), boutique (#83), pose et paliers (#24), emplacement (#25), saisons (#82), éléments rares (#46), calibrage (#29).
 
 ## Décisions
 
@@ -45,12 +69,12 @@ L'enfant a beaucoup de mal à se concentrer. Le but n°1 est qu'il ait envie de 
   - **Chaque graine, une clairière différente (demande du propriétaire, 2026-11-22).** Sinon le jeu lasse vite. La topologie reste la même (massif et cascade au fond, lac, ruisseau vers l'avant, affluents de l'est et de l'ouest), mais la graine tire toute la disposition (`drawLayout` dans `src/scene/terrain/clearing-layout.ts`) : position des groupes, hauteur, profil et arêtes des sommets, tracé des ruisseaux, bord du tableau, buttes, emplacements d'arbres et rochers, lisière, part de sapins ; la végétation a son essence et sa fleur préférées (`floraOf` dans `src/scene/populate.ts`). Les règles de composition sont du code : un tirage qui ne les respecte pas est refait. Pour juger un changement, comparer plusieurs graines (`npm run capture -- --seed 1,2,3,4`).
 - **Contenu en TypeScript, pas en YAML :** c'est toujours l'agent qui ajoute les notions et les quêtes, à la demande du propriétaire. Le compilateur et les tests vérifient tout, sans schéma ni validateur à part.
 - **Un module par domaine** (`src/domains/<domain>/`), branché sur un registre. Le moteur (sentier, maîtrise, rafale, défis) est générique et ne connaît aucun domaine en particulier.
-- **Surimpression du jeu (2026-11-23, `src/ui/`) :** Preact par-dessus la scène. Jauge d'énergie en haut à gauche (une feuille par bonne réponse), carte question à droite, ancrée en bas pour que les touches ne bougent pas quand un indice apparaît ; la carte s'écarte pendant la pousse d'un nouvel élément. Le jeu s'affiche par défaut ; `?scene` (captures de `npm run capture`, specs du rendu) et `?debug` montrent le paysage seul. Réglage de l'énergie dans `src/core/energy.ts` (4 bonnes réponses par élément pour commencer).
+- **Surimpression du jeu (2026-11-23, `src/ui/`, provisoire) :** l'interface des exercices sera reprise avant de multiplier les notions (#84, demande du propriétaire : la petite surimpression va vite montrer ses limites). Preact par-dessus la scène. Jauge d'énergie en haut à gauche (une feuille par bonne réponse), carte question à droite, ancrée en bas pour que les touches ne bougent pas quand un indice apparaît ; la carte s'écarte pendant la pousse d'un nouvel élément. Le jeu s'affiche par défaut ; `?scene` (captures de `npm run capture`, specs du rendu) et `?debug` montrent le paysage seul. Réglage de l'énergie dans `src/core/energy.ts` (4 bonnes réponses par élément pour commencer).
 - **Sauvegarde :** un seul enfant, IndexedDB sous le préfixe `numebois:` (l'origine github.io est partagée avec les autres dépôts), export/import JSON. Les identifiants de notions sont stables. La compatibilité devient obligatoire dès que le propriétaire déclare « l'enfant joue pour de vrai » (voir [GITHUB_WORKFLOW.md](GITHUB_WORKFLOW.md#compatibilité-des-sauvegardes)).
 - **Paysage seulement (propriétaire, 2026-11-22) :** la tablette n'est jamais utilisée en portrait. Ni mise en page ni tests en portrait ; la PWA verrouillera l'orientation (`orientation: "landscape"` dans le manifeste).
 - **Tablette cible (propriétaire, 2026-11-22) :** Lenovo Tab M10 Gen 3 (2022), 64 Go, 4 Go de RAM. D'après la fiche technique (à confirmer sur l'appareil) : Unisoc T610, GPU Mali-G52 MP2, écran 10,1 pouces 1920×1200, Android 11. Le GPU est d'entrée de gamme : le budget de rendu est mesuré sur elle en priorité, et le palier de qualité par défaut en dépendra. Les tests l'émulent en paysage 1280×800 (viewport CSS supposé à un `devicePixelRatio` de 1,5, à vérifier).
 - **Pas de synthèse vocale :** textes courts, gros caractères.
-- **Bienveillance partout :** aucune perte d'énergie, indices progressifs, comparaison uniquement avec soi-même, aucune formulation d'échec.
+- **Bienveillance partout :** aucune ressource perdue, indices progressifs, comparaison uniquement avec soi-même, aucune formulation d'échec.
 - **Opérations posées V1 :** addition (2 ou 3 nombres, jusqu'à 4 chiffres) et multiplication par un nombre à 1 chiffre. Pas de soustraction posée.
 - **Hors périmètre V1** (à ajouter plus tard, module par module) : division, géométrie, soustraction posée, multiplication par 2 chiffres, synthèse vocale, plusieurs profils, synchronisation.
 
@@ -76,7 +100,9 @@ Le code (identifiants, fichiers, dossiers) est en anglais. Les textes affichés,
 | décor                         | `Biome`          |
 | grand moment                  | `Landmark`       |
 | emplacement                   | `Slot`           |
-| énergie                       | `Energy`         |
+| feuilles (énergie)            | `Energy`         |
+| graine dorée                  | `GoldenSeed`     |
+| boutique de la forêt          | `Shop`           |
 | quête (devoirs de la semaine) | `Quest`          |
 | astuce de Plume (leçon)       | `Lesson`         |
 | Carnet de la forêt            | `Notebook`       |
@@ -120,7 +146,7 @@ Widgets : `Keypad`, `Choice`, `FractionInput`, `TimeInput`, `Clock`, `Ruler`, `S
 - `src/ui/widgets/` : widgets partagés (voir le glossaire). Contrat : ils reçoivent l'exercice et un mode (`demo`, `guided`, `free`) et renvoient une réponse. La validation et les indices viennent du domaine.
 - `src/quests/YYYY-MM-DD.ts` : `defineQuest` (titre de quête, période, décor facultatif pour le prochain tableau, notions travaillées avec paramètres, rafale recommandée, leçons, défis). Une quête tient en une dizaine de lignes.
 - `src/scene/` : paysage Three.js, `render/` (moteur de rendu), `biomes/` (décors) et `painting.ts`. Le module `word-problems` puise le vocabulaire et les objets du décor en cours pour habiller les énoncés.
-- `src/ui/` : surimpression et mode atelier. Les widgets larges agrandissent le panneau sur environ 60 % de l'écran, la forêt reste visible.
+- `src/ui/` : surimpression et mode atelier, à reprendre (#84). Les widgets larges agrandissent le panneau sur environ 60 % de l'écran, la forêt reste visible.
 
 ### Leçons sans YAML
 
@@ -228,9 +254,9 @@ C'est le cœur de la motivation. Chaque bonne réponse doit se voir, et chaque t
    - 10 « doré » : massif plus haut, forêt dense, la lumière tourne à l'or, premières lucioles ;
    - 11 « féerique », le grand final : massif au plus haut, heure dorée, lucioles, rond de sorcières et arc-en-ciel.
 
-   **Les grands moments sont des paliers (décision du propriétaire, 2026-11-23, #81).** Un seul axe de progression pour l'enfant : pas de deuxième mécanisme qui change la même scène à un autre rythme. Chaque grand moment est annoncé avant le palier qui le révèle (étincelles dorées, cuvette sèche, silhouette dans la brume, arbre aux couleurs de la saison suivante). Proposition à valider sur les planches : la chaîne lointaine se colore et s'enneige au palier 6 « neiges », le lac des castors arrive au palier 8 (après le confluent du palier 5), et une nouvelle saison se débloque aux paliers 3, 7 et 10.
+   **Les grands moments sont des paliers (décision du propriétaire, 2026-11-23, #81).** Un seul axe de progression pour l'enfant : pas de deuxième mécanisme qui change la même scène à un autre rythme. Chaque grand moment est annoncé avant le palier qui le révèle (étincelles dorées, cuvette sèche, silhouette dans la brume) ; la saison n'est plus un grand moment, elle s'achète (#82, #79). Proposition à valider sur les planches : la chaîne lointaine se colore et s'enneige au palier 6 « neiges », le lac des castors arrive au palier 8 (après le confluent du palier 5), et les saisons s'achètent (voir [Boucle de progression](#boucle-de-progression)).
 
-   **Sa saison (demande du propriétaire, 2026-11-23, #82).** Une saison débloquée reste au choix de l'enfant, pour ce tableau seulement : le tableau suivant repart de sa propre saison de départ. Un bouton discret, toujours visible à côté de celui du son (choix du propriétaire), change la saison du tableau ; rien n'y bouge pendant une question. Changer de saison ne déplace aucun élément. La saison choisie est gardée dans la description du tableau ; les saisons débloquées se déduisent du palier.
+   **Sa saison (demande du propriétaire, 2026-11-23, #82).** Une saison achetée reste au choix de l'enfant, pour ce tableau seulement : le tableau suivant repart de sa propre saison de départ. Un bouton discret, toujours visible à côté de celui du son (choix du propriétaire), change la saison du tableau ; rien n'y bouge pendant une question. Changer de saison ne déplace aucun élément. Les saisons achetées et la saison choisie sont gardées dans la description du tableau.
 
 7. **Escalade d'un tableau à l'autre :** les décors sont ordonnés pour être de plus en plus spectaculaires (clairière, puis ruisseau avec cascade, puis verger fleuri, puis forêt d'automne avec feuilles qui volent, puis nuit étoilée, puis neige…). Chaque nouveau décor apporte au moins un effet inédit. Les variantes de couleur KayKit et la lumière font l'essentiel des saisons.
 8. **Ambiance sonore en couches : un axe de progrès des paliers, au même titre que la lumière.** Cinq couches, une par ambiance de lumière ; on entend chacune arriver quand le palier l'atteint :
@@ -299,7 +325,7 @@ Principe : le contenu grandit, mais la charge par session reste fixe. Tout est l
 
 ### Pour l'écran et la forêt : les tableaux
 
-1. Écran principal invariable : la forêt, une question et la jauge, plus deux points d'entrée dans la scène, la souche « Rafale » et le panneau « Défi ». Le Carnet et l'Album sont les seuls endroits qui grandissent.
+1. Écran principal invariable : la forêt, une question et la réserve, la boutique à la fin du sentier, plus deux points d'entrée dans la scène, la souche « Rafale » et le panneau « Défi ». Le Carnet et l'Album sont les seuls endroits qui grandissent.
 2. La forêt est découpée en **tableaux** de taille fixe (environ 25 emplacements ; les grands moments sont des paliers). Un tableau est conçu pour être complété en environ 40 minutes de jeu, soit une semaine de sessions courtes, mais il n'y a pas de calendrier.
 3. **Un nouveau tableau commence quand le précédent est complet, quel que soit le jour.** Grand final animé, puis le tableau est encadré dans l'Album.
 4. **Décor du nouveau tableau :** celui imposé par la quête en cours s'il y en a un, sinon l'enfant choisit parmi 2 ou 3 décors.
@@ -377,7 +403,7 @@ Dépend de 0. En parallèle de la phase R.
 2. `rng.ts`, `expr.ts`.
 3. `mastery.ts` (cycle de vie, maîtrise sur les 10 dernières réponses, Leitner) et `facts.ts` (pour chaque fait : réussites, temps de réponse, état d'automatisation).
 4. `trail.ts` : sentier à budget fixe, au plus 3 notions en cours, révision ≤ 25 %, au plus une nouveauté, adaptation au taux de réussite et aux temps de réponse.
-5. Indices progressifs : 1re erreur → méthode ; 2e erreur → réponse et méthode, et une question proche revient plus tard. Une erreur ne fait jamais perdre d'énergie.
+5. Indices progressifs : 1re erreur → méthode ; 2e erreur → réponse et méthode, et une question proche revient plus tard. Une erreur ne fait jamais perdre de ressource.
 6. Modules `numbers`, `mental-math`, `times-tables` (avec faits) et `word-problems` (premiers modèles).
 
 ## Phase 2 : interface de base
@@ -386,17 +412,18 @@ Dépend de 1.
 
 1. Carte question, pavé numérique dans le jeu (réaction dès que le doigt touche, touches clavier, jamais le clavier Android).
 2. Widgets `Keypad`, `Choice`, `FractionInput`, `TimeInput`.
-3. Jauge d'énergie, retour immédiat.
+3. Réserve de feuilles et de graines dorées, retour immédiat (#22).
 4. Paysage seulement, cibles de 56 px minimum, `touch-action: none` sur les zones à faire glisser.
+5. Reprise de l'interface des exercices avant les nouvelles notions et les widgets larges (#84).
 
 ## Phase 3 : scène de jeu et tableaux
 
 Dépend de R. En parallèle des phases 1 et 2.
 
-1. Brancher le moteur de rendu de la phase R sur l'état du jeu : l'énergie fait pousser les éléments, la richesse fait passer les paliers.
+1. Brancher le moteur de rendu de la phase R sur l'état du jeu : les éléments achetés sont posés et poussent, leur nombre fait passer les paliers.
 2. **Décors** (`src/scene/biomes/`) : chaque décor définit son terrain, sa variante de couleurs, sa lumière et son ciel, ses emplacements composés (environ 25), ses paliers et leurs grands moments, ses éléments, son effet inédit, son ambiance sonore et son vocabulaire pour les problèmes. V1 : clairière (issue de la phase R), puis ruisseau avec cascade, puis verger fleuri. Les suivants viennent à la demande, chacun plus spectaculaire que le précédent.
 3. **Tableau** (`src/scene/painting.ts`) : il est décrit par des données compactes (décor, graine, éléments posés avec type, variante, emplacement, stade et date). La même description sert pour le jeu et pour l'Album.
-4. Choix de l'emplacement par l'enfant parmi 2 ou 3 emplacements qui brillent. Annonce du prochain grand moment (étincelles, cuvette sèche, silhouette dans la brume, arbre aux couleurs de la saison suivante). Choix de la saison parmi celles débloquées (#82). Stades de croissance. Plafond d'objets.
+4. Boutique de la forêt (#83), puis choix de l'emplacement parmi 2 ou 3 emplacements qui brillent (#25). Annonce du prochain grand moment (étincelles, cuvette sèche, silhouette dans la brume). Choix de la saison parmi celles achetées (#82). Stades de croissance. Plafond d'objets.
 5. Animations : vent, eau, apparition avec rebond et particules, animaux qui réagissent au toucher (seulement hors question), ombres douces, grand final.
 6. Personnages : Plume la chouette, la souche « Rafale », le panneau « Défi ».
 
@@ -404,8 +431,8 @@ Dépend de R. En parallèle des phases 1 et 2.
 
 Dépend de 2 et 3.
 
-1. Sentier complet, avec son chemin de 10 pierres visible : question → micro-retour → énergie → choix de l'emplacement → élément → suite, puis résumé de fin.
-2. Calibrage de l'énergie : environ un élément toutes les 1 à 1,5 minute de jeu. La taille de la jauge est réglée pour qu'un tableau se termine en environ 40 minutes de jeu. Le réglage est centralisé dans un seul fichier.
+1. Sentier complet, avec son chemin de 10 pierres visible : question → micro-retour → feuille dans la réserve → suite, puis résumé de fin et boutique (acheter, poser).
+2. Calibrage des gains et des prix : de quoi acheter au moins un élément par sentier court, un tableau en environ 40 minutes de jeu (#29). Le réglage est centralisé dans un seul fichier.
 3. Fin de tableau : grand final, encadrement, entrée dans l'Album, puis choix du décor suivant (celui de la quête s'il y en a un, sinon 2 ou 3 au choix) et démarrage immédiat.
 4. Album des forêts :
    - une grille de vignettes, une page par tableau, avec le tableau rejoué en vie à partir de sa description ;
@@ -487,7 +514,7 @@ Dépend de 4.
 3. Pas de minuteur visible (c'est la différence avec les défis). Le temps de réponse est mesuré en silence pour suivre l'automatisation.
 4. Un fait est « automatisé » quand il est juste du premier coup, avec un temps sous le seuil (environ 3 s pour les tables, ajustable par notion), 3 fois à des jours différents.
 5. Motivation :
-   - l'énergie compte toujours, donc la forêt pousse aussi en rafale ;
+   - les feuilles comptent toujours, et la boutique s'ouvre à la fin de la rafale ;
    - une guirlande de feuilles grandit avec la série et repart à zéro sans message négatif ;
    - « l'arbre des tables » dans le Carnet : chaque fait automatisé devient une feuille verte, et une table complète fait fleurir l'arbre.
 6. Après environ 15 minutes, Plume propose une pause, sans l'imposer.
@@ -508,7 +535,7 @@ Dépend de 4 et 7 (réutilise le suivi des faits).
    - quête (le défi compte comme fait dès qu'il est tenté).
 4. Le temps est représenté par un soleil ou un sablier de feuilles : pas de rouge ni de bip. Une erreur ne coûte pas de temps. Pause sur `visibilitychange`.
 5. Objectif = médiane récente + 1, fin toujours positive, tendance sur les 3 dernières tentatives.
-6. Énergie de participation toujours donnée, éléments rares réservés aux défis (lucioles, arc-en-ciel, cerf, lanternes de champignons).
+6. Feuilles toujours données, et des graines dorées pour chaque défi tenté ; les éléments rares s'achètent en graines dorées (#46).
 7. Garde-fou : moins de 50 % de réponses justes → le défi suivant est plus facile ou plus long.
 
 ## Phase 9 : contenu CE2 et première quête
@@ -619,7 +646,7 @@ Vérification : frontmatter YAML valide, `name` identique au nom du dossier, `de
 7. Notation de l'heure attendue (« 14 h 10 », « 14:10 » ou « 2 h 10 de l'après-midi ») : réglable par exercice.
 8. Fractions vues en classe : liste des dénominateurs.
 9. Seuil d'automatisation (environ 3 s) : à ajuster après quelques sessions réelles, grâce au tableau de bord.
-10. Durée cible d'un tableau (environ 40 minutes de jeu) et longueur du sentier (10 pierres) : à ajuster selon l'attention réelle de l'enfant. Les deux réglages sont centralisés.
+10. Durée cible d'un tableau (environ 40 minutes de jeu) et longueur du sentier (10 pierres) : à ajuster selon l'attention réelle de l'enfant. Les deux réglages sont centralisés. Prix, gains de graines dorées et catalogue de la clairière : à calibrer (#29) et à valider ; ce qui reste aux paliers (lucioles, arc-en-ciel) et ce qui s'achète (#46).
 11. Nombres en lettres : orthographe rectifiée de 1990 (traits d'union partout : « trois-mille-deux-cents »), recommandée à l'école depuis 2016. À vérifier sur les cahiers de l'enfant.
 
 ## Journal des évolutions
@@ -684,3 +711,4 @@ Vérification : frontmatter YAML valide, `name` identique au nom du dossier, `de
 
 - 2026-11-23 : troncs tombés, souches et barrage de castors étoffé (#76). `npm run assets` lit six troncs et souches du pack Quaternius « Ultimate Nature » (CC0, OBJ) et reporte leurs couleurs unies sur des cases de l'atlas KayKit. Le barrage devient un monticule de boue, plus haut au milieu, sous 24 branches entrecroisées, avec trois gros troncs posés en biais (enneigés en hiver) ; trois souches fraîchement rongées au plus autour du lac. Troncs moussus et souches sous les arbres, quelques troncs et souches nus dans le pré, enneigés en hiver : colonne `deadwood` de `LIFE` (aucun au palier 0, puis un de plus tous les deux paliers, 6 au palier 11), posés à plat sur l'herbe, sans ombre. Compensation : la touffe d'herbe lourde (`Grass_1_B`, 132 triangles) cède sa place à la légère (44) dans la prairie et sort du catalogue. Au palier 11, tout rempli et tout révélé, sur 5 graines : de +300 à +1 900 triangles (graine 7 : 128 800 au lieu de 128 600 hors animaux et fond), 3 ou 4 appels de dessin de plus (49 au plus). À valider par le propriétaire.
 - 2026-11-23 : décisions du propriétaire sur la progression. Les grands moments ne sont plus un mécanisme à part : ils deviennent des paliers, annoncés à l'avance (#81), pour qu'un seul axe fasse évoluer le tableau. L'enfant choisit la saison de son tableau parmi celles qu'il a débloquées, pour ce tableau seulement, par un bouton toujours visible à côté de celui du son (#82). La proposition « un grand moment tous les 7 éléments, au choix de l'enfant » est abandonnée.
+- 2026-11-23 : boucle de progression (décisions du propriétaire). L'enfant accumule deux ressources, jamais perdues : les feuilles (une par bonne réponse) et les graines dorées (notion acquise, fait automatisé, défi tenté). Il les dépense quand il le décide, à la fin du sentier, dans la boutique de la forêt (#83) : éléments à poser, animaux et éléments rares, saisons du tableau. Les paliers avancent tout seuls avec le nombre d'éléments posés ; les saisons ne sont plus débloquées par les paliers mais achetées (#81, #82), et les animaux ne viennent plus avec les paliers. Remplace « une seule monnaie, rien à acheter, un élément pousse à chaque jauge pleine ». L'interface des exercices sera reprise avant de multiplier les notions (#84).
