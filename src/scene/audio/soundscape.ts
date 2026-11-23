@@ -35,13 +35,13 @@ const CALLS: Record<CallLevel, { sounds: readonly CallName[]; gain: number }> = 
 };
 /** Moments of the game that a short sound rewards. */
 export type Reward = 'right' | 'seed' | 'element' | 'stage' | 'finale';
-/** Recording and gain of each reward: the right answer comes often, so it stays soft. */
-const REWARDS: Record<Reward, { sound: CallName; gain: number }> = {
-  right: { sound: 'right', gain: 0.35 },
-  seed: { sound: 'seed', gain: 0.55 },
-  element: { sound: 'chime', gain: 0.6 },
-  stage: { sound: 'stage', gain: 0.6 },
-  finale: { sound: 'finale', gain: 0.7 },
+/** Recordings of each reward, one drawn each time, and its gain: the right answer comes often, so it stays soft. */
+const REWARDS: Record<Reward, { sounds: readonly CallName[]; gain: number }> = {
+  right: { sounds: ['ding', 'bell'], gain: 0.35 },
+  seed: { sounds: ['seed'], gain: 0.55 },
+  element: { sounds: ['chime', 'heal'], gain: 0.6 },
+  stage: { sounds: ['stage'], gain: 0.6 },
+  finale: { sounds: ['finale', 'jingle'], gain: 0.7 },
 };
 /** Never two calls of a kind closer than this, in seconds. */
 const MIN_CALL_GAP = 6;
@@ -162,8 +162,8 @@ export class Soundscape {
   /** Short sound of a reward: never skipped while the sound plays, even during a question. */
   reward(kind: Reward): void {
     if (this.state !== 'playing' || !this.rewards) return;
-    const { sound, gain } = REWARDS[kind];
-    this.play(sound, gain, this.rng.range(-0.3, 0.3), this.rewards);
+    const { sounds, gain } = REWARDS[kind];
+    this.play(this.rng.pick(sounds), gain, this.rng.range(-0.3, 0.3), this.rewards);
     this.played.push(kind);
   }
 

@@ -125,13 +125,15 @@ export const SOUND_CATALOG = {
     cuts: [[1.3, 5.3]],
   },
   chimes: { kind: 'calls', ...source(389789, 6152820, 'fmceretta', 'Chimes'), cuts: [[0.5, 6.1]] },
-  // Rewards of the trail (#36), from one synthesised pack so they sound alike.
-  right: {
+  // Rewards of the trail (#36), chosen by ear by the owner; most from one synthesised pack.
+  ding: {
     kind: 'calls',
-    ...source(878606, 19512113, 'Qvantor', 'Task Complete Pop'),
+    ...source(878603, 19512113, 'Qvantor', 'Correct Answer Ding'),
     cuts: [[0, 0.7]],
   },
+  bell: { kind: 'calls', ...source(538147, 7724198, 'Fupicat', 'Correct Bell'), cuts: [[0, 1.55]] },
   seed: { kind: 'calls', ...source(878614, 19512113, 'Qvantor', 'Gem Sparkle'), cuts: [[0, 2.3]] },
+  heal: { kind: 'calls', ...source(878621, 19512113, 'Qvantor', 'Heal Restore'), cuts: [[0, 3.2]] },
   stage: {
     kind: 'calls',
     ...source(878598, 19512113, 'Qvantor', 'Level Up Magic Harp'),
@@ -141,6 +143,11 @@ export const SOUND_CATALOG = {
     kind: 'calls',
     ...source(878605, 19512113, 'Qvantor', 'Quest Complete'),
     cuts: [[0, 4]],
+  },
+  jingle: {
+    kind: 'calls',
+    ...source(878610, 19512113, 'Qvantor', 'Win Jingle'),
+    cuts: [[0, 2.95]],
   },
 } as const satisfies Record<string, LoopSound | CallSound>;
 
