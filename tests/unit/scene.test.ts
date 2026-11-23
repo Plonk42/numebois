@@ -12,13 +12,14 @@ import {
   parseDescription,
   readDescription,
   shownSeason,
+  stageFor,
   writeDescription,
   type Landmark,
   type SceneDescription,
   type Stage,
 } from '../../src/scene/description';
 import { MAX_EFFECT_TRIANGLES } from '../../src/scene/painting';
-import { plantTrees } from '../../src/scene/populate';
+import { candidateSlots, childTreeAge, plantTrees } from '../../src/scene/populate';
 import {
   animalState,
   herdTriangles,
@@ -418,7 +419,8 @@ describe('clearing terrain', () => {
         ambienceFor(stage, 'summer'),
         QUALITY.high,
       );
-      return new Map(planting.trees.map((t) => [`${t.x},${t.z}`, t]));
+      // The grown trees: hidden ones wait in the slots offered to the child at that stage.
+      return new Map(planting.trees.filter((t) => t.age > 0).map((t) => [`${t.x},${t.z}`, t]));
     };
     const all = STAGES.map(trees);
     for (let stage = 1; stage < all.length; stage++) {
@@ -529,22 +531,81 @@ describe('slots and grand moments', () => {
     }
   });
 
-  it('plants the filled slots and keeps the empty ones ready to grow', () => {
-    const planted = (fill: number) =>
-      composeScene(
-        scene(5, 6, 'summer', { fill }),
+  it('plants the filled slots and keeps the candidate ones ready to grow', () => {
+    const composed = (fill: number) => {
+      const description = scene(5, 6, 'summer', { fill });
+      const composition = composeScene(
+        description,
         placeholders,
         ambienceFor(6, 'summer'),
         QUALITY.high,
-      ).planting;
-    const empty = planted(0);
-    const full = planted(1);
-    const grown = (p: typeof empty) => p.demo.filter((i) => p.trees[i].age > 0).length;
-    // The next three empty slots wait with a hidden tree, ready to grow.
-    expect(empty.demo).toHaveLength(3);
-    expect(grown(empty)).toBe(0);
-    expect(grown(full)).toBe(full.demo.length);
-    expect(full.demo.length).toBeGreaterThan(5);
+      );
+      return { ...composition, candidates: candidateSlots(composition.terrain, description) };
+    };
+    const empty = composed(0);
+    const full = composed(1);
+    // Three free slots offered, each waiting with a hidden tree or grove, ready to grow.
+    expect(empty.candidates).toHaveLength(3);
+    for (const slot of empty.candidates) {
+      const tree = empty.planting.slotTrees.get(slot);
+      if (tree === undefined) expect(empty.population.groves.has(slot)).toBe(true);
+      else expect(empty.planting.trees[tree].age).toBe(0);
+    }
+    expect(empty.planting.trees.filter((t) => t.slot !== undefined && t.age > 0)).toEqual([]);
+    // Every open slot is filled: nothing to offer, nothing hidden.
+    expect(full.candidates).toEqual([]);
+    const grown = full.planting.demo.filter((i) => full.planting.trees[i].age > 0);
+    expect(grown.length).toBe(full.planting.demo.length);
+    expect(grown.length).toBeGreaterThan(5);
+  });
+
+  it('passes the stages with the elements placed, always leaving slots to choose from', () => {
+    expect([0, 1, 2, 3, 4, 5, 19, 21, 22].map(stageFor)).toEqual([0, 1, 2, 3, 3, 4, 11, 11, 11]);
+    for (let seed = 0; seed < 16; seed++) {
+      const open = STAGES.map((stage) => createClearing(seed, stage, []).slots.length);
+      for (let placed = 0; placed < MAX_ELEMENTS; placed++) {
+        const free = open[stageFor(placed)] - placed;
+        expect(free, `seed ${seed}, ${placed} placed`).toBeGreaterThanOrEqual(
+          Math.min(2, MAX_ELEMENTS - placed),
+        );
+      }
+    }
+  });
+
+  it('places an element without moving anything else', () => {
+    for (const seed of [2, 7]) {
+      const before = scene(seed, 6, 'summer', { fill: 0.3 });
+      const composed = (description: SceneDescription) =>
+        composeScene(description, placeholders, ambienceFor(6, 'summer'), QUALITY.high);
+      const a = composed(before);
+      const slot = candidateSlots(a.terrain, before)[1];
+      const b = composed({ ...before, elements: [...before.elements, { slot, day: 1 }] });
+      // The instances, without those of the groves of the child.
+      const scatter = (c: typeof a) => {
+        const items = (c.batch as unknown as { items: Map<string, number[]> }).items;
+        const own = new Set(
+          [...c.population.groves.values()].flat().map((p) => `${p.model}#${p.index}`),
+        );
+        return [...items].flatMap(([model, list]) =>
+          Array.from({ length: list.length / 9 }, (_, i) => i)
+            .filter((i) => !own.has(`${model}#${i}`))
+            .map((i) => `${model} ${list.slice(i * 9, i * 9 + 7).join(' ')}`),
+        );
+      };
+      expect(scatter(b).sort(), `seed ${seed}`).toEqual(scatter(a).sort());
+      const others = (c: typeof a) => c.planting.trees.filter((t) => t.slot === undefined);
+      expect(others(b)).toEqual(others(a));
+    }
+  });
+
+  it('grows a tree of the child with every element placed after it', () => {
+    const elements = Array.from({ length: 8 }, (_, slot) => ({ slot, day: 0 }));
+    const ages = (count: number) =>
+      childTreeAge({ ...scene(3, 0, 'summer'), elements: elements.slice(0, count) }, 0);
+    expect(ages(0)).toBe(0);
+    expect(ages(1)).toBeGreaterThanOrEqual(0.5);
+    for (let count = 2; count <= 6; count++) expect(ages(count)).toBeGreaterThan(ages(count - 1));
+    expect(ages(8)).toBe(1);
   });
 
   it('announces each grand moment until it is revealed', () => {

@@ -26,6 +26,19 @@ export interface PlacedElement {
 export const MAX_ELEMENTS = SLOT_COUNT;
 
 /**
+ * Elements placed to reach each stage (#29): one per stage at first, then two. The slots
+ * open at a stage always leave at least two free to choose from (tested over many seeds).
+ */
+export const ELEMENTS_AT_STAGE: PerStage<number> = [0, 1, 2, 3, 5, 7, 9, 11, 13, 15, 17, 19];
+
+/** Stage of a painting with this many elements placed. */
+export function stageFor(elements: number): Stage {
+  let stage = 0;
+  while (stage < LAST_STAGE && elements >= ELEMENTS_AT_STAGE[stage + 1]) stage++;
+  return stage as Stage;
+}
+
+/**
  * Everything needed to rebuild a scene identically, for the game and the Album: the
  * painting is a pure function of this description (and of the growth triggered on top).
  */
@@ -59,6 +72,11 @@ export function demoElements(seed: number, fill: number): PlacedElement[] {
 /** Share of the slots filled. */
 export function fillOf(description: SceneDescription): number {
   return description.elements.length / SLOT_COUNT;
+}
+
+/** A painting where the child has placed nothing yet. */
+export function newPainting(seed: number, season: Season): SceneDescription {
+  return { seed, stage: 0, season, elements: [], landmarks: [] };
 }
 
 export const DEFAULT_DESCRIPTION: SceneDescription = {

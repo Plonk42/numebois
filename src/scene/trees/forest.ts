@@ -8,6 +8,8 @@ export interface PlantedTree extends TreeSpec {
   age: number;
   /** Brought by a grand moment: nothing is placed around it. */
   landmark?: boolean;
+  /** Slot of the child holding it. */
+  slot?: number;
 }
 
 /** Build the merged buffers of a forest (no GPU objects: usable in tests). */

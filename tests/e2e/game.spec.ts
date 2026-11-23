@@ -19,6 +19,7 @@ function wrong(answer: string): string {
 
 /** Writes a save in IndexedDB, as the game does, then reloads the page. */
 async function loadSave(page: Page, save: object) {
+  const painting = { seed: 3, stage: 0, season: 'summer', elements: [], landmarks: [] };
   await page.evaluate(
     (json) =>
       new Promise<void>((resolve, reject) => {
@@ -31,7 +32,7 @@ async function loadSave(page: Page, save: object) {
           transaction.onerror = () => reject(new Error('écriture impossible'));
         };
       }),
-    JSON.stringify(save),
+    JSON.stringify({ painting, ...save }),
   );
   await page.reload();
   await page.evaluate(() => window.__numebois!.ready);
@@ -46,7 +47,7 @@ test('une boucle jouable : questions, indices, feuilles et pousse', async ({ pag
     if (message.type() === 'error') errors.push(message.text());
   });
   page.on('pageerror', (error) => errors.push(error.message));
-  await page.goto('./?stage=0');
+  await page.goto('./?seed=3');
   await page.evaluate(() => window.__numebois!.ready);
 
   const card = page.locator('#question');
@@ -102,8 +103,7 @@ test('une boucle jouable : questions, indices, feuilles et pousse', async ({ pag
   await page.getByRole('button', { name: 'Suivant' }).click();
   await expect(card.locator('.hint')).toHaveCount(0);
 
-  // Each right answer sends a leaf flying to the reserve; until the shop, every fourth one
-  // grows a tree while the card steps aside.
+  // Each right answer sends a leaf flying to the reserve.
   for (let answer = 1; answer <= 4; answer++) {
     exercise = await current(page);
     await page.keyboard.type(exercise.answer);
@@ -118,21 +118,21 @@ test('une boucle jouable : questions, indices, feuilles et pousse', async ({ pag
       });
     }
     await expect(reserve.locator('.leaves b')).toHaveText(String(answer));
-    if (answer < 4) await expect(card.locator('.praise')).toHaveCount(0);
+    await expect(card.locator('.praise')).toHaveCount(0);
   }
-  await expect.poll(async () => (await game(page)).grown).toBe(1);
-  await expect(card).toHaveClass(/away/);
-  await expect(reserve).toHaveAttribute('aria-label', reserveLabel(4));
-  await test.info().attach('pousse', { body: await page.screenshot(), contentType: 'image/png' });
-  await expect(card).not.toHaveClass(/away/, { timeout: 6000 });
+  // The forest only changes at the end of the trail: the card never stepped aside.
+  expect((await game(page)).grown).toBe(0);
+  await expect(card).not.toHaveClass(/away/);
   await expect(card.locator('.instruction')).toBeVisible();
   expect(errors).toEqual([]);
 });
 
-test('un sentier complet : 10 pierres, deux arbres et un résumé bienveillant', async ({ page }) => {
+test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt pousse', async ({
+  page,
+}) => {
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
-  await page.goto('./?stage=0');
+  await page.goto('./?seed=3');
   await page.evaluate(() => window.__numebois!.ready);
   const card = page.locator('#question');
   const path = page.locator('#trail');
@@ -161,16 +161,50 @@ test('un sentier complet : 10 pierres, deux arbres et un résumé bienveillant',
   await expect(card.locator('.praise')).toHaveText('Sentier terminé !');
   await expect(card).toContainText('Tu as franchi 10 pierres.');
   await expect(card).toContainText('Tu as gagné 10 feuilles.');
-  await expect(card).toContainText('Ta forêt a 2 nouveaux arbres.');
   await expect(path.locator('.stone.crossed')).toHaveCount(10);
-  expect((await game(page)).grown).toBe(2);
   await test.info().attach('résumé', { body: await page.screenshot(), contentType: 'image/png' });
+
+  // Four leaves each: two elements grow, and each passes a stage under a veil of light.
+  const describe = () => page.evaluate(() => window.__numebois!.describe());
+  expect(await describe()).toMatchObject({ seed: 3, stage: 0, elements: [] });
+  for (let placed = 1; placed <= 2; placed++) {
+    await page.getByRole('button', { name: 'Faire pousser' }).click();
+    await expect(card).toHaveClass(/away/);
+    await expect(page.locator('#reserve')).toHaveAttribute(
+      'aria-label',
+      reserveLabel(10 - 4 * placed),
+    );
+    expect((await describe()).elements).toHaveLength(placed);
+    if (placed === 1) {
+      await test.info().attach('pousse', {
+        body: await page.screenshot(),
+        contentType: 'image/png',
+      });
+      await expect(page.locator('#veil')).toHaveClass(/on/, { timeout: 8000 });
+      await test.info().attach('palier', {
+        body: await page.screenshot(),
+        contentType: 'image/png',
+      });
+    }
+    await expect(card).not.toHaveClass(/away/, { timeout: 12_000 });
+    expect(await describe()).toMatchObject({ stage: placed });
+  }
+  expect((await game(page)).grown).toBe(2);
+  await expect(page.getByRole('button', { name: 'Faire pousser' })).toHaveCount(0);
+  await expect(card).toContainText('Encore 2 feuilles pour faire pousser ta forêt.');
 
   await page.getByRole('button', { name: 'Encore un sentier' }).click();
   await expect(card.locator('.instruction')).toBeVisible();
   await expect(path.locator('.stone.crossed')).toHaveCount(0);
   await expect(path.locator('.stone.here')).toHaveCount(1);
   expect((await game(page)).role).toBe('warmup');
+
+  // The painting and the reserve come back as they were.
+  const painting = await describe();
+  await page.reload();
+  await page.evaluate(() => window.__numebois!.ready);
+  expect(await describe()).toEqual(painting);
+  await expect(page.locator('#reserve')).toHaveAttribute('aria-label', reserveLabel(2));
   expect(errors).toEqual([]);
 });
 
@@ -267,7 +301,7 @@ test('une notion acquise : une graine dorée, seule à l’écran, rejoint la r�
 test('la carte tient sous le bouton du son avec le plus long énoncé et son indice', async ({
   page,
 }) => {
-  await page.goto('./?stage=0&time=1');
+  await page.goto('./?seed=3&time=1');
   await page.evaluate(() => window.__numebois!.ready);
   const exercise = await current(page);
   await page.keyboard.type(wrong(exercise.answer));

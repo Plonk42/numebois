@@ -6,7 +6,7 @@ test('installable et utilisable sans réseau après une première visite', async
 }) => {
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
-  await page.goto('./?stage=6&time=1');
+  await page.goto('./?seed=3&time=1');
   await page.evaluate(() => window.__numebois!.ready);
 
   const manifest = await page.evaluate(async () => {
@@ -19,7 +19,8 @@ test('installable et utilisable sans réseau après une première visite', async
   // The service worker precaches the application and the models during the first visit.
   await page.evaluate(() => navigator.serviceWorker.ready);
   await context.setOffline(true);
-  await page.goto('./?stage=11&time=1');
+  // The landscape alone at its last stage, where every kind of model shows.
+  await page.goto('./?scene&stage=11&time=1');
   await page.evaluate(() => window.__numebois!.ready);
   const counters = await page.evaluate(() => window.__numebois!.counters());
   expect(counters.placeholders).toBe(false);

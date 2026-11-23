@@ -5,6 +5,7 @@ import type { AssetLibrary } from './assets';
 import { swatchColor, type SwatchName } from './atlas';
 import { composeScene, compositionTriangles } from './compose';
 import { LAST_STAGE, shownSeason, type SceneDescription } from './description';
+import { candidateSlots, childTreeAge } from './populate';
 import { Backdrop, BACKDROP_TRIANGLES } from './render/backdrop';
 import type { InstanceBatch } from './render/instancing';
 import { Herd, planHerd } from './render/ambient-life';
@@ -114,8 +115,25 @@ export class Painting {
   private readonly fogged: THREE.Object3D[];
   private readonly demo: number[];
   private demoNext = 0;
-  private readonly growing: { tree: number; start: number }[] = [];
+  /** Trees whose age moves: a sprout stretches as it shoots, the others just grow. */
+  private readonly growing: {
+    tree: number;
+    from: number;
+    to: number;
+    start: number;
+    sprout: boolean;
+  }[] = [];
+  private readonly slotTrees: Map<number, number>;
+  /** Instances of the hidden groves, with their full matrix. */
+  private readonly hiddenGroves = new Map<
+    number,
+    { mesh: THREE.InstancedMesh; index: number; matrix: THREE.Matrix4 }[]
+  >();
+  private readonly sprouting: { slot: number; start: number }[] = [];
   private readonly burstOrigin = new THREE.Vector3();
+  private readonly scratch = new THREE.Matrix4();
+  /** Free slots offered for the next element, prepared hidden. */
+  readonly candidates: readonly number[];
 
   constructor(
     private readonly stage: Stage,
@@ -152,6 +170,8 @@ export class Painting {
     this.root.add(waterMesh);
 
     this.demo = planting.demo;
+    this.slotTrees = planting.slotTrees;
+    this.candidates = candidateSlots(terrain, description);
     this.forest = new Forest(planting.trees, assets, season, materials);
     this.root.add(this.forest.mesh);
 
@@ -163,6 +183,21 @@ export class Painting {
         : materials.vegetation,
     );
     this.root.add(...instanced);
+    const hidden = new THREE.Matrix4().makeScale(0, 0, 0);
+    for (const [slot, pieces] of population.groves) {
+      if (!this.candidates.includes(slot)) continue;
+      this.hiddenGroves.set(
+        slot,
+        pieces.map(({ model, index }) => {
+          const mesh = instanced.find((m) => m.name === model)!;
+          const matrix = new THREE.Matrix4();
+          mesh.getMatrixAt(index, matrix);
+          mesh.setMatrixAt(index, hidden);
+          mesh.instanceMatrix.needsUpdate = true;
+          return { mesh, index, matrix };
+        }),
+      );
+    }
 
     this.herd = new Herd(animals, planHerd(terrain, ambience, quality, seed));
     this.root.add(this.herd.group);
@@ -449,13 +484,55 @@ export class Painting {
   grow(time: number): void {
     if (this.demo.length === 0) return;
     const tree = this.demo[this.demoNext++ % this.demo.length];
-    const spec = this.forest.trees[tree];
     this.forest.setAge(tree, 0);
+    this.startGrowth(tree, 0, 1, time, true);
+    const spec = this.forest.trees[tree];
+    this.celebrate(spec.x, spec.y, spec.z, time);
+  }
+
+  /** Ground point of a slot of the painting, null when it is not open. */
+  slotPoint(slot: number): THREE.Vector3 | null {
+    const spot = this.terrain.slots.find((s) => s.index === slot);
+    const surface = spot && this.terrain.surfaceAt(spot.x, spot.z);
+    return spot && surface ? new THREE.Vector3(spot.x, surface.y, spot.z) : null;
+  }
+
+  /**
+   * The child's new element sprouts in a candidate slot, with a stretch, a burst of sparks
+   * and leaves and a slight camera move; the trees placed before grow a little older.
+   * `next` is the description with the element. False when the slot was not prepared.
+   */
+  plant(next: SceneDescription, slot: number, time: number): boolean {
+    const point = this.slotPoint(slot);
+    const tree = this.slotTrees.get(slot);
+    if (!point || !this.candidates.includes(slot)) return false;
+    if (tree !== undefined) {
+      this.startGrowth(tree, 0, childTreeAge(next, slot), time, true);
+    } else if (this.hiddenGroves.has(slot)) {
+      this.sprouting.push({ slot, start: time });
+    } else {
+      return false;
+    }
+    for (const [other, index] of this.slotTrees) {
+      const age = this.forest.age(index);
+      if (other !== slot && age > 0) {
+        this.startGrowth(index, age, childTreeAge(next, other), time, false);
+      }
+    }
+    this.celebrate(point.x, point.y, point.z, time);
+    return true;
+  }
+
+  private startGrowth(tree: number, from: number, to: number, time: number, sprout: boolean) {
     for (let i = this.growing.length - 1; i >= 0; i--) {
       if (this.growing[i].tree === tree) this.growing.splice(i, 1);
     }
-    this.growing.push({ tree, start: time });
-    this.burstOrigin.set(spec.x, spec.y + 0.4, spec.z);
+    if (to !== from) this.growing.push({ tree, from, to, start: time, sprout });
+  }
+
+  /** Sparks, leaves and the camera leaning towards what grows. */
+  private celebrate(x: number, y: number, z: number, time: number): void {
+    this.burstOrigin.set(x, y + 0.4, z);
     this.glow.burst(this.burstOrigin, time);
     this.leaves.burst(this.burstOrigin, time);
     this.burstOrigin.y += 1.6;
@@ -471,14 +548,28 @@ export class Painting {
       const g = this.growing[i];
       const a = Math.min(1, Math.max(0, (time - g.start) / GROWTH_SECONDS));
       // Fast sprout, slow finish; stretched upwards while it shoots, with a small bounce.
-      const age = 1 - Math.pow(1 - a, 2.6);
-      const stretch =
-        1 +
-        0.32 * Math.sin(Math.PI * Math.min(1, a * 1.5)) * (1 - a) +
-        0.05 * Math.sin(a * 22) * (1 - a) * (1 - a);
-      this.forest.setAge(g.tree, age);
-      this.forest.setStretch(g.tree, stretch);
+      const eased = 1 - Math.pow(1 - a, 2.6);
+      this.forest.setAge(g.tree, g.from + (g.to - g.from) * eased);
+      if (g.sprout) {
+        const stretch =
+          1 +
+          0.32 * Math.sin(Math.PI * Math.min(1, a * 1.5)) * (1 - a) +
+          0.05 * Math.sin(a * 22) * (1 - a) * (1 - a);
+        this.forest.setStretch(g.tree, stretch);
+      }
       if (a >= 1) this.growing.splice(i, 1);
+    }
+    for (let i = this.sprouting.length - 1; i >= 0; i--) {
+      const s = this.sprouting[i];
+      const a = Math.min(1, Math.max(0, (time - s.start) / (GROWTH_SECONDS * 0.7)));
+      // Out of the ground with a little overshoot.
+      const scale = a >= 1 ? 1 : 1 + 2.4 * Math.pow(a - 1, 3) + 1.4 * Math.pow(a - 1, 2);
+      for (const piece of this.hiddenGroves.get(s.slot)!) {
+        this.scratch.makeScale(scale, scale, scale).premultiply(piece.matrix);
+        piece.mesh.setMatrixAt(piece.index, this.scratch);
+        piece.mesh.instanceMatrix.needsUpdate = true;
+      }
+      if (a >= 1) this.sprouting.splice(i, 1);
     }
     this.lighting.beforeRender(this.stage.renderer);
   }

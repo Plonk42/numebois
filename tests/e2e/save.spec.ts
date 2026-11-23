@@ -28,7 +28,7 @@ test('la progression et la réserve survivent au rechargement ; export et import
 }) => {
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
-  await page.goto('./?stage=0');
+  await page.goto('./?seed=3');
   await page.evaluate(() => window.__numebois!.ready);
   const reserve = page.locator('#reserve');
   for (let i = 1; i <= 2; i++) {
