@@ -1,5 +1,9 @@
 import { readFileSync } from 'node:fs';
+import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
+import { ANIMAL_CLIPS, ANIMAL_NAMES } from '../../src/scene/animal-catalog';
+import { createPlaceholderAnimals } from '../../src/scene/animals';
+import { ANIMAL_FILE, ANIMALS } from '../../src/scene/animals.gen';
 import { CATALOG, type ModelName, type ModelSource } from '../../src/scene/asset-catalog';
 import { ASSET_FILE, MODELS, type ModelInfo } from '../../src/scene/assets.gen';
 import {
@@ -194,5 +198,52 @@ describe('asset manifest', () => {
       expect(b.min[1], name).toBeGreaterThanOrEqual(-0.01);
       expect(b.max[1], name).toBeLessThan(0.8);
     }
+  });
+});
+
+describe('animal manifest', () => {
+  it('matches the committed GLB: one skinned mesh and the gentle clips per animal', () => {
+    expect(Object.keys(ANIMALS).sort()).toEqual([...ANIMAL_NAMES].sort());
+    const glb = readFileSync(`public/${ANIMAL_FILE}`);
+    expect(glb.toString('latin1', 0, 4)).toBe('glTF');
+    const json = JSON.parse(glb.toString('utf8', 20, 20 + glb.readUInt32LE(12))) as {
+      scenes: { name: string }[];
+      nodes: { name: string; mesh?: number; skin?: number }[];
+      meshes: { primitives: { indices: number; material: number }[] }[];
+      materials: unknown[];
+      animations: { name: string }[];
+      accessors: { count: number }[];
+    };
+    expect(json.scenes.map((s) => s.name)).toEqual(ANIMAL_NAMES);
+    expect(json.animations.map((a) => a.name).sort()).toEqual(
+      ANIMAL_NAMES.flatMap((name) => ANIMAL_CLIPS.map((clip) => `${name}:${clip}`)).sort(),
+    );
+    for (const name of ANIMAL_NAMES) {
+      const node = json.nodes.find((n) => n.name === `${name}_body`)!;
+      expect(node.skin, name).toBeDefined();
+      const primitives = json.meshes[node.mesh!].primitives;
+      // One draw call: colours are in the vertices.
+      expect(primitives, name).toHaveLength(1);
+      expect(json.accessors[primitives[0].indices].count / 3, name).toBe(ANIMALS[name].triangles);
+      for (const clip of ANIMAL_CLIPS) expect(ANIMALS[name].clips[clip], name).toBeGreaterThan(0);
+    }
+    expect(json.nodes.filter((n) => n.mesh !== undefined)).toHaveLength(ANIMAL_NAMES.length);
+  });
+
+  it('has a placeholder of the same size for every animal', () => {
+    const library = createPlaceholderAnimals();
+    for (const name of ANIMAL_NAMES) {
+      const body = library.create(name);
+      const box = new THREE.Box3().setFromObject(body.object);
+      const { min, max } = ANIMALS[name];
+      for (const a of [0, 1, 2] as const) {
+        const size = max[a] - min[a];
+        const got = box.max.getComponent(a) - box.min.getComponent(a);
+        expect(got, `${name} axis ${a}`).toBeGreaterThan(size * 0.6);
+        expect(got, `${name} axis ${a}`).toBeLessThan(size * 1.4);
+      }
+      body.dispose();
+    }
+    library.dispose();
   });
 });

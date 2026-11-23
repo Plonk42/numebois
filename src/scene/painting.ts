@@ -1,11 +1,13 @@
 import * as THREE from 'three';
 import { Rng } from '../core/rng';
+import type { AnimalLibrary } from './animals';
 import type { AssetLibrary } from './assets';
 import { swatchColor, type SwatchName } from './atlas';
 import { composeScene, compositionTriangles } from './compose';
 import { LAST_STAGE, shownSeason, type SceneDescription } from './description';
 import { Backdrop, BACKDROP_TRIANGLES } from './render/backdrop';
 import type { InstanceBatch } from './render/instancing';
+import { Herd, planHerd } from './render/ambient-life';
 import { Lighting, sunDirection } from './render/lighting';
 import { createMaterials, paletteColor, type SceneMaterials } from './render/materials';
 import {
@@ -68,6 +70,9 @@ export interface PaintingStats {
   /** Instanced vegetation and rocks. */
   instancedTriangles: number;
   cloudTriangles: number;
+  /** Animals of the meadow (skinned, one draw call each). */
+  animals: number;
+  animalTriangles: number;
   trees: number;
   /** Largest tree, in triangles. */
   largestTree: number;
@@ -103,6 +108,7 @@ export class Painting {
   private readonly glow: GlowPoints;
   private readonly leaves: Leaves;
   private readonly batch: InstanceBatch;
+  private readonly herd: Herd;
   private readonly disposables: { dispose(): void }[] = [];
   private readonly fog: THREE.Fog;
   private readonly fogged: THREE.Object3D[];
@@ -114,6 +120,7 @@ export class Painting {
   constructor(
     private readonly stage: Stage,
     assets: AssetLibrary,
+    animals: AnimalLibrary,
     readonly description: SceneDescription,
     quality: QualitySettings,
   ) {
@@ -156,6 +163,9 @@ export class Painting {
         : materials.vegetation,
     );
     this.root.add(...instanced);
+
+    this.herd = new Herd(animals, planHerd(terrain, ambience, quality, seed));
+    this.root.add(this.herd.group);
 
     this.sky = new Sky(ambience);
     this.root.add(this.sky.mesh);
@@ -384,6 +394,7 @@ export class Painting {
         this.forest.triangles +
         parts.instances +
         parts.clouds +
+        this.herd.triangles +
         effectTriangles(flappers.length, leaves.length, puffs.length) +
         rainbowTriangles +
         BACKDROP_TRIANGLES,
@@ -392,6 +403,8 @@ export class Painting {
       waterTriangles: parts.water,
       instancedTriangles: parts.instances,
       cloudTriangles: parts.clouds,
+      animals: this.herd.group.children.length,
+      animalTriangles: this.herd.triangles,
       trees: planting.trees.length,
       largestTree: infos.reduce((max, info) => Math.max(max, info.triangles), 0),
       treeGenerationMs: this.forest.generationMs,
@@ -453,6 +466,7 @@ export class Painting {
   update(time: number): void {
     this.materials.shared.uTime.value = time;
     this.clouds.update(time);
+    this.herd.update(time);
     for (let i = this.growing.length - 1; i >= 0; i--) {
       const g = this.growing[i];
       const a = Math.min(1, Math.max(0, (time - g.start) / GROWTH_SECONDS));
@@ -481,6 +495,7 @@ export class Painting {
     this.glow.dispose();
     this.leaves.dispose();
     this.batch.dispose();
+    this.herd.dispose();
     for (const d of this.disposables) d.dispose();
     this.materials.dispose();
   }

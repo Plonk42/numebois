@@ -16,6 +16,7 @@ import {
   basinAt,
   drawLayout,
   dryness,
+  hidesPerch,
   hidesWater,
   inForest,
   lakeCenter,
@@ -79,12 +80,14 @@ interface Relief {
   snow: number;
   /** Factor on the amounts of vegetation and ambient life. */
   cover: number;
+  /** The wolf's ledge is cut in the mountain. */
+  perch: boolean;
 }
 
 // One value per stage, so each line reads as a progression. Every stage is a little larger
 // than the one before, and most bring one new thing: ledge and first fall (2), the lake
 // overflows into a stream (3), mountain and second fall (4), east stream and confluence (5),
-// snow (6), third fall (7), second east fall (8), west brook (9).
+// snow (6), third fall (7), second east fall (8), west brook (9), the wolf's ledge (10).
 const RELIEF_BY_STAGE = {
   hx: [13.5, 15.5, 17.5, 19, 21, 22.5, 24, 25.5, 27, 28.5, 29.3, 30],
   hz: [10.5, 12, 14.5, 18.5, 20, 21.25, 22.25, 23.5, 24.5, 25.5, 26.3, 27],
@@ -101,6 +104,7 @@ const RELIEF_BY_STAGE = {
   stream: [0.62, 0.7, 0.76, 0.82, 0.88, 0.94, 0.98, 1.02, 1.06, 1.1, 1.13, 1.15],
   snow: [99, 99, 99, 99, 99, 99, 12, 12.5, 12.5, 13, 13.2, 13.5],
   cover: [0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.08, 1.15, 1.22, 1.3, 1.35, 1.4],
+  perch: [false, false, false, false, false, false, false, false, false, false, true, true],
 } satisfies Record<string, PerStage<number> | PerStage<boolean>>;
 
 function reliefOf(stage: Stage): Relief {
@@ -119,6 +123,7 @@ function reliefOf(stage: Stage): Relief {
     stream: r.stream[stage],
     snow: r.snow[stage],
     cover: r.cover[stage],
+    perch: r.perch[stage],
   };
 }
 const FINAL = reliefOf(LAST_STAGE);
@@ -221,6 +226,7 @@ class Clearing implements Terrain {
   readonly slots: SlotSpot[] = [];
   readonly announcements: Announcement[] = [];
   dam: Dam | null = null;
+  perch: Terrain['perch'] = null;
   readonly staticModels: StaticModel[] = [];
   readonly waterfalls: Waterfall[] = [];
   readonly banks: BankPath[] = [];
@@ -280,6 +286,7 @@ class Clearing implements Terrain {
     this.basin = basin;
     this.eastStream(basin);
     this.westBrook();
+    this.wolfPerch();
     this.steps.sort((a, b) => b.level - a.level);
     // Last of the pools, so revealing it leaves the others as they are.
     if (basin.filled) {
@@ -471,6 +478,17 @@ class Clearing implements Terrain {
     const step = { ...def, level };
     this.steps.push(step);
     return step;
+  }
+
+  /** The wolf's ledge, cut at the height of the mountain at its centre. */
+  private wolfPerch(): void {
+    const def = this.layout.perch;
+    if (!this.relief.perch || !def) return;
+    const level = this.raw(def.x, def.z, this.relief);
+    // Between two ridges the mountain can be low there: the wolf stays in the meadow.
+    if (level < 4) return;
+    this.step(def, level);
+    this.perch = { x: def.x * this.mirror, y: level, z: def.z, radius: def.radius - def.edge };
   }
 
   private stream(
@@ -866,6 +884,7 @@ class Clearing implements Terrain {
       if (this.rim(fx, z, FINAL) > 0.93) continue;
       if (!inForest(l, FINAL.hx, fx, z)) continue;
       if (dryness(l, FINAL.lake, fx, z) < 0 || hidesWater(l, FINAL.lake, fx, z)) continue;
+      if (l.perch && hidesPerch(l.perch, fx, z)) continue;
       const deep = z < -9;
       const spacing = deep ? 2.8 : 3.3;
       if (placed.some((p) => Math.hypot(p.x - fx, p.z - z) < (p.r + spacing) / 2)) continue;

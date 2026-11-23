@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { loadAnimals, type AnimalLibrary } from './animals';
 import { loadAssets, type AssetLibrary } from './assets';
 import { Soundscape } from './audio/soundscape';
 import { parseDescription, type SceneDescription } from './description';
@@ -34,6 +35,7 @@ export class SceneApp {
   description: SceneDescription;
   painting: Painting | null = null;
   assets: AssetLibrary | null = null;
+  animals: AnimalLibrary | null = null;
   quality: Quality;
   onCounters: ((counters: SceneCounters) => void) | null = null;
 
@@ -70,7 +72,10 @@ export class SceneApp {
   }
 
   async start(): Promise<void> {
-    this.assets = await loadAssets(this.baseUrl, this.forcePlaceholders);
+    [this.assets, this.animals] = await Promise.all([
+      loadAssets(this.baseUrl, this.forcePlaceholders),
+      loadAnimals(this.baseUrl, this.forcePlaceholders),
+    ]);
     this.rebuild();
     window.addEventListener('resize', this.onResize);
     document.addEventListener('visibilitychange', this.onVisibility);
@@ -79,11 +84,11 @@ export class SceneApp {
 
   /** Rebuild the painting from the description (stage, season, seed or quality change). */
   rebuild(): void {
-    if (!this.assets) return;
+    if (!this.assets || !this.animals) return;
     this.painting?.dispose();
     const settings = QUALITY[this.quality];
     this.stage.setQuality(settings);
-    this.painting = new Painting(this.stage, this.assets, this.description, settings);
+    this.painting = new Painting(this.stage, this.assets, this.animals, this.description, settings);
     this.sound.setLevels(this.painting.ambience.sound);
     this.stage.frame(this.painting.terrain.frame);
     this.painting.resized();
@@ -217,6 +222,7 @@ export class SceneApp {
     document.removeEventListener('visibilitychange', this.onVisibility);
     this.painting?.dispose();
     this.assets?.dispose();
+    this.animals?.dispose();
     this.sound.dispose();
     this.stage.dispose();
   }
