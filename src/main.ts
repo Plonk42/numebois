@@ -2,7 +2,7 @@ import { curriculum } from './core/registry';
 import { DOMAINS } from './domains';
 import { SceneApp, type SceneCounters } from './scene/app';
 import { mountSoundButton } from './scene/audio/sound-button';
-import type { SoundState } from './scene/audio/soundscape';
+import type { Reward, SoundState } from './scene/audio/soundscape';
 import { newPainting, parseDescription, type SceneDescription } from './scene/description';
 import { mountDebugPanel } from './scene/debug';
 import { parseQuality } from './scene/render/quality';
@@ -19,7 +19,12 @@ declare global {
       describe(): SceneDescription;
       trees(): { family: string; detail: string; triangles: number }[];
       grow(): void;
-      sound(): { state: SoundState; context: AudioContextState | 'none'; loaded: number };
+      sound(): {
+        state: SoundState;
+        context: AudioContextState | 'none';
+        loaded: number;
+        played: readonly Reward[];
+      };
       game(): GameProbe | null;
     };
   }
@@ -67,6 +72,7 @@ const ready = sceneOnly
             plant: (slot, day) => app.plant(slot, day),
             adopt: (animal) => app.adopt(animal),
             portrait: (animal) => app.portrait(animal),
+            reward: (kind) => app.sound.reward(kind),
           },
           practice ? practiceSave(practice, Number(params.get('level')), app.description) : saved,
           practice
@@ -89,6 +95,7 @@ window.__numebois = {
     state: app.sound.state,
     context: app.sound.contextState,
     loaded: app.sound.loaded,
+    played: [...app.sound.played],
   }),
   game: () => game && { ...game },
 };

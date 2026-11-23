@@ -3,7 +3,7 @@ import type { AnimalName } from './animal-catalog';
 import { loadAnimals, type AnimalLibrary } from './animals';
 import { loadAssets, type AssetLibrary } from './assets';
 import { Soundscape } from './audio/soundscape';
-import { parseDescription, stageFor, type SceneDescription } from './description';
+import { MAX_ELEMENTS, parseDescription, stageFor, type SceneDescription } from './description';
 import { Painting, type PaintingStats } from './painting';
 import { animalPortrait } from './render/portrait';
 import { QUALITY, QualityGovernor, parseQuality, type Quality } from './render/quality';
@@ -139,7 +139,7 @@ export class SceneApp {
   /** Growth demonstration (debug key or button). */
   grow(): void {
     this.painting?.grow(this.time);
-    this.sound.chime();
+    this.sound.reward('element');
   }
 
   /** Free slots offered for the next element; the painting is rebuilt first if needed. */
@@ -178,16 +178,17 @@ export class SceneApp {
       throw new Error(`emplacement ${slot} non préparé`);
     }
     this.description = next;
-    this.sound.chime();
+    this.sound.reward('element');
     await wait(GROWTH_MS);
     if (next.stage !== before.stage) {
       this.veil.classList.add('on');
       await wait(VEIL_IN_MS);
       this.rebuild();
       this.veil.classList.remove('on');
-      this.sound.chime();
+      this.sound.reward('stage');
       await wait(VEIL_OUT_MS);
     }
+    if (elements.length === MAX_ELEMENTS) this.sound.reward('finale');
     return next;
   }
 
@@ -196,7 +197,7 @@ export class SceneApp {
     const next = { ...this.description, animals: [...this.description.animals, animal] };
     this.painting?.adopt(next, this.time);
     this.description = next;
-    this.sound.chime();
+    this.sound.reward('element');
     await wait(ARRIVAL_MS);
     return next;
   }

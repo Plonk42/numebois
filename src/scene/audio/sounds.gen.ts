@@ -51,7 +51,11 @@ export const SOUND_FILES = {
   owl: { file: 'assets/sounds/owl.ogg', seconds: 4.45, cuts: [[0, 4.2]] },
   chime: { file: 'assets/sounds/chime.ogg', seconds: 4.25, cuts: [[0, 4]] },
   chimes: { file: 'assets/sounds/chimes.ogg', seconds: 5.85, cuts: [[0, 5.6]] },
+  right: { file: 'assets/sounds/right.ogg', seconds: 0.95, cuts: [[0, 0.7]] },
+  seed: { file: 'assets/sounds/seed.ogg', seconds: 2.55, cuts: [[0, 2.3]] },
+  stage: { file: 'assets/sounds/stage.ogg', seconds: 3.7, cuts: [[0, 3.45]] },
+  finale: { file: 'assets/sounds/finale.ogg', seconds: 4.25, cuts: [[0, 4]] },
 } as const satisfies Record<SoundName, SoundFile>;
 
 /** Size of all the sound files, in bytes. */
-export const SOUND_BYTES = 903466;
+export const SOUND_BYTES = 968958;
