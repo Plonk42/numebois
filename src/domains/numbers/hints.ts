@@ -1,4 +1,13 @@
-import { hasEmptyRank, type WriteDigitsExercise } from './generators';
+import {
+  RANK_NAMES,
+  hasEmptyRank,
+  signOf,
+  type CompareExercise,
+  type DecomposeExercise,
+  type OrderExercise,
+  type ReadExercise,
+  type WriteDigitsExercise,
+} from './generators';
 import { formatNumber, numberWordParts } from './words';
 
 const RANKS = [
@@ -32,4 +41,69 @@ export function writeDigitsHint(exercise: WriteDigitsExercise, attempt: 1 | 2): 
   const ranks =
     value >= 1000 ? 'milliers, centaines, dizaines, unités' : 'centaines, dizaines, unités';
   return `${parts}\nUn chiffre par rang : ${ranks}.`;
+}
+
+/** Read by slices: the thousands, then the rest. */
+export function readHint({ value }: ReadExercise, attempt: 1 | 2): string {
+  if (attempt === 1) {
+    return value >= 1000
+      ? 'Lis d’abord les milliers, puis le reste.'
+      : 'Lis les centaines, puis les dizaines et les unités.';
+  }
+  return `${formatNumber(value)} : ${numberWordParts(value).join(' · ')}.`;
+}
+
+/** Rank by rank; an empty rank is a 0. */
+export function decomposeHint(exercise: DecomposeExercise, attempt: 1 | 2): string {
+  const { value, ask, rank } = exercise;
+  const ranks = rankCount(value);
+  const [one, many] = RANK_NAMES[rank];
+  if (ask === 'compose') {
+    if (attempt === 1) return 'Un chiffre par rang. Un rang vide, c’est 0.';
+    return `${ranks} : ${formatNumber(value)}.`;
+  }
+  if (ask === 'digit') {
+    if (attempt === 1) return 'De droite à gauche : unités, dizaines, centaines, milliers.';
+    return `${formatNumber(value)} : ${ranks}.\nLe chiffre des ${many} est ${exercise.answer}.`;
+  }
+  if (attempt === 1) return `Cache les chiffres à droite des ${many}.`;
+  const count = Number(exercise.answer);
+  return (
+    `Dans ${formatNumber(value)}, il y a ${formatNumber(count)} ${many}.\n` +
+    `${formatNumber(count)} ${count >= 2 ? many : one} font ${formatNumber(count * 10 ** rank)}.`
+  );
+}
+
+/** Rank by rank from the left; the point of the sign shows the smaller number. */
+export function compareHint({ a, b }: CompareExercise, attempt: 1 | 2): string {
+  const [x, y] = [String(a), String(b)];
+  const sign = signOf(a, b);
+  if (attempt === 1) {
+    const method =
+      x.length === y.length
+        ? 'Compare rang par rang, en partant de la gauche.'
+        : 'Le nombre qui a le plus de chiffres est le plus grand.';
+    return `${method}\nLa pointe du signe montre le plus petit.`;
+  }
+  const result = `${formatNumber(a)} ${sign} ${formatNumber(b)}.`;
+  if (sign === '=') return `Les deux nombres sont pareils : ${result}`;
+  if (x.length !== y.length) {
+    return `${formatNumber(a)} a ${x.length} chiffres, ${formatNumber(b)} en a ${y.length}.\n${result}`;
+  }
+  const at = [...x].findIndex((digit, i) => digit !== y[i]);
+  const rank = RANK_NAMES[x.length - 1 - at][1];
+  return `Premier rang différent : les ${rank}, ${x[at]} ${sign} ${y[at]}.\n${result}`;
+}
+
+/** Compare like two numbers, then all of them. */
+export function orderHint({ values, want }: OrderExercise, attempt: 1 | 2): string {
+  if (attempt === 1) {
+    const largest = Math.max(...values);
+    return largest >= 1000
+      ? 'Regarde d’abord les milliers, puis les centaines.'
+      : 'Regarde d’abord les centaines, puis les dizaines.';
+  }
+  const sorted = [...values].sort((p, q) => p - q).map((v) => formatNumber(v));
+  const target = want === 'largest' ? sorted.at(-1) : sorted[0];
+  return `Rangés : ${sorted.join(' < ')}.\nLe plus ${want === 'largest' ? 'grand' : 'petit'} : ${target}.`;
 }

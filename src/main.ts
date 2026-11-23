@@ -1,3 +1,4 @@
+import { curriculum } from './core/registry';
 import { DOMAINS } from './domains';
 import { SceneApp, type SceneCounters } from './scene/app';
 import { mountSoundButton } from './scene/audio/sound-button';
@@ -40,7 +41,7 @@ const gameReady =
         })
         .then((json) => {
           // Every notion, in the order of the curriculum: the trail chooses among them.
-          const skills = DOMAINS.flatMap((domain) => domain.skills);
+          const skills = curriculum(DOMAINS);
           persistStorage();
           game = mountGame(
             document.querySelector<HTMLElement>('#ui')!,

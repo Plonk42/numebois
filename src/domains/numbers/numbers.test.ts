@@ -1,12 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { Rng } from '../../core/rng';
 import {
+  COMPARE_LEVELS,
+  DECOMPOSE_LEVELS,
+  ORDER_LEVELS,
+  READ_LEVELS,
   WRITE_DIGITS_LEVELS,
+  generateCompare,
+  generateDecompose,
+  generateOrder,
+  generateRead,
   generateWriteDigits,
   hasEmptyRank,
   type WriteDigitsExercise,
 } from './generators';
-import { writeDigitsHint } from './hints';
+import { compareHint, decomposeHint, orderHint, writeDigitsHint } from './hints';
 import { validateNumber } from '../../core/validate';
 import { formatNumber, numberWords } from './words';
 
@@ -138,5 +146,78 @@ describe('écrire en chiffres', () => {
     expect(writeDigitsHint(at(512), 2)).toBe(
       'cinq-cent · douze\n5 centaines, 1 dizaine, 2 unités : 512.',
     );
+  });
+});
+
+describe('lire, décomposer, comparer, ranger', () => {
+  const seeds = (run: (rng: Rng) => void) => {
+    for (let seed = 0; seed < 1000; seed++) run(new Rng(seed));
+  };
+
+  it('reads among 3 different spellings, close to the number', () => {
+    for (let level = 0; level < READ_LEVELS; level++) {
+      seeds((rng) => {
+        const e = generateRead(rng, level);
+        expect(e.input.kind === 'choice' && new Set(e.input.options).size).toBe(3);
+        expect(e.answer).toBe(numberWords(e.value));
+        expect(e.statement).toBe(formatNumber(e.value));
+      });
+    }
+  });
+
+  it('composes from the ranks, finds a digit and counts a rank', () => {
+    for (let level = 0; level < DECOMPOSE_LEVELS; level++) {
+      seeds((rng) => {
+        const e = generateDecompose(rng, level);
+        const v = e.value;
+        if (level === 0) expect(v >= 100 && v <= 999 && !String(v).includes('0')).toBe(true);
+        if (level === 1) expect(v >= 1000 && hasEmptyRank(v)).toBe(true);
+        if (level <= 1) expect(e.answer).toBe(String(v));
+        if (level === 2) expect(e.answer).toBe(String(v).at(-1 - e.rank));
+        if (level === 3) expect(e.answer).toBe(String(Math.floor(v / 10 ** e.rank)));
+      });
+    }
+    const e = { ...generateDecompose(new Rng(1), 3), value: 3240, rank: 1, answer: '324' };
+    expect(decomposeHint(e, 2)).toBe(
+      'Dans 3\u202f240, il y a 324 dizaines.\n324 dizaines font 3\u202f240.',
+    );
+  });
+
+  it('compares within the constraints of each level, with every sign', () => {
+    const signs = new Set<string>();
+    for (let level = 0; level < COMPARE_LEVELS; level++) {
+      seeds((rng) => {
+        const { a, b, answer } = generateCompare(rng, level);
+        expect(answer).toBe(a < b ? '<' : a > b ? '>' : '=');
+        if (level === 0) expect(Math.floor(a / 100)).not.toBe(Math.floor(b / 100));
+        if (level === 1) expect(Math.floor(a / 1000)).toBe(Math.floor(b / 1000));
+        if (level === 2) signs.add(answer);
+      });
+    }
+    expect([...signs].sort()).toEqual(['<', '=', '>']);
+    const at = (a: number, b: number) => ({ ...generateCompare(new Rng(1), 0), a, b });
+    expect(compareHint(at(3240, 3420), 2)).toBe(
+      'Premier rang différent : les centaines, 2 < 4.\n3\u202f240 < 3\u202f420.',
+    );
+    expect(compareHint(at(1023, 987), 2)).toBe(
+      '1\u202f023 a 4 chiffres, 987 en a 3.\n1\u202f023 > 987.',
+    );
+  });
+
+  it('orders 3 or 4 different numbers and points the largest or smallest', () => {
+    for (let level = 0; level < ORDER_LEVELS; level++) {
+      seeds((rng) => {
+        const e = generateOrder(rng, level);
+        expect(new Set(e.values).size).toBe(level === 0 ? 3 : 4);
+        const target = e.want === 'largest' ? Math.max(...e.values) : Math.min(...e.values);
+        expect(e.answer).toBe(formatNumber(target));
+      });
+    }
+    const e = {
+      ...generateOrder(new Rng(1), 0),
+      values: [512, 215, 125],
+      want: 'largest' as const,
+    };
+    expect(orderHint(e, 2)).toBe('Rangés : 125 < 215 < 512.\nLe plus grand : 512.');
   });
 });

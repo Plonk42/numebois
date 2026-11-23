@@ -178,6 +178,29 @@
 #question button:disabled {
   opacity: 0.45;
 }
+#question .choice {
+  display: grid;
+  gap: 8px;
+}
+#question .choice.signs {
+  grid-template-columns: repeat(3, 1fr);
+}
+#question .choice button {
+  min-height: 64px;
+  padding: 6px 10px;
+  font-size: 24px;
+  overflow-wrap: anywhere;
+}
+#question .choice.signs button {
+  font-size: 40px;
+}
+#question .choice button.right {
+  background: #e6f6da;
+  box-shadow: 0 4px 0 #8fcf6b;
+}
+#question .choice button.tried {
+  opacity: 0.4;
+}
 #question .erase {
   background: #f3ecdb;
 }

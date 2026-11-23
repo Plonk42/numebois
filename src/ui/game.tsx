@@ -9,6 +9,7 @@ import { serializeSave, type ParsedSave } from '../save/save';
 import { EnergyGauge } from './energy-gauge';
 import { ParentMenu } from './parent-menu';
 import { TrailPath } from './trail-path';
+import { Choice } from './widgets/choice';
 import { Keypad, grouped } from './widgets/keypad';
 import './game.css';
 
@@ -184,22 +185,28 @@ function Game(props: Props) {
           {phase === 'reveal' ? (
             <>
               <output class="answer shown" aria-label="La réponse">
-                {grouped(exercise.answer)}
+                {exercise.input.kind === 'keypad' ? grouped(exercise.answer) : exercise.answer}
               </output>
               <button type="button" class="next" onPointerDown={proceed}>
                 Suivant
               </button>
             </>
+          ) : exercise.input.kind === 'keypad' ? (
+            <Keypad
+              key={round}
+              maxDigits={exercise.input.maxDigits}
+              locked={phase !== 'asking'}
+              right={phase === 'right'}
+              onSubmit={answer}
+            />
           ) : (
-            exercise.input.kind === 'keypad' && (
-              <Keypad
-                key={round}
-                maxDigits={exercise.input.maxDigits}
-                locked={phase !== 'asking'}
-                right={phase === 'right'}
-                onSubmit={answer}
-              />
-            )
+            <Choice
+              key={round}
+              options={exercise.input.options}
+              locked={phase !== 'asking'}
+              right={phase === 'right'}
+              onSubmit={answer}
+            />
           )}
         </section>
       )}

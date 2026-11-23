@@ -46,5 +46,7 @@ export default defineConfig({
   },
   test: {
     include: ['src/**/*.test.ts', 'tests/unit/**/*.test.ts'],
+    // Content and terrain tests build hundreds of seeds: seconds each on a busy machine.
+    testTimeout: 30_000,
   },
 });

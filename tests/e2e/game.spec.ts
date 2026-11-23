@@ -141,6 +141,60 @@ test('un sentier complet : 10 pierres, deux arbres et un résumé bienveillant',
   expect(errors).toEqual([]);
 });
 
+test('le choix : comparer avec <, = ou >, d’une touche, sans rouge', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto('./?stage=0');
+  await page.evaluate(() => window.__numebois!.ready);
+  // A save where « comparer » is in progress: the trail warms up with it.
+  const save = JSON.stringify({
+    version: 1,
+    savedAt: '2026-11-23T10:00:00.000Z',
+    energy: 0,
+    trailLength: 'normal',
+    progress: [
+      { skill: 'numbers.compare', stage: 'learning', level: 2, recent: [], box: 0, due: null },
+    ],
+    facts: [],
+    history: [],
+  });
+  await page.evaluate(
+    (json) =>
+      new Promise<void>((resolve, reject) => {
+        const request = indexedDB.open('numebois', 1);
+        request.onupgradeneeded = () => request.result.createObjectStore('kv');
+        request.onsuccess = () => {
+          const transaction = request.result.transaction('kv', 'readwrite');
+          transaction.objectStore('kv').put(json, 'numebois:save');
+          transaction.oncomplete = () => resolve();
+          transaction.onerror = () => reject(new Error('écriture impossible'));
+        };
+      }),
+    save,
+  );
+  await page.reload();
+  await page.evaluate(() => window.__numebois!.ready);
+  const exercise = await current(page);
+  expect(exercise.skill).toBe('numbers.compare');
+  const card = page.locator('#question');
+  const signs = card.locator('.choice button');
+  await expect(signs).toHaveText(['<', '=', '>']);
+  for (const sign of await signs.all()) {
+    const box = (await sign.boundingBox())!;
+    expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(56);
+  }
+  const wrongSign = ['<', '=', '>'].find((sign) => sign !== exercise.answer)!;
+  await card.getByRole('button', { name: wrongSign, exact: true }).click();
+  await expect(card.locator('.hint')).toContainText('Presque !');
+  await expect(card.getByRole('button', { name: wrongSign, exact: true })).toHaveClass(/tried/);
+  await test.info().attach('choix', { body: await page.screenshot(), contentType: 'image/png' });
+  await card.getByRole('button', { name: exercise.answer, exact: true }).click();
+  // Within the praise, before the next question.
+  await expect(card.locator('.choice button.right')).toHaveText(exercise.answer);
+  await expect(card.locator('.praise')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
 test('la carte tient sous le bouton du son avec le plus long énoncé et son indice', async ({
   page,
 }) => {

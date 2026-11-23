@@ -27,6 +27,17 @@ export function skillsById(domains: readonly Domain[]): Map<SkillId, Skill> {
 }
 
 /**
+ * Order in which the trail opens the notions: the domains take turns (the first notion of
+ * each domain, then the second…), so a new domain does not wait for all of the previous one.
+ */
+export function curriculum(domains: readonly Domain[]): Skill[] {
+  const longest = Math.max(0, ...domains.map((domain) => domain.skills.length));
+  return Array.from({ length: longest }, (_, i) =>
+    domains.flatMap((domain) => domain.skills[i] ?? []),
+  ).flat();
+}
+
+/**
  * Content errors of a registry (empty when valid): unique identifiers prefixed by their
  * domain, existing prerequisites without cycles, at least one level, facts on drill notions
  * only, short lessons on existing notions.

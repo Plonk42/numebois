@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
+import { curriculum } from '../../src/core/registry';
 import { Rng } from '../../src/core/rng';
 import { Session } from '../../src/core/session';
 import { TRAIL_QUESTIONS } from '../../src/core/trail';
 import { DOMAINS } from '../../src/domains';
 
-const SKILLS = DOMAINS.flatMap((domain) => domain.skills);
+const SKILLS = curriculum(DOMAINS);
 
 /** Plays the trail in progress; `right(i)` tells whether question i is right first time. */
 function play(session: Session, right: (i: number) => boolean = () => true): string[] {
