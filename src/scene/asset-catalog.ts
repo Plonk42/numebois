@@ -97,6 +97,8 @@ export const CATALOG = {
   // The orchard's windmill (#31), and its sails that turn around their hub.
   Windmill: hex('building_windmill_red', 'building', ['windmill_red', 'windmill_top_red']),
   Windmill_Sails: hex('building_windmill_red', 'building', ['windmill_top_fan_red']),
+  // The little house on the summit before the windmill.
+  Cottage: hex('building_home_A_red', 'building'),
 
   // Quaternius Ultimate Nature: fallen logs and stumps, mossy, or snowy in winter.
   Log: nature('WoodLog', 'log'),

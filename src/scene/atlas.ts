@@ -277,6 +277,8 @@ export const HEX_ALIASES: Record<string, { swatch: SwatchName; from: number; to:
   // Stone, light to dark grey: the same ramp as the KayKit stone.
   '2,0': { swatch: 'Stone', from: 0, to: 1 },
   '3,0': { swatch: 'Stone', from: 0.85, to: 1 },
+  // Black of the windows.
+  '4,0': { swatch: 'DarkBark', from: 0.9, to: 1 },
   '6,1': { swatch: 'Stone', from: 0.15, to: 0.9 },
   // Wood, light and dark.
   '5,0': { swatch: 'Earth', from: 0.15, to: 0.6 },

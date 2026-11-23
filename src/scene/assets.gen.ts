@@ -50,6 +50,7 @@ export const MODELS = {
   cloud_small: { kind: 'cloud', triangles: 366, min: [-1.163, -0.908, -0.963], max: [1.175, 0.932, 0.829] },
   Windmill: { kind: 'building', triangles: 2293, min: [-0.558, 0, -0.379], max: [0.568, 1.379, 0.415] },
   Windmill_Sails: { kind: 'building', triangles: 360, min: [-0.501, 0.456, 0.332], max: [0.501, 1.458, 0.438] },
+  Cottage: { kind: 'building', triangles: 1011, min: [-0.396, 0, -0.469], max: [0.396, 0.93, 0.385] },
   Log: { kind: 'log', triangles: 464, min: [-0.316, 0, -1.335], max: [0.316, 0.748, 1.335] },
   Log_Moss: { kind: 'log', triangles: 614, min: [-0.448, 0, -1.335], max: [0.448, 0.688, 1.335] },
   Log_Snow: { kind: 'log', triangles: 280, min: [-0.313, 0, -1.247], max: [0.313, 0.584, 1.247] },

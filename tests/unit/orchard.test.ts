@@ -138,6 +138,11 @@ describe('orchard: stages and grand moments', () => {
       const labels = (stage: Stage) => at(stage).announcements.map((a) => a.label);
       expect(labels(5)).toEqual(['windmill']);
       expect(at(5).spinners).toEqual([]);
+      // A little house on the summit first, which the windmill replaces.
+      expect(at(1).staticModels.map((m) => m.model)).not.toContain('Cottage');
+      expect(at(2).staticModels.map((m) => m.model)).toContain('Cottage');
+      expect(at(5).staticModels.map((m) => m.model)).toContain('Cottage');
+      expect(at(6).staticModels.map((m) => m.model)).not.toContain('Cottage');
       for (const stage of [6, 9, LAST_STAGE] as Stage[]) {
         expect(at(stage).spinners.map((s) => s.model)).toEqual(['Windmill_Sails']);
         expect(at(stage).staticModels.map((m) => m.model)).toContain('Windmill');

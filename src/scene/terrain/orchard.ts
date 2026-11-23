@@ -43,6 +43,7 @@ const STEP = 2.2;
 const WALL = 0.35;
 const MAX_EDGE_TREES = 20;
 const WINDMILL_SCALE = 6.5;
+const COTTAGE_SCALE = 3;
 
 // One value per stage. The diorama grows like the clearing; the hills rise terrace by
 // terrace out of the meadow (main hill first, the east one at 5, the west one at 9), the
@@ -62,6 +63,8 @@ const ORCHARD_BY_STAGE = {
   /** The brook springs by the summit and falls from terrace to terrace down to the pond. */
   brook: [0, 0, 0, 0.42, 0.46, 0.5, 0.54, 0.58, 0.62, 0.66, 0.7, 0.74],
   cover: [0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.08, 1.15, 1.22, 1.3, 1.35, 1.4],
+  /** A little house on the summit first; the windmill takes its place. */
+  cottage: [false, false, true, true, true, true, false, false, false, false, false, false],
   windmill: [false, false, false, false, false, false, true, true, true, true, true, true],
   blossom: [false, false, false, false, false, false, false, false, true, true, true, true],
   fruit: [false, false, false, false, false, false, false, false, false, false, true, true],
@@ -842,6 +845,16 @@ class Orchard implements Terrain {
         y: this.height(top.x, top.z) + 1.5,
         z: top.z,
         radius: 2.5,
+      });
+    }
+    if (ORCHARD_BY_STAGE.cottage[this.stage]) {
+      this.staticModels.push({
+        model: 'Cottage',
+        x: top.x,
+        y: this.height(top.x, top.z) - 0.05,
+        z: top.z,
+        yaw: 0.3 * this.layout.mirror,
+        scale: COTTAGE_SCALE,
       });
     }
     // The great blossom: sparkles over the front of the orchard the stage before.
