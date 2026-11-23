@@ -311,6 +311,29 @@
 #question.summary {
   gap: 14px;
 }
+#question .plant {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+#question .plant .cost {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 10px 2px 4px;
+  border-radius: 16px;
+  background: #fff;
+  color: #2f4a3a;
+  font-size: 24px;
+}
+#question .plant .cost svg {
+  width: 28px;
+  height: 28px;
+}
+#question .again {
+  font-size: 24px;
+}
 #question.summary .praise {
   font-size: 30px;
   line-height: 36px;

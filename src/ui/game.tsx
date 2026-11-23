@@ -10,8 +10,9 @@ import { Session, type Achievement } from '../core/session';
 import type { StepRole, TrailLength } from '../core/trail';
 import type { Exercise, Skill } from '../core/types';
 import { serializeSave, type ParsedSave } from '../save/save';
+import { MAX_ELEMENTS, type SceneDescription } from '../scene/description';
 import { ParentMenu } from './parent-menu';
-import { plural, Reserve, SeedIcon } from './reserve';
+import { LeafIcon, plural, Reserve, SeedIcon } from './reserve';
 import { TrailPath } from './trail-path';
 import { Choice } from './widgets/choice';
 import { Keypad, grouped } from './widgets/keypad';
@@ -19,15 +20,22 @@ import './game.css';
 
 /** Time to enjoy the praise before the next question, in milliseconds. */
 const PRAISE_MS = 1100;
-/** The card steps aside while the new element grows. */
-const REWARD_MS = 3600;
 /** The golden seed shows, then flies to the reserve. */
 const SEED_SHOW_MS = 1700;
 const SEED_FLY_MS = 1000;
 const PRAISES = ['Bravo !', 'Super !', 'Oui !', 'Bien vu !', 'Génial !'];
 const DAY_MS = 86_400_000;
 
-type Phase = 'asking' | 'right' | 'reveal' | 'seed' | 'reward' | 'summary';
+type Phase = 'asking' | 'right' | 'reveal' | 'seed' | 'summary' | 'planting';
+
+/** The painting in progress, as the game sees it. */
+export interface GameForest {
+  description(): SceneDescription;
+  /** Free slots offered for the next element. */
+  candidates(): readonly number[];
+  /** Places an element; resolves once it has grown (and the stage has passed). */
+  plant(slot: number, day: number): Promise<unknown>;
+}
 
 /** Read by the end-to-end tests. */
 export interface GameProbe {
@@ -68,7 +76,7 @@ interface Props {
   seeds: number;
   /** Why the save could not be read, if it could not. */
   problem: string | null;
-  grow(): void;
+  forest: GameForest;
   save(json: string): void;
   probe: GameProbe;
 }
@@ -82,10 +90,11 @@ function giftReason(achievement: Achievement, skill: Skill): string {
 /**
  * The trail: question after question along a path of stones; each right answer brings a
  * leaf to the reserve, each notion acquired or fact automated a golden seed, and a kind
- * summary closes the trail. Mistakes cost nothing: a hint, then the answer.
+ * summary closes the trail, where the leaves make the forest grow. Mistakes cost nothing:
+ * a hint, then the answer.
  */
 function Game(props: Props) {
-  const { session, rng, grow, probe } = props;
+  const { session, rng, forest, probe } = props;
   const [grown, setGrown] = useState(0);
   const [grownHere, setGrownHere] = useState(0);
   const [leaves, setLeaves] = useState(props.leaves);
@@ -104,7 +113,7 @@ function Game(props: Props) {
   const shownAt = useRef(performance.now());
   const firstAnswerMs = useRef<number | null>(null);
 
-  const summary = phase === 'summary';
+  const summary = phase === 'summary' || phase === 'planting';
   useEffect(() => {
     Object.assign(probe, {
       exercise,
@@ -121,10 +130,16 @@ function Game(props: Props) {
 
   const saveData = () =>
     serializeSave(
-      { ...session.snapshot(), leaves, seeds, trailLength: session.length },
+      {
+        ...session.snapshot(),
+        leaves,
+        seeds,
+        trailLength: session.length,
+        painting: forest.description(),
+      },
       new Date(),
     );
-  // Every answer changes the phase or the reserve: the save follows.
+  // Every answer changes the phase or the reserve, every element the phase: the save follows.
   useEffect(() => props.save(saveData()), [leaves, seeds, phase, length]);
 
   const later = (ms: number, action: () => void) => {
@@ -152,6 +167,20 @@ function Game(props: Props) {
     setLeavesHere(0);
     setSeedsHere(0);
     ask();
+  };
+
+  /** Until the shop of the forest (#83): leaves make the next element grow. */
+  const plant = () => {
+    if (phase !== 'summary' || leaves < LEAVES_PER_ELEMENT) return;
+    const slot = forest.candidates()[0];
+    if (slot === undefined) return;
+    setLeaves(leaves - LEAVES_PER_ELEMENT);
+    setPhase('planting');
+    void forest.plant(slot, today()).then(() => {
+      setGrown((g) => g + 1);
+      setGrownHere((g) => g + 1);
+      setPhase('summary');
+    });
   };
 
   /** Plays the moments of a reward one after the other, then the next question. */
@@ -187,8 +216,7 @@ function Game(props: Props) {
     setPraise(rng.pick(PRAISES));
     setPhase('right');
     setLeaves(leaves + LEAVES_PER_RIGHT_ANSWER);
-    const here = leavesHere + LEAVES_PER_RIGHT_ANSWER;
-    setLeavesHere(here);
+    setLeavesHere(leavesHere + LEAVES_PER_RIGHT_ANSWER);
     const steps: Step[] = [];
     if (achievements.length > 0) {
       const count = achievements.length * SEEDS_PER_ACHIEVEMENT;
@@ -210,25 +238,13 @@ function Game(props: Props) {
         },
       );
     }
-    // Until the shop of the forest (#24, #25), a tree grows every few leaves of the trail.
-    if (here % LEAVES_PER_ELEMENT === 0) {
-      steps.push({
-        phase: 'reward',
-        ms: REWARD_MS,
-        start: () => {
-          grow();
-          setGrown((g) => g + 1);
-          setGrownHere((g) => g + 1);
-        },
-      });
-    }
     later(PRAISE_MS, () => play(steps));
   };
 
   const revealed = mistakes >= 2;
   let hint: string | null = null;
   if (mistakes > 0) hint = skill.hint(exercise, revealed ? 2 : 1);
-  const away = phase === 'reward' || phase === 'seed';
+  const placed = forest.description().elements.length;
   return (
     <>
       <Reserve leaves={leaves} seeds={seeds} onLongPress={() => setMenu(true)} />
@@ -253,10 +269,14 @@ function Game(props: Props) {
           leaves={leavesHere}
           seeds={seedsHere}
           grown={grownHere}
+          reserve={leaves}
+          complete={placed >= MAX_ELEMENTS}
+          planting={phase === 'planting'}
+          onPlant={plant}
           onAgain={restart}
         />
       ) : (
-        <section id="question" class={away ? 'away' : ''} aria-live="polite">
+        <section id="question" class={phase === 'seed' ? 'away' : ''} aria-live="polite">
           {phase === 'right' ? (
             <p class="praise">{praise}</p>
           ) : (
@@ -314,28 +334,54 @@ function SeedGift({ count, reason, leaving }: Gift) {
 
 interface SummaryProps {
   stones: number;
+  /** Earned on this trail. */
   leaves: number;
   seeds: number;
+  /** Elements grown since the end of this trail. */
   grown: number;
+  /** Leaves in the reserve. */
+  reserve: number;
+  /** Every slot of the painting holds an element. */
+  complete: boolean;
+  /** An element is growing: the card steps aside. */
+  planting: boolean;
+  onPlant(): void;
   onAgain(): void;
 }
 
-/** The end of a trail: what was done, never what was missed. */
-function Summary({ stones, leaves, seeds, grown, onAgain }: SummaryProps) {
+/**
+ * The end of a trail: what was done, never what was missed. Until the shop of the forest
+ * (#83), the leaves of the reserve make the next element grow, one tap each time.
+ */
+function Summary(props: SummaryProps) {
+  const { stones, leaves, seeds, grown, reserve } = props;
   let earned = '';
   if (leaves > 0 && seeds > 0) {
     earned = `Tu as gagné ${plural(leaves, 'feuille', 'feuilles')} et ${plural(seeds, 'graine dorée', 'graines dorées')}.`;
   } else if (leaves > 0) earned = `Tu as gagné ${plural(leaves, 'feuille', 'feuilles')}.`;
   let forest = '';
-  if (grown === 1) forest = 'Ta forêt a un nouvel arbre.';
-  else if (grown > 1) forest = `Ta forêt a ${grown} nouveaux arbres.`;
+  if (props.complete) forest = 'Ton tableau est complet !';
+  else if (reserve < LEAVES_PER_ELEMENT) {
+    const missing = plural(LEAVES_PER_ELEMENT - reserve, 'feuille', 'feuilles');
+    forest = `Encore ${missing} pour faire pousser ta forêt.`;
+  } else if (grown > 0) forest = 'Ta forêt a grandi !';
+  const canPlant = !props.complete && reserve >= LEAVES_PER_ELEMENT;
   return (
-    <section id="question" class="summary" aria-live="polite">
+    <section id="question" class={`summary${props.planting ? ' away' : ''}`} aria-live="polite">
       <p class="praise">Sentier terminé !</p>
       <p class="statement">Tu as franchi {stones} pierres.</p>
       {earned && <p class="instruction earned">{earned}</p>}
       {forest && <p class="instruction">{forest}</p>}
-      <button type="button" class="next" onPointerDown={onAgain}>
+      {canPlant && (
+        <button type="button" class="next plant" onPointerDown={props.onPlant}>
+          Faire pousser
+          <span class="cost" aria-label={plural(LEAVES_PER_ELEMENT, 'feuille', 'feuilles')}>
+            <LeafIcon />
+            {LEAVES_PER_ELEMENT}
+          </span>
+        </button>
+      )}
+      <button type="button" class={canPlant ? 'again' : 'next'} onPointerDown={props.onAgain}>
         Encore un sentier
       </button>
     </section>
@@ -343,14 +389,15 @@ function Summary({ stones, leaves, seeds, grown, onAgain }: SummaryProps) {
 }
 
 /**
- * Mounts the game over the scene; `grow` makes the forest grow. A save that could not be
- * read is never overwritten: the game is played without saving, and the parent menu says why.
+ * Mounts the game over the scene, which shows `forest`, the painting in progress. A save that
+ * could not be read is never overwritten: the game is played without saving, and the parent
+ * menu says why.
  */
 export function mountGame(
   root: HTMLElement,
   skills: readonly Skill[],
   seed: number,
-  grow: () => void,
+  forest: GameForest,
   saved: ParsedSave | null,
   write: (json: string) => void,
 ) {
@@ -383,7 +430,7 @@ export function mountGame(
       leaves={saved?.ok ? saved.data.leaves : 0}
       seeds={saved?.ok ? saved.data.seeds : 0}
       problem={problem}
-      grow={grow}
+      forest={forest}
       save={problem ? () => undefined : write}
       probe={probe}
     />,

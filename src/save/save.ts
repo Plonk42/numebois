@@ -3,6 +3,7 @@ import type { SkillProgress, Stage } from '../core/mastery';
 import type { SessionSnapshot } from '../core/session';
 import type { TrailLength } from '../core/trail';
 import type { Skill } from '../core/types';
+import { readDescription, type SceneDescription } from '../scene/description';
 
 /**
  * Version of the save format. Free to change until the owner declares that the child
@@ -18,6 +19,8 @@ export interface SaveData extends SessionSnapshot {
   leaves: number;
   seeds: number;
   trailLength: TrailLength;
+  /** The painting in progress. */
+  painting: SceneDescription;
 }
 
 export type ParsedSave = { ok: true; data: SaveData } | { ok: false; reason: string };
@@ -78,11 +81,13 @@ export function parseSave(json: string, skills: readonly Skill[]): ParsedSave {
   if (value.version < SAVE_SCHEMA_VERSION) {
     return { ok: false, reason: 'Sauvegarde d’une ancienne version, plus lisible.' };
   }
+  const painting = readDescription(value.painting);
   if (
     typeof value.savedAt !== 'string' ||
     !isCount(value.leaves) ||
     !isCount(value.seeds) ||
     (value.trailLength !== 'short' && value.trailLength !== 'normal') ||
+    !painting ||
     !isList(value.progress, isProgress) ||
     !isList(value.facts, isFact) ||
     !isList(value.history, (h): h is boolean => typeof h === 'boolean')
@@ -99,6 +104,7 @@ export function parseSave(json: string, skills: readonly Skill[]): ParsedSave {
       leaves: value.leaves,
       seeds: value.seeds,
       trailLength: value.trailLength,
+      painting,
       progress: value.progress
         .filter((p) => levels.has(p.skill))
         .map((p) => ({ ...p, level: Math.min(p.level, levels.get(p.skill)! - 1) })),

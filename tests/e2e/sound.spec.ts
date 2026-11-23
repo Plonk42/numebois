@@ -12,7 +12,7 @@ test('le son attend le premier toucher, se coupe et se met en pause', async ({ p
     if (message.type() === 'error') errors.push(message.text());
   });
   page.on('pageerror', (error) => errors.push(error.message));
-  await page.goto('./?stage=0&time=1');
+  await page.goto('./?seed=3&time=1');
   await page.evaluate(() => window.__numebois!.ready);
 
   // Nothing before the first touch: no audio context at all.

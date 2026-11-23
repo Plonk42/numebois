@@ -9,7 +9,6 @@ import type { InstanceBatch, InstanceModel } from './render/instancing';
 import type { QualitySettings } from './render/quality';
 import type { Ambience } from './render/richness';
 import { groundSwatch } from './terrain/clearing';
-import { SLOT_COUNT } from './terrain/clearing-layout';
 import type { Terrain } from './terrain/types';
 import type { Season } from './trees/builder';
 import type { FamilyName } from './trees/families';
@@ -33,8 +32,11 @@ const CLEARING_FAMILIES: readonly FamilyName[] = [
 ];
 const HERO_FAMILIES: readonly FamilyName[] = ['Gnarly', 'Umbrella', 'Round', 'Cube', 'Birch'];
 const FAVOURITES: readonly FamilyName[] = ['Round', 'Cube', 'Birch', 'Umbrella'];
-/** Empty tree slots that get a hidden tree, ready for the growth demonstration. */
-const GROWABLE = 3;
+/** Slots offered at most for the next element. */
+const CANDIDATES = 3;
+/** Age of a new tree of the child, and elements placed after it until it is adult. */
+const NEW_TREE_AGE = 0.5;
+const GROWN_AFTER = 5;
 
 /** Character of the vegetation of a painting, drawn from its seed. */
 interface Flora {
@@ -64,13 +66,35 @@ function floraOf(seed: number): Flora {
 
 export interface Planting {
   trees: PlantedTree[];
-  /** Indices of the trees used by the growth demonstration: the empty tree slots first. */
+  /** Indices of the trees used by the growth demonstration: the hidden ones first. */
   demo: number[];
+  /** Tree of each slot of the child holding one, grown or waiting hidden. */
+  slotTrees: Map<number, number>;
 }
 
 /** Slots holding an element placed by the child. */
 function filledSlots(description: SceneDescription): ReadonlySet<number> {
   return new Set(description.elements.map((element) => element.slot));
+}
+
+/**
+ * Free slots offered for the next element, prepared hidden in the painting: the first to
+ * open, and others spread over the open ones. Empty once the painting is complete.
+ */
+export function candidateSlots(terrain: Terrain, description: SceneDescription): number[] {
+  const filled = filledSlots(description);
+  const free = terrain.slots.filter((slot) => !filled.has(slot.index)).map((s) => s.index);
+  if (free.length <= CANDIDATES) return free;
+  return [free[0], free[Math.floor((free.length - 1) / 2)], free[free.length - 1]];
+}
+
+/** Age of the tree of a slot: young when placed, adult a few elements later. */
+export function childTreeAge(description: SceneDescription, slot: number): number {
+  const { elements } = description;
+  const rank = elements.findIndex((element) => element.slot === slot);
+  if (rank < 0) return 0;
+  const since = elements.length - 1 - rank;
+  return NEW_TREE_AGE + (1 - NEW_TREE_AGE) * Math.min(1, since / GROWN_AFTER);
 }
 
 /** Trees of the painting for its stage: the forest, the large trees, the tree slots. */
@@ -98,7 +122,7 @@ export function plantTrees(
     at: NonNullable<ReturnType<typeof place>>,
     family: FamilyName,
     size: number,
-    rest: Pick<PlantedTree, 'detail' | 'age' | 'season' | 'landmark'>,
+    rest: Pick<PlantedTree, 'detail' | 'age' | 'season' | 'landmark' | 'slot'>,
   ) => {
     const { seed, x, y, z, yaw } = at;
     trees.push({
@@ -146,27 +170,27 @@ export function plantTrees(
     }
   }
 
-  // The child's trees: grown in the filled slots, waiting at age 0 in the empty ones.
+  // The child's trees: grown in the filled slots, waiting hidden in the candidate ones.
   const filled = filledSlots(description);
-  const empty: number[] = [];
+  const candidates = new Set(candidateSlots(terrain, description));
+  const hidden: number[] = [];
   const grown: number[] = [];
+  const slotTrees = new Map<number, number>();
   for (const slot of terrain.slots) {
     if (slot.kind !== 'tree') continue;
+    if (!filled.has(slot.index) && !candidates.has(slot.index)) continue;
     const at = place(slot.x, slot.z);
     if (!at) continue;
     const family =
       slot.index % 3 === 1
         ? flora.favourite
         : CLEARING_FAMILIES[(slot.index + flora.shift) % CLEARING_FAMILIES.length];
-    // The first slots to open hold the oldest trees.
-    const [young, old] = ambience.clearingAge;
-    const age = filled.has(slot.index) ? old - (old - young) * (slot.index / (SLOT_COUNT - 1)) : 0;
-    // A hidden tree costs as much as a grown one: only the next few empty slots wait for one.
-    if (age === 0 && empty.length >= GROWABLE) continue;
-    (age > 0 ? grown : empty).push(trees.length);
-    plant(at, family, slot.size, { detail: slot.detail, age });
+    const age = childTreeAge(description, slot.index);
+    (age > 0 ? grown : hidden).push(trees.length);
+    slotTrees.set(slot.index, trees.length);
+    plant(at, family, slot.size, { detail: slot.detail, age, slot: slot.index });
   }
-  return { trees, demo: [...empty, ...grown] };
+  return { trees, demo: [...hidden, ...grown], slotTrees };
 }
 
 function leafColumns(season: Season): readonly SwatchName[] {
@@ -241,6 +265,8 @@ function contactShadow(season: Season): MeshData {
 export interface Population {
   /** Centres of the flower drifts, for the butterflies. */
   flowerSpots: { x: number; y: number; z: number }[];
+  /** Instances of each grove, filled or waiting hidden in a candidate slot, by slot. */
+  groves: Map<number, { model: InstanceModel; index: number }[]>;
 }
 
 /**
@@ -265,7 +291,14 @@ export function scatterVegetation(
   batch.register('gen:shadow', contactShadow(season));
 
   const blocked: { x: number; z: number; r: number }[] = [];
-  for (const tree of trees) blocked.push({ x: tree.x, z: tree.z, r: tree.age > 0 ? 0.9 : 1.4 });
+  // Every open slot keeps its room, filled or not: what the child places moves nothing else.
+  for (const tree of trees) {
+    if (tree.slot === undefined)
+      blocked.push({ x: tree.x, z: tree.z, r: tree.age > 0 ? 0.9 : 1.4 });
+  }
+  for (const slot of terrain.slots) {
+    blocked.push({ x: slot.x, z: slot.z, r: slot.kind === 'tree' ? 1.4 : 1.6 });
+  }
   for (const model of terrain.staticModels)
     blocked.push({ x: model.x, z: model.z, r: 1.3 * model.scale });
   const free = (x: number, z: number, r: number) =>
@@ -296,12 +329,22 @@ export function scatterVegetation(
     }
   }
 
-  // Groves of the filled slots: a large bush, two small ones and the painting's flowers.
+  // Groves of the filled slots: a large bush, two small ones and the painting's flowers;
+  // those of the candidate slots wait hidden.
   const filled = filledSlots(description);
+  const candidates = new Set(candidateSlots(terrain, description));
+  const groves: Population['groves'] = new Map();
   for (const slot of terrain.slots) {
-    if (slot.kind !== 'grove' || !filled.has(slot.index)) continue;
+    if (slot.kind !== 'grove') continue;
+    if (!filled.has(slot.index) && !candidates.has(slot.index)) continue;
     const center = terrain.surfaceAt(slot.x, slot.z);
     if (!center) continue;
+    const pieces: { model: InstanceModel; index: number }[] = [];
+    const add: typeof batch.add = (model, ...rest) => {
+      pieces.push({ model, index: batch.count(model) });
+      batch.add(model, ...rest);
+    };
+    groves.set(slot.index, pieces);
     const rng = draw('grove', slot.index);
     const turn = rng.range(0, TAU);
     const bushes: [ModelName, number, number][] = [
@@ -316,20 +359,10 @@ export function scatterVegetation(
       const surface = terrain.surfaceAt(x, z);
       if (!surface) return;
       const s = scale * slot.size;
-      batch.add(
-        model,
-        x,
-        surface.y - 0.05,
-        z,
-        rng.range(0, TAU),
-        s,
-        s,
-        col(rng, bushColumns(season)),
-      );
+      add(model, x, surface.y - 0.05, z, rng.range(0, TAU), s, s, col(rng, bushColumns(season)));
     });
-    blocked.push({ x: slot.x, z: slot.z, r: 1.6 });
     if (season === 'winter') continue;
-    flowerSpots.push({ x: slot.x, y: center.y, z: slot.z });
+    if (filled.has(slot.index)) flowerSpots.push({ x: slot.x, y: center.y, z: slot.z });
     for (let i = 0; i < 9; i++) {
       const a = turn + Math.PI / 3 + rng.range(-1.1, 1.1);
       const d = rng.range(1.5, 2.3);
@@ -338,7 +371,7 @@ export function scatterVegetation(
       const surface = terrain.surfaceAt(x, z);
       if (surface?.kind !== 'grass') continue;
       const scale = rng.range(1.6, 2.2);
-      batch.add(
+      add(
         flora.flower.model,
         x,
         surface.y - 0.02,
@@ -501,8 +534,8 @@ export function scatterVegetation(
     'Bush_3_B',
     'Bush_1_E',
   ];
-  // A grand moment's own trees host nothing: revealing it moves nothing else.
-  const hosts = trees.filter((t) => !t.landmark);
+  // Neither a grand moment's own trees nor the child's host anything: they move nothing else.
+  const hosts = trees.filter((t) => !t.landmark && t.slot === undefined);
   const anchors = [...hosts.filter((t) => t.age > 0), ...terrain.staticModels];
   const bushTarget = Math.round(30 * ambience.bushes * terrain.cover);
   for (let attempt = 0, placed = 0; attempt < bushTarget * 8 && placed < bushTarget; attempt++) {
@@ -524,6 +557,15 @@ export function scatterVegetation(
     if (!surface || surface.kind !== 'grass' || surface.slope > 0.45 || !free(x, z, 0.9)) continue;
     const model = rng.pick(bushModels);
     const scale = model === 'Bush_1_B' ? rng.range(1.3, 2.0) : rng.range(0.85, 1.3);
+    // Whole on the ground: never hanging over the edge of the diorama.
+    const r = 0.8 * scale;
+    if (
+      [0, 1, 2, 3].some(
+        (i) => !terrain.surfaceAt(x + r * Math.cos(i * 1.57), z + r * Math.sin(i * 1.57)),
+      )
+    ) {
+      continue;
+    }
     batch.add(
       model,
       x,
@@ -714,5 +756,5 @@ export function scatterVegetation(
       batch.add('gen:shadow', tree.x, tree.y + 0.12, tree.z, 0, r, 1);
     }
   }
-  return { flowerSpots };
+  return { flowerSpots, groves };
 }

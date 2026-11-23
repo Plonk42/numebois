@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { loadAnimals, type AnimalLibrary } from './animals';
 import { loadAssets, type AssetLibrary } from './assets';
 import { Soundscape } from './audio/soundscape';
-import { parseDescription, type SceneDescription } from './description';
+import { parseDescription, stageFor, type SceneDescription } from './description';
 import { Painting, type PaintingStats } from './painting';
 import { QUALITY, QualityGovernor, parseQuality, type Quality } from './render/quality';
 import { Stage } from './render/stage';
@@ -28,6 +28,13 @@ function textureBytes(texture: THREE.Texture | null | undefined): number {
   return image.width * image.height * bytes * (texture!.generateMipmaps ? 4 / 3 : 1);
 }
 
+/** Growth of a new element, then the veil of light of a new stage, in milliseconds. */
+const GROWTH_MS = 3600;
+const VEIL_IN_MS = 700;
+const VEIL_OUT_MS = 1400;
+
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 /** The demonstration scene: loads the assets, builds the painting, runs the frame loop. */
 export class SceneApp {
   readonly stage: Stage;
@@ -49,6 +56,8 @@ export class SceneApp {
   private fpsElapsed = 0;
   private readonly fixedTime: number | null;
   private readonly forcePlaceholders: boolean;
+  /** Light over the whole scene while a new stage is built. */
+  private readonly veil: HTMLElement;
 
   constructor(
     canvas: HTMLCanvasElement,
@@ -56,6 +65,12 @@ export class SceneApp {
     private readonly baseUrl: string,
   ) {
     this.stage = new Stage(canvas);
+    this.veil = document.createElement('div');
+    this.veil.id = 'veil';
+    this.veil.append(
+      Object.assign(document.createElement('p'), { textContent: 'Ta forêt grandit !' }),
+    );
+    canvas.after(this.veil);
     this.description = parseDescription(params);
     const requested = parseQuality(params.get('quality'));
     this.quality = requested === 'auto' ? 'high' : requested;
@@ -118,6 +133,37 @@ export class SceneApp {
   grow(): void {
     this.painting?.grow(this.time);
     this.sound.chime();
+  }
+
+  /** Free slots offered for the next element; the painting is rebuilt first if needed. */
+  candidates(): readonly number[] {
+    if (this.painting && this.painting.description !== this.description) this.rebuild();
+    return this.painting?.candidates ?? [];
+  }
+
+  /**
+   * The child places an element in a candidate slot: it grows, then a new stage comes under
+   * a veil of light when due. Resolves once everything is over, with the new description.
+   */
+  async plant(slot: number, day: number): Promise<SceneDescription> {
+    const before = this.description;
+    const elements = [...before.elements, { slot, day }];
+    const next = { ...before, elements, stage: stageFor(elements.length) };
+    if (!this.candidates().includes(slot) || !this.painting!.plant(next, slot, this.time)) {
+      throw new Error(`emplacement ${slot} non préparé`);
+    }
+    this.description = next;
+    this.sound.chime();
+    await wait(GROWTH_MS);
+    if (next.stage !== before.stage) {
+      this.veil.classList.add('on');
+      await wait(VEIL_IN_MS);
+      this.rebuild();
+      this.veil.classList.remove('on');
+      this.sound.chime();
+      await wait(VEIL_OUT_MS);
+    }
+    return next;
   }
 
   private readonly onResize = () => {
@@ -226,5 +272,6 @@ export class SceneApp {
     this.animals?.dispose();
     this.sound.dispose();
     this.stage.dispose();
+    this.veil.remove();
   }
 }
