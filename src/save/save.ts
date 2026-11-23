@@ -9,7 +9,7 @@ import { readDescription, type SceneDescription } from '../scene/description';
  * Version of the save format. Free to change until the owner declares that the child
  * really plays (doc/GITHUB_WORKFLOW.md, « Compatibilité des sauvegardes »).
  */
-export const SAVE_SCHEMA_VERSION = 2;
+export const SAVE_SCHEMA_VERSION = 3;
 
 export interface SaveData extends SessionSnapshot {
   version: typeof SAVE_SCHEMA_VERSION;

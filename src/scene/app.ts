@@ -8,6 +8,7 @@ import { Painting, type PaintingStats } from './painting';
 import { animalPortrait } from './render/portrait';
 import { QUALITY, QualityGovernor, parseQuality, type Quality } from './render/quality';
 import { Stage } from './render/stage';
+import type { Season } from './trees/builder';
 
 export interface SceneCounters extends PaintingStats {
   fps: number;
@@ -199,6 +200,29 @@ export class SceneApp {
     this.description = next;
     this.sound.reward('element');
     await wait(ARRIVAL_MS);
+    return next;
+  }
+
+  /**
+   * The painting takes another of its seasons, under the veil, without moving anything; a
+   * bought season joins them. Resolves once the veil is gone, with the new description.
+   */
+  async changeSeason(season: Season): Promise<SceneDescription> {
+    const before = this.description;
+    const bought = !before.seasons.includes(season);
+    const next = {
+      ...before,
+      season,
+      seasons: bought ? [...before.seasons, season] : before.seasons,
+    };
+    if (bought) this.sound.reward('element');
+    this.veil.classList.add('on', 'quiet');
+    await wait(VEIL_IN_MS);
+    this.description = next;
+    this.rebuild();
+    this.veil.classList.remove('on');
+    await wait(VEIL_OUT_MS);
+    this.veil.classList.remove('quiet');
     return next;
   }
 

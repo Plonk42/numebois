@@ -71,6 +71,7 @@ const ready = sceneOnly
             slotOnScreen: (slot) => app.slotOnScreen(slot),
             plant: (slot, day) => app.plant(slot, day),
             adopt: (animal) => app.adopt(animal),
+            changeSeason: (season) => app.changeSeason(season),
             portrait: (animal) => app.portrait(animal),
             reward: (kind) => app.sound.reward(kind),
           },
@@ -81,7 +82,9 @@ const ready = sceneOnly
         );
         // During a question, the soundscape stays low and plays no calls.
         app.sound.quiet = () =>
-          !['seed', 'summary', 'choosing', 'planting', 'adopting'].includes(game?.phase ?? '');
+          !['seed', 'summary', 'choosing', 'planting', 'adopting', 'turning'].includes(
+            game?.phase ?? '',
+          );
         return started;
       });
 

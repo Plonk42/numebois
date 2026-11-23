@@ -1,6 +1,7 @@
 import type { AnimalName } from '../scene/animal-catalog';
 import { canBuy, type Article, type ShopItem } from '../scene/shop';
 import { LeafIcon, plural, SeedIcon } from './reserve';
+import { SEASON_LABELS, SeasonIcon } from './seasons';
 
 export const ANIMAL_LABELS: Record<AnimalName, string> = {
   Deer: 'Une biche',
@@ -9,8 +10,15 @@ export const ANIMAL_LABELS: Record<AnimalName, string> = {
   Wolf: 'Un loup',
 };
 
-const labelOf = (article: Article) =>
-  article.kind === 'element' ? 'Une pousse' : ANIMAL_LABELS[article.animal];
+const labelOf = (article: Article) => {
+  if (article.kind === 'element') return 'Une pousse';
+  return article.kind === 'animal' ? ANIMAL_LABELS[article.animal] : SEASON_LABELS[article.season];
+};
+
+const keyOf = (article: Article) => {
+  if (article.kind === 'element') return 'element';
+  return article.kind === 'animal' ? article.animal : article.season;
+};
 
 /** A young shoot: it becomes a tree or a grove, depending on the place chosen. */
 function SproutIcon() {
@@ -64,7 +72,7 @@ export function Shop({ items, leaves, seeds, portrait, onBuy }: Props) {
         else if (!ready) state = 'saving';
         const image = article.kind === 'animal' ? portrait(article.animal) : null;
         return (
-          <li key={article.kind === 'animal' ? article.animal : 'element'}>
+          <li key={keyOf(article)}>
             <button
               type="button"
               class={`article ${state}`}
@@ -73,11 +81,9 @@ export function Shop({ items, leaves, seeds, portrait, onBuy }: Props) {
               onPointerDown={() => onBuy(item)}
             >
               <span class="picture">
-                {article.kind === 'element' ? (
-                  <SproutIcon />
-                ) : (
-                  image && <img src={image} alt="" draggable={false} />
-                )}
+                {article.kind === 'element' && <SproutIcon />}
+                {article.kind === 'season' && <SeasonIcon season={article.season} />}
+                {image && <img src={image} alt="" draggable={false} />}
               </span>
               <span class="name">{label}</span>
               <span class="price">

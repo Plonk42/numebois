@@ -140,7 +140,7 @@ export function mountDebugPanel(app: SceneApp, autoQuality: boolean): void {
     element('label', {}, [
       'Saison',
       select('debug-season', SEASONS, SEASON_LABELS, app.description.season, (season) => {
-        app.description = { ...app.description, season };
+        app.description = { ...app.description, season, seasons: [season] };
         apply();
       }),
     ]),
