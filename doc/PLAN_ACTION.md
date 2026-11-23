@@ -26,8 +26,7 @@ L'enfant a beaucoup de mal à se concentrer. Le but n°1 est qu'il ait envie de 
    - pendant une question, une seule chose à l'écran, sans menu ni animation qui attire l'œil en dehors des moments de récompense ;
    - les animaux et les éléments ne sont interactifs (les toucher les fait réagir) qu'entre deux questions ou à la fin du sentier.
 8. **Manipuler plutôt qu'écrire :** horloge, règle, parts et opérations posées se manipulent au doigt, ce qui est plus engageant que la saisie seule.
-9. **Revenir le lendemain sans punition :** si l'enfant a joué la veille, une petite nouveauté l'attend (une fleur éclose, un animal arrivé). Aucune série qu'on peut perdre, aucun message de manque.
-10. **À éviter :** chronomètre imposé, classement, tirage au sort ou pochette surprise, ressource qu'on peut perdre, notifications, compte à rebours, tout ce qui ressemble à une punition.
+9. **À éviter :** chronomètre imposé, classement, tirage au sort ou pochette surprise, ressource qu'on peut perdre, notifications, compte à rebours, tout ce qui ressemble à une punition.
 
 ## Boucle de progression
 
@@ -462,7 +461,7 @@ Dépend de 2 et 3.
    - une grille de vignettes, une page par tableau, avec le tableau rejoué en vie à partir de sa description ;
    - les dates, et ce qu'il a appris pendant ce tableau (notions acquises, faits automatisés, records) ;
    - les vignettes sont générées à la fin du tableau (rendu Three.js hors écran, WebP d'environ 30 Ko).
-5. Petite nouveauté du lendemain s'il a joué la veille.
+5. (Abandonnée : petite nouveauté du lendemain, #35, voir le journal.)
 6. Sauvegarde IndexedDB versionnée (`SAVE_SCHEMA_VERSION`) : tableau en cours, Album (descriptions et vignettes), progression. `navigator.storage.persist()`. Export/import dans le menu parent caché (appui long), Album compris.
 7. Effets sonores Web Audio débloqués au premier toucher, bouton pour couper le son.
 
@@ -759,3 +758,4 @@ Vérification : frontmatter YAML valide, `name` identique au nom du dossier, `de
 - 2026-11-23 : verger, une maisonnette avant le moulin (demande du propriétaire, #31). Une petite maison du pack hexagonal (`Cottage`, 1 011 triangles, la case noire des fenêtres prise sur `DarkBark`) occupe le sommet aux paliers 4 à 7 (le palier 2 était trop tôt pour un élément aussi important, retour du propriétaire), sous les étincelles du moulin au palier 7 ; le moulin la remplace au palier 8 (retardé de deux paliers à la demande du propriétaire ; la grande floraison passe au palier 6 pour garder un grand moment par palier). Le palier 4 s'appelle « maisonnette ».
 - 2026-11-23 : panier de Plume (demande du propriétaire). Pendant le sentier, chaque feuille gagnée s'envole dans un panier aux pieds de Plume (`src/ui/basket.tsx`, compteur sur le panier) ; la réserve affiche les feuilles d'avant le sentier. Dans le résumé, le panier bascule et Plume le verse dans la réserve, une feuille toutes les 150 ms, puis la boutique s'ouvre (fermée pendant le versement). Mise en scène seulement : `leaves` est sauvegardé à chaque bonne réponse, un sentier quitté en route ne perd rien. Les envols partagent `useLanding` (`src/ui/reserve.tsx`), dans un portail hors de l'ardoise et de la carte.
 - 2026-11-23 : qualité du rendu dans l'espace parent (demande du propriétaire) : Auto, Haute, Moyenne, Basse, avec le palier choisi par l'automatique en ce moment. Le choix reste sur l'appareil (`localStorage`, comme le son), pas dans la sauvegarde exportée ; `?quality=` passe devant.
+- 2026-11-23 : petite nouveauté du lendemain abandonnée (#35, décision du propriétaire) : difficile à articuler avec la boucle de progression (tout ce qui arrive dans le tableau s'achète), et trop ambitieux pour ce qu'elle apporte. Retirée de l'objectif principal et de la phase 4.
