@@ -64,7 +64,7 @@ const ORCHARD_BY_STAGE = {
   brook: [0, 0, 0, 0.42, 0.46, 0.5, 0.54, 0.58, 0.62, 0.66, 0.7, 0.74],
   cover: [0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.08, 1.15, 1.22, 1.3, 1.35, 1.4],
   /** A little house on the summit first; the windmill takes its place. */
-  cottage: [false, false, true, true, true, true, false, false, false, false, false, false],
+  cottage: [false, false, false, false, true, true, false, false, false, false, false, false],
   windmill: [false, false, false, false, false, false, true, true, true, true, true, true],
   blossom: [false, false, false, false, false, false, false, false, true, true, true, true],
   fruit: [false, false, false, false, false, false, false, false, false, false, true, true],

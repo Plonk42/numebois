@@ -14,9 +14,9 @@ export const ORCHARD: Biome = {
   stageNames: [
     'prairie',
     'premiers semis',
-    'maisonnette',
+    'premiers champs',
     'ruisseau',
-    'terrasses',
+    'maisonnette',
     "colline de l'est",
     'moulin',
     'champs fleuris',
