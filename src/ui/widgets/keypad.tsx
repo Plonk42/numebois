@@ -17,6 +17,8 @@ interface Props {
   locked: boolean;
   /** The entry is right: shown in green. */
   right: boolean;
+  /** The expected answer, shown in place of the entry. */
+  shown: string | null;
   onSubmit(answer: string): void;
 }
 
@@ -24,7 +26,7 @@ interface Props {
  * Number pad of the game, never the Android keyboard: reacts as soon as the finger
  * touches, and to the digit, Backspace and Enter keys.
  */
-export function Keypad({ maxDigits, locked, right, onSubmit }: Props) {
+export function Keypad({ maxDigits, locked, right, shown, onSubmit }: Props) {
   const [entry, setEntry] = useState('');
   // Fast typing comes before the next render: read and write the latest entry here.
   const latest = useRef('');
@@ -57,10 +59,13 @@ export function Keypad({ maxDigits, locked, right, onSubmit }: Props) {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
+  let state = '';
+  if (right) state = ' right';
+  else if (shown !== null) state = ' shown';
   return (
     <>
-      <output class={`answer${right ? ' right' : ''}`} aria-label="Ta réponse">
-        {grouped(entry)}
+      <output class={`answer${state}`} aria-label={shown === null ? 'Ta réponse' : 'La réponse'}>
+        {grouped(shown ?? entry)}
       </output>
       <div class="keypad">
         {KEYS.map((key) => {

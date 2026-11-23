@@ -4,7 +4,7 @@ async function game(page: Page) {
   return (await page.evaluate(() => window.__numebois!.game()))!;
 }
 
-/** The exercise on the card. */
+/** The exercise on the slate. */
 async function current(page: Page) {
   const statement = await page.locator('#question .statement').textContent();
   await expect.poll(async () => (await game(page)).exercise?.statement).toBe(statement);
@@ -41,7 +41,44 @@ async function loadSave(page: Page, save: object) {
 const reserveLabel = (leaves: number, seeds = 0) =>
   `Réserve : ${leaves} feuille${leaves > 1 ? 's' : ''}, ${seeds} graine${seeds > 1 ? 's' : ''} dorée${seeds > 1 ? 's' : ''}`;
 
-test('une boucle jouable : questions, indices, feuilles et pousse', async ({ page }) => {
+type Box = { x: number; y: number; width: number; height: number };
+
+function apart(a: Box, b: Box): boolean {
+  return (
+    a.x >= b.x + b.width || a.x + a.width <= b.x || a.y >= b.y + b.height || a.y + a.height <= b.y
+  );
+}
+
+/** The slate stays under the top bar, on screen, without scrolling, every key 56 px or more. */
+async function expectSlateLayout(page: Page) {
+  const card = page.locator('#question');
+  const viewport = page.viewportSize()!;
+  const cardBox = (await card.boundingBox())!;
+  for (const other of ['#reserve', '#trail', '#sound-toggle']) {
+    const box = (await page.locator(other).boundingBox())!;
+    expect(cardBox.y, other).toBeGreaterThan(box.y + box.height);
+  }
+  expect(cardBox.x).toBeGreaterThanOrEqual(0);
+  expect(cardBox.x + cardBox.width).toBeLessThanOrEqual(viewport.width);
+  expect(cardBox.y + cardBox.height).toBeLessThanOrEqual(viewport.height);
+  for (const part of [card, card.locator('.bench > *')]) {
+    for (const element of await part.all()) {
+      expect(await element.evaluate((el) => el.scrollHeight <= el.clientHeight + 1)).toBe(true);
+    }
+  }
+  for (const key of await card.locator('button').all()) {
+    const box = (await key.boundingBox())!;
+    expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(56);
+  }
+  // Plume's bubble never covers the answer zone.
+  const hint = card.locator('.hint');
+  if ((await hint.count()) > 0) {
+    const zone = (await card.locator('.answer-zone').boundingBox())!;
+    expect(apart((await hint.boundingBox())!, zone)).toBe(true);
+  }
+}
+
+test('une boucle jouable : questions, indices et feuilles', async ({ page }) => {
   const errors: string[] = [];
   page.on('console', (message) => {
     if (message.type() === 'error') errors.push(message.text());
@@ -52,29 +89,21 @@ test('une boucle jouable : questions, indices, feuilles et pousse', async ({ pag
 
   const card = page.locator('#question');
   const reserve = page.locator('#reserve');
+  const dim = page.locator('#dim');
+  const plume = card.locator('.plume');
   await expect(card).toBeVisible();
   await expect(reserve).toHaveAttribute('aria-label', reserveLabel(0));
   // Never the Android keyboard: no text field at all.
   await expect(page.locator('input, textarea, [contenteditable]')).toHaveCount(0);
-
-  // One thing at a time: the card stays clear of the reserve and the sound button, on screen.
-  const viewport = page.viewportSize()!;
-  const cardBox = (await card.boundingBox())!;
-  const soundBox = (await page.locator('#sound-toggle').boundingBox())!;
-  const reserveBox = (await reserve.boundingBox())!;
-  expect(cardBox.y).toBeGreaterThan(soundBox.y + soundBox.height);
-  expect(cardBox.x).toBeGreaterThan(reserveBox.x + reserveBox.width);
-  expect(cardBox.y + cardBox.height).toBeLessThanOrEqual(viewport.height);
-  expect(await card.evaluate((el) => el.scrollHeight <= el.clientHeight)).toBe(true);
-  for (const key of await card.locator('button').all()) {
-    const box = (await key.boundingBox())!;
-    expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(56);
-  }
+  // One thing at a time: the forest dims behind the slate, Plume waits calmly.
+  await expect(dim).toHaveClass(/on/);
+  await expect(plume).toHaveClass(/calm/);
+  await expectSlateLayout(page);
 
   let exercise = await current(page);
   await test.info().attach('question', { body: await page.screenshot(), contentType: 'image/png' });
 
-  // First mistake, with the fingers: a method hint, nothing lost.
+  // First mistake, with the fingers: Plume gives a method hint, nothing lost.
   const validate = page.getByRole('button', { name: 'Valider' });
   await expect(validate).toBeDisabled();
   for (const digit of wrong(exercise.answer)) {
@@ -85,8 +114,10 @@ test('une boucle jouable : questions, indices, feuilles et pousse', async ({ pag
   await validate.click();
   await expect(card.locator('.hint')).toContainText('Presque !');
   await expect(card.locator('.hint')).toContainText('Un chiffre par rang');
+  await expect(plume).toHaveClass(/talk/);
   // The keys do not move under the finger when the hint appears.
   expect(await five.boundingBox()).toEqual(before);
+  await expectSlateLayout(page);
   await test.info().attach('indice', { body: await page.screenshot(), contentType: 'image/png' });
 
   // Second mistake, with the keyboard: the answer and its method, then the next question.
@@ -100,8 +131,11 @@ test('une boucle jouable : questions, indices, feuilles et pousse', async ({ pag
       : exercise.answer,
   );
   expect((await game(page)).leaves).toBe(0);
-  await page.getByRole('button', { name: 'Suivant' }).click();
+  expect(await five.boundingBox()).toEqual(before);
+  await expectSlateLayout(page);
+  await card.locator('.hint').getByRole('button', { name: 'Suivant' }).click();
   await expect(card.locator('.hint')).toHaveCount(0);
+  await expect(plume).toHaveClass(/calm/);
 
   // Each right answer sends a leaf flying to the reserve.
   for (let answer = 1; answer <= 4; answer++) {
@@ -109,6 +143,7 @@ test('une boucle jouable : questions, indices, feuilles et pousse', async ({ pag
     await page.keyboard.type(exercise.answer);
     await page.keyboard.press('Enter');
     await expect(card.locator('.praise')).toBeVisible();
+    await expect(plume).toHaveClass(/cheer/);
     await expect(reserve).toHaveAttribute('aria-label', reserveLabel(answer));
     if (answer === 1) {
       await expect(page.locator('.flying.leaf')).toHaveCount(1);
@@ -120,9 +155,10 @@ test('une boucle jouable : questions, indices, feuilles et pousse', async ({ pag
     await expect(reserve.locator('.leaves b')).toHaveText(String(answer));
     await expect(card.locator('.praise')).toHaveCount(0);
   }
-  // The forest only changes at the end of the trail: the card never stepped aside.
+  // The forest only changes at the end of the trail: the slate never stepped aside.
   expect((await game(page)).grown).toBe(0);
   await expect(card).not.toHaveClass(/away/);
+  await expect(dim).toHaveClass(/on/);
   await expect(card.locator('.instruction')).toBeVisible();
   expect(errors).toEqual([]);
 });
@@ -136,18 +172,15 @@ test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt po
   await page.evaluate(() => window.__numebois!.ready);
   const card = page.locator('#question');
   const path = page.locator('#trail');
+  const dim = page.locator('#dim');
   await expect(path.locator('.stone')).toHaveCount(10);
   await expect(path).toHaveAttribute('aria-label', 'Pierre 1 sur 10');
 
-  // The path stays clear of the reserve, the sound button and the card.
+  // The path stays clear of the reserve, the sound button and the slate.
   const pathBox = (await path.boundingBox())!;
   for (const other of ['#reserve', '#sound-toggle', '#question']) {
     const box = (await page.locator(other).boundingBox())!;
-    const apart =
-      box.x >= pathBox.x + pathBox.width ||
-      box.x + box.width <= pathBox.x ||
-      box.y >= pathBox.y + pathBox.height;
-    expect(apart, other).toBe(true);
+    expect(apart(box, pathBox), other).toBe(true);
   }
 
   for (let stone = 0; stone < 10; stone++) {
@@ -158,10 +191,22 @@ test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt po
     await expect(card.locator('.praise')).toBeVisible();
     await expect.poll(async () => (await game(page)).stone, { timeout: 8000 }).toBe(stone + 1);
   }
-  await expect(card.locator('.praise')).toHaveText('Sentier terminé !');
-  await expect(card).toContainText('Tu as franchi 10 pierres.');
-  await expect(card).toContainText('Tu as gagné 10 feuilles.');
+  // The end of the trail, over the whole forest: the slate and the dimming are gone.
+  const end = page.locator('#trail-end');
+  await expect(end.locator('.praise')).toHaveText('Sentier terminé !');
+  await expect(end).toContainText('Tu as franchi 10 pierres.');
+  await expect(end).toContainText('Tu as gagné 10 feuilles.');
+  await expect(card).toHaveCount(0);
+  await expect(dim).not.toHaveClass(/on/);
   await expect(path.locator('.stone.crossed')).toHaveCount(10);
+  const endBox = (await end.boundingBox())!;
+  const viewport = page.viewportSize()!;
+  expect(endBox.y + endBox.height).toBeLessThanOrEqual(viewport.height);
+  expect(Math.abs(endBox.x + endBox.width / 2 - viewport.width / 2)).toBeLessThan(2);
+  for (const button of await end.locator('button').all()) {
+    const box = (await button.boundingBox())!;
+    expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(56);
+  }
   await test.info().attach('résumé', { body: await page.screenshot(), contentType: 'image/png' });
 
   // Four leaves each: two elements grow, and each passes a stage under a veil of light.
@@ -169,7 +214,7 @@ test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt po
   expect(await describe()).toMatchObject({ seed: 3, stage: 0, elements: [] });
   for (let placed = 1; placed <= 2; placed++) {
     await page.getByRole('button', { name: 'Faire pousser' }).click();
-    await expect(card).toHaveClass(/away/);
+    await expect(end).toHaveClass(/away/);
     await expect(page.locator('#reserve')).toHaveAttribute(
       'aria-label',
       reserveLabel(10 - 4 * placed),
@@ -186,15 +231,16 @@ test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt po
         contentType: 'image/png',
       });
     }
-    await expect(card).not.toHaveClass(/away/, { timeout: 12_000 });
+    await expect(end).not.toHaveClass(/away/, { timeout: 12_000 });
     expect(await describe()).toMatchObject({ stage: placed });
   }
   expect((await game(page)).grown).toBe(2);
   await expect(page.getByRole('button', { name: 'Faire pousser' })).toHaveCount(0);
-  await expect(card).toContainText('Encore 2 feuilles pour faire pousser ta forêt.');
+  await expect(end).toContainText('Encore 2 feuilles pour faire pousser ta forêt.');
 
   await page.getByRole('button', { name: 'Encore un sentier' }).click();
   await expect(card.locator('.instruction')).toBeVisible();
+  await expect(dim).toHaveClass(/on/);
   await expect(path.locator('.stone.crossed')).toHaveCount(0);
   await expect(path.locator('.stone.here')).toHaveCount(1);
   expect((await game(page)).role).toBe('warmup');
@@ -231,14 +277,12 @@ test('le choix : comparer avec <, = ou >, d’une touche, sans rouge', async ({ 
   const card = page.locator('#question');
   const signs = card.locator('.choice button');
   await expect(signs).toHaveText(['<', '=', '>']);
-  for (const sign of await signs.all()) {
-    const box = (await sign.boundingBox())!;
-    expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(56);
-  }
+  await expectSlateLayout(page);
   const wrongSign = ['<', '=', '>'].find((sign) => sign !== exercise.answer)!;
   await card.getByRole('button', { name: wrongSign, exact: true }).click();
   await expect(card.locator('.hint')).toContainText('Presque !');
   await expect(card.getByRole('button', { name: wrongSign, exact: true })).toHaveClass(/tried/);
+  await expectSlateLayout(page);
   await test.info().attach('choix', { body: await page.screenshot(), contentType: 'image/png' });
   await card.getByRole('button', { name: exercise.answer, exact: true }).click();
   // Within the praise, before the next question.
@@ -285,7 +329,9 @@ test('une notion acquise : une graine dorée, seule à l’écran, rejoint la r�
   const gift = page.locator('#seed-gift');
   await expect(gift).toContainText('Une graine dorée !');
   await expect(gift).toContainText('Tu as appris : écrire un nombre en chiffres.');
+  // Alone over the lit forest: the slate steps aside, the dimming lifts.
   await expect(page.locator('#question')).toHaveClass(/away/);
+  await expect(page.locator('#dim')).not.toHaveClass(/on/);
   await test.info().attach('graine dorée', {
     body: await page.screenshot(),
     contentType: 'image/png',
@@ -298,7 +344,7 @@ test('une notion acquise : une graine dorée, seule à l’écran, rejoint la r�
   expect(errors).toEqual([]);
 });
 
-test('la carte tient sous le bouton du son avec le plus long énoncé et son indice', async ({
+test('l’ardoise tient le plus long énoncé avec la réponse montrée ; Entrée pour continuer', async ({
   page,
 }) => {
   await page.goto('./?seed=3&time=1');
@@ -306,16 +352,26 @@ test('la carte tient sous le bouton du son avec le plus long énoncé et son ind
   const exercise = await current(page);
   await page.keyboard.type(wrong(exercise.answer));
   await page.keyboard.press('Enter');
+  await page.keyboard.press('Backspace');
+  await page.keyboard.type(String((Number(exercise.answer.at(-1)) + 2) % 10));
+  await page.keyboard.press('Enter');
   const card = page.locator('#question');
-  await expect(card.locator('.hint')).toBeVisible();
+  await expect(card.locator('.hint .next')).toBeVisible();
+  // The longest number in words, sized as the slate sizes it, and the longest hint.
   await card.evaluate((element) => {
-    element.querySelector('.statement')!.textContent = 'neuf-mille-neuf-cent-quatre-vingt-dix-neuf';
+    const statement = element.querySelector('.statement')!;
+    statement.className = 'statement small';
+    statement.textContent = 'neuf-mille-neuf-cent-quatre-vingt-dix-neuf';
     element.querySelector('.hint span')!.textContent =
       'neuf-mille · neuf-cent · quatre-vingt-dix-neuf\n' +
-      'Un chiffre par rang : milliers, centaines, dizaines, unités.';
+      '9 milliers, 9 centaines, 9 dizaines, 9 unités : 9 999.';
   });
-  const cardBox = (await card.boundingBox())!;
-  const soundBox = (await page.locator('#sound-toggle').boundingBox())!;
-  expect(cardBox.y).toBeGreaterThan(soundBox.y + soundBox.height);
-  expect(await card.evaluate((el) => el.scrollHeight <= el.clientHeight)).toBe(true);
+  await expectSlateLayout(page);
+  await test.info().attach('pire cas', { body: await page.screenshot(), contentType: 'image/png' });
+
+  // Enter goes on, like the button.
+  const stone = (await game(page)).stone;
+  await page.keyboard.press('Enter');
+  await expect.poll(async () => (await game(page)).stone).toBe(stone + 1);
+  await expect(card.locator('.hint')).toHaveCount(0);
 });

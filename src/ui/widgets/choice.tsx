@@ -6,6 +6,8 @@ interface Props {
   locked: boolean;
   /** The last choice is right: shown in green. */
   right: boolean;
+  /** The expected answer, outlined in yellow. */
+  shown: string | null;
   onSubmit(answer: string): void;
 }
 
@@ -13,7 +15,7 @@ interface Props {
  * Choice among a few answers, one touch: reacts as soon as the finger touches. A choice
  * already tried stays dimmed, never red. Keyboard: 1 to 4, or the sign itself.
  */
-export function Choice({ options, locked, right, onSubmit }: Props) {
+export function Choice({ options, locked, right, shown, onSubmit }: Props) {
   const [tried, setTried] = useState<readonly string[]>([]);
   const [last, setLast] = useState<string | null>(null);
   const choose = (option: string) => {
@@ -43,13 +45,14 @@ export function Choice({ options, locked, right, onSubmit }: Props) {
       {options.map((option) => {
         let state = '';
         if (right && option === last) state = 'right';
+        else if (option === shown) state = 'shown';
         else if (tried.includes(option)) state = 'tried';
         return (
           <button
             key={option}
             type="button"
             class={state}
-            disabled={locked && state !== 'right'}
+            disabled={locked && state !== 'right' && state !== 'shown'}
             onPointerDown={() => choose(option)}
           >
             {option}

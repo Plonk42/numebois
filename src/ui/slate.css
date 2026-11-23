@@ -1,0 +1,405 @@
+/* The slate (#84): one exercise at a time, in the middle, over the dimmed forest. */
+
+#dim {
+  position: fixed;
+  inset: 0;
+  z-index: 3;
+  background: rgba(28, 48, 40, 0.36);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.5s ease;
+}
+#dim.on {
+  opacity: 1;
+}
+
+#question {
+  position: fixed;
+  top: 84px;
+  left: 50%;
+  z-index: 4;
+  width: min(840px, calc(100vw - 180px));
+  height: min(692px, calc(100vh - 108px));
+  box-sizing: border-box;
+  padding: 16px 28px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: 10px solid #c79a6b;
+  border-radius: 30px;
+  background: #fffaf0;
+  box-shadow:
+    0 10px 36px rgba(0, 30, 20, 0.35),
+    inset 0 0 0 2px #ead6b8;
+  transform: translateX(-50%);
+  animation: slate-in 0.45s cubic-bezier(0.3, 1.3, 0.5, 1);
+  transition:
+    transform 0.45s ease,
+    opacity 0.45s ease;
+}
+#question.away {
+  opacity: 0;
+  transform: translateX(-50%) translateY(48px) scale(0.94);
+  pointer-events: none;
+}
+@keyframes slate-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(32px) scale(0.96);
+  }
+}
+#question p,
+#trail-end p {
+  margin: 0;
+}
+#question header {
+  min-height: 36px;
+  display: grid;
+  place-items: center;
+  text-align: center;
+}
+.instruction {
+  font-size: 24px;
+  line-height: 32px;
+  color: #5a6e5f;
+}
+.praise {
+  font-size: 32px;
+  line-height: 36px;
+  font-weight: 700;
+  color: #3f8a35;
+  animation: leaf-pop 0.4s cubic-bezier(0.3, 1.7, 0.5, 1);
+}
+
+/* Work area on the left with Plume's hints under it, answer zone at the bottom right. */
+.bench {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'work answer'
+    'hint answer';
+  gap: 16px 28px;
+}
+.bench > .work {
+  grid-area: work;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+}
+/* Rulers and number lines: the whole width, the answer zone under it. */
+.bench > .work.wide {
+  grid-column: 1 / -1;
+}
+.bench > .work.wide ~ .answer-zone {
+  grid-row: 2;
+}
+.bench > .answer-zone {
+  grid-area: answer;
+  align-self: end;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.statement {
+  text-align: center;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.statement.large {
+  font-size: 56px;
+  line-height: 64px;
+}
+.statement.medium {
+  font-size: 44px;
+  line-height: 52px;
+}
+.statement.small {
+  font-size: 36px;
+  line-height: 44px;
+}
+.statement.text {
+  font-size: 28px;
+  line-height: 36px;
+}
+
+/* Plume's bubble: its tail points to her, on the left edge of the slate. */
+.bench > .hint {
+  grid-area: hint;
+  align-self: end;
+  position: relative;
+  margin-left: 12px;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-radius: 18px;
+  background: #fff1bd;
+  font-size: 21px;
+  line-height: 27px;
+  white-space: pre-line;
+  animation: hint-in 0.3s ease-out;
+}
+.bench > .hint::before {
+  content: '';
+  position: absolute;
+  left: -14px;
+  bottom: 26px;
+  border-style: solid;
+  border-width: 10px 14px 10px 0;
+  border-color: transparent #fff1bd transparent transparent;
+}
+.bench > .hint .next {
+  align-self: flex-end;
+  min-width: 220px;
+  margin-top: 8px;
+}
+@keyframes hint-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+/* Plume, perched on the left edge of the slate (a drawing until her model, #26). */
+.plume {
+  position: absolute;
+  left: -70px;
+  bottom: 24px;
+  z-index: 1;
+  width: 96px;
+  height: 108px;
+  pointer-events: none;
+  filter: drop-shadow(0 4px 6px rgba(0, 30, 20, 0.3));
+}
+.plume .feet,
+.plume .beak {
+  fill: #f2a83a;
+}
+.plume .dark {
+  fill: #8e6448;
+}
+.plume .body {
+  fill: #a97c5d;
+}
+.plume .belly {
+  fill: #f6e7c8;
+}
+.plume .chevrons {
+  fill: none;
+  stroke: #b08a6a;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+.plume .eye {
+  fill: #fbf1da;
+}
+.plume .pupil {
+  fill: #2b2420;
+}
+.plume .glint {
+  fill: #fff;
+}
+.plume .wing {
+  transform-box: fill-box;
+  transform-origin: 50% 20%;
+}
+.plume .wing.left {
+  transform: rotate(12deg);
+}
+.plume .wing.right {
+  transform: rotate(-12deg);
+}
+/* Calm, she looks at the question; talking, she leans towards her bubble. */
+.plume.calm .look {
+  transform: translate(4px, -1px);
+}
+.plume.talk {
+  transform: rotate(-6deg);
+}
+.plume.cheer {
+  animation: plume-hop 0.5s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+.plume.cheer .wing.left {
+  transform: rotate(50deg);
+}
+.plume.cheer .wing.right {
+  transform: rotate(-50deg);
+}
+@keyframes plume-hop {
+  40% {
+    transform: translateY(-14px);
+  }
+}
+
+/* Buttons of the slate and of the end of the trail: big, soft, pressed under the finger. */
+#question button,
+#trail-end button {
+  min-height: 64px;
+  border: 0;
+  border-radius: 18px;
+  font: inherit;
+  font-size: 34px;
+  font-weight: 700;
+  color: #2f4a3a;
+  background: #fff;
+  box-shadow: 0 4px 0 #c9d9c0;
+  touch-action: manipulation;
+}
+#question button:active:not(:disabled),
+#trail-end button:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 #c9d9c0;
+}
+#question button:disabled {
+  opacity: 0.45;
+}
+#question .submit,
+#question .next,
+#trail-end .next {
+  color: #fff;
+  background: #4e9a35;
+  box-shadow: 0 4px 0 #3a7527;
+}
+#question .next,
+#trail-end .next {
+  font-size: 28px;
+}
+#question .erase {
+  background: #f3ecdb;
+}
+
+/* Keypad. */
+#question .answer {
+  height: 76px;
+  display: grid;
+  place-items: center;
+  border: 3px solid #cfe3c4;
+  border-radius: 18px;
+  background: #fff;
+  font-size: 46px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+#question .answer.right {
+  border-color: #8fcf6b;
+  background: #e6f6da;
+}
+#question .answer.shown {
+  border-color: #f2d46b;
+  background: #fffbe6;
+}
+#question .keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+#question .keypad button {
+  min-height: 72px;
+}
+
+/* Choice: signs in a row, words and numbers one under the other. */
+#question .choice {
+  display: grid;
+  gap: 12px;
+}
+#question .choice.signs {
+  grid-template-columns: repeat(3, 1fr);
+}
+#question .choice button {
+  min-height: 76px;
+  padding: 8px 12px;
+  font-size: 26px;
+  line-height: 32px;
+  overflow-wrap: anywhere;
+}
+#question .choice.signs button {
+  min-height: 104px;
+  font-size: 48px;
+}
+#question .choice button.right {
+  background: #e6f6da;
+  box-shadow: 0 4px 0 #8fcf6b;
+}
+#question .choice button.shown {
+  background: #fffbe6;
+  box-shadow:
+    0 0 0 3px #f2d46b,
+    0 4px 0 #e2c35a;
+}
+#question .choice button.tried {
+  opacity: 0.4;
+}
+
+/* End of the trail: the slate is gone, the whole forest shows, a card at the bottom. */
+#trail-end {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  z-index: 4;
+  width: min(600px, calc(100vw - 180px));
+  box-sizing: border-box;
+  padding: 22px 32px 26px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+  border-radius: 28px;
+  background: rgba(255, 251, 240, 0.96);
+  box-shadow: 0 8px 28px rgba(0, 40, 80, 0.25);
+  transform: translateX(-50%);
+  animation: slate-in 0.5s cubic-bezier(0.3, 1.3, 0.5, 1);
+  transition:
+    transform 0.45s ease,
+    opacity 0.45s ease;
+}
+/* While an element grows, the card steps aside. */
+#trail-end.away {
+  opacity: 0;
+  transform: translateX(-50%) translateY(48px) scale(0.94);
+  pointer-events: none;
+}
+#trail-end .praise {
+  font-size: 38px;
+  line-height: 44px;
+}
+#trail-end .plume {
+  left: -56px;
+  top: -64px;
+  bottom: auto;
+}
+#trail-end .next,
+#trail-end .again {
+  align-self: stretch;
+}
+#trail-end .next {
+  margin-top: 10px;
+}
+#trail-end .again {
+  font-size: 24px;
+}
+/* « Faire pousser » with its price in leaves. */
+#trail-end .plant {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+#trail-end .plant .cost {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 10px 2px 4px;
+  border-radius: 16px;
+  background: #fff;
+  color: #2f4a3a;
+  font-size: 24px;
+}
+#trail-end .plant .cost svg {
+  width: 28px;
+  height: 28px;
+}

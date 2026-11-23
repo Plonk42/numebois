@@ -12,10 +12,11 @@ import type { Exercise, Skill } from '../core/types';
 import { serializeSave, type ParsedSave } from '../save/save';
 import { MAX_ELEMENTS, type SceneDescription } from '../scene/description';
 import { ParentMenu } from './parent-menu';
+import { Plume, type PlumeMood } from './plume';
 import { LeafIcon, plural, Reserve, SeedIcon } from './reserve';
+import { Slate, type SlateHint } from './slate';
 import { TrailPath } from './trail-path';
-import { Choice } from './widgets/choice';
-import { Keypad, grouped } from './widgets/keypad';
+import { Widget } from './widgets';
 import './game.css';
 
 /** Time to enjoy the praise before the next question, in milliseconds. */
@@ -242,13 +243,26 @@ function Game(props: Props) {
   };
 
   const revealed = mistakes >= 2;
-  let hint: string | null = null;
-  if (mistakes > 0) hint = skill.hint(exercise, revealed ? 2 : 1);
+  let hint: SlateHint | null = null;
+  if (mistakes > 0) {
+    hint = {
+      title: revealed ? 'On regarde ensemble.' : 'Presque !',
+      text: skill.hint(exercise, revealed ? 2 : 1),
+      onNext: phase === 'reveal' ? proceed : undefined,
+    };
+  }
   const placed = forest.description().elements.length;
+  // A golden seed: the slate steps aside, the forest lights up.
+  const away = phase === 'seed';
+  let plume: PlumeMood = 'calm';
+  if (phase === 'right' || away) plume = 'cheer';
+  else if (hint) plume = 'talk';
   return (
     <>
       <Reserve leaves={leaves} seeds={seeds} onLongPress={() => setMenu(true)} />
       <TrailPath stones={session.stones} current={summary ? session.stones : session.stone} />
+      {/* During a question, the forest dims: one thing at a time. */}
+      <div id="dim" class={summary || away ? '' : 'on'} />
       {gift && phase === 'seed' && <SeedGift {...gift} />}
       {menu && (
         <ParentMenu
@@ -276,46 +290,28 @@ function Game(props: Props) {
           onAgain={restart}
         />
       ) : (
-        <section id="question" class={phase === 'seed' ? 'away' : ''} aria-live="polite">
-          {phase === 'right' ? (
-            <p class="praise">{praise}</p>
-          ) : (
-            <p class="instruction">{exercise.instruction}</p>
-          )}
-          <p class="statement">{exercise.statement}</p>
-          {hint && (
-            <div class="hint">
-              <strong>{revealed ? 'On regarde ensemble.' : 'Presque !'}</strong>
-              <span>{hint}</span>
-            </div>
-          )}
-          {phase === 'reveal' ? (
-            <>
-              <output class="answer shown" aria-label="La réponse">
-                {exercise.input.kind === 'keypad' ? grouped(exercise.answer) : exercise.answer}
-              </output>
-              <button type="button" class="next" onPointerDown={proceed}>
-                Suivant
-              </button>
-            </>
-          ) : exercise.input.kind === 'keypad' ? (
-            <Keypad
-              key={round}
-              maxDigits={exercise.input.maxDigits}
-              locked={phase !== 'asking'}
-              right={phase === 'right'}
-              onSubmit={answer}
-            />
-          ) : (
-            <Choice
-              key={round}
-              options={exercise.input.options}
-              locked={phase !== 'asking'}
-              right={phase === 'right'}
-              onSubmit={answer}
-            />
-          )}
-        </section>
+        <Slate
+          away={away}
+          heading={
+            phase === 'right' ? (
+              <p class="praise">{praise}</p>
+            ) : (
+              <p class="instruction">{exercise.instruction}</p>
+            )
+          }
+          plume={plume}
+          hint={hint}
+        >
+          <Widget
+            key={round}
+            exercise={exercise}
+            input={exercise.input}
+            locked={phase !== 'asking'}
+            right={phase === 'right'}
+            shown={phase === 'reveal' ? exercise.answer : null}
+            onSubmit={answer}
+          />
+        </Slate>
       )}
     </>
   );
@@ -350,8 +346,9 @@ interface SummaryProps {
 }
 
 /**
- * The end of a trail: what was done, never what was missed. Until the shop of the forest
- * (#83), the leaves of the reserve make the next element grow, one tap each time.
+ * The end of a trail, over the whole forest: what was done, never what was missed. Until
+ * the shop of the forest (#83), the leaves of the reserve make the next element grow, one
+ * tap each time.
  */
 function Summary(props: SummaryProps) {
   const { stones, leaves, seeds, grown, reserve } = props;
@@ -367,9 +364,10 @@ function Summary(props: SummaryProps) {
   } else if (grown > 0) forest = 'Ta forêt a grandi !';
   const canPlant = !props.complete && reserve >= LEAVES_PER_ELEMENT;
   return (
-    <section id="question" class={`summary${props.planting ? ' away' : ''}`} aria-live="polite">
+    <section id="trail-end" class={props.planting ? 'away' : ''} aria-live="polite">
+      <Plume mood="cheer" />
       <p class="praise">Sentier terminé !</p>
-      <p class="statement">Tu as franchi {stones} pierres.</p>
+      <p class="statement text">Tu as franchi {stones} pierres.</p>
       {earned && <p class="instruction earned">{earned}</p>}
       {forest && <p class="instruction">{forest}</p>}
       {canPlant && (
