@@ -290,11 +290,11 @@ function foliagePicker(rng: Rng, family: Family, season: Season): () => number {
   switch (season) {
     case 'spring': {
       const r = rng.next();
-      if (conifer) return fixed(r < 0.6 ? 'Summer' : 'Spring');
-      return fixed(r < 0.25 ? 'Blossom' : r < 0.85 ? 'Spring' : 'Summer');
+      if (conifer) return fixed(r < 0.3 ? 'Summer' : 'Spring');
+      return fixed(r < 0.4 ? 'Blossom' : 'Spring');
     }
     case 'summer':
-      return fixed(!conifer && rng.chance(0.3) ? 'Spring' : 'Summer');
+      return fixed('Summer');
     case 'autumn': {
       const r = rng.next();
       if (conifer) return fixed(r < 0.2 ? 'Gold' : 'Summer');

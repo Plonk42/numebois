@@ -226,9 +226,9 @@ const ISLET_RADIUS = 1.4;
 export function groundSwatch(season: Season): { swatch: SwatchName; from: number; to: number } {
   switch (season) {
     case 'spring':
-      return { swatch: 'Spring', from: 0.02, to: 0.5 };
+      return { swatch: 'Spring', from: 0.02, to: 0.4 };
     case 'summer':
-      return { swatch: 'Meadow', from: 0.04, to: 0.96 };
+      return { swatch: 'Meadow', from: 0.4, to: 1 };
     case 'autumn':
       return { swatch: 'DryGrass', from: 0.04, to: 0.96 };
     case 'winter':

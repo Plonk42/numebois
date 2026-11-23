@@ -247,15 +247,24 @@ interface SeasonLight {
 }
 
 // Each season pulls the light of the stage towards its own colours: the golden finale stays
-// golden in autumn, turns pink and lilac over the snow in winter. Summer keeps the stage light.
+// golden in autumn, turns pink and lilac over the snow in winter. Spring is fresh and pastel,
+// summer warm and deep.
 const SEASON_LIGHT: Record<Season, SeasonLight> = {
   spring: {
-    zenith: [0x7cc4f0, 0.15],
-    horizon: [0xffe6f0, 0.3],
-    hemisphereGround: [0x9ad07a, 0.25],
-    sun: [0xfffaf0, 0.2],
+    zenith: [0x8fd0f5, 0.3],
+    horizon: [0xffe3f0, 0.45],
+    fog: [0xf4eaf4, 0.3],
+    hemisphereSky: [0xf2f6ff, 0.3],
+    hemisphereGround: [0xb8e08a, 0.35],
+    sun: [0xfffaf4, 0.35],
   },
-  summer: {},
+  summer: {
+    zenith: [0x3f8ee0, 0.2],
+    horizon: [0xfff0c8, 0.25],
+    hemisphereGround: [0x6fa040, 0.3],
+    sun: [0xffe2a8, 0.3],
+    sunIntensity: 1.08,
+  },
   autumn: {
     horizon: [0xf8dcb4, 0.4],
     fog: [0xf3d2a8, 0.35],
@@ -328,9 +337,14 @@ export function ambienceFor(stage: Stage, season: Season): Ambience {
   };
   const sound = a.sound;
   if (season === 'spring') {
-    a.flowers *= 1.3;
+    a.flowers *= 1.5;
+    // Petals drift down from the blossoming trees.
+    a.fallingLeaves = Math.min(1.2, a.fallingLeaves * 2 + 0.3);
     sound.songs *= 1.3;
     sound.cuckoo *= 1.5;
+  } else if (season === 'summer') {
+    a.butterflies *= 1.4;
+    a.fallingLeaves *= 0.4;
   } else if (season === 'autumn') {
     a.flowers *= 0.25;
     a.butterflies *= 0.3;

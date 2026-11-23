@@ -195,9 +195,9 @@ export function plantTrees(
 function leafColumns(season: Season): readonly SwatchName[] {
   switch (season) {
     case 'spring':
-      return ['Spring', 'Spring', 'Summer'];
+      return ['Spring'];
     case 'summer':
-      return ['Summer', 'Summer', 'Spring'];
+      return ['Summer'];
     case 'autumn':
       return ['Gold', 'Orange', 'Brown', 'Gold', 'Summer'];
     case 'winter':
@@ -208,9 +208,9 @@ function leafColumns(season: Season): readonly SwatchName[] {
 function bushColumns(season: Season): readonly SwatchName[] {
   switch (season) {
     case 'spring':
-      return ['Spring', 'Summer', 'Spring', 'Blossom'];
+      return ['Spring', 'Blossom', 'Spring', 'Blossom'];
     case 'summer':
-      return ['Summer', 'Summer', 'Spring'];
+      return ['Summer'];
     case 'autumn':
       return ['Orange', 'Red', 'Gold', 'Summer'];
     case 'winter':

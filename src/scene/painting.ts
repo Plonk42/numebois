@@ -43,9 +43,9 @@ const TAU = Math.PI * 2;
 function foliagePalette(season: Season): readonly SwatchName[] {
   switch (season) {
     case 'spring':
-      return ['Spring', 'Blossom', 'Blossom', 'Spring'];
+      return ['Blossom', 'Blossom', 'Spring'];
     case 'summer':
-      return ['Summer', 'Spring', 'Summer'];
+      return ['Summer'];
     case 'autumn':
       return ['Orange', 'Red', 'Gold', 'Brown'];
     case 'winter':
