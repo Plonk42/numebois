@@ -103,7 +103,7 @@ function planOnPerch(terrain: Terrain, perch: NonNullable<Terrain['perch']>, rng
   const { scale, length } = sizeOf(terrain, 'Wolf');
   // Three-quarters towards the middle of the valley: a profile reads better than a face.
   const gaze = perch.x >= 0 ? -0.9 : 0.9;
-  const side = Math.min(perch.radius * 0.5, length * 0.4);
+  const side = Math.min(perch.radius * 0.55, length * 0.6);
   const at = (s: number): Point => ({
     x: perch.x + Math.cos(gaze) * side * s,
     y: perch.y,
@@ -179,7 +179,7 @@ function planMember(
 ): HerdMember | null {
   const { scale, length } = sizeOf(terrain, name);
   const room = length * 0.6;
-  for (let attempt = 0; attempt < 80; attempt++) {
+  for (let attempt = 0; attempt < 120; attempt++) {
     const home = openGround(
       terrain,
       rng.range(-0.75, 0.75) * terrain.extent.x,
@@ -189,7 +189,9 @@ function planMember(
     );
     if (!home || homes.some((h) => Math.hypot(h.x - home.x, h.z - home.z) < 3.5)) continue;
     const stops = [home];
-    for (let s = 1; s < STOPS && stops.length === s; s++) {
+    // In a crowded meadow, a back-and-forth between two places will do.
+    const count = attempt < 60 ? STOPS : 2;
+    for (let s = 1; s < count && stops.length === s; s++) {
       for (let tries = 0; tries < 16; tries++) {
         const angle = rng.range(0, Math.PI * 2);
         const reach = rng.range(1.5, 3) * length;
@@ -205,9 +207,9 @@ function planMember(
         }
       }
     }
-    if (stops.length < STOPS || !walkable(terrain, stops[STOPS - 1], home, room)) continue;
+    if (stops.length < count || !walkable(terrain, stops[count - 1], home, room)) continue;
     homes.push(home);
-    const paths = stops.map((stop, s) => walkable(terrain, stop, stops[(s + 1) % STOPS], room)!);
+    const paths = stops.map((stop, s) => walkable(terrain, stop, stops[(s + 1) % count], room)!);
     const still = () =>
       rng.chance(0.6) ? (['eat', 'idle', 'look'] as const) : (['idle', 'eat'] as const);
     return { name, scale, ...schedule(rng, name, stops, paths, length, still) };

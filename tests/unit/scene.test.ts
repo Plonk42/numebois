@@ -234,7 +234,7 @@ describe('animals', () => {
       expect(terrain.surfaceAt(perch.x, perch.z)!.slope, `seed ${seed}`).toBeLessThan(0.1);
       for (const tree of terrain.treeSpots) {
         const dz = tree.z - perch.z;
-        const inFront = dz > -3 && dz < 14 && Math.abs(tree.x - perch.x) < 4 + dz * 0.1;
+        const inFront = dz > -2 && dz < 8 && Math.abs(tree.x - perch.x) < 3.5;
         expect(inFront, `seed ${seed}: tree at ${tree.x},${tree.z}`).toBe(false);
       }
       const wolf = plan(seed, 10).find((m) => m.name === 'Wolf')!;

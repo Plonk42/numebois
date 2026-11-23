@@ -155,8 +155,11 @@ export interface Layout {
   conifers: number;
   /** Tone shift of the meadow: positive is lusher. */
   lush: number;
-  /** Ledge on the camera side of a summit, where the wolf watches over the valley (#10). */
-  perch: StepDef | null;
+  /**
+   * Ledges on the camera side of a summit where the wolf could watch over the valley (#10), in
+   * order of preference: the terrain keeps the first one high enough and in view.
+   */
+  perches: StepDef[];
 }
 
 // Reference layout, composed by hand; the seed moves its groups.
@@ -512,22 +515,23 @@ function dress(
     forestSide: rng.range(0.58, 0.7),
     conifers: rng.range(0.05, 0.85),
     lush: rng.range(-0.06, 0.06),
-    perch: null,
+    perches: [],
   };
   placeScenery(layout, rng.fork('scenery'), stages, final);
-  layout.perch = placePerch(layout, rng.fork('perch'), final);
+  layout.perches = placePerches(layout, rng.fork('perch'), final);
   return layout;
 }
 
-/** Wide enough for the wolf to take a few steps on its flat part, and high on the mountain. */
-const PERCH = { radius: 3, edge: 1.2 };
+/** Wide enough to stand out on the mountain and for the wolf to walk across, and high on it. */
+const PERCH = { radius: 4.5, edge: 1.6 };
 const PERCH_HEIGHT = 5;
 
 /**
- * The wolf's ledge: on the flank of the main or the east summit that faces the camera, high
- * enough, away from the water, the slots and the boulders. Without one, the wolf stays below.
+ * The wolf's ledge: on the flank of the main or the east summit that faces the camera, on the
+ * sunny side if it can (the sun comes from -x in every mood), high enough, away from the
+ * water, the slots and the boulders. Without one, the wolf stays below.
  */
-function placePerch(layout: Layout, rng: Rng, final: Final): StepDef | null {
+function placePerches(layout: Layout, rng: Rng, final: Final): StepDef[] {
   const candidates = [0, 1]
     .flatMap((i) =>
       [-50, -25, 25, 50].flatMap((degrees) =>
@@ -539,6 +543,7 @@ function placePerch(layout: Layout, rng: Rng, final: Final): StepDef | null {
             z: peak.z + Math.cos(a) * peak.radius * share,
             // The profile of the summit, without its ridges and crags.
             height: final.peaks[i] * peak.scale * (1 - share) ** peak.sharp,
+            sunny: Math.sin(a) * layout.mirror < 0,
           };
         }),
       ),
@@ -548,6 +553,7 @@ function placePerch(layout: Layout, rng: Rng, final: Final): StepDef | null {
     const j = rng.int(0, i);
     [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
   }
+  candidates.sort((a, b) => Number(b.sunny) - Number(a.sunny));
   const clear = (x: number, z: number) =>
     rimValue(layout, final, x, z) < 0.8 &&
     dryness(layout, final.lake, x, z) > 1.5 &&
@@ -556,14 +562,13 @@ function placePerch(layout: Layout, rng: Rng, final: Final): StepDef | null {
       ([sx, sz]) => Math.hypot(sx - x, sz - z) > PERCH.radius + 3,
     ) &&
     layout.rocks.every(([, rx, rz]) => Math.hypot(rx - x, rz - z) > PERCH.radius + 3);
-  const found = candidates.find((c) => clear(c.x, c.z));
-  return found ? { x: found.x, z: found.z, ...PERCH } : null;
+  return candidates.filter((c) => clear(c.x, c.z)).map((c) => ({ x: c.x, z: c.z, ...PERCH }));
 }
 
 /** Whether a tree there would hide the wolf's ledge from the camera, or stand on it. */
 export function hidesPerch(perch: StepDef, x: number, z: number): boolean {
   const dz = z - perch.z;
-  return dz > -perch.radius && dz < 14 && Math.abs(x - perch.x) < perch.radius + 1 + dz * 0.1;
+  return dz > -perch.radius && dz < 8 && Math.abs(x - perch.x) < perch.radius * 0.7 + 1;
 }
 
 /**

@@ -48,6 +48,8 @@ const TAU = Math.PI * 2;
 const CELL = 0.72;
 /** No tree grows above this height. */
 const TREE_LINE = 9.5;
+/** The camera looks down at the diorama at this angle (degrees), straight from the front. */
+const CAMERA_PITCH = 24;
 const MAX_EDGE_TREES = 48;
 
 /**
@@ -248,6 +250,8 @@ class Clearing implements Terrain {
   private readonly main: Stream | null = null;
   /** Set once the ground around it is known. */
   private readonly basin: Basin | null = null;
+  /** The wolf's ledge of the layout, cut from the stage that declares it. */
+  private readonly perchDef: StepDef | null;
 
   constructor(
     private readonly seed: number,
@@ -259,6 +263,7 @@ class Clearing implements Terrain {
     const layout = layoutOf(seed);
     this.layout = layout;
     this.mirror = layout.mirror;
+    this.perchDef = this.choosePerch();
     const relief = reliefOf(stage);
     this.relief = relief;
     this.extent = { x: relief.hx, z: relief.hz + Math.abs(relief.cz) };
@@ -482,13 +487,29 @@ class Clearing implements Terrain {
 
   /** The wolf's ledge, cut at the height of the mountain at its centre. */
   private wolfPerch(): void {
-    const def = this.layout.perch;
+    const def = this.perchDef;
     if (!this.relief.perch || !def) return;
     const level = this.raw(def.x, def.z, this.relief);
-    // Between two ridges the mountain can be low there: the wolf stays in the meadow.
-    if (level < 4) return;
     this.step(def, level);
     this.perch = { x: def.x * this.mirror, y: level, z: def.z, radius: def.radius - def.edge };
+  }
+
+  /**
+   * First ledge of the layout high on the final mountain (between two ridges it can be low)
+   * and seen from the camera over the crags in front of it. The same at every stage.
+   */
+  private choosePerch(): StepDef | null {
+    const rise = Math.tan((CAMERA_PITCH * Math.PI) / 180);
+    return (
+      this.layout.perches.find((p) => {
+        const eye = this.raw(p.x, p.z, FINAL) + 0.6;
+        if (eye < 6.6) return false;
+        for (let d = p.radius; d < 24; d += 0.5) {
+          if (this.raw(p.x, p.z + d, FINAL) > eye + d * rise) return false;
+        }
+        return true;
+      }) ?? null
+    );
   }
 
   private stream(
@@ -884,7 +905,7 @@ class Clearing implements Terrain {
       if (this.rim(fx, z, FINAL) > 0.93) continue;
       if (!inForest(l, FINAL.hx, fx, z)) continue;
       if (dryness(l, FINAL.lake, fx, z) < 0 || hidesWater(l, FINAL.lake, fx, z)) continue;
-      if (l.perch && hidesPerch(l.perch, fx, z)) continue;
+      if (this.perchDef && hidesPerch(this.perchDef, fx, z)) continue;
       const deep = z < -9;
       const spacing = deep ? 2.8 : 3.3;
       if (placed.some((p) => Math.hypot(p.x - fx, p.z - z) < (p.r + spacing) / 2)) continue;
@@ -948,7 +969,7 @@ class Clearing implements Terrain {
       center: [0, 1.4, r.cz],
       size: [r.hx * 2, 9, r.hz * 2],
       yaw: 0,
-      pitch: 24,
+      pitch: CAMERA_PITCH,
       points,
     };
   }
