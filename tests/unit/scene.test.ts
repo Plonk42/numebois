@@ -20,7 +20,13 @@ import { BACKDROP_TRIANGLES } from '../../src/scene/render/backdrop';
 import { QUALITIES, QUALITY, QualityGovernor } from '../../src/scene/render/quality';
 import { ambienceFor } from '../../src/scene/render/richness';
 import { clearingLayout, createClearing } from '../../src/scene/terrain/clearing';
-import { SLOT_COUNT, dryness, hidesWater, rimValue } from '../../src/scene/terrain/clearing-layout';
+import {
+  SLOT_COUNT,
+  basinAt,
+  dryness,
+  hidesWater,
+  rimValue,
+} from '../../src/scene/terrain/clearing-layout';
 import { SEASONS, type Season } from '../../src/scene/trees/builder';
 import { buildForestBuffers } from '../../src/scene/trees/forest';
 import { createBudgetLibrary, hashFloats } from './helpers';
@@ -418,5 +424,50 @@ describe('slots and grand moments', () => {
       ).planting.trees.flatMap((t) => (t.season ? [t.season] : []));
     expect(seasons([])).toEqual(['autumn']);
     expect(seasons(['season'])).toEqual([]);
+  });
+
+  it('moves nothing away from a grand moment when it is revealed', () => {
+    const placed = (seed: number, landmarks: readonly Landmark[]) => {
+      const { batch, planting } = composeScene(
+        scene(seed, 6, 'summer', { landmarks }),
+        placeholders,
+        ambienceFor(6, 'summer'),
+        QUALITY.high,
+      );
+      const items = [...batch['items']].flatMap(([model, list]) =>
+        Array.from({ length: list.length / 9 }, (_, i) => ({
+          key: `${model}:${list[i * 9]}:${list[i * 9 + 2]}`,
+          x: list[i * 9],
+          z: list[i * 9 + 2],
+        })),
+      );
+      const trees = planting.trees.map((t) => ({
+        key: `${t.family}:${t.x}:${t.z}`,
+        x: t.x,
+        z: t.z,
+      }));
+      return [...items, ...trees];
+    };
+    for (const seed of [3, 7]) {
+      const hidden = placed(seed, []);
+      expect(placed(seed, ['mountain', 'season']).map((p) => p.key)).toEqual(
+        hidden.map((p) => p.key),
+      );
+      const { layout } = clearingLayout(seed);
+      const lake = basinAt(layout.basin, 6 / LAST_STAGE);
+      const revealed = new Set(placed(seed, ['lake']).map((p) => p.key));
+      const away = hidden.filter(
+        (p) => Math.hypot(p.x - lake.x * layout.mirror, p.z - lake.z) > lake.radius + 2.5,
+      );
+      expect(away.length, `seed ${seed}`).toBeGreaterThan(hidden.length * 0.8);
+      for (const p of away) expect(revealed.has(p.key), `seed ${seed}: ${p.key}`).toBe(true);
+    }
+  });
+
+  it('makes the lake moment larger than the lake of the cascade', () => {
+    for (let seed = 0; seed < 20; seed++) {
+      const { layout, finalLake } = clearingLayout(seed);
+      expect(basinAt(layout.basin, 1).radius, `seed ${seed}`).toBeGreaterThan(finalLake * 1.1);
+    }
   });
 });

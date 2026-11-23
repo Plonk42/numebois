@@ -1,7 +1,7 @@
 import { Rng, hashSeed, valueNoise2 } from '../../core/rng';
 import type { ModelName } from '../asset-catalog';
 import { swatchUV, type SwatchName } from '../atlas';
-import { LAST_STAGE, type Landmark, type PerStage, type Stage } from '../description';
+import { LAST_STAGE, STAGES, type Landmark, type PerStage, type Stage } from '../description';
 import type { MeshWriter } from '../mesh-data';
 import {
   WATER_FALL,
@@ -12,8 +12,8 @@ import {
 } from '../render/water';
 import type { Season } from '../trees/builder';
 import {
-  BASIN_GROWTH,
   STREAM_END_LEVEL,
+  basinAt,
   drawLayout,
   dryness,
   hidesWater,
@@ -128,7 +128,7 @@ const layouts = new Map<number, Layout>();
 function layoutOf(seed: number): Layout {
   let layout = layouts.get(seed);
   if (!layout) {
-    layout = drawLayout(seed, FIRST, FINAL);
+    layout = drawLayout(seed, STAGES.map(reliefOf), FINAL);
     layouts.set(seed, layout);
   }
   return layout;
@@ -188,10 +188,14 @@ interface Basin {
   x: number;
   z: number;
   radius: number;
-  /** Water level, just under the lowest ground around it. */
+  /** Height of the meadow levelled around it. */
+  ground: number;
+  /** Water level, just under the meadow around it. */
   level: number;
   filled: boolean;
   islet: Point;
+  /** Size factor of the islet and its tree. */
+  grow: number;
 }
 
 const ISLET_RADIUS = 1.4;
@@ -279,19 +283,19 @@ class Clearing implements Terrain {
   /** The lake moment fills its hollow up to just under the lowest ground around it. */
   private placeBasin(): Basin {
     const def = this.layout.basin;
-    const grow = lerp(1, BASIN_GROWTH, this.stage / LAST_STAGE);
-    const { x, z } = def;
-    const radius = def.radius * grow;
-    const islet: Point = [x + (def.islet[0] - x) * grow, z + (def.islet[1] - z) * grow];
-    let low = Infinity;
+    const { x, z, radius, islet } = basinAt(def, this.stage / LAST_STAGE);
+    let sum = 0;
     for (let i = 0; i < 16; i++) {
       const a = (i / 16) * TAU;
       const rx = x + Math.cos(a) * (radius + 1);
       const rz = z + Math.sin(a) * (radius + 1);
-      low = Math.min(low, this.heightRef(rx, rz));
+      sum += this.heightRef(rx, rz);
     }
+    const ground = sum / 16;
     const filled = this.landmarks.includes('lake');
-    const basin = { x, z, radius, level: low - 0.25, filled, islet };
+    // The islet and its tree grow with the lake, a little slower.
+    const grow = Math.sqrt(radius / def.radius);
+    const basin = { x, z, radius, ground, level: ground - 0.25, filled, islet, grow };
     if (filled) {
       this.pools.push({
         x,
@@ -573,14 +577,19 @@ class Clearing implements Terrain {
   private basinGround(fx: number, z: number, h: number): number {
     const b = this.basin;
     if (!b) return h;
-    if (!b.filled) {
-      const d = Math.hypot(fx - b.x, z - b.z);
-      if (d >= b.radius + 1) return h;
-      return Math.min(h, lerp(b.level - 0.2, h, smoothstep(b.radius - 1.6, b.radius + 1, d)));
+    const d = Math.hypot(fx - b.x, z - b.z);
+    if (d < b.radius + 3) {
+      // The meadow levels out around it, so the water reaches its banks all around.
+      h = lerp(b.ground, h, smoothstep(b.radius + 0.5, b.radius + 3, d));
+      h = b.filled
+        ? Math.min(h, lerp(b.level - 0.8, h, smoothstep(b.radius - 1.3, b.radius + 1, d)))
+        : Math.min(h, lerp(b.level - 0.2, h, smoothstep(b.radius - 1.6, b.radius + 1, d)));
     }
-    const d = Math.hypot(fx - b.islet[0], z - b.islet[1]);
-    if (d >= ISLET_RADIUS) return h;
-    return Math.max(h, b.level + 0.45 - 1.3 * smoothstep(0.5, ISLET_RADIUS, d));
+    if (!b.filled) return h;
+    const di = Math.hypot(fx - b.islet[0], z - b.islet[1]);
+    const reach = ISLET_RADIUS * b.grow;
+    if (di >= reach) return h;
+    return Math.max(h, b.level + 0.45 - 1.3 * smoothstep(0.5 * b.grow, reach, di));
   }
 
   /**
@@ -754,13 +763,14 @@ class Clearing implements Terrain {
     const b = this.basin!;
     if (b.filled) {
       const [fx, z] = b.islet;
-      this.treeSpots.push({ x: fx * m, z, role: 'islet', size: 0.5, detail: 'light' });
+      this.treeSpots.push({ x: fx * m, z, role: 'islet', size: 0.5 * b.grow, detail: 'light' });
     } else if (this.rim(b.x, b.z) < 0.93) {
       const y = this.heightRef(b.x, b.z) + 0.7;
       this.announcements.push({ landmark: 'lake', x: b.x * m, y, z: b.z, radius: b.radius });
     }
-    l.slots.forEach(({ x: fx, z, kind }, index) => {
-      if (!open(fx, z)) return;
+    // The slots open strictly in their order, so a slot open at a stage stays open after.
+    for (const [index, { x: fx, z, kind }] of l.slots.entries()) {
+      if (!open(fx, z)) break;
       this.slots.push({
         index,
         x: fx * m,
@@ -770,7 +780,7 @@ class Clearing implements Terrain {
         // Seen up close on the first diorama only; the later ones are seen from further away.
         detail: rimValue(l, FIRST, fx, z) < 0.93 ? 'full' : 'light',
       });
-    });
+    }
     this.forest();
   }
 

@@ -6,6 +6,8 @@ import { buildTree, TreeWriter, type Season, type TreeInfo, type TreeSpec } from
 export interface PlantedTree extends TreeSpec {
   /** Age at creation, 0 (not sprouted) to 1 (adult). */
   age: number;
+  /** Brought by a grand moment: nothing is placed around it. */
+  landmark?: boolean;
 }
 
 /** Build the merged buffers of a forest (no GPU objects: usable in tests). */

@@ -104,7 +104,7 @@ export function plantTrees(
     at: NonNullable<ReturnType<typeof place>>,
     family: FamilyName,
     size: number,
-    rest: Pick<PlantedTree, 'detail' | 'age' | 'season'>,
+    rest: Pick<PlantedTree, 'detail' | 'age' | 'season' | 'landmark'>,
   ) => {
     const { seed, x, y, z, yaw } = at;
     trees.push({
@@ -144,7 +144,11 @@ export function plantTrees(
         season: spot.herald ? nextSeason(description.season) : undefined,
       });
     } else {
-      plant(at, flora.favourite, spot.size, { detail: spot.detail ?? 'light', age: 0.9 });
+      plant(at, flora.favourite, spot.size, {
+        detail: spot.detail ?? 'light',
+        age: 0.9,
+        landmark: true,
+      });
     }
   }
 
@@ -238,7 +242,9 @@ export function scatterVegetation(
   quality: QualitySettings,
   trees: readonly PlantedTree[],
 ): Population {
-  const rng = new Rng(description.seed).fork('scatter');
+  // Numbers drawn for each item, so a grand moment only changes the items it touches.
+  const draw = (label: string, index: number) =>
+    new Rng(hashSeed(description.seed, `scatter:${label}:${index}`));
   const season = shownSeason(description);
   for (const [name, make] of Object.entries(GENERATED_PROPS)) {
     batch.register(name as keyof typeof GENERATED_PROPS, make());
@@ -251,7 +257,7 @@ export function scatterVegetation(
     blocked.push({ x: model.x, z: model.z, r: 1.3 * model.scale });
   const free = (x: number, z: number, r: number) =>
     !blocked.some((b) => Math.hypot(b.x - x, b.z - z) < b.r + r);
-  const col = (names: readonly SwatchName[]) => swatchColumn(rng.pick(names));
+  const col = (rng: Rng, names: readonly SwatchName[]) => swatchColumn(rng.pick(names));
   const leaves = leafColumns(season);
   const flora = floraOf(description.seed);
   const flowerSpots: Population['flowerSpots'] = [];
@@ -262,6 +268,7 @@ export function scatterVegetation(
     if (slot.kind !== 'grove' || !filled.has(slot.index)) continue;
     const center = terrain.surfaceAt(slot.x, slot.z);
     if (!center) continue;
+    const rng = draw('grove', slot.index);
     const turn = rng.range(0, TAU);
     const bushes: [ModelName, number, number][] = [
       ['Bush_1_B', 0.3, 1.9],
@@ -275,7 +282,16 @@ export function scatterVegetation(
       const surface = terrain.surfaceAt(x, z);
       if (!surface) return;
       const s = scale * slot.size;
-      batch.add(model, x, surface.y - 0.05, z, rng.range(0, TAU), s, s, col(bushColumns(season)));
+      batch.add(
+        model,
+        x,
+        surface.y - 0.05,
+        z,
+        rng.range(0, TAU),
+        s,
+        s,
+        col(rng, bushColumns(season)),
+      );
     });
     blocked.push({ x: slot.x, z: slot.z, r: 1.6 });
     if (season === 'winter') continue;
@@ -296,7 +312,7 @@ export function scatterVegetation(
         rng.range(0, TAU),
         scale,
         scale,
-        col(leaves),
+        col(rng, leaves),
         swatchColumn(flora.petal),
       );
     }
@@ -308,8 +324,9 @@ export function scatterVegetation(
   // Banks: small rocks and tall grass along the water.
   const reed: ModelName[] = ['Grass_2_A', 'Grass_2_A', 'Grass_2_A', 'Grass_2_A', 'Grass_2_B'];
   const pebbles: ModelName[] = ['Rock_3_E', 'Rock_1_A', 'Rock_2_C'];
-  for (const bank of terrain.banks) {
+  for (const [index, bank] of terrain.banks.entries()) {
     for (let i = 0; i + 1 < bank.points.length; i++) {
+      const rng = draw(`bank${index}`, i);
       const a = bank.points[i];
       const b = bank.points[i + 1];
       const len = Math.hypot(b.x - a.x, b.z - a.z) || 1;
@@ -348,7 +365,7 @@ export function scatterVegetation(
                 rng.range(0, TAU),
                 scale,
                 scale,
-                col(leaves),
+                col(rng, leaves),
               );
             }
           }
@@ -357,7 +374,7 @@ export function scatterVegetation(
     }
   }
 
-  const sample = (): { x: number; z: number } => ({
+  const sample = (rng: Rng): { x: number; z: number } => ({
     x: rng.range(-terrain.extent.x, terrain.extent.x),
     z: rng.range(-terrain.extent.z, terrain.extent.z),
   });
@@ -378,7 +395,8 @@ export function scatterVegetation(
   ];
   const grassTarget = Math.round(290 * ambience.grass * cover);
   for (let attempt = 0, placed = 0; attempt < grassTarget * 6 && placed < grassTarget; attempt++) {
-    const { x, z } = sample();
+    const rng = draw('grass', attempt);
+    const { x, z } = sample(rng);
     if (valueNoise2(description.seed + 11, x / 3.2, z / 3.2) < 0.36) continue;
     const surface = terrain.surfaceAt(x, z);
     if (!surface || surface.kind !== 'grass' || surface.slope > 0.4 || !free(x, z, 0.1)) continue;
@@ -391,7 +409,7 @@ export function scatterVegetation(
       rng.range(0, TAU),
       scale,
       scale * rng.range(0.9, 1.3),
-      col(leaves),
+      col(rng, leaves),
     );
     placed++;
   }
@@ -399,7 +417,8 @@ export function scatterVegetation(
   // Flowers, in drifts of one kind and mostly one colour; most of them the painting's favourite.
   const drifts = Math.round(15 * ambience.flowers * Math.sqrt(cover));
   for (let attempt = 0, made = 0; attempt < drifts * 8 && made < drifts; attempt++) {
-    const { x, z } = sample();
+    const rng = draw('flowers', attempt);
+    const { x, z } = sample(rng);
     const center = terrain.surfaceAt(x, z);
     if (!center || center.kind !== 'grass' || center.slope > 0.3 || !free(x, z, 0.8)) continue;
     const favourite = rng.chance(0.6);
@@ -425,7 +444,7 @@ export function scatterVegetation(
         rng.range(0, TAU),
         scale,
         scale,
-        col(leaves),
+        col(rng, leaves),
         accent,
       );
     }
@@ -443,9 +462,12 @@ export function scatterVegetation(
     'Bush_3_B',
     'Bush_1_E',
   ];
-  const anchors = [...trees.filter((t) => t.age > 0), ...terrain.staticModels];
+  // A grand moment's own trees host nothing: revealing it moves nothing else.
+  const hosts = trees.filter((t) => !t.landmark);
+  const anchors = [...hosts.filter((t) => t.age > 0), ...terrain.staticModels];
   const bushTarget = Math.round(30 * ambience.bushes * terrain.cover);
   for (let attempt = 0, placed = 0; attempt < bushTarget * 8 && placed < bushTarget; attempt++) {
+    const rng = draw('bush', attempt);
     let x: number;
     let z: number;
     if (rng.chance(0.7) && anchors.length > 0) {
@@ -455,7 +477,7 @@ export function scatterVegetation(
       x = anchor.x + Math.cos(a) * d;
       z = anchor.z + Math.sin(a) * d;
     } else {
-      ({ x, z } = sample());
+      ({ x, z } = sample(rng));
     }
     const surface = terrain.surfaceAt(x, z);
     if (!surface || surface.kind !== 'grass' || surface.slope > 0.45 || !free(x, z, 0.9)) continue;
@@ -469,14 +491,14 @@ export function scatterVegetation(
       rng.range(0, TAU),
       scale,
       scale,
-      col(bushColumns(season)),
+      col(rng, bushColumns(season)),
     );
     blocked.push({ x, z, r: 0.8 });
     placed++;
   }
 
   // Mushrooms at the foot of the trees; a fairy ring at the last stage.
-  const grown = trees.filter((t) => t.age > 0.5);
+  const grown = hosts.filter((t) => t.age > 0.5);
   const mushroomTarget = Math.round(12 * ambience.mushrooms * terrain.cover);
   for (
     let attempt = 0, placed = 0;
@@ -484,6 +506,7 @@ export function scatterVegetation(
     attempt++
   ) {
     if (grown.length === 0) break;
+    const rng = draw('mushroom', attempt);
     const tree = rng.pick(grown);
     const a = rng.range(0, TAU);
     const d = rng.range(1.0, 1.9);
@@ -510,8 +533,9 @@ export function scatterVegetation(
     placed++;
   }
   if (ambience.mushrooms > 1.2) {
-    const host = trees.find((t) => t.age > 0.5 && t.detail === 'full' && t.family !== 'Gnarly');
+    const host = hosts.find((t) => t.age > 0.5 && t.detail === 'full' && t.family !== 'Gnarly');
     if (host) {
+      const rng = draw('ring', 0);
       for (let i = 0; i < 11; i++) {
         const a = (i / 11) * TAU + 0.2;
         const x = host.x + Math.cos(a) * 2.1;
@@ -536,7 +560,8 @@ export function scatterVegetation(
 
   // A few stones in the meadow.
   for (let i = 0; i < Math.round(14 * terrain.cover); i++) {
-    const { x, z } = sample();
+    const rng = draw('stone', i);
+    const { x, z } = sample(rng);
     const surface = terrain.surfaceAt(x, z);
     if (!surface || surface.kind !== 'grass' || !free(x, z, 0.5)) continue;
     const model = rng.pick(pebbles);
@@ -552,9 +577,10 @@ export function scatterVegetation(
   }
 
   // Water lilies and water plants on the ponds.
-  for (const pond of terrain.ponds) {
+  for (const [index, pond] of terrain.ponds.entries()) {
     const count = Math.round(8 * ambience.lilies * Math.min(1.8, pond.radius / 2.5));
     for (let i = 0; i < count; i++) {
+      const rng = draw(`lily${index}`, i);
       const a = rng.range(0, TAU);
       const d = pond.radius * Math.sqrt(rng.range(0.15, 1));
       const x = pond.x + Math.cos(a) * d;

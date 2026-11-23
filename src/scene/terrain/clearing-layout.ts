@@ -53,9 +53,39 @@ export interface BasinDef {
   /** Radius at the first stage; the lake grows with the diorama, up to BASIN_GROWTH times. */
   radius: number;
   islet: Point;
+  /** Unit direction it grows towards, mostly the front: its inner bank stays put. */
+  toward: Point;
 }
 
-export const BASIN_GROWTH = 1.35;
+/** Larger than the lake of the cascade at every stage, so it is a grand moment. */
+export const BASIN_GROWTH = 2.3;
+/** Shares of the growth checked for room: the lake sweeps everything in between. */
+const BASIN_SAMPLES = [0, 0.25, 0.5, 0.75, 1];
+
+/** The lake moment at a share of its growth (0: first stage, 1: last). */
+export function basinAt(
+  def: BasinDef,
+  t: number,
+): { x: number; z: number; radius: number; islet: Point } {
+  // Fast at first: it soon outgrows the lake of the cascade.
+  const radius = def.radius * lerp(1, BASIN_GROWTH, 1 - (1 - t) ** 2);
+  const shift = radius - def.radius;
+  const x = def.x + def.toward[0] * shift;
+  const z = def.z + def.toward[1] * shift;
+  const grow = radius / def.radius;
+  const islet: Point = [x + (def.islet[0] - def.x) * grow, z + (def.islet[1] - def.z) * grow];
+  return { x, z, radius, islet };
+}
+
+/** Distance from a point to the lake moment at any stage, minus its radius. */
+function basinReach(def: BasinDef, x: number, z: number): number {
+  return Math.min(
+    ...BASIN_SAMPLES.map((t) => {
+      const b = basinAt(def, t);
+      return Math.hypot(x - b.x, z - b.z) - b.radius;
+    }),
+  );
+}
 
 /** Half extents of the diorama and centre of its outline on z. */
 export interface Outline {
@@ -425,27 +455,30 @@ function drawPeaks(rng: Rng, offsets: readonly [Point, Point, Point]): Layout['p
 
 export function drawLayout(
   seed: number,
-  first: Outline,
+  /** Outline of the diorama at each stage, from the first. */
+  stages: readonly Outline[],
   final: Outline & { lake: number },
 ): Layout {
+  const first = stages[0];
   const rng = new Rng(seed).fork('layout');
   for (let attempt = 0; attempt < 250; attempt++) {
     const water = drawWater(rng);
     if (!validWater(water, final)) continue;
-    const layout = dress(water, rng, first, final);
+    const layout = dress(water, rng, stages, final);
     if (!layout) continue;
-    // Slots to choose from and a large tree from the first stage on.
+    // All its slots, a few to choose from and a large tree from the first stage on.
     const inFirst = ([x, z]: readonly number[]) => rimValue(layout, first, x, z) < 0.88;
     const slots = layout.slots.filter((s) => inFirst([s.x, s.z])).length;
-    if (slots >= FIRST_SLOTS && layout.hero.some(inFirst)) return layout;
+    const full = layout.slots.length === SLOT_COUNT;
+    if (full && slots >= FIRST_SLOTS && layout.hero.some(inFirst)) return layout;
   }
-  return dress(REFERENCE_WATER, rng, first, final, true)!;
+  return dress(REFERENCE_WATER, rng, stages, final, true)!;
 }
 
 function dress(
   water: Water,
   rng: Rng,
-  first: Outline,
+  stages: readonly Outline[],
   final: Outline & { lake: number },
   fallback = false,
 ): Layout | null {
@@ -455,7 +488,7 @@ function dress(
     power: rng.range(2.9, 4),
     wobble: [rng.range(0.02, 0.05), rng.range(0, TAU), rng.range(0.01, 0.035), rng.range(0, TAU)],
   };
-  const basin = placeBasin(water, shape, rng, first, final, fallback);
+  const basin = placeBasin(water, shape, rng.fork('basin'), stages[0], final, fallback);
   if (!basin) return null;
   const layout: Layout = {
     ...placed,
@@ -474,7 +507,7 @@ function dress(
     conifers: rng.range(0.05, 0.85),
     lush: rng.range(-0.06, 0.06),
   };
-  placeScenery(layout, rng.fork('scenery'), first, final);
+  placeScenery(layout, rng.fork('scenery'), stages, final);
   return layout;
 }
 
@@ -490,28 +523,44 @@ function placeBasin(
   final: Outline & { lake: number },
   fallback: boolean,
 ): BasinDef | null {
-  const radius = rng.range(2.3, 2.8);
+  const radius = rng.range(2.4, 2.8);
+  const banks = Array.from({ length: 8 }, (_, i) => (i / 8) * TAU);
   for (let attempt = 0; attempt < 300; attempt++) {
     const x = rng.range(-first.hx, first.hx) * 0.85;
     const z = rng.range(first.cz - first.hz * 0.3, first.cz + first.hz * 0.75);
     if (rimValue(shape, first, x, z) > (fallback ? 0.85 : 0.8)) continue;
-    // Its banks stay well inside the first diorama.
-    const banks = Array.from({ length: 8 }, (_, i) => (i / 8) * TAU);
-    const reach = radius + 1;
-    const out = (a: number) =>
-      rimValue(shape, first, x + Math.cos(a) * reach, z + Math.sin(a) * reach) > 0.95;
-    if (!fallback && banks.some(out)) continue;
-    const room = radius * BASIN_GROWTH + (fallback ? -1.2 : -0.6);
-    if (waterDryness(water, final.lake, x, z) < room) continue;
+    const out = (outline: Outline, b: { x: number; z: number; radius: number }, limit: number) =>
+      banks.some(
+        (a) =>
+          rimValue(
+            shape,
+            outline,
+            b.x + Math.cos(a) * (b.radius + 1),
+            b.z + Math.sin(a) * (b.radius + 1),
+          ) > limit,
+      );
+    // It grows mostly towards the front, clear of the forest on the sides.
+    const side = (0.6 * x) / first.hx;
+    const length = Math.hypot(side, 1);
+    const def: BasinDef = { x, z, radius, islet: [x, z], toward: [side / length, 1 / length] };
+    // Its banks stay well inside the first diorama, and inside the last one once grown.
+    if (!fallback && out(first, def, 0.95)) continue;
+    if (!fallback && out(final, basinAt(def, 1), 0.9)) continue;
+    const margin = fallback ? -1.2 : -0.6;
+    const dry = BASIN_SAMPLES.every((t) => {
+      const b = basinAt(def, t);
+      return waterDryness(water, final.lake, b.x, b.z) - b.radius >= margin;
+    });
+    if (!dry) continue;
     // The first large tree stands near its hand-made spot.
-    if (Math.hypot(x - HERO[0][0], z - HERO[0][1]) < radius * BASIN_GROWTH + 4.5) continue;
+    if (basinReach(def, HERO[0][0], HERO[0][1]) < 4.5) continue;
     const a = rng.range(0, TAU);
-    const islet: Point = [x + Math.cos(a) * radius * 0.3, z + Math.sin(a) * radius * 0.3];
-    return { x, z, radius, islet };
+    def.islet = [x + Math.cos(a) * radius * 0.3, z + Math.sin(a) * radius * 0.3];
+    return def;
   }
   if (!fallback) return null;
   const z = first.cz + first.hz * 0.45;
-  return { x: 0, z, radius, islet: [radius * 0.3, z] };
+  return { x: 0, z, radius, islet: [radius * 0.3, z], toward: [0, 1] };
 }
 
 /** Distance from a point to the nearest stream, pool or step of the final layout, minus its reach. */
@@ -535,11 +584,7 @@ function waterDryness(
 
 /** Distance from a point to the nearest water or step of the final layout, minus its reach. */
 export function dryness(layout: Layout, finalLake: number, x: number, z: number): number {
-  const { basin } = layout;
-  return Math.min(
-    waterDryness(layout, finalLake, x, z),
-    Math.hypot(x - basin.x, z - basin.z) - basin.radius * BASIN_GROWTH - 1.8,
-  );
+  return Math.min(waterDryness(layout, finalLake, x, z), basinReach(layout.basin, x, z) - 1.8);
 }
 
 /**
@@ -549,9 +594,11 @@ export function dryness(layout: Layout, finalLake: number, x: number, z: number)
 export function hidesWater(layout: Layout, finalLake: number, x: number, z: number): boolean {
   const [lakeX, lakeZ] = lakeCenter(layout, finalLake);
   const end = layout.eastPath[layout.eastPath.length - 1];
+  const [first, last] = [basinAt(layout.basin, 0), basinAt(layout.basin, 1)];
   const views: [number, number, number][] = [
     [lakeX, lakeZ, finalLake],
-    [layout.basin.x, layout.basin.z, layout.basin.radius * BASIN_GROWTH],
+    [first.x, first.z, first.radius],
+    [last.x, last.z, last.radius],
     [layout.ledge.x, layout.ledge.z, 3],
     [layout.eastPool.x, layout.eastPool.z, 2.4],
     [layout.westPool.x, layout.westPool.z, 2.2],
@@ -564,7 +611,13 @@ export function hidesWater(layout: Layout, finalLake: number, x: number, z: numb
 }
 
 /** Knolls, trees and boulders of the meadow, away from the water and out of its view. */
-function placeScenery(layout: Layout, rng: Rng, first: Outline, final: Outline & { lake: number }) {
+function placeScenery(
+  layout: Layout,
+  rng: Rng,
+  stages: readonly Outline[],
+  final: Outline & { lake: number },
+) {
+  const first = stages[0];
   const dry = (x: number, z: number) => dryness(layout, final.lake, x, z);
   const inView = (x: number, z: number) => hidesWater(layout, final.lake, x, z);
   const taken: { x: number; z: number; r: number }[] = [];
@@ -589,17 +642,20 @@ function placeScenery(layout: Layout, rng: Rng, first: Outline, final: Outline &
   // Without a large tree in the first diorama, the layout is drawn again: skip the rest.
   if (!layout.hero.some(([x, z]) => rimFirst(x, z) < 0.88)) return;
 
-  // Candidate slots, nearest the middle of the first diorama first: the slots open in this
-  // order as the diorama grows. Any of them, filled or not, keeps the water in view.
-  const candidates: Point[] = [];
+  // Candidate slots, in the order they open: by the first stage that shows them, then nearest
+  // the middle of the first diorama. Any of them, filled or not, keeps the water in view.
+  const candidates: { at: Point; stage: number; rim: number }[] = [];
   for (let attempt = 0; attempt < 1600; attempt++) {
     const x = rng.range(-22, 22);
     const z = rng.range(-8, 20);
     if (rimFinal(x, z) > 0.88 || dry(x, z) < 0.4 || inView(x, z)) continue;
-    candidates.push([x, z]);
+    const stage = stages.findIndex((outline) => rimValue(layout, outline, x, z) <= 0.93);
+    candidates.push({ at: [x, z], stage, rim: rimFirst(x, z) });
   }
-  candidates.sort((a, b) => rimFirst(a[0], a[1]) - rimFirst(b[0], b[1]));
-  for (const [x, z] of candidates) {
+  candidates.sort((a, b) => a.stage - b.stage || a.rim - b.rim);
+  for (const {
+    at: [x, z],
+  } of candidates) {
     if (layout.slots.length >= SLOT_COUNT) break;
     const kind = slotKind(layout.slots.length);
     const spacing = kind === 'tree' ? 4.2 : 3;

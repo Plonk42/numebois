@@ -8,26 +8,35 @@ import { GLOW_SPARKLE, GlowPoints } from './particles';
 import type { Ambience } from './richness';
 
 const TAU = Math.PI * 2;
-/** Height of the summit above the island, for an island of radius 1. */
+/** Height of the main summit above the island, for a main mountain of radius 1. */
 const PEAK = 1.15;
-/** Where the summit sits on the screen (-1 to 1) and how far behind the diorama. */
-const SCREEN: readonly [number, number] = [0.6, 0.62];
+/** Where the main summit sits on the screen (-1 to 1) and how far behind the diorama. */
+const SCREEN: readonly [number, number] = [0.45, 0.62];
 const DEPTH = 2.2;
-/** Size of the island, as a share of the distance from the camera to the diorama. */
+/** Size of the main mountain, as a share of the distance from the camera to the diorama. */
 const SIZE = 0.24;
-const RINGS = 8;
-const SEGMENTS = 22;
-/** Triangles of the island: summit fan, rings, underside. */
-export const BACKDROP_TRIANGLES = SEGMENTS * (1 + 2 * (RINGS - 1)) + 3 * SEGMENTS;
+/** The chain: the great mountain and two lower ones behind it, rings and segments of each. */
+const CHAIN = [
+  { x: 0, z: 0, radius: 1, peak: 1, rings: 8, segments: 22 },
+  { x: -1.15, z: -0.35, radius: 0.8, peak: 0.72, rings: 6, segments: 18 },
+  { x: 1.1, z: -0.45, radius: 0.72, peak: 0.6, rings: 6, segments: 18 },
+] as const;
+/** Half extents of the island under the chain. */
+const ISLAND: readonly [number, number] = [2.05, 1.2];
+const ISLAND_SEGMENTS = 28;
+/** Triangles of the chain (summit fan and rings of each mountain) and of its island. */
+export const BACKDROP_TRIANGLES =
+  CHAIN.reduce((sum, m) => sum + m.segments * (1 + 2 * (m.rings - 1)), 0) + 8 * ISLAND_SEGMENTS;
 
-/** Facets of a floating island carrying one great mountain, radius 1, summit at PEAK. */
-function buildIsland(seed: number, season: Season): MeshWriter {
-  const rng = new Rng(seed).fork('backdrop');
-  const rings = RINGS;
-  const segments = SEGMENTS;
+/** Rings of vertices of one mountain of the chain, from its summit to its foot. */
+function mountainRings(rng: Rng, mountain: (typeof CHAIN)[number]): number[][][] {
+  const { rings, segments, radius } = mountain;
+  const peak = PEAK * mountain.peak * rng.range(0.92, 1.08);
+  const cx = mountain.x + rng.range(-0.08, 0.08);
+  const cz = mountain.z + rng.range(-0.06, 0.06);
   const lobes = rng.int(3, 5);
   const phase = rng.range(0, TAU);
-  const shoulder = rng.range(0.25, 0.45);
+  const shoulder = rng.range(0.25, 0.45) * mountain.peak;
   const top: number[][][] = [];
   for (let k = 0; k <= rings; k++) {
     const r = k / rings;
@@ -36,15 +45,22 @@ function buildIsland(seed: number, season: Season): MeshWriter {
       const a = (s / segments) * TAU + (k % 2) * (Math.PI / segments);
       const ridge = 1 + 0.22 * Math.sin(lobes * a + phase) + 0.08 * Math.sin(7 * a + phase * 2);
       const t = Math.min(1, r / (0.82 * ridge));
-      // A sharp summit, a lower shoulder on one side, then the meadow around the foot.
+      // A sharp summit, a lower shoulder on one side; the foot sinks under the meadow.
       const side = Math.max(0, Math.cos(a - phase)) * shoulder * Math.sin(Math.PI * t);
       const y =
-        k === 0 ? PEAK : (PEAK * Math.pow(1 - t, 1.5) + side) * (1 + rng.range(-0.06, 0.06));
+        k === 0 ? peak : (peak * Math.pow(1 - t, 1.5) + side) * (1 + rng.range(-0.06, 0.06));
       const jitter = k === 0 || k === rings ? 0 : rng.range(-0.02, 0.02);
-      ring.push([Math.cos(a) * (r + jitter), y + 0.04, Math.sin(a) * (r + jitter)]);
+      const d = (r + jitter) * radius;
+      ring.push([cx + Math.cos(a) * d, k === rings ? -0.02 : y, cz + Math.sin(a) * d]);
     }
     top.push(ring);
   }
+  return top;
+}
+
+/** Facets of a floating island carrying a chain of three mountains, main summit at PEAK. */
+function buildIsland(seed: number, season: Season): MeshWriter {
+  const rng = new Rng(seed).fork('backdrop');
   const out = new MeshWriter(4096, 4096);
   const grass = groundSwatch(season);
   const snowLine = season === 'winter' ? 0.08 : PEAK * 0.55;
@@ -72,31 +88,50 @@ function buildIsland(seed: number, season: Season): MeshWriter {
     else uv = swatchUV(grass.swatch, (grass.from + grass.to) / 2 + jitter * 2);
     out.facet(a, b, c, uv);
   };
-  const above = [0, -3, 0];
-  for (let k = 0; k < rings; k++) {
-    for (let s = 0; s < segments; s++) {
-      const n = (s + 1) % segments;
-      const [a, b] = [top[k][s], top[k][n]];
-      const [c, d] = [top[k + 1][s], top[k + 1][n]];
-      if (k === 0) {
-        // The first ring meets at the summit.
-        facet(a, c, d, above);
-        continue;
+  for (const mountain of CHAIN) {
+    const top = mountainRings(rng, mountain);
+    const above = [mountain.x, -3, mountain.z];
+    for (let k = 0; k < mountain.rings; k++) {
+      for (let s = 0; s < mountain.segments; s++) {
+        const n = (s + 1) % mountain.segments;
+        const [a, b] = [top[k][s], top[k][n]];
+        const [c, d] = [top[k + 1][s], top[k + 1][n]];
+        if (k === 0) {
+          // The first ring meets at the summit.
+          facet(a, c, d, above);
+          continue;
+        }
+        facet(a, d, c, above);
+        facet(a, b, d, above);
       }
-      facet(a, d, c, above);
-      facet(a, b, d, above);
     }
   }
-  // Underside: an earth band, then rock down to a point, like the diorama.
-  const rim = top[rings];
-  const band = rim.map((p) => [p[0] * 0.9, -0.25 - rng.range(0, 0.12), p[2] * 0.9]);
-  const apex = [rng.range(-0.1, 0.1), -1.05, rng.range(-0.1, 0.1)];
+  // The island: a meadow around the feet, an earth band, then rock down to a point.
+  const ellipse = (scale: number, y: () => number) =>
+    Array.from({ length: ISLAND_SEGMENTS }, (_, s) => {
+      const a = (s / ISLAND_SEGMENTS) * TAU;
+      const wave = scale * (1 + rng.range(-0.04, 0.04));
+      return [Math.cos(a) * ISLAND[0] * wave, y(), Math.sin(a) * ISLAND[1] * wave];
+    });
+  const meadow = () => 0.04 + rng.range(-0.01, 0.01);
+  const middle = ellipse(0.55, meadow);
+  const rim = ellipse(1, meadow);
+  const band = rim.map((p) => [p[0] * 0.92, -0.25 - rng.range(0, 0.12), p[2] * 0.92]);
+  const lower = ellipse(0.45, () => -0.7 - rng.range(0, 0.1));
+  const center = [0, 0.04, 0];
+  const apex = [rng.range(-0.1, 0.1), -1.15, rng.range(-0.1, 0.1)];
+  const above = [0, -3, 0];
   const below = [0, 0.6, 0];
-  for (let s = 0; s < segments; s++) {
-    const n = (s + 1) % segments;
+  for (let s = 0; s < ISLAND_SEGMENTS; s++) {
+    const n = (s + 1) % ISLAND_SEGMENTS;
+    facet(center, middle[s], middle[n], above);
+    facet(middle[s], rim[s], rim[n], above);
+    facet(middle[s], rim[n], middle[n], above);
     facet(rim[s], rim[n], band[n], below, 'Earth');
     facet(rim[s], band[n], band[s], below, 'Earth');
-    facet(band[s], band[n], apex, below, 'Stone');
+    facet(band[s], band[n], lower[n], below, 'Stone');
+    facet(band[s], lower[n], lower[s], below, 'Stone');
+    facet(lower[s], lower[n], apex, below, 'Stone');
   }
   return out;
 }
