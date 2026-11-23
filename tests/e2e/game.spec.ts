@@ -30,6 +30,8 @@ test('une boucle jouable : questions, indices et feuilles', async ({ page }) => 
   // One thing at a time: the forest dims behind the slate, Plume waits calmly.
   await expect(dim).toHaveClass(/on/);
   await expect(plume).toHaveClass(/calm/);
+  // Her model is loaded and drawn in her own small canvas.
+  await expect(plume.locator('canvas.ready')).toBeVisible();
   await expectSlateLayout(page);
 
   let exercise = await current(page);
