@@ -1,7 +1,7 @@
 import { Rng, hashSeed, valueNoise2 } from '../../core/rng';
 import type { ModelName } from '../asset-catalog';
 import { swatchUV, type SwatchName } from '../atlas';
-import { LAST_STAGE, type PerStage, type Stage } from '../description';
+import { LAST_STAGE, STAGES, type Landmark, type PerStage, type Stage } from '../description';
 import type { MeshWriter } from '../mesh-data';
 import {
   WATER_FALL,
@@ -13,9 +13,11 @@ import {
 import type { Season } from '../trees/builder';
 import {
   STREAM_END_LEVEL,
+  basinAt,
   drawLayout,
   dryness,
   hidesWater,
+  inForest,
   lakeCenter,
   pathLength,
   rimValue,
@@ -28,8 +30,11 @@ import {
   lerp,
   smoothstep,
   spline,
+  type Announcement,
   type BankPath,
+  type Dam,
   type Pond,
+  type SlotSpot,
   type StaticModel,
   type Surface,
   type Terrain,
@@ -125,10 +130,15 @@ const layouts = new Map<number, Layout>();
 function layoutOf(seed: number): Layout {
   let layout = layouts.get(seed);
   if (!layout) {
-    layout = drawLayout(seed, FIRST, FINAL);
+    layout = drawLayout(seed, STAGES.map(reliefOf), FINAL);
     layouts.set(seed, layout);
   }
   return layout;
+}
+
+/** Layout of a clearing and the radius of its lake at the last stage, for the tests. */
+export function clearingLayout(seed: number): { layout: Layout; finalLake: number } {
+  return { layout: layoutOf(seed), finalLake: FINAL.lake };
 }
 
 interface Step extends StepDef {
@@ -175,6 +185,23 @@ interface Fall {
   halfWidth: number;
 }
 
+/** Lake of the grand moment: a dry sandy hollow until it fills, with an islet. */
+interface Basin {
+  x: number;
+  z: number;
+  radius: number;
+  /** Height of the meadow levelled around it. */
+  ground: number;
+  /** Water level, just under the meadow around it. */
+  level: number;
+  filled: boolean;
+  islet: Point;
+  /** Size factor of the islet and its tree. */
+  grow: number;
+}
+
+const ISLET_RADIUS = 1.4;
+
 /** Colour of the ground for a season: swatch and usable part of its gradient. */
 export function groundSwatch(season: Season): { swatch: SwatchName; from: number; to: number } {
   switch (season) {
@@ -191,6 +218,9 @@ export function groundSwatch(season: Season): { swatch: SwatchName; from: number
 
 class Clearing implements Terrain {
   readonly treeSpots: TreeSpot[] = [];
+  readonly slots: SlotSpot[] = [];
+  readonly announcements: Announcement[] = [];
+  dam: Dam | null = null;
   readonly staticModels: StaticModel[] = [];
   readonly waterfalls: Waterfall[] = [];
   readonly banks: BankPath[] = [];
@@ -210,10 +240,13 @@ class Clearing implements Terrain {
   private readonly falls: Fall[] = [];
   /** The main stream, once the lake overflows. */
   private readonly main: Stream | null = null;
+  /** Set once the ground around it is known. */
+  private readonly basin: Basin | null = null;
 
   constructor(
     private readonly seed: number,
     private readonly stage: Stage,
+    private readonly landmarks: readonly Landmark[],
     /** Without its scenery, a terrain only answers questions about its ground. */
     scenery = true,
   ) {
@@ -242,11 +275,89 @@ class Clearing implements Terrain {
       this.main = this.stream(layout.mainPath, lake.level, STREAM_END_LEVEL, relief.stream, false);
     }
     this.mainCascade();
-    this.eastStream();
+    this.steps.sort((a, b) => b.level - a.level);
+    const basin = this.placeBasin();
+    this.basin = basin;
+    this.eastStream(basin);
     this.westBrook();
     this.steps.sort((a, b) => b.level - a.level);
+    // Last of the pools, so revealing it leaves the others as they are.
+    if (basin.filled) {
+      this.pools.push({
+        x: basin.x,
+        z: basin.z,
+        radius: basin.radius,
+        level: basin.level,
+        bed: basin.level - 0.8,
+        flat: basin.radius - 1.3,
+      });
+    }
     if (scenery) this.compose();
     this.frame = this.framing();
+  }
+
+  /**
+   * The lake moment: its hollow, the meadow levelled around it between the east pool and the
+   * mouth of the east stream, and the dam across its outlet once it fills.
+   */
+  private placeBasin(): Basin {
+    const l = this.layout;
+    const def = l.basin;
+    const { x, z, radius, islet } = basinAt(def, this.stage / LAST_STAGE);
+    let sum = 0;
+    for (let i = 0; i < 16; i++) {
+      const a = (i / 16) * TAU;
+      const rx = x + Math.cos(a) * (radius + 1);
+      const rz = z + Math.sin(a) * (radius + 1);
+      sum += this.heightRef(rx, rz);
+    }
+    const ground = Math.min(l.eastPool.level - 0.05, Math.max(sum / 16, this.mouthLevel() + 0.8));
+    const filled = this.landmarks.includes('lake');
+    // The islet and its tree grow with the lake, a little slower.
+    const grow = Math.sqrt(radius / def.radius);
+    const basin = { x, z, radius, ground, level: ground - 0.25, filled, islet, grow };
+    if (filled) {
+      const outflow = l.eastPath.slice(l.eastInlet);
+      const out = (p: readonly number[]) => Math.hypot(p[0] - x, p[1] - z) > radius + 0.2;
+      const i = outflow.findIndex(out);
+      const [a, b] = [outflow[i - 1], outflow[i]];
+      // Where the outflow crosses the bank.
+      let [lo, hi] = [0, 1];
+      for (let k = 0; k < 12; k++) {
+        const t = (lo + hi) / 2;
+        if (out([lerp(a[0], b[0], t), lerp(a[1], b[1], t)])) hi = t;
+        else lo = t;
+      }
+      const m = this.mirror;
+      this.dam = {
+        x: lerp(a[0], b[0], hi) * m,
+        y: ground - 0.8,
+        z: lerp(a[1], b[1], hi),
+        yaw: Math.atan2((b[0] - a[0]) * m, b[1] - a[1]),
+        width: 4.2,
+      };
+    }
+    return basin;
+  }
+
+  /** Level of the main stream where the east stream flows into it. */
+  private mouthLevel(): number {
+    const l = this.layout;
+    const mouth = l.eastPath[l.eastPath.length - 1];
+    const joint = distanceToPath(l.mainPath, mouth[0], mouth[1]).along / pathLength(l.mainPath);
+    return lerp(l.lake.level, STREAM_END_LEVEL, joint);
+  }
+
+  /** Inside the dry hollow of the lake moment, before it fills. */
+  private inHollow(fx: number, z: number): boolean {
+    const b = this.basin;
+    return !!b && !b.filled && Math.hypot(fx - b.x, z - b.z) < b.radius - 0.3;
+  }
+
+  /** Its banks and its dam, at this stage, whether it is revealed or not. */
+  nearLandmark(x: number, z: number): boolean {
+    const b = this.basin!;
+    return Math.hypot(x * this.mirror - b.x, z - b.z) < b.radius + 3.5;
   }
 
   /** Ledge above the pond, then up to two more falls up the mountain. */
@@ -287,8 +398,12 @@ class Clearing implements Terrain {
     this.stream(spline([...upper, fall.lip], 4), water, water, half, true);
   }
 
-  /** Stream from the east summit, joining the main stream in the meadow. */
-  private eastStream(): void {
+  /**
+   * Stream from the east summit, through the lake moment, joining the main stream in the
+   * meadow. It crosses the dry hollow in a channel, which the lake covers once it fills:
+   * revealing the lake leaves the stream as it is.
+   */
+  private eastStream(b: Basin): void {
     const r = this.relief;
     const l = this.layout;
     if (r.east === 0 || !this.main) return;
@@ -300,9 +415,9 @@ class Clearing implements Terrain {
       bed: pool.level - 0.7,
       flat: pool.radius * 0.75,
     });
-    const end = l.eastPath[l.eastPath.length - 1];
-    const joint = distanceToPath(this.main.path, end[0], end[1]).along / this.main.length;
-    this.stream(l.eastPath, pool.level, lerp(l.lake.level, STREAM_END_LEVEL, joint), half, false);
+    const across = b.level - 0.4;
+    this.stream(l.eastPath.slice(0, l.eastInlet + 1), pool.level, across, half, false);
+    this.stream(l.eastPath.slice(l.eastInlet), across, this.mouthLevel(), half, false);
     const step = this.step(
       l.eastStep,
       Math.max(pool.level + 3.2, this.raw(l.eastStep.x, l.eastStep.z, r) + 0.2),
@@ -491,6 +606,8 @@ class Clearing implements Terrain {
         h = lerp(h, step.level, 1 - smoothstep(step.radius - step.edge, step.radius, d));
       }
     }
+    // Before the streams, so the east stream cuts its channel across the dry hollow.
+    h = this.basinBed(fx, z, h);
     for (const s of this.streams) {
       if (fx < s.box[0] || z < s.box[1] || fx > s.box[2] || z > s.box[3]) continue;
       const q = distanceToPath(s.path, fx, z);
@@ -504,7 +621,30 @@ class Clearing implements Terrain {
         h = Math.min(h, lerp(pool.bed, h, smoothstep(pool.flat, pool.radius + 1, d)));
       }
     }
-    return h;
+    return this.isletGround(fx, z, h);
+  }
+
+  /** The lake moment: a shallow dry bed until it fills, in a levelled meadow. */
+  private basinBed(fx: number, z: number, h: number): number {
+    const b = this.basin;
+    if (!b) return h;
+    const d = Math.hypot(fx - b.x, z - b.z);
+    if (d >= b.radius + 3) return h;
+    // The meadow levels out around it, so the water reaches its banks all around.
+    h = lerp(b.ground, h, smoothstep(b.radius + 0.5, b.radius + 3, d));
+    return b.filled
+      ? Math.min(h, lerp(b.level - 0.8, h, smoothstep(b.radius - 1.3, b.radius + 1, d)))
+      : Math.min(h, lerp(b.level - 0.2, h, smoothstep(b.radius - 1.6, b.radius + 1, d)));
+  }
+
+  /** The islet rising from the lake moment once it fills. */
+  private isletGround(fx: number, z: number, h: number): number {
+    const b = this.basin;
+    if (!b?.filled) return h;
+    const di = Math.hypot(fx - b.islet[0], z - b.islet[1]);
+    const reach = ISLET_RADIUS * b.grow;
+    if (di >= reach) return h;
+    return Math.max(h, b.level + 0.45 - 1.3 * smoothstep(0.5 * b.grow, reach, di));
   }
 
   /**
@@ -539,7 +679,7 @@ class Clearing implements Terrain {
     const level = this.waterAt(fx, z, y);
     let kind: Surface['kind'] = 'grass';
     if (y < level + 0.03) kind = 'water';
-    else if (y < level + 0.28) kind = 'sand';
+    else if (y < level + 0.28 || this.inHollow(fx, z)) kind = 'sand';
     else if (slope > 0.5) kind = 'rock';
     return { y, kind, slope };
   }
@@ -663,25 +803,39 @@ class Clearing implements Terrain {
       const kind = this.surfaceAt(fx * m, z)?.kind;
       return kind === 'grass' || kind === 'rock';
     };
-    l.demo.forEach(([fx, z], slot) => {
-      if (open(fx, z)) this.treeSpots.push({ x: fx * m, z, role: 'demo', size: 1, slot });
-    });
+    // The large tree nearest the middle of the first diorama heralds the next season.
+    const firstRim = l.hero.map(([fx, z]) => rimValue(l, FIRST, fx, z));
+    const herald = this.landmarks.includes('season') ? -1 : firstRim.indexOf(Math.min(...firstRim));
     l.hero.forEach(([fx, z, size], slot) => {
-      if (open(fx, z)) this.treeSpots.push({ x: fx * m, z, role: 'hero', size, slot });
-    });
-    l.clearing.forEach(([fx, z], slot) => {
       if (!open(fx, z)) return;
-      this.treeSpots.push({
+      const x = fx * m;
+      this.treeSpots.push({ x, z, role: 'hero', size, slot, herald: slot === herald });
+      if (slot === herald) {
+        const y = this.heightRef(fx, z) + 4.2 * size;
+        this.announcements.push({ landmark: 'season', x, y, z, radius: 2.6 * size });
+      }
+    });
+    const b = this.basin!;
+    if (b.filled) {
+      const [fx, z] = b.islet;
+      this.treeSpots.push({ x: fx * m, z, role: 'islet', size: 0.5 * b.grow, detail: 'light' });
+    } else if (this.rim(b.x, b.z) < 0.93) {
+      const y = this.heightRef(b.x, b.z) + 0.7;
+      this.announcements.push({ landmark: 'lake', x: b.x * m, y, z: b.z, radius: b.radius });
+    }
+    // The slots open strictly in their order, so a slot open at a stage stays open after.
+    for (const [index, { x: fx, z, kind }] of l.slots.entries()) {
+      if (!open(fx, z)) break;
+      this.slots.push({
+        index,
         x: fx * m,
         z,
-        role: 'clearing',
+        kind,
         size: lerp(0.85, 1.05, this.at(fx, z).next()),
-        slot,
-        rank: (slot + 0.5) / l.clearing.length,
-        // The last ones planted are far from the camera.
-        detail: slot < 6 ? 'full' : 'light',
+        // Seen up close on the first diorama only; the later ones are seen from further away.
+        detail: rimValue(l, FIRST, fx, z) < 0.93 ? 'full' : 'light',
       });
-    });
+    }
     this.forest();
   }
 
@@ -695,8 +849,13 @@ class Clearing implements Terrain {
     const rng = new Rng(this.seed).fork('forest');
     const m = this.mirror;
     const l = this.layout;
-    const final = this.stage === LAST_STAGE ? this : new Clearing(this.seed, LAST_STAGE, false);
-    const placed = [...l.demo, ...l.hero, ...l.clearing].map(([x, z]) => ({ x, z, r: 3.6 }));
+    const final =
+      this.stage === LAST_STAGE ? this : new Clearing(this.seed, LAST_STAGE, this.landmarks, false);
+    const placed = [...l.hero, ...l.slots.map((s) => [s.x, s.z])].map(([x, z]) => ({
+      x,
+      z,
+      r: 3.6,
+    }));
     const spots: (TreeSpot & { fx: number })[] = [];
     for (let attempt = 0; attempt < 8000; attempt++) {
       const fx = rng.range(-FINAL.hx, FINAL.hx);
@@ -705,11 +864,7 @@ class Clearing implements Terrain {
       const size = rng.next();
       const kind = rng.next();
       if (this.rim(fx, z, FINAL) > 0.93) continue;
-      const back = smoothstep(l.forestBack, l.forestBack - 3, z);
-      const side =
-        smoothstep(l.forestSide, l.forestSide + 0.1, Math.abs(fx) / FINAL.hx) *
-        smoothstep(17, 12, z);
-      if (Math.max(back, side) < 0.5) continue;
+      if (!inForest(l, FINAL.hx, fx, z)) continue;
       if (dryness(l, FINAL.lake, fx, z) < 0 || hidesWater(l, FINAL.lake, fx, z)) continue;
       const deep = z < -9;
       const spacing = deep ? 2.8 : 3.3;
@@ -879,6 +1034,12 @@ class Clearing implements Terrain {
       if (cy > snowLine && slope < 0.72) {
         // Snow cap: it holds on everything but the steepest faces.
         uv = swatchUV('Snow', Math.min(0.33, 0.04 + slope * 0.36 + jitter));
+      } else if (this.inHollow(fx, cz)) {
+        // Dry sandy bed of the lake to come, under the snow in winter.
+        uv =
+          season === 'winter'
+            ? swatchUV('SnowGround', 0.75 + slope * 0.4 + jitter)
+            : swatchUV('HexSand', 0.3 + slope * 0.6 + jitter);
       } else if (slope > 0.3) {
         // Earth on the banks of the meadow; the mountain stays grey along its falls.
         const earthy = level > -Infinity && cy < level + 1.2 && cy < 3;
@@ -1160,6 +1321,10 @@ class Clearing implements Terrain {
   }
 }
 
-export function createClearing(seed: number, stage: Stage): Terrain {
-  return new Clearing(seed, stage);
+export function createClearing(
+  seed: number,
+  stage: Stage,
+  landmarks: readonly Landmark[],
+): Terrain {
+  return new Clearing(seed, stage, landmarks);
 }

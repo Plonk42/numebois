@@ -3,17 +3,32 @@ import { hashSeed, Rng, valueNoise2 } from '../../src/core/rng';
 import { createPlaceholderLibrary } from '../../src/scene/assets';
 import { composeScene, compositionTriangles } from '../../src/scene/compose';
 import {
+  DEMO_FILL,
   LAST_STAGE,
+  LANDMARKS,
   STAGES,
   parseDescription,
+  shownSeason,
+  writeDescription,
+  type Landmark,
   type SceneDescription,
   type Stage,
 } from '../../src/scene/description';
 import { MAX_EFFECT_TRIANGLES } from '../../src/scene/painting';
+import { filledSlots } from '../../src/scene/populate';
+import { BACKDROP_TRIANGLES } from '../../src/scene/render/backdrop';
 import { QUALITIES, QUALITY, QualityGovernor } from '../../src/scene/render/quality';
 import { ambienceFor } from '../../src/scene/render/richness';
-import { createClearing } from '../../src/scene/terrain/clearing';
-import { SEASONS } from '../../src/scene/trees/builder';
+import { clearingLayout, createClearing } from '../../src/scene/terrain/clearing';
+import {
+  SLOT_COUNT,
+  basinAt,
+  dryness,
+  hidesWater,
+  rimValue,
+} from '../../src/scene/terrain/clearing-layout';
+import { distanceToPath } from '../../src/scene/terrain/types';
+import { SEASONS, type Season } from '../../src/scene/trees/builder';
 import { buildForestBuffers } from '../../src/scene/trees/forest';
 import { createBudgetLibrary, hashFloats } from './helpers';
 
@@ -21,18 +36,30 @@ const TRIANGLE_BUDGET = 150_000;
 const budget = createBudgetLibrary();
 const placeholders = createPlaceholderLibrary();
 
+/** A description with the slots filled as at its stage, and no grand moment revealed. */
+function scene(
+  seed: number,
+  stage: Stage,
+  season: Season,
+  more: Partial<SceneDescription> = {},
+): SceneDescription {
+  return { seed, stage, season, fill: DEMO_FILL[stage], landmarks: [], ...more };
+}
+
 function sceneTriangles(description: SceneDescription, quality = QUALITY.high): number {
-  const ambience = ambienceFor(description.stage, description.season);
+  const season = shownSeason(description);
+  const ambience = ambienceFor(description.stage, season);
   const composition = composeScene(description, budget, ambience, quality);
   const parts = compositionTriangles(composition, budget);
-  const forest = buildForestBuffers(composition.planting.trees, budget, description.season);
+  const forest = buildForestBuffers(composition.planting.trees, budget, season);
   return (
     parts.ground +
     parts.water +
     parts.instances +
     parts.clouds +
     forest.writer.triangles +
-    MAX_EFFECT_TRIANGLES
+    MAX_EFFECT_TRIANGLES +
+    BACKDROP_TRIANGLES
   );
 }
 
@@ -61,16 +88,34 @@ describe('seeded random', () => {
 
 describe('scene description', () => {
   it('reads the URL parameters and falls back to defaults', () => {
-    const d = parseDescription(new URLSearchParams('stage=4&season=winter&seed=12'));
-    expect(d).toEqual({ stage: 4, season: 'winter', seed: 12 });
+    const d = parseDescription(
+      new URLSearchParams('stage=4&season=winter&seed=12&fill=50&landmarks=season,lake,storm'),
+    );
+    expect(d).toEqual({
+      stage: 4,
+      season: 'winter',
+      seed: 12,
+      fill: 0.5,
+      landmarks: ['lake', 'season'],
+    });
     const fallback = parseDescription(new URLSearchParams('stage=12&season=monsoon&seed=x'));
-    expect(fallback).toEqual({ stage: 6, season: 'summer', seed: 7 });
+    expect(fallback).toEqual(scene(7, 6, 'summer'));
+    expect(parseDescription(new URLSearchParams('stage=0&fill=250')).fill).toBe(1);
+    const params = new URLSearchParams();
+    writeDescription(params, d);
+    expect(parseDescription(params)).toEqual(d);
     expect(STAGES).toHaveLength(12);
     expect(LAST_STAGE).toBe(STAGES[STAGES.length - 1]);
   });
 
+  it('brings the next season with the season moment', () => {
+    expect(shownSeason(scene(1, 6, 'summer'))).toBe('summer');
+    expect(shownSeason(scene(1, 6, 'summer', { landmarks: ['season'] }))).toBe('autumn');
+    expect(shownSeason(scene(1, 6, 'winter', { landmarks: ['season'] }))).toBe('spring');
+  });
+
   it('composes the same scene twice from the same description', () => {
-    const description: SceneDescription = { seed: 21, stage: 3, season: 'autumn' };
+    const description = scene(21, 3, 'autumn', { fill: 0.5, landmarks: ['lake'] });
     const ambience = ambienceFor(3, 'autumn');
     const a = composeScene(description, placeholders, ambience, QUALITY.high);
     const b = composeScene(description, placeholders, ambience, QUALITY.high);
@@ -90,29 +135,35 @@ describe('triangle budget', () => {
   it('keeps every stage and season under the tablet budget', () => {
     for (const stage of STAGES) {
       for (const season of SEASONS) {
-        const triangles = sceneTriangles({ seed: 7, stage, season });
+        const triangles = sceneTriangles(scene(7, stage, season));
         expect(triangles, `${stage} ${season}`).toBeLessThan(TRIANGLE_BUDGET);
       }
     }
   });
 
-  it('keeps the richest stage under the budget for other seeds', () => {
+  it('keeps the richest stage under the budget for other seeds, slots and moments', () => {
     for (let seed = 1; seed <= 12; seed++) {
-      const triangles = sceneTriangles({ seed, stage: LAST_STAGE, season: 'summer' });
+      const triangles = sceneTriangles(scene(seed, LAST_STAGE, 'summer'));
       expect(triangles, `seed ${seed}`).toBeLessThan(TRIANGLE_BUDGET);
+    }
+    for (const season of SEASONS) {
+      for (const fill of [0, 1]) {
+        const full = scene(7, LAST_STAGE, season, { fill, landmarks: LANDMARKS });
+        expect(sceneTriangles(full), `${season} ${fill}`).toBeLessThan(TRIANGLE_BUDGET);
+      }
     }
   });
 
   it('gets richer with the stage and lighter with the quality tier', () => {
-    const first = sceneTriangles({ seed: 7, stage: 0, season: 'summer' });
-    const last = sceneTriangles({ seed: 7, stage: LAST_STAGE, season: 'summer' });
+    const first = sceneTriangles(scene(7, 0, 'summer'));
+    const last = sceneTriangles(scene(7, LAST_STAGE, 'summer'));
     expect(last).toBeGreaterThan(first * 1.2);
-    const low = sceneTriangles({ seed: 7, stage: LAST_STAGE, season: 'summer' }, QUALITY.low);
+    const low = sceneTriangles(scene(7, LAST_STAGE, 'summer'), QUALITY.low);
     expect(low).toBeLessThan(last);
   });
 
   it('starts the clearing bare and makes every stage richer, step by step', () => {
-    const stages = STAGES.map((stage) => sceneTriangles({ seed: 7, stage, season: 'summer' }));
+    const stages = STAGES.map((stage) => sceneTriangles(scene(7, stage, 'summer')));
     for (let stage = 1; stage < stages.length; stage++) {
       // Visibly richer, but never a jump: progress comes in many small steps.
       expect(stages[stage], `stage ${stage}`).toBeGreaterThan(stages[stage - 1] * 1.05);
@@ -151,14 +202,15 @@ describe('clearing terrain', () => {
   it('plants trees on the ground, away from the water, at every stage', () => {
     for (let seed = 0; seed < 12; seed++) {
       for (const stage of STAGES) {
-        const terrain = createClearing(seed, stage);
+        const terrain = createClearing(seed, stage, []);
         const label = `seed ${seed}, stage ${stage}`;
-        expect(terrain.treeSpots.filter((s) => s.role === 'demo').length, label).toBeGreaterThan(0);
+        // Slots to choose from at the first stage already, and a large tree.
+        expect(terrain.slots.length, label).toBeGreaterThanOrEqual(4);
         expect(terrain.treeSpots.filter((s) => s.role === 'hero').length, label).toBeGreaterThan(0);
-        for (const spot of terrain.treeSpots) {
+        for (const spot of [...terrain.treeSpots, ...terrain.slots]) {
           const surface = terrain.surfaceAt(spot.x, spot.z);
-          expect(surface, `${label}: ${spot.role} at ${spot.x},${spot.z}`).not.toBeNull();
-          expect(surface!.kind, `${label}: ${spot.role} at ${spot.x},${spot.z}`).not.toBe('water');
+          expect(surface, `${label}: spot at ${spot.x},${spot.z}`).not.toBeNull();
+          expect(surface!.kind, `${label}: spot at ${spot.x},${spot.z}`).not.toBe('water');
         }
         // Every fall starts on the diorama, comes down and lands in water.
         for (const fall of terrain.waterfalls) {
@@ -205,7 +257,7 @@ describe('clearing terrain', () => {
     const edges = (terrain: ReturnType<typeof createClearing>) =>
       terrain.treeSpots.filter((s) => s.role === 'edge').length;
     for (let seed = 0; seed < 6; seed++) {
-      const terrains = STAGES.map((stage) => createClearing(seed, stage));
+      const terrains = STAGES.map((stage) => createClearing(seed, stage, []));
       const tops = terrains.map(highest);
       // One new thing at a time: a fall, the stream out of the lake (3), a stream with its pool.
       expect(terrains.map((t) => t.waterfalls.length)).toEqual([
@@ -234,7 +286,7 @@ describe('clearing terrain', () => {
     const summits = new Set<number>();
     const pines = new Set<number>();
     for (let seed = 0; seed < 16; seed++) {
-      const terrain = createClearing(seed, LAST_STAGE);
+      const terrain = createClearing(seed, LAST_STAGE, []);
       // The stream leaves the diorama at a different place.
       const exit = terrain.waterfalls.find((fall) => !fall.splash)!;
       exits.add(Math.round(exit.top[0] / 3));
@@ -251,9 +303,8 @@ describe('clearing terrain', () => {
 
   it('keeps a tree in place and in shape from one stage to the next', () => {
     const trees = (stage: Stage) => {
-      const description: SceneDescription = { seed: 11, stage, season: 'summer' };
       const { planting } = composeScene(
-        description,
+        scene(11, stage, 'summer'),
         placeholders,
         ambienceFor(stage, 'summer'),
         QUALITY.high,
@@ -273,5 +324,175 @@ describe('clearing terrain', () => {
       }
     }
     expect(all[LAST_STAGE].size).toBeGreaterThan(all[0].size * 5);
+  });
+});
+
+describe('slots and grand moments', () => {
+  it('composes about 25 slots that never hide the water', () => {
+    for (let seed = 0; seed < 20; seed++) {
+      const { layout, finalLake } = clearingLayout(seed);
+      const slots = layout.slots;
+      expect(slots, `seed ${seed}`).toHaveLength(SLOT_COUNT);
+      expect(slots.filter((s) => s.kind === 'grove')).toHaveLength(5);
+      slots.forEach((slot, i) => {
+        const label = `seed ${seed}, slot ${i}`;
+        expect(hidesWater(layout, finalLake, slot.x, slot.z), label).toBe(false);
+        expect(dryness(layout, finalLake, slot.x, slot.z), label).toBeGreaterThanOrEqual(0.4);
+        // Any set of filled slots keeps its elements apart.
+        for (const other of slots.slice(i + 1)) {
+          const reach = (slot.kind === 'tree' ? 4.2 : 3) + (other.kind === 'tree' ? 4.2 : 3);
+          expect(Math.hypot(slot.x - other.x, slot.z - other.z), label).toBeGreaterThan(
+            reach / 2 - 1e-6,
+          );
+        }
+      });
+      // The lake moment fits in the first diorama, away from the large trees.
+      for (const [x, z] of layout.hero) {
+        expect(Math.hypot(x - layout.basin.x, z - layout.basin.z)).toBeGreaterThan(
+          layout.basin.radius + 1,
+        );
+      }
+      expect(
+        rimValue(layout, { hx: 13.5, hz: 10.5, cz: 1 }, layout.basin.x, layout.basin.z),
+      ).toBeLessThan(0.85);
+    }
+  });
+
+  it('fills the slots in a stable order, so a filled slot stays filled', () => {
+    for (const seed of [1, 7, 30]) {
+      let before = filledSlots(seed, 0);
+      expect(before.size).toBe(0);
+      for (const fill of [0.2, 0.5, 0.55, 1]) {
+        const after = filledSlots(seed, fill);
+        expect(after.size).toBe(Math.round(fill * SLOT_COUNT));
+        for (const slot of before) expect(after.has(slot)).toBe(true);
+        before = after;
+      }
+    }
+  });
+
+  it('plants the filled slots and keeps the empty ones ready to grow', () => {
+    const planted = (fill: number) =>
+      composeScene(
+        scene(5, 6, 'summer', { fill }),
+        placeholders,
+        ambienceFor(6, 'summer'),
+        QUALITY.high,
+      ).planting;
+    const empty = planted(0);
+    const full = planted(1);
+    const grown = (p: typeof empty) => p.demo.filter((i) => p.trees[i].age > 0).length;
+    // The next three empty slots wait with a hidden tree, ready to grow.
+    expect(empty.demo).toHaveLength(3);
+    expect(grown(empty)).toBe(0);
+    expect(grown(full)).toBe(full.demo.length);
+    expect(full.demo.length).toBeGreaterThan(5);
+  });
+
+  it('announces each grand moment until it is revealed', () => {
+    for (let seed = 0; seed < 12; seed++) {
+      const hidden = createClearing(seed, 0, []);
+      const label = `seed ${seed}`;
+      const announced = new Set(hidden.announcements.map((a) => a.landmark));
+      expect([...announced].sort(), label).toEqual(['lake', 'season']);
+      const lake = hidden.announcements.find((a) => a.landmark === 'lake')!;
+      // A dry sandy hollow, in the first diorama.
+      expect(hidden.surfaceAt(lake.x, lake.z)?.kind, label).toBe('sand');
+      expect(
+        hidden.treeSpots.filter((s) => s.herald),
+        label,
+      ).toHaveLength(1);
+
+      const revealed = createClearing(seed, 0, LANDMARKS);
+      expect(revealed.announcements, label).toEqual([]);
+      expect(
+        revealed.treeSpots.some((s) => s.herald),
+        label,
+      ).toBe(false);
+      expect(revealed.ponds.length, label).toBe(hidden.ponds.length + 1);
+      const islet = revealed.treeSpots.find((s) => s.role === 'islet')!;
+      expect(revealed.surfaceAt(islet.x, islet.z)?.kind, label).toBe('grass');
+      const [wx, wz] = [lake.x + (lake.x - islet.x) * 1.5, lake.z + (lake.z - islet.z) * 1.5];
+      expect(revealed.surfaceAt(wx, wz)?.kind, label).toBe('water');
+    }
+    // The large tree heralds the next season, then the whole painting takes it.
+    const seasons = (landmarks: readonly Landmark[]) =>
+      composeScene(
+        scene(3, 6, 'summer', { landmarks }),
+        placeholders,
+        ambienceFor(6, 'summer'),
+        QUALITY.high,
+      ).planting.trees.flatMap((t) => (t.season ? [t.season] : []));
+    expect(seasons([])).toEqual(['autumn']);
+    expect(seasons(['season'])).toEqual([]);
+  });
+
+  it('moves nothing away from a grand moment when it is revealed', () => {
+    const placed = (seed: number, landmarks: readonly Landmark[]) => {
+      const { batch, planting } = composeScene(
+        scene(seed, 6, 'summer', { landmarks }),
+        placeholders,
+        ambienceFor(6, 'summer'),
+        QUALITY.high,
+      );
+      const items = [...batch['items']].flatMap(([model, list]) =>
+        Array.from({ length: list.length / 9 }, (_, i) => ({
+          key: `${model}:${list[i * 9]}:${list[i * 9 + 2]}`,
+          x: list[i * 9],
+          z: list[i * 9 + 2],
+        })),
+      );
+      const trees = planting.trees.map((t) => ({
+        key: `${t.family}:${t.x}:${t.z}`,
+        x: t.x,
+        z: t.z,
+      }));
+      return [...items, ...trees];
+    };
+    for (const seed of [3, 7]) {
+      const hidden = placed(seed, []);
+      expect(placed(seed, ['mountain', 'season']).map((p) => p.key)).toEqual(
+        hidden.map((p) => p.key),
+      );
+      const { layout } = clearingLayout(seed);
+      const lake = basinAt(layout.basin, 6 / LAST_STAGE);
+      const revealed = new Set(placed(seed, ['lake']).map((p) => p.key));
+      // Its banks, and the dam across its outlet, may move what is right next to them.
+      const away = hidden.filter(
+        (p) => Math.hypot(p.x - lake.x * layout.mirror, p.z - lake.z) > lake.radius + 5.5,
+      );
+      expect(away.length, `seed ${seed}`).toBeGreaterThan(hidden.length * 0.6);
+      for (const p of away) expect(revealed.has(p.key), `seed ${seed}: ${p.key}`).toBe(true);
+    }
+  });
+
+  it('runs the east stream through the lake moment, held by a dam once revealed', () => {
+    for (let seed = 0; seed < 12; seed++) {
+      const label = `seed ${seed}`;
+      const { layout } = clearingLayout(seed);
+      const m = layout.mirror;
+      const { basin, eastPath, eastInlet, mainPath } = layout;
+      const inlet = eastPath[eastInlet];
+      expect(Math.hypot(inlet[0] - basin.x, inlet[1] - basin.z), label).toBeLessThan(1e-6);
+      const mouth = eastPath[eastPath.length - 1];
+      expect(distanceToPath(mainPath, mouth[0], mouth[1]).distance, label).toBeLessThan(0.01);
+      // Before the reveal, the stream crosses the dry hollow; nothing holds it back.
+      const hidden = createClearing(seed, 6, []);
+      expect(hidden.surfaceAt(basin.x * m, basin.z)?.kind, label).toBe('water');
+      expect(hidden.dam, label).toBeNull();
+      // Once revealed, the dam stands on the outlet, at the bank of the lake.
+      const lake = basinAt(basin, 6 / LAST_STAGE);
+      const dam = createClearing(seed, 6, ['lake']).dam!;
+      expect(dam, label).not.toBeNull();
+      expect(Math.hypot(dam.x * m - lake.x, dam.z - lake.z) - lake.radius, label).toBeLessThan(1);
+      expect(distanceToPath(eastPath, dam.x * m, dam.z).distance, label).toBeLessThan(0.01);
+    }
+  });
+
+  it('makes the lake moment larger than the lake of the cascade', () => {
+    for (let seed = 0; seed < 20; seed++) {
+      const { layout, finalLake } = clearingLayout(seed);
+      expect(basinAt(layout.basin, 1).radius, `seed ${seed}`).toBeGreaterThan(finalLake * 1.1);
+    }
   });
 });

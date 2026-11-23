@@ -3,7 +3,8 @@ import { Rng } from '../core/rng';
 import type { AssetLibrary } from './assets';
 import { swatchColor, type SwatchName } from './atlas';
 import { composeScene, compositionTriangles } from './compose';
-import { LAST_STAGE, type SceneDescription } from './description';
+import { LAST_STAGE, shownSeason, type SceneDescription } from './description';
+import { Backdrop, BACKDROP_TRIANGLES } from './render/backdrop';
 import type { InstanceBatch } from './render/instancing';
 import { Lighting, sunDirection } from './render/lighting';
 import { createMaterials, paletteColor, type SceneMaterials } from './render/materials';
@@ -34,6 +35,7 @@ import type { Season } from './trees/builder';
 import { Forest } from './trees/forest';
 
 const GROWTH_SECONDS = 3.6;
+const TAU = Math.PI * 2;
 
 function foliagePalette(season: Season): readonly SwatchName[] {
   switch (season) {
@@ -95,6 +97,7 @@ export class Painting {
   private readonly materials: SceneMaterials;
   private readonly forest: Forest;
   private readonly sky: Sky;
+  private readonly backdrop: Backdrop;
   private readonly clouds: Clouds;
   private readonly lighting: Lighting;
   private readonly glow: GlowPoints;
@@ -114,7 +117,8 @@ export class Painting {
     readonly description: SceneDescription,
     quality: QualitySettings,
   ) {
-    const { seed, season } = description;
+    const { seed } = description;
+    const season = shownSeason(description);
     const ambience = ambienceFor(description.stage, season);
     this.ambience = ambience;
     const composition = composeScene(description, assets, ambience, quality);
@@ -147,12 +151,23 @@ export class Painting {
     this.batch = composition.batch;
     // Small rocks and bushes cast no shadow: barely visible from the camera, and costly.
     const instanced = this.batch.build((model) =>
-      model.startsWith('Rock') || model === 'gen:shadow' ? materials.solid : materials.vegetation,
+      model.startsWith('Rock') || model === 'gen:shadow' || model === 'gen:dam'
+        ? materials.solid
+        : materials.vegetation,
     );
     this.root.add(...instanced);
 
     this.sky = new Sky(ambience);
     this.root.add(this.sky.mesh);
+    this.backdrop = new Backdrop(
+      seed,
+      season,
+      description.landmarks.includes('mountain'),
+      assets.atlas,
+      ambience,
+      materials.shared,
+    );
+    this.root.add(this.backdrop.root);
     const radius = Math.max(terrain.extent.x, terrain.extent.z);
     this.clouds = new Clouds(assets, materials.solid, seed, composition.clouds, radius);
     this.root.add(...this.clouds.meshes);
@@ -165,7 +180,9 @@ export class Painting {
     stage.scene.fog = fog;
 
     // Ambient life, in proportion to the diorama.
-    const rng = new Rng(seed).fork('life');
+    // One generator per kind of life, so a grand moment or a season only changes its own.
+    const drawn = (label: string) => new Rng(seed).fork(`life:${label}`);
+    let rng = drawn('pollen');
     const shared = materials.shared;
     const life = terrain.cover * quality.particles;
     const size = terrain.extent.x / 20;
@@ -189,11 +206,13 @@ export class Painting {
       if (p) particles.push({ ...p, kind: winter ? GLOW_SNOW : GLOW_POLLEN, color: pollenColor });
     }
     const fireflies = Math.round(54 * ambience.fireflies * life);
+    rng = drawn('fireflies');
     for (let i = 0; i < fireflies; i++) {
       const p = meadow(rng.range(0.5, 2.4));
       if (p) particles.push({ ...p, kind: GLOW_FIREFLY, color: new THREE.Color(0xf3ff8e) });
     }
     if (ambience.sparkle >= 0.3) {
+      rng = drawn('falls');
       const perFall = Math.round(26 * ambience.sparkle * Math.max(0.5, quality.particles));
       for (const fall of terrain.waterfalls) {
         for (let i = 0; i < perFall; i++) {
@@ -210,7 +229,23 @@ export class Painting {
         }
       }
     }
+    // Grand moments still to come: golden sparkles float over them.
+    for (const a of terrain.announcements) {
+      rng = drawn(a.landmark);
+      for (let i = 0; i < 26; i++) {
+        const angle = rng.range(0, TAU);
+        const d = a.radius * Math.sqrt(rng.next());
+        particles.push({
+          x: a.x + Math.cos(angle) * d,
+          y: a.y + rng.range(-0.3, 1.4),
+          z: a.z + Math.sin(angle) * d,
+          kind: GLOW_SPARKLE,
+          color: new THREE.Color(rng.chance(0.35) ? 0xffffff : 0xffe08a),
+        });
+      }
+    }
     // Sparks of the growth burst: always there, growth effects are never cut.
+    rng = drawn('burst');
     for (let i = 0; i < 48; i++) {
       particles.push({
         x: 0,
@@ -226,6 +261,7 @@ export class Painting {
     const effects: THREE.Object3D[] = [];
     const flappers: Flapper[] = [];
     const butterflies = Math.round(14 * ambience.butterflies * life);
+    rng = drawn('butterflies');
     for (let i = 0; i < butterflies && population.flowerSpots.length > 0; i++) {
       const spot = rng.pick(population.flowerSpots);
       const [r, g, b] = swatchColor(rng.pick(PETALS), 0.35);
@@ -241,6 +277,7 @@ export class Painting {
       });
     }
     const birds = Math.round(4 * ambience.birds * Math.sqrt(terrain.cover));
+    rng = drawn('birds');
     for (let i = 0; i < birds; i++) {
       flappers.push({
         x: rng.range(-6, 6) * size,
@@ -260,6 +297,7 @@ export class Painting {
     }
 
     const palette = foliagePalette(season);
+    rng = drawn('leaves');
     const leafColor = () => {
       const [r, g, b] = swatchColor(rng.pick(palette), rng.range(0.1, 0.45));
       return new THREE.Color().setRGB(r, g, b, THREE.SRGBColorSpace);
@@ -267,7 +305,7 @@ export class Painting {
     const leaves: Leaf[] = [];
     const grown = planting.trees
       .map((tree, i) => ({ tree, info: this.forest.infos[i] }))
-      .filter((t) => t.tree.age > 0.6 && t.tree.family !== 'Pine');
+      .filter((t) => t.tree.age > 0.6 && t.tree.family !== 'Pine' && !t.tree.landmark);
     const falling = Math.round(46 * ambience.fallingLeaves * life);
     for (let i = 0; i < falling && grown.length > 0; i++) {
       const { tree, info } = rng.pick(grown);
@@ -288,6 +326,7 @@ export class Painting {
     effects.push(this.leaves.mesh);
 
     const puffs: { x: number; y: number; z: number }[] = [];
+    rng = drawn('foam');
     for (const fall of terrain.waterfalls) {
       const count = Math.max(4, Math.round(6.5 * fall.width * quality.particles));
       for (let i = 0; i < count; i++) {
@@ -346,7 +385,8 @@ export class Painting {
         parts.instances +
         parts.clouds +
         effectTriangles(flappers.length, leaves.length, puffs.length) +
-        rainbowTriangles,
+        rainbowTriangles +
+        BACKDROP_TRIANGLES,
       treeTriangles: this.forest.triangles,
       groundTriangles: parts.ground,
       waterTriangles: parts.water,
@@ -383,6 +423,7 @@ export class Painting {
       Math.sqrt(Math.max(1, this.terrain.extent.x / 20)),
     );
     this.sky.setAspect(this.stage.camera.aspect);
+    this.backdrop.place(this.stage.camera, this.stage.distance, height);
     this.fog.near = this.ambience.fog.near * this.stage.distance;
     this.fog.far = this.ambience.fog.far * this.stage.distance;
     applyFog(this.fogged, this.fog);
@@ -434,6 +475,7 @@ export class Painting {
     this.stage.scene.fog = null;
     this.forest.dispose();
     this.sky.dispose();
+    this.backdrop.dispose();
     this.clouds.dispose();
     this.lighting.dispose();
     this.glow.dispose();

@@ -1,13 +1,14 @@
 import { hashSeed, Rng, valueNoise2 } from '../core/rng';
 import type { ModelName } from './asset-catalog';
 import { swatchColumn, swatchUV, type SwatchName } from './atlas';
-import type { SceneDescription } from './description';
+import { nextSeason, shownSeason, type SceneDescription } from './description';
 import { MeshWriter, type MeshData } from './mesh-data';
-import { GENERATED_PROPS } from './props';
+import { beaverDam, GENERATED_PROPS } from './props';
 import type { InstanceBatch, InstanceModel } from './render/instancing';
 import type { QualitySettings } from './render/quality';
 import type { Ambience } from './render/richness';
 import { groundSwatch } from './terrain/clearing';
+import { SLOT_COUNT } from './terrain/clearing-layout';
 import type { Terrain } from './terrain/types';
 import type { Season } from './trees/builder';
 import type { FamilyName } from './trees/families';
@@ -30,8 +31,9 @@ const CLEARING_FAMILIES: readonly FamilyName[] = [
   'Umbrella',
 ];
 const HERO_FAMILIES: readonly FamilyName[] = ['Gnarly', 'Umbrella', 'Round', 'Cube', 'Birch'];
-const DEMO_FAMILIES: readonly FamilyName[] = ['Round', 'Cube', 'Umbrella', 'Birch'];
 const FAVOURITES: readonly FamilyName[] = ['Round', 'Cube', 'Birch', 'Umbrella'];
+/** Empty tree slots that get a hidden tree, ready for the growth demonstration. */
+const GROWABLE = 3;
 
 /** Character of the vegetation of a painting, drawn from its seed. */
 interface Flora {
@@ -61,82 +63,116 @@ function floraOf(seed: number): Flora {
 
 export interface Planting {
   trees: PlantedTree[];
-  /** Indices of the hidden trees used by the growth demonstration. */
+  /** Indices of the trees used by the growth demonstration: the empty tree slots first. */
   demo: number[];
 }
 
-/** Trees of the painting for its stage: the forest, the clearing trees, the demo slots. */
+/**
+ * Slots filled in the demonstration scene, until the elements are really placed (#25): a
+ * share of all the slots of the painting, mostly the first ones to open, as the child fills
+ * the open slots. A filled slot stays filled at the next stage and with a larger share.
+ */
+export function filledSlots(seed: number, fill: number): ReadonlySet<number> {
+  const rng = new Rng(seed).fork('fill');
+  const order = Array.from({ length: SLOT_COUNT }, (_, i) => ({ i, key: i + rng.range(0, 3) }));
+  order.sort((a, b) => a.key - b.key);
+  return new Set(order.slice(0, Math.round(fill * SLOT_COUNT)).map((o) => o.i));
+}
+
+/** Trees of the painting for its stage: the forest, the large trees, the tree slots. */
 export function plantTrees(
   terrain: Terrain,
   description: SceneDescription,
   ambience: Ambience,
 ): Planting {
   const trees: PlantedTree[] = [];
-  const demo: number[] = [];
   const flora = floraOf(description.seed);
-  const clearingSpots = terrain.treeSpots.filter((s) => s.role === 'clearing');
-  const clearingCount = Math.round(clearingSpots.length * ambience.clearingTrees);
-  const counters = { clearing: 0, hero: 0, demo: 0 };
-  for (const spot of terrain.treeSpots) {
+  const place = (x: number, z: number) => {
     // Numbers drawn from the place itself, so a tree keeps its shape from stage to stage.
     const rng = new Rng(
-      hashSeed(description.seed, `tree:${Math.round(spot.x * 8)}:${Math.round(spot.z * 8)}`),
+      hashSeed(description.seed, `tree:${Math.round(x * 8)}:${Math.round(z * 8)}`),
     );
     const seed = rng.int(1, 1e9);
     const yaw = rng.range(0, TAU);
-    const pick = rng.next();
-    const ageDraw = rng.next();
-    const surface = terrain.surfaceAt(spot.x, spot.z);
-    if (!surface) continue;
-    let family: FamilyName;
-    let age: number;
-    let detail: PlantedTree['detail'] = spot.detail ?? 'full';
-    if (spot.role === 'edge') {
-      if (spot.rank !== undefined && spot.rank >= ambience.edgeTrees) continue;
-      detail = spot.detail ?? 'light';
-      const families = detail === 'far' ? FAR_FAMILIES : flora.edge;
-      family = spot.conifer ? 'Pine' : families[Math.floor(pick * families.length)];
-      age = ambience.edgeAge[0] + (ambience.edgeAge[1] - ambience.edgeAge[0]) * ageDraw;
-    } else if (spot.role === 'hero') {
-      const slot = spot.slot ?? counters.hero++;
-      family = HERO_FAMILIES[(slot + flora.shift) % HERO_FAMILIES.length];
-      age = Math.max(ambience.edgeAge[0], 0.85);
-    } else if (spot.role === 'clearing') {
-      const index = counters.clearing++;
-      // The first trees planted are the oldest.
-      let t: number;
-      if (spot.rank !== undefined) {
-        if (spot.rank >= ambience.clearingTrees) continue;
-        t = spot.rank / ambience.clearingTrees;
-      } else {
-        if (index >= clearingCount) continue;
-        t = clearingCount > 1 ? index / (clearingCount - 1) : 0;
-      }
-      const slot = spot.slot ?? index;
-      family =
-        slot % 3 === 1
-          ? flora.favourite
-          : CLEARING_FAMILIES[(slot + flora.shift) % CLEARING_FAMILIES.length];
-      age = ambience.clearingAge[1] - (ambience.clearingAge[1] - ambience.clearingAge[0]) * t;
-    } else {
-      family = DEMO_FAMILIES[(spot.slot ?? counters.demo++) % DEMO_FAMILIES.length];
-      age = 0;
-      demo.push(trees.length);
-    }
+    const surface = terrain.surfaceAt(x, z);
+    if (!surface) return null;
+    // On a slope, the foot of the trunk stays in the ground.
+    const y = surface.y - 0.05 - 0.4 * surface.slope;
+    return { seed, x, y, z, yaw, pick: rng.next(), ageDraw: rng.next() };
+  };
+  const plant = (
+    at: NonNullable<ReturnType<typeof place>>,
+    family: FamilyName,
+    size: number,
+    rest: Pick<PlantedTree, 'detail' | 'age' | 'season' | 'landmark'>,
+  ) => {
+    const { seed, x, y, z, yaw } = at;
     trees.push({
       family,
       seed,
-      x: spot.x,
-      // On a slope, the foot of the trunk stays in the ground.
-      y: surface.y - 0.05 - 0.4 * surface.slope,
-      z: spot.z,
+      x,
+      y,
+      z,
       yaw,
-      scale: spot.size * (family === 'Pine' ? 1.25 : 1),
-      detail,
-      age,
+      scale: size * (family === 'Pine' ? 1.25 : 1),
+      ...rest,
     });
+  };
+
+  for (const spot of terrain.treeSpots) {
+    const at = place(spot.x, spot.z);
+    if (!at) continue;
+    if (spot.role === 'edge') {
+      if (spot.rank !== undefined && spot.rank >= ambience.edgeTrees) continue;
+      const detail = spot.detail ?? 'light';
+      const families = detail === 'far' ? FAR_FAMILIES : flora.edge;
+      const [young, old] = ambience.edgeAge;
+      plant(
+        at,
+        spot.conifer ? 'Pine' : families[Math.floor(at.pick * families.length)],
+        spot.size,
+        {
+          detail,
+          age: young + (old - young) * at.ageDraw,
+        },
+      );
+    } else if (spot.role === 'hero') {
+      const family = HERO_FAMILIES[((spot.slot ?? 0) + flora.shift) % HERO_FAMILIES.length];
+      plant(at, family, spot.size, {
+        detail: spot.detail ?? 'full',
+        age: Math.max(ambience.edgeAge[0], 0.85),
+        season: spot.herald ? nextSeason(description.season) : undefined,
+      });
+    } else {
+      plant(at, flora.favourite, spot.size, {
+        detail: spot.detail ?? 'light',
+        age: 0.9,
+        landmark: true,
+      });
+    }
   }
-  return { trees, demo };
+
+  // The child's trees: grown in the filled slots, waiting at age 0 in the empty ones.
+  const filled = filledSlots(description.seed, description.fill);
+  const empty: number[] = [];
+  const grown: number[] = [];
+  for (const slot of terrain.slots) {
+    if (slot.kind !== 'tree') continue;
+    const at = place(slot.x, slot.z);
+    if (!at) continue;
+    const family =
+      slot.index % 3 === 1
+        ? flora.favourite
+        : CLEARING_FAMILIES[(slot.index + flora.shift) % CLEARING_FAMILIES.length];
+    // The first slots to open hold the oldest trees.
+    const [young, old] = ambience.clearingAge;
+    const age = filled.has(slot.index) ? old - (old - young) * (slot.index / (SLOT_COUNT - 1)) : 0;
+    // A hidden tree costs as much as a grown one: only the next few empty slots wait for one.
+    if (age === 0 && empty.length >= GROWABLE) continue;
+    (age > 0 ? grown : empty).push(trees.length);
+    plant(at, family, slot.size, { detail: slot.detail, age });
+  }
+  return { trees, demo: [...empty, ...grown] };
 }
 
 function leafColumns(season: Season): readonly SwatchName[] {
@@ -206,8 +242,10 @@ export function scatterVegetation(
   quality: QualitySettings,
   trees: readonly PlantedTree[],
 ): Population {
-  const rng = new Rng(description.seed).fork('scatter');
-  const season = description.season;
+  // Numbers drawn for each item, so a grand moment only changes the items it touches.
+  const draw = (label: string, index: number) =>
+    new Rng(hashSeed(description.seed, `scatter:${label}:${index}`));
+  const season = shownSeason(description);
   for (const [name, make] of Object.entries(GENERATED_PROPS)) {
     batch.register(name as keyof typeof GENERATED_PROPS, make());
   }
@@ -219,8 +257,73 @@ export function scatterVegetation(
     blocked.push({ x: model.x, z: model.z, r: 1.3 * model.scale });
   const free = (x: number, z: number, r: number) =>
     !blocked.some((b) => Math.hypot(b.x - x, b.z - z) < b.r + r);
-  const col = (names: readonly SwatchName[]) => swatchColumn(rng.pick(names));
+  const col = (rng: Rng, names: readonly SwatchName[]) => swatchColumn(rng.pick(names));
   const leaves = leafColumns(season);
+  const flora = floraOf(description.seed);
+  const flowerSpots: Population['flowerSpots'] = [];
+
+  if (terrain.dam) {
+    const { x, y, z, yaw, width } = terrain.dam;
+    batch.register('gen:dam', beaverDam());
+    batch.add('gen:dam', x, y, z, yaw, width);
+    blocked.push({ x, z, r: width * 0.55 });
+  }
+
+  // Groves of the filled slots: a large bush, two small ones and the painting's flowers.
+  const filled = filledSlots(description.seed, description.fill);
+  for (const slot of terrain.slots) {
+    if (slot.kind !== 'grove' || !filled.has(slot.index)) continue;
+    const center = terrain.surfaceAt(slot.x, slot.z);
+    if (!center) continue;
+    const rng = draw('grove', slot.index);
+    const turn = rng.range(0, TAU);
+    const bushes: [ModelName, number, number][] = [
+      ['Bush_1_B', 0.3, 1.9],
+      ['Bush_4_D', 1.3, 1.1],
+      ['Bush_2_D', 1.2, 1.0],
+    ];
+    bushes.forEach(([model, d, scale], i) => {
+      const a = turn + (i * TAU) / 3;
+      const x = slot.x + Math.cos(a) * d;
+      const z = slot.z + Math.sin(a) * d;
+      const surface = terrain.surfaceAt(x, z);
+      if (!surface) return;
+      const s = scale * slot.size;
+      batch.add(
+        model,
+        x,
+        surface.y - 0.05,
+        z,
+        rng.range(0, TAU),
+        s,
+        s,
+        col(rng, bushColumns(season)),
+      );
+    });
+    blocked.push({ x: slot.x, z: slot.z, r: 1.6 });
+    if (season === 'winter') continue;
+    flowerSpots.push({ x: slot.x, y: center.y, z: slot.z });
+    for (let i = 0; i < 9; i++) {
+      const a = turn + Math.PI / 3 + rng.range(-1.1, 1.1);
+      const d = rng.range(1.5, 2.3);
+      const x = slot.x + Math.cos(a) * d;
+      const z = slot.z + Math.sin(a) * d;
+      const surface = terrain.surfaceAt(x, z);
+      if (surface?.kind !== 'grass') continue;
+      const scale = rng.range(1.6, 2.2);
+      batch.add(
+        flora.flower.model,
+        x,
+        surface.y - 0.02,
+        z,
+        rng.range(0, TAU),
+        scale,
+        scale,
+        col(rng, leaves),
+        swatchColumn(flora.petal),
+      );
+    }
+  }
   const cover = quality.groundCover * terrain.cover;
   // Along the water, a larger diorama is dressed more sparsely.
   const bankStep = 0.9 * Math.max(1, terrain.cover);
@@ -228,8 +331,9 @@ export function scatterVegetation(
   // Banks: small rocks and tall grass along the water.
   const reed: ModelName[] = ['Grass_2_A', 'Grass_2_A', 'Grass_2_A', 'Grass_2_A', 'Grass_2_B'];
   const pebbles: ModelName[] = ['Rock_3_E', 'Rock_1_A', 'Rock_2_C'];
-  for (const bank of terrain.banks) {
+  for (const [index, bank] of terrain.banks.entries()) {
     for (let i = 0; i + 1 < bank.points.length; i++) {
+      const rng = draw(`bank${index}`, i);
       const a = bank.points[i];
       const b = bank.points[i + 1];
       const len = Math.hypot(b.x - a.x, b.z - a.z) || 1;
@@ -268,7 +372,7 @@ export function scatterVegetation(
                 rng.range(0, TAU),
                 scale,
                 scale,
-                col(leaves),
+                col(rng, leaves),
               );
             }
           }
@@ -277,7 +381,7 @@ export function scatterVegetation(
     }
   }
 
-  const sample = (): { x: number; z: number } => ({
+  const sample = (rng: Rng): { x: number; z: number } => ({
     x: rng.range(-terrain.extent.x, terrain.extent.x),
     z: rng.range(-terrain.extent.z, terrain.extent.z),
   });
@@ -298,7 +402,11 @@ export function scatterVegetation(
   ];
   const grassTarget = Math.round(290 * ambience.grass * cover);
   for (let attempt = 0, placed = 0; attempt < grassTarget * 6 && placed < grassTarget; attempt++) {
-    const { x, z } = sample();
+    const rng = draw('grass', attempt);
+    const { x, z } = sample(rng);
+    // Near a grand moment, an attempt counts placed or not: revealing it moves nothing further.
+    const near = terrain.nearLandmark(x, z);
+    if (near) placed++;
     if (valueNoise2(description.seed + 11, x / 3.2, z / 3.2) < 0.36) continue;
     const surface = terrain.surfaceAt(x, z);
     if (!surface || surface.kind !== 'grass' || surface.slope > 0.4 || !free(x, z, 0.1)) continue;
@@ -311,17 +419,18 @@ export function scatterVegetation(
       rng.range(0, TAU),
       scale,
       scale * rng.range(0.9, 1.3),
-      col(leaves),
+      col(rng, leaves),
     );
-    placed++;
+    if (!near) placed++;
   }
 
   // Flowers, in drifts of one kind and mostly one colour; most of them the painting's favourite.
-  const flora = floraOf(description.seed);
-  const flowerSpots: Population['flowerSpots'] = [];
   const drifts = Math.round(15 * ambience.flowers * Math.sqrt(cover));
-  for (let attempt = 0; attempt < drifts * 8 && flowerSpots.length < drifts; attempt++) {
-    const { x, z } = sample();
+  for (let attempt = 0, made = 0; attempt < drifts * 8 && made < drifts; attempt++) {
+    const rng = draw('flowers', attempt);
+    const { x, z } = sample(rng);
+    const near = terrain.nearLandmark(x, z);
+    if (near) made++;
     const center = terrain.surfaceAt(x, z);
     if (!center || center.kind !== 'grass' || center.slope > 0.3 || !free(x, z, 0.8)) continue;
     const favourite = rng.chance(0.6);
@@ -329,6 +438,7 @@ export function scatterVegetation(
     const color = favourite ? flora.petal : rng.pick(kind.colors);
     const count = rng.int(5, 9);
     flowerSpots.push({ x, y: center.y, z });
+    if (!near) made++;
     for (let i = 0; i < count; i++) {
       const a = rng.range(0, TAU);
       const d = Math.sqrt(rng.next()) * 1.5;
@@ -346,7 +456,7 @@ export function scatterVegetation(
         rng.range(0, TAU),
         scale,
         scale,
-        col(leaves),
+        col(rng, leaves),
         accent,
       );
     }
@@ -364,9 +474,12 @@ export function scatterVegetation(
     'Bush_3_B',
     'Bush_1_E',
   ];
-  const anchors = [...trees.filter((t) => t.age > 0), ...terrain.staticModels];
+  // A grand moment's own trees host nothing: revealing it moves nothing else.
+  const hosts = trees.filter((t) => !t.landmark);
+  const anchors = [...hosts.filter((t) => t.age > 0), ...terrain.staticModels];
   const bushTarget = Math.round(30 * ambience.bushes * terrain.cover);
   for (let attempt = 0, placed = 0; attempt < bushTarget * 8 && placed < bushTarget; attempt++) {
+    const rng = draw('bush', attempt);
     let x: number;
     let z: number;
     if (rng.chance(0.7) && anchors.length > 0) {
@@ -376,8 +489,10 @@ export function scatterVegetation(
       x = anchor.x + Math.cos(a) * d;
       z = anchor.z + Math.sin(a) * d;
     } else {
-      ({ x, z } = sample());
+      ({ x, z } = sample(rng));
     }
+    const near = terrain.nearLandmark(x, z);
+    if (near) placed++;
     const surface = terrain.surfaceAt(x, z);
     if (!surface || surface.kind !== 'grass' || surface.slope > 0.45 || !free(x, z, 0.9)) continue;
     const model = rng.pick(bushModels);
@@ -390,14 +505,14 @@ export function scatterVegetation(
       rng.range(0, TAU),
       scale,
       scale,
-      col(bushColumns(season)),
+      col(rng, bushColumns(season)),
     );
     blocked.push({ x, z, r: 0.8 });
-    placed++;
+    if (!near) placed++;
   }
 
   // Mushrooms at the foot of the trees; a fairy ring at the last stage.
-  const grown = trees.filter((t) => t.age > 0.5);
+  const grown = hosts.filter((t) => t.age > 0.5);
   const mushroomTarget = Math.round(12 * ambience.mushrooms * terrain.cover);
   for (
     let attempt = 0, placed = 0;
@@ -405,11 +520,14 @@ export function scatterVegetation(
     attempt++
   ) {
     if (grown.length === 0) break;
+    const rng = draw('mushroom', attempt);
     const tree = rng.pick(grown);
     const a = rng.range(0, TAU);
     const d = rng.range(1.0, 1.9);
     const x = tree.x + Math.cos(a) * d;
     const z = tree.z + Math.sin(a) * d;
+    const near = terrain.nearLandmark(x, z);
+    if (near) placed++;
     const surface = terrain.surfaceAt(x, z);
     if (!surface || surface.kind !== 'grass' || !free(x, z, 0.2)) continue;
     const toadstool = rng.chance(0.55);
@@ -428,11 +546,12 @@ export function scatterVegetation(
       0,
       accent,
     );
-    placed++;
+    if (!near) placed++;
   }
   if (ambience.mushrooms > 1.2) {
-    const host = trees.find((t) => t.age > 0.5 && t.detail === 'full' && t.family !== 'Gnarly');
+    const host = hosts.find((t) => t.age > 0.5 && t.detail === 'full' && t.family !== 'Gnarly');
     if (host) {
+      const rng = draw('ring', 0);
       for (let i = 0; i < 11; i++) {
         const a = (i / 11) * TAU + 0.2;
         const x = host.x + Math.cos(a) * 2.1;
@@ -457,7 +576,8 @@ export function scatterVegetation(
 
   // A few stones in the meadow.
   for (let i = 0; i < Math.round(14 * terrain.cover); i++) {
-    const { x, z } = sample();
+    const rng = draw('stone', i);
+    const { x, z } = sample(rng);
     const surface = terrain.surfaceAt(x, z);
     if (!surface || surface.kind !== 'grass' || !free(x, z, 0.5)) continue;
     const model = rng.pick(pebbles);
@@ -473,9 +593,10 @@ export function scatterVegetation(
   }
 
   // Water lilies and water plants on the ponds.
-  for (const pond of terrain.ponds) {
+  for (const [index, pond] of terrain.ponds.entries()) {
     const count = Math.round(8 * ambience.lilies * Math.min(1.8, pond.radius / 2.5));
     for (let i = 0; i < count; i++) {
+      const rng = draw(`lily${index}`, i);
       const a = rng.range(0, TAU);
       const d = pond.radius * Math.sqrt(rng.range(0.15, 1));
       const x = pond.x + Math.cos(a) * d;

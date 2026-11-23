@@ -1,4 +1,5 @@
 import type { ModelName } from '../asset-catalog';
+import type { Landmark } from '../description';
 import type { MeshWriter } from '../mesh-data';
 import type { WaterBuilder } from '../render/water';
 import type { Season, TreeSpec } from '../trees/builder';
@@ -13,25 +14,55 @@ export interface Surface {
 }
 
 /**
- * Place for a tree.
+ * Place for a tree that is not the child's.
  * - edge: forest around the clearing, planted by rank as the stages go;
  * - hero: large foreground tree, always there;
- * - clearing: trees of the clearing itself, added stage after stage (in list order);
- * - demo: empty slot used by the growth demonstration.
+ * - islet: small tree of a grand moment.
  */
 export interface TreeSpot {
   x: number;
   z: number;
-  role: 'edge' | 'hero' | 'clearing' | 'demo';
+  role: 'edge' | 'hero' | 'islet';
   /** Size factor. */
   size: number;
   /** Prefer a conifer (high or far spots). */
   conifer?: boolean;
-  /** Edge and clearing spots are planted once the stage reaches this fraction (0 to 1). */
+  /** Edge spots are planted once the stage reaches this fraction (0 to 1). */
   rank?: number;
   /** Stable index of the spot in its role, so a tree keeps its family at every stage. */
   slot?: number;
   detail?: TreeSpec['detail'];
+  /** Wears the next season: it announces the season moment. */
+  herald?: boolean;
+}
+
+/** Slot of the painting on the diorama, where the child places an element. */
+export interface SlotSpot {
+  /** Stable index in the painting, which is also the opening order. */
+  index: number;
+  x: number;
+  z: number;
+  kind: 'tree' | 'grove';
+  size: number;
+  detail: TreeSpec['detail'];
+}
+
+/** Beaver dam across the outlet of a lake: the base, and the direction of the flow below it. */
+export interface Dam {
+  x: number;
+  y: number;
+  z: number;
+  yaw: number;
+  width: number;
+}
+
+/** Grand moment still hidden: sparkles float over it. */
+export interface Announcement {
+  landmark: Landmark;
+  x: number;
+  y: number;
+  z: number;
+  radius: number;
 }
 
 export interface StaticModel {
@@ -73,6 +104,14 @@ export interface Terrain {
   /** Ground under a point, or null outside the diorama. */
   surfaceAt(x: number, z: number): Surface | null;
   readonly treeSpots: readonly TreeSpot[];
+  /** Slots open at this stage, in opening order. */
+  readonly slots: readonly SlotSpot[];
+  /** Grand moments of the terrain still to come. */
+  readonly announcements: readonly Announcement[];
+  /** Beaver dam holding the lake moment once revealed. */
+  readonly dam: Dam | null;
+  /** Close to a grand moment, where revealing it changes the ground. */
+  nearLandmark(x: number, z: number): boolean;
   /** Large rocks and scenery merged in the static mesh. */
   readonly staticModels: readonly StaticModel[];
   readonly waterfalls: readonly Waterfall[];

@@ -1,6 +1,6 @@
 import { Rng } from '../../core/rng';
 import type { ModelName } from '../asset-catalog';
-import { distanceToPath, lerp, spline } from './types';
+import { distanceToPath, lerp, smoothstep, spline } from './types';
 
 const TAU = Math.PI * 2;
 
@@ -34,6 +34,57 @@ export interface PoolDef {
   z: number;
   radius: number;
   level: number;
+}
+
+/**
+ * Slot of the painting, where the child places an element: a tree, or a grove (bushes and
+ * flowers) where a tree would be too much.
+ */
+export interface SlotDef {
+  x: number;
+  z: number;
+  kind: 'tree' | 'grove';
+}
+
+/** Dry hollow of the lake moment, with the islet that rises once it is filled. */
+export interface BasinDef {
+  x: number;
+  z: number;
+  /** Radius at the first stage; the lake grows with the diorama, up to BASIN_GROWTH times. */
+  radius: number;
+  islet: Point;
+  /** Unit direction it grows towards, mostly the front: its inner bank stays put. */
+  toward: Point;
+}
+
+/** Larger than the lake of the cascade at every stage, so it is a grand moment. */
+export const BASIN_GROWTH = 2.3;
+/** Shares of the growth checked for room: the lake sweeps everything in between. */
+const BASIN_SAMPLES = [0, 0.25, 0.5, 0.75, 1];
+
+/** The lake moment at a share of its growth (0: first stage, 1: last). */
+export function basinAt(
+  def: BasinDef,
+  t: number,
+): { x: number; z: number; radius: number; islet: Point } {
+  // Fast at first: it soon outgrows the lake of the cascade.
+  const radius = def.radius * lerp(1, BASIN_GROWTH, 1 - (1 - t) ** 2);
+  const shift = radius - def.radius;
+  const x = def.x + def.toward[0] * shift;
+  const z = def.z + def.toward[1] * shift;
+  const grow = radius / def.radius;
+  const islet: Point = [x + (def.islet[0] - def.x) * grow, z + (def.islet[1] - def.z) * grow];
+  return { x, z, radius, islet };
+}
+
+/** Distance from a point to the lake moment at any stage, minus its radius. */
+function basinReach(def: BasinDef, x: number, z: number): number {
+  return Math.min(
+    ...BASIN_SAMPLES.map((t) => {
+      const b = basinAt(def, t);
+      return Math.hypot(x - b.x, z - b.z) - b.radius;
+    }),
+  );
 }
 
 /** Half extents of the diorama and centre of its outline on z. */
@@ -72,7 +123,10 @@ export interface Layout {
   eastPool: PoolDef;
   westPool: PoolDef;
   mainPath: number[][];
+  /** From the east pool through the lake moment, then down to the main stream. */
   eastPath: number[][];
+  /** Index in `eastPath` of the centre of the lake moment, where the stream enters it. */
+  eastInlet: number;
   westPath: number[][];
   /** Stream on the ledge while there is no mountain above it. */
   ledgeSource: number[][];
@@ -84,11 +138,12 @@ export interface Layout {
   eastSource: Point;
   eastTopSource: Point;
   westSource: Point;
-  demo: Point[];
+  /** Lake of the grand moment, in the first diorama. */
+  basin: BasinDef;
   /** Large foreground trees: position and size. */
   hero: [number, number, number][];
-  /** Trees of the clearing, in planting order. */
-  clearing: Point[];
+  /** Slots of the clearing, in opening order: nearest the middle of the first diorama first. */
+  slots: SlotDef[];
   /** Boulders: model, position, scale and how deep they sink in the ground. */
   rocks: [ModelName, number, number, number, number][];
   /** Back and side limits of the forest, and its share of conifers. */
@@ -160,12 +215,24 @@ const ROCK_MODELS: readonly [ModelName, number, number][] = [
   ['Rock_1_G', 0.9, 0.15],
   ['Rock_3_M', 0.5, 0.15],
 ];
-const CLEARING_COUNT = 13;
+/** About 25 slots per painting: these and the three grand moments. */
+export const SLOT_COUNT = 22;
+/** Slots open in the first diorama: room to choose from the first element on. */
+const FIRST_SLOTS = 4;
+/** Every fourth slot is a grove: a tree there would be one too many. */
+export function slotKind(index: number): SlotDef['kind'] {
+  return index % 4 === 2 ? 'grove' : 'tree';
+}
 /** Water level where the main stream leaves the diorama. */
 export const STREAM_END_LEVEL = -1.2;
 
 /** Outline value: 1 on the rim of the diorama, less inside. */
-export function rimValue(layout: Layout, outline: Outline, fx: number, z: number): number {
+export function rimValue(
+  layout: Pick<Layout, 'power' | 'wobble'>,
+  outline: Outline,
+  fx: number,
+  z: number,
+): number {
   const a = fx / outline.hx;
   const b = (z - outline.cz) / outline.hz;
   const theta = Math.atan2(b, a);
@@ -292,6 +359,20 @@ const REFERENCE_WATER = placeWater(
   () => [spline(MAIN_PATH, 5), spline(EAST_PATH, 4), spline(WEST_PATH, 4)],
 );
 
+/** Course from a point to another, bowed to one side by `bend`. */
+function bent(from: Point, to: Point, bend: number, points: number): number[][] {
+  const dx = to[0] - from[0];
+  const dz = to[1] - from[1];
+  const l = Math.hypot(dx, dz);
+  const out: number[][] = [];
+  for (let i = 0; i <= points; i++) {
+    const s = i / points;
+    const b = bend * Math.sin(s * Math.PI);
+    out.push([from[0] + dx * s + (dz / l) * b, from[1] + dz * s - (dx / l) * b]);
+  }
+  return out;
+}
+
 /** Groups moved at random, and new courses for the three streams. */
 function drawWater(rng: Rng): Water {
   const offsets: [Point, Point, Point] = [
@@ -319,18 +400,6 @@ function drawWater(rng: Rng): Water {
       ]);
     }
     const mainPath = spline(main, 5);
-    const bent = (from: Point, to: Point, bend: number, points: number): number[][] => {
-      const dx = to[0] - from[0];
-      const dz = to[1] - from[1];
-      const l = Math.hypot(dx, dz);
-      const out: number[][] = [];
-      for (let i = 0; i <= points; i++) {
-        const s = i / points;
-        const b = bend * Math.sin(s * Math.PI);
-        out.push([from[0] + dx * s + (dz / l) * b, from[1] + dz * s - (dx / l) * b]);
-      }
-      return out;
-    };
     const eastPath = spline(
       bent([eastPool[0] - 0.5, eastPool[1] + 1.2], pointAlong(mainPath, confluence), eastBend, 6),
       4,
@@ -343,9 +412,8 @@ function drawWater(rng: Rng): Water {
 
 /** Whether the streams keep apart from each other and from the steps and pools. */
 function validWater(water: Water, final: Outline & { lake: number }): boolean {
-  const { mainPath, eastPath, westPath, eastPool, westPool } = water;
+  const { mainPath, westPath, eastPool, westPool } = water;
   const mainSteps = [water.ledge, water.tier, water.top];
-  const [lakeX, lakeZ] = lakeCenter(water, final.lake);
   for (const [x, z] of mainPath) {
     if (Math.hypot(x - eastPool.x, z - eastPool.z) < eastPool.radius + 4) return false;
     if (Math.hypot(x - westPool.x, z - westPool.z) < westPool.radius + 4) return false;
@@ -353,17 +421,11 @@ function validWater(water: Water, final: Outline & { lake: number }): boolean {
     // Away from the sides: the stream leaves by the front.
     if (z < final.cz + final.hz * 0.7 && Math.abs(x) > final.hx * 0.55) return false;
   }
-  const end = eastPath[eastPath.length - 1];
-  if (end[0] > eastPool.x - 4) return false;
-  // Each tributary keeps apart from the main stream until it reaches its mouth.
-  const far = (mouth: readonly number[], reach: number) => (p: readonly number[]) =>
-    Math.hypot(p[0] - mouth[0], p[1] - mouth[1]) > reach;
-  for (const [x, z] of eastPath.filter(far(end, 6))) {
-    if (distanceToPath(mainPath, x, z).distance < 4) return false;
-    if (Math.hypot(x - lakeX, z - lakeZ) < final.lake + 3) return false;
-    if (mainSteps.some((s) => Math.hypot(x - s.x, z - s.z) < s.radius + 2)) return false;
-  }
-  for (const [x, z] of westPath.filter(far(westPath[westPath.length - 1], 5.5))) {
+  // The west brook keeps apart from the main stream until it reaches its mouth; the east
+  // stream is drawn with the lake moment.
+  const mouth = westPath[westPath.length - 1];
+  for (const [x, z] of westPath) {
+    if (Math.hypot(x - mouth[0], z - mouth[1]) <= 5.5) continue;
     if (distanceToPath(mainPath, x, z).distance < 4.5) return false;
     if (mainSteps.some((s) => Math.hypot(x - s.x, z - s.z) < s.radius + 1.5)) return false;
   }
@@ -391,57 +453,198 @@ function drawPeaks(rng: Rng, offsets: readonly [Point, Point, Point]): Layout['p
 
 export function drawLayout(
   seed: number,
-  first: Outline,
+  /** Outline of the diorama at each stage, from the first. */
+  stages: readonly Outline[],
   final: Outline & { lake: number },
 ): Layout {
+  const first = stages[0];
   const rng = new Rng(seed).fork('layout');
-  for (let attempt = 0; attempt < 60; attempt++) {
+  for (let attempt = 0; attempt < 250; attempt++) {
     const water = drawWater(rng);
     if (!validWater(water, final)) continue;
-    const layout = dress(water, rng, first, final);
-    // A demonstration slot and a large tree from the first stage on.
-    const early = layout.hero.some(([x, z]) => rimValue(layout, first, x, z) < 0.88);
-    if (layout.demo.length > 0 && early) return layout;
+    const layout = dress(water, rng, stages, final);
+    if (!layout) continue;
+    // All its slots, a few to choose from and a large tree from the first stage on.
+    const inFirst = ([x, z]: readonly number[]) => rimValue(layout, first, x, z) < 0.88;
+    const slots = layout.slots.filter((s) => inFirst([s.x, s.z])).length;
+    const full = layout.slots.length === SLOT_COUNT;
+    if (full && slots >= FIRST_SLOTS && layout.hero.some(inFirst)) return layout;
   }
-  return dress(REFERENCE_WATER, rng, first, final);
+  return dress(REFERENCE_WATER, rng, stages, final, true)!;
 }
 
-function dress(water: Water, rng: Rng, first: Outline, final: Outline & { lake: number }): Layout {
+function dress(
+  water: Water,
+  rng: Rng,
+  stages: readonly Outline[],
+  final: Outline & { lake: number },
+  fallback = false,
+): Layout | null {
   const { offsets, ...placed } = water;
-  const layout: Layout = {
-    ...placed,
-    mirror: rng.chance(0.5) ? -1 : 1,
+  const mirror = rng.chance(0.5) ? -1 : 1;
+  const shape: Pick<Layout, 'power' | 'wobble'> = {
     power: rng.range(2.9, 4),
     wobble: [rng.range(0.02, 0.05), rng.range(0, TAU), rng.range(0.01, 0.035), rng.range(0, TAU)],
+  };
+  const placedBasin = placeBasin(water, shape, rng.fork('basin'), stages[0], final, fallback);
+  if (!placedBasin) return null;
+  const { basin, east } = placedBasin;
+  const layout: Layout = {
+    ...placed,
+    ...shape,
+    eastPath: east.path,
+    eastInlet: east.inlet,
+    mirror,
     roll: rng.range(0.6, 1.3),
     rollScale: rng.range(7, 11),
     knolls: [],
     peaks: drawPeaks(rng, offsets),
-    demo: [],
+    basin,
     hero: [],
-    clearing: [],
+    slots: [],
     rocks: [],
     forestBack: rng.range(-4.6, -3.4),
     forestSide: rng.range(0.58, 0.7),
     conifers: rng.range(0.05, 0.85),
     lush: rng.range(-0.06, 0.06),
   };
-  placeScenery(layout, rng.fork('scenery'), first, final);
+  placeScenery(layout, rng.fork('scenery'), stages, final);
   return layout;
 }
 
-/** Distance from a point to the nearest water or step of the final layout, minus its reach. */
-export function dryness(layout: Layout, finalLake: number, x: number, z: number): number {
+/**
+ * Dry hollow for the lake moment: in the first diorama, in front of the massif, away from
+ * every stream and pool but the east stream, which runs through it. Without room for it,
+ * the water is drawn again.
+ */
+function placeBasin(
+  water: Water,
+  shape: Pick<Layout, 'power' | 'wobble'>,
+  rng: Rng,
+  first: Outline,
+  final: Outline & { lake: number },
+  fallback: boolean,
+): { basin: BasinDef; east: EastCourse } | null {
+  const radius = rng.range(2.4, 2.8);
+  const banks = Array.from({ length: 8 }, (_, i) => (i / 8) * TAU);
+  for (let attempt = 0; attempt < 300; attempt++) {
+    const x = rng.range(-first.hx, first.hx) * 0.85;
+    const z = rng.range(first.cz - first.hz * 0.3, first.cz + first.hz * 0.75);
+    if (rimValue(shape, first, x, z) > (fallback ? 0.85 : 0.8)) continue;
+    const out = (outline: Outline, b: { x: number; z: number; radius: number }, limit: number) =>
+      banks.some(
+        (a) =>
+          rimValue(
+            shape,
+            outline,
+            b.x + Math.cos(a) * (b.radius + 1),
+            b.z + Math.sin(a) * (b.radius + 1),
+          ) > limit,
+      );
+    // It grows mostly towards the front, clear of the forest on the sides.
+    const side = (0.6 * x) / first.hx;
+    const length = Math.hypot(side, 1);
+    const def: BasinDef = { x, z, radius, islet: [x, z], toward: [side / length, 1 / length] };
+    // Its banks stay well inside the first diorama, and inside the last one once grown.
+    if (!fallback && out(first, def, 0.95)) continue;
+    if (!fallback && out(final, basinAt(def, 1), 0.9)) continue;
+    const margin = fallback ? -1.2 : -0.6;
+    const dry = BASIN_SAMPLES.every((t) => {
+      const b = basinAt(def, t);
+      return waterDryness(water, final.lake, b.x, b.z, false) - b.radius >= margin;
+    });
+    if (!dry) continue;
+    // The first large tree stands near its hand-made spot.
+    if (basinReach(def, HERO[0][0], HERO[0][1]) < 4.5) continue;
+    const east = eastCourse(water, def, rng, shape, final);
+    if (!east) continue;
+    const a = rng.range(0, TAU);
+    def.islet = [x + Math.cos(a) * radius * 0.3, z + Math.sin(a) * radius * 0.3];
+    return { basin: def, east };
+  }
+  if (!fallback) return null;
+  const z = first.cz + first.hz * 0.45;
+  const basin: BasinDef = { x: 0, z, radius, islet: [radius * 0.3, z], toward: [0, 1] };
+  return { basin, east: eastCourse(water, basin, rng, shape, null)! };
+}
+
+interface EastCourse {
+  path: number[][];
+  inlet: number;
+}
+
+/**
+ * Course of the east stream: from its pool into the hollow of the lake moment, then out past
+ * the front bank of the grown lake and down to the main stream. Checked against the final
+ * layout unless `final` is null.
+ */
+function eastCourse(
+  water: Water,
+  def: BasinDef,
+  rng: Rng,
+  shape: Pick<Layout, 'power' | 'wobble'>,
+  final: (Outline & { lake: number }) | null,
+): EastCourse | null {
+  const pool = water.eastPool;
+  const center: Point = [def.x, def.z];
+  const last = basinAt(def, 1);
+  const reach = last.radius + 2;
+  const out: Point = [last.x + def.toward[0] * reach, last.z + def.toward[1] * reach];
+  const main = water.mainPath;
+  const length = pathLength(main);
+  const near = distanceToPath(main, out[0], out[1]);
+  const mouth = pointAlong(main, Math.min(1, (near.along + 2) / length));
+  const bend = rng.range(-1.5, 1.5);
+  const inflow = spline(bent([pool.x - 0.5, pool.z + 1.2], center, bend, 5), 4);
+  const outflow = spline([center, out, mouth], 4);
+  const course = { path: [...inflow, ...outflow.slice(1)], inlet: inflow.length - 1 };
+  if (!final) return course;
+  if (near.along / length < 0.15 || rimValue(shape, final, mouth[0], mouth[1]) > 0.85) return null;
+  const [lakeX, lakeZ] = lakeCenter(water, final.lake);
+  const mainSteps = [water.ledge, water.tier, water.top];
+  for (const [x, z] of course.path) {
+    if (rimValue(shape, final, x, z) > 0.9) return null;
+    if (Math.hypot(x - lakeX, z - lakeZ) < final.lake + 3) return null;
+    if (mainSteps.some((s) => Math.hypot(x - s.x, z - s.z) < s.radius + 2)) return null;
+    // Apart from the main stream until its mouth.
+    if (Math.hypot(x - mouth[0], z - mouth[1]) <= 5) continue;
+    if (distanceToPath(main, x, z).distance < 4) return null;
+  }
+  return course;
+}
+
+/** Distance from a point to the nearest stream, pool or step of the final layout, minus its reach. */
+function waterDryness(
+  layout: Omit<Water, 'offsets'>,
+  finalLake: number,
+  x: number,
+  z: number,
+  east = true,
+): number {
   const [lakeX, lakeZ] = lakeCenter(layout, finalLake);
   return Math.min(
     distanceToPath(layout.mainPath, x, z).distance - 3.2,
-    distanceToPath(layout.eastPath, x, z).distance - 2.6,
+    east ? distanceToPath(layout.eastPath, x, z).distance - 2.6 : Infinity,
     distanceToPath(layout.westPath, x, z).distance - 2.4,
     Math.hypot(x - lakeX, z - lakeZ) - finalLake - 2.4,
     Math.hypot(x - layout.eastPool.x, z - layout.eastPool.z) - layout.eastPool.radius - 1.8,
     Math.hypot(x - layout.westPool.x, z - layout.westPool.z) - layout.westPool.radius - 1.8,
     ...layout.steps.map((s) => Math.hypot(x - s.x, z - s.z) - s.radius - 0.8),
   );
+}
+
+/** Whether a point is in the band of forest around the clearing, at the back and on the sides. */
+export function inForest(layout: Layout, finalHx: number, x: number, z: number): boolean {
+  const back = smoothstep(layout.forestBack, layout.forestBack - 3, z);
+  const side =
+    smoothstep(layout.forestSide, layout.forestSide + 0.1, Math.abs(x) / finalHx) *
+    smoothstep(17, 12, z);
+  return Math.max(back, side) >= 0.5;
+}
+
+/** Distance from a point to the nearest water or step of the final layout, minus its reach. */
+export function dryness(layout: Layout, finalLake: number, x: number, z: number): number {
+  return Math.min(waterDryness(layout, finalLake, x, z), basinReach(layout.basin, x, z) - 1.8);
 }
 
 /**
@@ -451,8 +654,11 @@ export function dryness(layout: Layout, finalLake: number, x: number, z: number)
 export function hidesWater(layout: Layout, finalLake: number, x: number, z: number): boolean {
   const [lakeX, lakeZ] = lakeCenter(layout, finalLake);
   const end = layout.eastPath[layout.eastPath.length - 1];
+  const [first, last] = [basinAt(layout.basin, 0), basinAt(layout.basin, 1)];
   const views: [number, number, number][] = [
     [lakeX, lakeZ, finalLake],
+    [first.x, first.z, first.radius],
+    [last.x, last.z, last.radius],
     [layout.ledge.x, layout.ledge.z, 3],
     [layout.eastPool.x, layout.eastPool.z, 2.4],
     [layout.westPool.x, layout.westPool.z, 2.2],
@@ -465,7 +671,13 @@ export function hidesWater(layout: Layout, finalLake: number, x: number, z: numb
 }
 
 /** Knolls, trees and boulders of the meadow, away from the water and out of its view. */
-function placeScenery(layout: Layout, rng: Rng, first: Outline, final: Outline & { lake: number }) {
+function placeScenery(
+  layout: Layout,
+  rng: Rng,
+  stages: readonly Outline[],
+  final: Outline & { lake: number },
+) {
+  const first = stages[0];
   const dry = (x: number, z: number) => dryness(layout, final.lake, x, z);
   const inView = (x: number, z: number) => hidesWater(layout, final.lake, x, z);
   const taken: { x: number; z: number; r: number }[] = [];
@@ -487,41 +699,32 @@ function placeScenery(layout: Layout, rng: Rng, first: Outline, final: Outline &
       break;
     }
   });
+  // Without a large tree in the first diorama, the layout is drawn again: skip the rest.
+  if (!layout.hero.some(([x, z]) => rimFirst(x, z) < 0.88)) return;
 
-  // Candidates for the clearing, nearest the middle of the first diorama first.
-  const candidates: Point[] = [];
-  for (let attempt = 0; attempt < 1200; attempt++) {
+  // Candidate slots, in the order they open: by the first stage that shows them, then nearest
+  // the middle of the first diorama. Any of them, filled or not, keeps the water in view, and
+  // past the first diorama they leave the forest around the clearing its room.
+  const candidates: { at: Point; stage: number; rim: number }[] = [];
+  for (let attempt = 0; attempt < 1600; attempt++) {
     const x = rng.range(-22, 22);
     const z = rng.range(-8, 20);
     if (rimFinal(x, z) > 0.88 || dry(x, z) < 0.4 || inView(x, z)) continue;
-    candidates.push([x, z]);
+    if (rimFirst(x, z) > 0.88 && inForest(layout, final.hx, x, z)) continue;
+    const stage = stages.findIndex((outline) => rimValue(layout, outline, x, z) <= 0.93);
+    candidates.push({ at: [x, z], stage, rim: rimFirst(x, z) });
   }
-  candidates.sort((a, b) => rimFirst(a[0], a[1]) - rimFirst(b[0], b[1]));
-  const plant = (count: number) => {
-    for (const [x, z] of candidates) {
-      if (layout.clearing.length >= count) break;
-      if (!spaced(x, z, 4.2)) continue;
-      layout.clearing.push([x, z]);
-      taken.push({ x, z, r: 4.2 });
-    }
-  };
-  // The first trees of the clearing grow on the first diorama, then come the demonstration
-  // slots, as near its middle as the water allows.
-  plant(3);
-  for (const [limit, spacing] of [
-    [0.75, 4],
-    [0.85, 4],
-    [0.9, 3],
-    [0.9, 2.2],
-  ]) {
-    for (const [x, z] of candidates) {
-      if (layout.demo.length >= 3) break;
-      if (rimFirst(x, z) > limit || !spaced(x, z, spacing)) continue;
-      layout.demo.push([x, z]);
-      taken.push({ x, z, r: spacing });
-    }
+  candidates.sort((a, b) => a.stage - b.stage || a.rim - b.rim);
+  for (const {
+    at: [x, z],
+  } of candidates) {
+    if (layout.slots.length >= SLOT_COUNT) break;
+    const kind = slotKind(layout.slots.length);
+    const spacing = kind === 'tree' ? 4.2 : 3;
+    if (!spaced(x, z, spacing)) continue;
+    layout.slots.push({ x, z, kind });
+    taken.push({ x, z, r: spacing });
   }
-  plant(CLEARING_COUNT);
 
   // Boulders, a few already in the first diorama.
   for (let attempt = 0; attempt < 300 && layout.rocks.length < ROCK_MODELS.length; attempt++) {
