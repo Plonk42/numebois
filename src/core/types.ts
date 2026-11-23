@@ -31,6 +31,40 @@ export interface Skill<E extends Exercise = Exercise> {
   validate(exercise: E, answer: string): boolean;
   /** 1: a method hint; 2: the answer with its method. */
   hint(exercise: E, attempt: 1 | 2): string;
+  /** Can be played in a drill (rafale) until automatic. */
+  drill?: boolean;
+  /** Can be timed in a challenge (défi). */
+  challenge?: boolean;
+  /** Elementary facts followed one by one (drill notions only). */
+  facts?: SkillFacts<E>;
+}
+
+/** `<skill>:<key>`, for example `times-tables.facts:7x8`; stable like the notions. */
+export type FactId = string;
+
+export interface SkillFacts<E extends Exercise = Exercise> {
+  all: readonly FactId[];
+  /** The fact an exercise works on, or null when it is not an elementary fact. */
+  of(exercise: E): FactId | null;
+  /** A right first answer under this time counts towards automation. */
+  seconds: number;
+}
+
+/** One step of a lesson (« Plume te montre une astuce »), played by `LessonPlayer`. */
+export type LessonStep =
+  | { kind: 'explain'; text: string; widget?: string }
+  | { kind: 'manipulate'; text: string; widget: string }
+  | { kind: 'guidedExample'; text: string; widget: string }
+  /** 2 or 3 exercises of the notion, without effect on mastery. */
+  | { kind: 'check'; count: 2 | 3 };
+
+export interface Lesson {
+  /** `<skill>/<name>`, stable. */
+  id: string;
+  skill: SkillId;
+  /** Displayed title, in French. */
+  title: string;
+  steps: readonly LessonStep[];
 }
 
 export interface Domain {
@@ -38,4 +72,21 @@ export interface Domain {
   /** Displayed name, in French. */
   name: string;
   skills: readonly Skill[];
+  lessons?: readonly Lesson[];
+}
+
+/** The homework of the week, in `src/quests/YYYY-MM-DD.ts`. */
+export interface Quest {
+  /** The first day, `YYYY-MM-DD`, also the file name. */
+  id: string;
+  /** Displayed title, in French. */
+  title: string;
+  /** Last day, `YYYY-MM-DD`. */
+  until: string;
+  /** Biome of the next painting, if the quest imposes one. */
+  biome?: string;
+  skills: readonly { id: SkillId; level?: number; isNew?: boolean }[];
+  drill?: SkillId;
+  lessons?: readonly string[];
+  challenges?: readonly SkillId[];
 }

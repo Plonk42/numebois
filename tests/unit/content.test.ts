@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { registryErrors, skillsById } from '../../src/core/registry';
+import { questErrors, registryErrors, skillsById } from '../../src/core/registry';
 import { Rng } from '../../src/core/rng';
-import type { Domain, Skill } from '../../src/core/types';
+import type { Domain, Quest, Skill } from '../../src/core/types';
 import { DOMAINS } from '../../src/domains';
+import { QUESTS } from '../../src/quests';
 
 /** Words of each sentence (lines and . ! ? end a sentence; « · » and « : » are not words). */
 function sentenceLengths(text: string): number[] {
@@ -47,6 +48,60 @@ describe('registre', () => {
     expect(errors.some((error) => error.startsWith('boucle de prérequis'))).toBe(true);
   });
 
+  it('detects facts without drill, long lessons and lessons on unknown notions', () => {
+    const facts = { all: ['a.x:1', 'b.y:2'], of: () => null, seconds: 3 };
+    const errors = registryErrors([
+      {
+        id: 'a',
+        name: 'A',
+        skills: [{ ...skill('a.x'), facts }],
+        lessons: [
+          {
+            id: 'a.x/long',
+            skill: 'a.x',
+            title: 'L',
+            steps: Array(7).fill({ kind: 'check', count: 2 }),
+          },
+          { id: 'a.z/lost', skill: 'a.z', title: 'L', steps: [{ kind: 'check', count: 2 }] },
+        ],
+      },
+    ]);
+    expect(errors).toEqual([
+      'a.x : des faits sans rafale',
+      "b.y:2 n'est pas préfixé par a.x:",
+      'a.x/long : 7 étapes (1 à 6)',
+      'a.z/lost : notion inconnue a.z',
+    ]);
+  });
+
+  it('has valid quests', () => {
+    expect(questErrors(QUESTS, DOMAINS)).toEqual([]);
+  });
+
+  it('detects quests too big, with too many new notions or unknown references', () => {
+    const quest: Quest = {
+      id: '2026-11-30',
+      title: 'Q',
+      until: '2026-11-23',
+      skills: [
+        { id: 'mental-math.add', isNew: true },
+        { id: 'mental-math.subtract', isNew: true },
+        { id: 'mental-math.complements', isNew: true, level: 9 },
+        ...Array.from({ length: 12 }, () => ({ id: 'mental-math.add' })),
+        { id: 'nowhere.x' },
+      ],
+      lessons: ['mental-math.add/nothing'],
+    };
+    expect(questErrors([quest], DOMAINS)).toEqual([
+      'quête 2026-11-30 : période invalide',
+      'quête 2026-11-30 : 3 notions nouvelles',
+      'quête 2026-11-30 : 17 éléments',
+      'quête 2026-11-30 : niveau 9 invalide pour mental-math.complements',
+      'quête 2026-11-30 : notion inconnue nowhere.x',
+      'quête 2026-11-30 : astuce inconnue mental-math.add/nothing',
+    ]);
+  });
+
   for (const [id, notion] of skillsById(DOMAINS)) {
     describe(id, () => {
       for (let level = 0; level < notion.levels; level++) {
@@ -68,7 +123,20 @@ describe('registre', () => {
             ]) {
               expect(Math.max(...sentenceLengths(text)), text).toBeLessThanOrEqual(12);
             }
+            const fact = notion.facts?.of(exercise);
+            if (fact != null) expect(notion.facts!.all).toContain(fact);
           }
+        });
+      }
+      if (notion.facts) {
+        it('reaches every declared fact', () => {
+          const reached = new Set<string | null>();
+          for (let level = 0; level < notion.levels; level++) {
+            for (let seed = 0; seed < 1000; seed++) {
+              reached.add(notion.facts!.of(notion.generate(new Rng(seed), level)));
+            }
+          }
+          for (const fact of notion.facts!.all) expect(reached).toContain(fact);
         });
       }
     });

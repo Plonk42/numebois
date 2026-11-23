@@ -16,4 +16,5 @@ export const writeDigits = defineSkill<WriteDigitsExercise>({
   generate: generateWriteDigits,
   validate: validateNumber,
   hint: writeDigitsHint,
+  drill: true,
 });

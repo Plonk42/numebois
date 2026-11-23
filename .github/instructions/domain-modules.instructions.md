@@ -19,5 +19,6 @@ applyTo: "src/core/**, src/domains/**, src/quests/**"
   - au plus 15 éléments par quête ;
   - au plus 6 étapes par leçon ;
   - prérequis existants et sans boucle ;
-  - chaque notion `drill` déclare ses faits.
+  - une notion à faits (tables, compléments à 10, doubles…) est une notion `drill` : ses faits sont déclarés (`facts.all`, préfixés par l'id de la notion), et `facts.of(exercise)` renvoie un fait déclaré ou `null`.
+- Leçons dans `Domain.lessons` (`defineLesson`, id `<notion>/<nom>`), quêtes listées dans `src/quests/index.ts` (`defineQuest`) ; `registryErrors` et `questErrors` les vérifient.
 - Une quête (`src/quests/YYYY-MM-DD.ts`) tient en une dizaine de lignes et ne renvoie qu'à des notions existantes. Ajouter une notion manquante suit la recette du plan.
