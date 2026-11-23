@@ -17,7 +17,30 @@ function wrong(answer: string): string {
   return answer.slice(0, -1) + String((last + 1) % 10);
 }
 
-test('une boucle jouable : questions, indices, énergie et pousse', async ({ page }) => {
+/** Writes a save in IndexedDB, as the game does, then reloads the page. */
+async function loadSave(page: Page, save: object) {
+  await page.evaluate(
+    (json) =>
+      new Promise<void>((resolve, reject) => {
+        const request = indexedDB.open('numebois', 1);
+        request.onupgradeneeded = () => request.result.createObjectStore('kv');
+        request.onsuccess = () => {
+          const transaction = request.result.transaction('kv', 'readwrite');
+          transaction.objectStore('kv').put(json, 'numebois:save');
+          transaction.oncomplete = () => resolve();
+          transaction.onerror = () => reject(new Error('écriture impossible'));
+        };
+      }),
+    JSON.stringify(save),
+  );
+  await page.reload();
+  await page.evaluate(() => window.__numebois!.ready);
+}
+
+const reserveLabel = (leaves: number, seeds = 0) =>
+  `Réserve : ${leaves} feuille${leaves > 1 ? 's' : ''}, ${seeds} graine${seeds > 1 ? 's' : ''} dorée${seeds > 1 ? 's' : ''}`;
+
+test('une boucle jouable : questions, indices, feuilles et pousse', async ({ page }) => {
   const errors: string[] = [];
   page.on('console', (message) => {
     if (message.type() === 'error') errors.push(message.text());
@@ -27,19 +50,19 @@ test('une boucle jouable : questions, indices, énergie et pousse', async ({ pag
   await page.evaluate(() => window.__numebois!.ready);
 
   const card = page.locator('#question');
-  const gauge = page.locator('#energy');
+  const reserve = page.locator('#reserve');
   await expect(card).toBeVisible();
-  await expect(gauge).toHaveAttribute('aria-label', 'Énergie : 0 sur 4');
+  await expect(reserve).toHaveAttribute('aria-label', reserveLabel(0));
   // Never the Android keyboard: no text field at all.
   await expect(page.locator('input, textarea, [contenteditable]')).toHaveCount(0);
 
-  // One thing at a time: the card stays clear of the gauge and the sound button, on screen.
+  // One thing at a time: the card stays clear of the reserve and the sound button, on screen.
   const viewport = page.viewportSize()!;
   const cardBox = (await card.boundingBox())!;
   const soundBox = (await page.locator('#sound-toggle').boundingBox())!;
-  const gaugeBox = (await gauge.boundingBox())!;
+  const reserveBox = (await reserve.boundingBox())!;
   expect(cardBox.y).toBeGreaterThan(soundBox.y + soundBox.height);
-  expect(cardBox.x).toBeGreaterThan(gaugeBox.x + gaugeBox.width);
+  expect(cardBox.x).toBeGreaterThan(reserveBox.x + reserveBox.width);
   expect(cardBox.y + cardBox.height).toBeLessThanOrEqual(viewport.height);
   expect(await card.evaluate((el) => el.scrollHeight <= el.clientHeight)).toBe(true);
   for (const key of await card.locator('button').all()) {
@@ -50,7 +73,7 @@ test('une boucle jouable : questions, indices, énergie et pousse', async ({ pag
   let exercise = await current(page);
   await test.info().attach('question', { body: await page.screenshot(), contentType: 'image/png' });
 
-  // First mistake, with the fingers: a method hint, no energy lost.
+  // First mistake, with the fingers: a method hint, nothing lost.
   const validate = page.getByRole('button', { name: 'Valider' });
   await expect(validate).toBeDisabled();
   for (const digit of wrong(exercise.answer)) {
@@ -75,22 +98,31 @@ test('une boucle jouable : questions, indices, énergie et pousse', async ({ pag
       ? `${exercise.answer.slice(0, -3)}\u202f${exercise.answer.slice(-3)}`
       : exercise.answer,
   );
-  expect((await game(page)).energy).toBe(0);
+  expect((await game(page)).leaves).toBe(0);
   await page.getByRole('button', { name: 'Suivant' }).click();
   await expect(card.locator('.hint')).toHaveCount(0);
 
-  // Four right answers fill the gauge and grow a tree, while the card steps aside.
+  // Each right answer sends a leaf flying to the reserve; until the shop, every fourth one
+  // grows a tree while the card steps aside.
   for (let answer = 1; answer <= 4; answer++) {
     exercise = await current(page);
     await page.keyboard.type(exercise.answer);
     await page.keyboard.press('Enter');
     await expect(card.locator('.praise')).toBeVisible();
-    await expect(gauge).toHaveAttribute('aria-label', `Énergie : ${answer} sur 4`);
+    await expect(reserve).toHaveAttribute('aria-label', reserveLabel(answer));
+    if (answer === 1) {
+      await expect(page.locator('.flying.leaf')).toHaveCount(1);
+      await test.info().attach('feuille', {
+        body: await page.screenshot(),
+        contentType: 'image/png',
+      });
+    }
+    await expect(reserve.locator('.leaves b')).toHaveText(String(answer));
     if (answer < 4) await expect(card.locator('.praise')).toHaveCount(0);
   }
   await expect.poll(async () => (await game(page)).grown).toBe(1);
   await expect(card).toHaveClass(/away/);
-  await expect(gauge).toHaveAttribute('aria-label', 'Énergie : 0 sur 4');
+  await expect(reserve).toHaveAttribute('aria-label', reserveLabel(4));
   await test.info().attach('pousse', { body: await page.screenshot(), contentType: 'image/png' });
   await expect(card).not.toHaveClass(/away/, { timeout: 6000 });
   await expect(card.locator('.instruction')).toBeVisible();
@@ -107,9 +139,9 @@ test('un sentier complet : 10 pierres, deux arbres et un résumé bienveillant',
   await expect(path.locator('.stone')).toHaveCount(10);
   await expect(path).toHaveAttribute('aria-label', 'Pierre 1 sur 10');
 
-  // The path stays clear of the gauge, the sound button and the card.
+  // The path stays clear of the reserve, the sound button and the card.
   const pathBox = (await path.boundingBox())!;
-  for (const other of ['#energy', '#sound-toggle', '#question']) {
+  for (const other of ['#reserve', '#sound-toggle', '#question']) {
     const box = (await page.locator(other).boundingBox())!;
     const apart =
       box.x >= pathBox.x + pathBox.width ||
@@ -128,6 +160,7 @@ test('un sentier complet : 10 pierres, deux arbres et un résumé bienveillant',
   }
   await expect(card.locator('.praise')).toHaveText('Sentier terminé !');
   await expect(card).toContainText('Tu as franchi 10 pierres.');
+  await expect(card).toContainText('Tu as gagné 10 feuilles.');
   await expect(card).toContainText('Ta forêt a 2 nouveaux arbres.');
   await expect(path.locator('.stone.crossed')).toHaveCount(10);
   expect((await game(page)).grown).toBe(2);
@@ -147,10 +180,11 @@ test('le choix : comparer avec <, = ou >, d’une touche, sans rouge', async ({ 
   await page.goto('./?stage=0');
   await page.evaluate(() => window.__numebois!.ready);
   // A save where « comparer » is in progress: the trail warms up with it.
-  const save = JSON.stringify({
+  await loadSave(page, {
     version: 1,
     savedAt: '2026-11-23T10:00:00.000Z',
-    energy: 0,
+    leaves: 0,
+    seeds: 0,
     trailLength: 'normal',
     progress: [
       { skill: 'numbers.compare', stage: 'learning', level: 2, recent: [], box: 0, due: null },
@@ -158,22 +192,6 @@ test('le choix : comparer avec <, = ou >, d’une touche, sans rouge', async ({ 
     facts: [],
     history: [],
   });
-  await page.evaluate(
-    (json) =>
-      new Promise<void>((resolve, reject) => {
-        const request = indexedDB.open('numebois', 1);
-        request.onupgradeneeded = () => request.result.createObjectStore('kv');
-        request.onsuccess = () => {
-          const transaction = request.result.transaction('kv', 'readwrite');
-          transaction.objectStore('kv').put(json, 'numebois:save');
-          transaction.oncomplete = () => resolve();
-          transaction.onerror = () => reject(new Error('écriture impossible'));
-        };
-      }),
-    save,
-  );
-  await page.reload();
-  await page.evaluate(() => window.__numebois!.ready);
   const exercise = await current(page);
   expect(exercise.skill).toBe('numbers.compare');
   const card = page.locator('#question');
@@ -192,6 +210,57 @@ test('le choix : comparer avec <, = ou >, d’une touche, sans rouge', async ({ 
   // Within the praise, before the next question.
   await expect(card.locator('.choice button.right')).toHaveText(exercise.answer);
   await expect(card.locator('.praise')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('une notion acquise : une graine dorée, seule à l’écran, rejoint la réserve', async ({
+  page,
+}) => {
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto('./?stage=0');
+  await page.evaluate(() => window.__numebois!.ready);
+  // « Écrire en chiffres » at its last level: one more right answer acquires it.
+  const recent = Array.from({ length: 4 }, () => ({ level: 3, right: true, day: 1 }));
+  await loadSave(page, {
+    version: 1,
+    savedAt: '2026-11-23T10:00:00.000Z',
+    leaves: 7,
+    seeds: 0,
+    trailLength: 'normal',
+    progress: [
+      {
+        skill: 'numbers.write-digits',
+        stage: 'learning',
+        level: 3,
+        recent,
+        box: 0,
+        due: null,
+      },
+    ],
+    facts: [],
+    history: [],
+  });
+  const reserve = page.locator('#reserve');
+  await expect(reserve).toHaveAttribute('aria-label', reserveLabel(7));
+  const exercise = await current(page);
+  expect(exercise.skill).toBe('numbers.write-digits');
+  await page.keyboard.type(exercise.answer);
+  await page.keyboard.press('Enter');
+
+  const gift = page.locator('#seed-gift');
+  await expect(gift).toContainText('Une graine dorée !');
+  await expect(gift).toContainText('Tu as appris : écrire un nombre en chiffres.');
+  await expect(page.locator('#question')).toHaveClass(/away/);
+  await test.info().attach('graine dorée', {
+    body: await page.screenshot(),
+    contentType: 'image/png',
+  });
+  await expect(reserve).toHaveAttribute('aria-label', reserveLabel(8, 1));
+  await expect(reserve.locator('.seeds b')).toHaveText('1');
+  await expect(gift).toHaveCount(0);
+  await expect(page.locator('#question .instruction')).toBeVisible();
+  expect((await game(page)).seeds).toBe(1);
   expect(errors).toEqual([]);
 });
 

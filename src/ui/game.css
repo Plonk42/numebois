@@ -1,4 +1,4 @@
-/* Game overlay over the scene: gauge at the top left, question card on the right. */
+/* Game overlay over the scene: reserve at the top left, question card on the right. */
 #ui {
   font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
   color: #2f4a3a;
@@ -7,56 +7,151 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-#energy {
+#reserve {
   position: fixed;
   top: 12px;
   left: 12px;
   z-index: 5;
   height: 56px;
-  padding: 0 12px;
+  padding: 0 16px 0 10px;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 14px;
   border-radius: 28px;
   background: rgba(255, 255, 255, 0.72);
   box-shadow: 0 2px 8px rgba(0, 40, 80, 0.18);
-  transition: box-shadow 0.3s;
 }
-#energy.full {
-  box-shadow:
-    0 0 0 4px #ffe27a,
-    0 0 24px 6px rgba(255, 226, 122, 0.8);
-}
-#energy .leaf {
+#reserve .counter {
   position: relative;
-  width: 40px;
-  height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
-#energy svg {
-  width: 100%;
-  height: 100%;
-  fill: rgba(109, 187, 79, 0.14);
-  stroke: #b7d4a6;
-  stroke-width: 1.6;
-  stroke-linejoin: round;
+#reserve .counter svg {
+  width: 38px;
+  height: 38px;
 }
-#energy .vein {
-  fill: none;
+#reserve b {
+  position: relative;
+  min-width: 1.2em;
+  font-size: 26px;
+  font-variant-numeric: tabular-nums;
+  animation: leaf-pop 0.45s cubic-bezier(0.3, 1.7, 0.5, 1);
 }
-#energy .leaf.on svg {
-  fill: #6dbb4f;
-  stroke: #3f8a35;
-  animation: leaf-pop 0.55s cubic-bezier(0.3, 1.7, 0.5, 1);
-}
-#energy .leaf.on::after {
+/* Each new count pops with a sparkle where the leaf or the seed lands. */
+#reserve b::after {
   content: '';
   position: absolute;
-  inset: -10px;
+  left: -40px;
+  top: -12px;
+  width: 54px;
+  height: 54px;
   border-radius: 50%;
   background: radial-gradient(circle, rgba(255, 240, 150, 0.95) 0 18%, transparent 60%);
   opacity: 0;
-  animation: sparkle 0.7s ease-out;
   pointer-events: none;
+  animation: sparkle 0.7s ease-out;
+}
+.leaf-icon {
+  fill: #6dbb4f;
+  stroke: #3f8a35;
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+}
+.leaf-icon .vein,
+.seed-icon .shine {
+  fill: none;
+}
+.seed-icon {
+  fill: #f4c542;
+  stroke: #c58d14;
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+}
+.seed-icon .shine {
+  stroke: #fff6c8;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+.flying {
+  position: fixed;
+  top: -20px;
+  left: -20px;
+  z-index: 8;
+  width: 40px;
+  height: 40px;
+  pointer-events: none;
+  filter: drop-shadow(0 0 6px rgba(255, 240, 150, 0.9));
+}
+.flying svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* A golden seed, the big reward of learning: alone over the forest, then into the reserve. */
+#seed-gift {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 6;
+  transform: translate(-50%, -50%);
+  padding: 18px 32px 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  border-radius: 28px;
+  background: rgba(255, 251, 240, 0.9);
+  box-shadow:
+    0 0 0 4px #ffe27a,
+    0 0 40px 12px rgba(255, 226, 122, 0.7);
+  animation: gift-in 0.6s cubic-bezier(0.3, 1.6, 0.5, 1);
+  transition: opacity 0.5s ease-in;
+}
+#seed-gift.leaving {
+  opacity: 0;
+}
+#seed-gift .seed-icon {
+  width: 120px;
+  height: 120px;
+  animation: seed-glow 1.2s ease-in-out infinite alternate;
+}
+#seed-gift.leaving .seed-icon {
+  visibility: hidden;
+}
+#seed-gift p {
+  margin: 0;
+  text-align: center;
+}
+#seed-gift .title {
+  font-size: 34px;
+  line-height: 40px;
+  font-weight: 700;
+  color: #a8740c;
+}
+#seed-gift .reason {
+  max-width: 420px;
+  font-size: 22px;
+  line-height: 28px;
+  color: #5a6e5f;
+}
+@keyframes gift-in {
+  from {
+    transform: translate(-50%, -50%) scale(0.3);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, -50%);
+    opacity: 1;
+  }
+}
+@keyframes seed-glow {
+  from {
+    filter: drop-shadow(0 0 6px rgba(255, 220, 110, 0.6));
+  }
+  to {
+    filter: drop-shadow(0 0 22px rgba(255, 220, 110, 1));
+  }
 }
 @keyframes leaf-pop {
   from {

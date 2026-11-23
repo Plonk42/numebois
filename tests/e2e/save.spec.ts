@@ -12,7 +12,7 @@ async function answerRight(page: Page) {
 }
 
 async function openParentMenu(page: Page) {
-  const box = (await page.locator('#energy').boundingBox())!;
+  const box = (await page.locator('#reserve').boundingBox())!;
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.down();
   await page.waitForTimeout(1700);
@@ -20,22 +20,25 @@ async function openParentMenu(page: Page) {
   await expect(page.locator('#parent-menu')).toBeVisible();
 }
 
-test('la progression et l’énergie survivent au rechargement ; export et import', async ({
+const reserveLabel = (leaves: number) =>
+  `Réserve : ${leaves} feuille${leaves > 1 ? 's' : ''}, 0 graine dorée`;
+
+test('la progression et la réserve survivent au rechargement ; export et import', async ({
   page,
 }) => {
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('./?stage=0');
   await page.evaluate(() => window.__numebois!.ready);
-  const gauge = page.locator('#energy');
+  const reserve = page.locator('#reserve');
   for (let i = 1; i <= 2; i++) {
     await answerRight(page);
-    await expect(gauge).toHaveAttribute('aria-label', `Énergie : ${i} sur 4`);
+    await expect(reserve).toHaveAttribute('aria-label', reserveLabel(i));
     await expect(page.locator('#question .praise')).toHaveCount(0);
   }
 
   // A short press does nothing; a long one opens the parent menu.
-  await gauge.click();
+  await reserve.click();
   await expect(page.locator('#parent-menu')).toHaveCount(0);
   await openParentMenu(page);
   await page.getByRole('button', { name: 'Court (6)' }).click();
@@ -49,7 +52,7 @@ test('la progression et l’énergie survivent au rechargement ; export et impor
   ]);
   const exported = await (await download.createReadStream()).toArray();
   const json = Buffer.concat(exported).toString('utf8');
-  expect(JSON.parse(json)).toMatchObject({ energy: 2, trailLength: 'short' });
+  expect(JSON.parse(json)).toMatchObject({ leaves: 2, seeds: 0, trailLength: 'short' });
   expect(JSON.parse(json).progress[0]).toMatchObject({ skill: 'numbers.write-digits' });
   await test.info().attach('menu parent', {
     body: await page.screenshot(),
@@ -72,12 +75,12 @@ test('la progression et l’énergie survivent au rechargement ; export et impor
 
   await page.reload();
   await page.evaluate(() => window.__numebois!.ready);
-  await expect(gauge).toHaveAttribute('aria-label', 'Énergie : 2 sur 4');
+  await expect(reserve).toHaveAttribute('aria-label', reserveLabel(2));
   await expect(page.locator('#trail .stone')).toHaveCount(6);
 
   // Importing the exported save brings it back after a reload.
   await answerRight(page);
-  await expect(gauge).toHaveAttribute('aria-label', 'Énergie : 3 sur 4');
+  await expect(reserve).toHaveAttribute('aria-label', reserveLabel(3));
   await openParentMenu(page);
   const [again] = await Promise.all([
     page.waitForEvent('filechooser'),
@@ -88,6 +91,6 @@ test('la progression et l’énergie survivent au rechargement ; export et impor
     again.setFiles({ name: 'save.json', mimeType: 'application/json', buffer: Buffer.from(json) }),
   ]);
   await page.evaluate(() => window.__numebois!.ready);
-  await expect(gauge).toHaveAttribute('aria-label', 'Énergie : 2 sur 4');
+  await expect(reserve).toHaveAttribute('aria-label', reserveLabel(2));
   expect(errors).toEqual([]);
 });

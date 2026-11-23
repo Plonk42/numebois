@@ -14,7 +14,9 @@ export interface SaveData extends SessionSnapshot {
   version: typeof SAVE_SCHEMA_VERSION;
   /** ISO date of the last write. */
   savedAt: string;
-  energy: number;
+  /** The reserve: never lost, kept from one painting to the next. */
+  leaves: number;
+  seeds: number;
   trailLength: TrailLength;
 }
 
@@ -78,7 +80,8 @@ export function parseSave(json: string, skills: readonly Skill[]): ParsedSave {
   }
   if (
     typeof value.savedAt !== 'string' ||
-    !isCount(value.energy) ||
+    !isCount(value.leaves) ||
+    !isCount(value.seeds) ||
     (value.trailLength !== 'short' && value.trailLength !== 'normal') ||
     !isList(value.progress, isProgress) ||
     !isList(value.facts, isFact) ||
@@ -93,7 +96,8 @@ export function parseSave(json: string, skills: readonly Skill[]): ParsedSave {
     data: {
       version: SAVE_SCHEMA_VERSION,
       savedAt: value.savedAt,
-      energy: value.energy,
+      leaves: value.leaves,
+      seeds: value.seeds,
       trailLength: value.trailLength,
       progress: value.progress
         .filter((p) => levels.has(p.skill))
