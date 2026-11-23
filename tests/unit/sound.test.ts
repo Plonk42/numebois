@@ -3,10 +3,22 @@ import { describe, expect, it } from 'vitest';
 import { SOUND_CATALOG, type SoundName } from '../../src/scene/audio/sound-catalog';
 import { familyWeights } from '../../src/scene/audio/soundscape';
 import { SOUND_BYTES, SOUND_FILES } from '../../src/scene/audio/sounds.gen';
-import { STAGES } from '../../src/scene/description';
+import { BIOMES } from '../../src/scene/biomes';
+import { LAST_STAGE, STAGES } from '../../src/scene/description';
 import { ambienceFor, type SoundLevels } from '../../src/scene/render/richness';
 
 const names = Object.keys(SOUND_CATALOG) as SoundName[];
+const LOOPS = [
+  'wind',
+  'pond',
+  'brook',
+  'falls',
+  'birds',
+  'chorus',
+  'meadow',
+  'leaves',
+  'crickets',
+] as const;
 
 describe('sound files', () => {
   it('match the catalog and the committed files (run `npm run sounds` after a change)', () => {
@@ -56,17 +68,7 @@ describe('sound layers', () => {
   });
 
   it('never piles every loop up: older layers step back, families take turns', () => {
-    const loops = [
-      'wind',
-      'pond',
-      'brook',
-      'falls',
-      'birds',
-      'chorus',
-      'meadow',
-      'leaves',
-      'crickets',
-    ] as const;
+    const loops = LOOPS;
     for (const stage of STAGES) {
       const levels = ambienceFor(stage, 'summer').sound;
       const sum = loops.reduce((total, k) => total + levels[k], 0);
@@ -92,5 +94,22 @@ describe('sound layers', () => {
     // Wind and pond alone at the first stage: they take turns too, softly.
     const first = familyWeights(ambienceFor(0, 'summer').sound, 0);
     expect(first.air + first.water).toBeGreaterThan(1.3);
+  });
+
+  it('gives each décor its own layers, as gently stacked', () => {
+    for (const biome of Object.values(BIOMES)) {
+      let before = new Set<string>();
+      for (const stage of STAGES) {
+        const levels = ambienceFor(stage, 'summer', biome).sound;
+        const now = active(levels);
+        for (const layer of before) expect(now.has(layer), `${biome.id} ${layer}`).toBe(true);
+        before = now;
+        const sum = LOOPS.reduce((total, k) => total + levels[k], 0);
+        expect(sum, `${biome.id} stage ${stage}`).toBeLessThan(2.7);
+      }
+    }
+    // No woodpecker without a forest; the bees of the orchard's fields come early.
+    expect(ambienceFor(LAST_STAGE, 'summer', BIOMES.orchard).sound.woodpecker).toBe(0);
+    expect(ambienceFor(2, 'summer', BIOMES.orchard).sound.meadow).toBeGreaterThan(0);
   });
 });

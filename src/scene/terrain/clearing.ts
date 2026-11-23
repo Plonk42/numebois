@@ -11,6 +11,7 @@ import {
   type WaterBuilder,
 } from '../render/water';
 import type { Season } from '../trees/builder';
+import { buildDiorama, groundGrid } from './diorama';
 import {
   STREAM_END_LEVEL,
   basinAt,
@@ -246,6 +247,8 @@ class Clearing implements Terrain {
   readonly waterfalls: Waterfall[] = [];
   readonly banks: BankPath[] = [];
   readonly ponds: Pond[] = [];
+  readonly crops = [];
+  readonly spinners = [];
   readonly extent: { x: number; z: number };
   readonly cover: number;
   readonly frame: Terrain['frame'];
@@ -1023,59 +1026,13 @@ class Clearing implements Terrain {
     const rng = new Rng(this.seed).fork('ground');
     const m = this.mirror;
     const r = this.relief;
-    const gridX = Math.round((2 * r.hx) / CELL);
-    const gridZ = Math.round((2 * r.hz) / CELL);
-    const cols = gridX + 1;
-    const rows = gridZ + 1;
-    const points: number[][] = [];
-    for (let j = 0; j < rows; j++) {
-      for (let i = 0; i < cols; i++) {
-        let u = (i / gridX) * 2 - 1;
-        let v = (j / gridZ) * 2 - 1;
-        const edge = i === 0 || j === 0 || i === gridX || j === gridZ;
-        if (!edge) {
-          u += (rng.range(-0.3, 0.3) * 2) / gridX;
-          v += (rng.range(-0.3, 0.3) * 2) / gridZ;
-        }
-        // Square grid to the outline: each square ring maps to a scaled outline.
-        const s = Math.max(Math.abs(u), Math.abs(v));
-        let fx = 0;
-        let z = r.cz;
-        if (s > 1e-6) {
-          const a = u / s;
-          const b = v / s;
-          const { power, wobble: w } = this.layout;
-          const k =
-            s / Math.pow(Math.pow(Math.abs(a), power) + Math.pow(Math.abs(b), power), 1 / power);
-          const theta = Math.atan2(b, a);
-          const wobble = 1 + w[0] * Math.sin(3 * theta + w[1]) + w[2] * Math.sin(5 * theta + w[3]);
-          fx = a * k * r.hx * wobble;
-          z = r.cz + b * k * r.hz * wobble;
-        }
-        points.push([fx * m, this.heightRef(fx, z), z]);
-      }
-    }
+    const { power, wobble } = this.layout;
+    const outline = { hx: r.hx, hz: r.hz, cz: r.cz, power, wobble };
+    const grid = groundGrid(rng, outline, CELL, (fx, z) => this.heightRef(fx, z), m);
     const grass = groundSwatch(season);
-    const facet = (a: number[], b: number[], c: number[]) => {
-      // Wind the facet upwards.
-      const ny = (b[2] - a[2]) * (c[0] - a[0]) - (b[0] - a[0]) * (c[2] - a[2]);
-      if (ny < 0) [b, c] = [c, b];
-      const ux = b[0] - a[0];
-      const uy = b[1] - a[1];
-      const uz = b[2] - a[2];
-      const vx = c[0] - a[0];
-      const vy = c[1] - a[1];
-      const vz = c[2] - a[2];
-      const nx = uy * vz - uz * vy;
-      const nyy = uz * vx - ux * vz;
-      const nz = ux * vy - uy * vx;
-      const slope = 1 - nyy / (Math.hypot(nx, nyy, nz) || 1);
-      const cx = (a[0] + b[0] + c[0]) / 3;
-      const cy = (a[1] + b[1] + c[1]) / 3;
-      const cz = (a[2] + b[2] + c[2]) / 3;
+    buildDiorama(out, grid, rng, r.cz, r.hx, (cx, cy, cz, slope, jitter) => {
       const fx = cx * m;
       const level = this.waterAt(fx, cz, cy);
-      const jitter = rng.range(-0.05, 0.05);
       const snowLine = r.snow + 2.4 * (valueNoise2(this.seed + 7, fx / 2.6, cz / 2.6) - 0.5);
       let uv: [number, number];
       if (cy > snowLine && slope < 0.72) {
@@ -1113,81 +1070,8 @@ class Clearing implements Terrain {
             ? swatchUV('Snow', 0.41 + Math.min(0.06, bare * 0.5))
             : swatchUV(grass.swatch, lerp(grass.from, grass.to, tone));
       }
-      out.facet(a, b, c, uv);
-    };
-    for (let j = 0; j < gridZ; j++) {
-      for (let i = 0; i < gridX; i++) {
-        const a = points[j * cols + i];
-        const b = points[j * cols + i + 1];
-        const c = points[(j + 1) * cols + i + 1];
-        const d = points[(j + 1) * cols + i];
-        // Alternate the diagonal for a less regular facet pattern.
-        if ((i + j) % 2 === 0) {
-          facet(a, b, c);
-          facet(a, c, d);
-        } else {
-          facet(a, b, d);
-          facet(b, c, d);
-        }
-      }
-    }
-    this.buildSkirt(out, points, cols, rows, rng);
-  }
-
-  /** Underside of the floating diorama: an earth band, then rock tapering to a point. */
-  private buildSkirt(
-    out: MeshWriter,
-    points: number[][],
-    cols: number,
-    rows: number,
-    rng: Rng,
-  ): void {
-    const cz = this.relief.cz;
-    // The underside is as deep as the diorama is large.
-    const deep = this.relief.hx / 20;
-    const loop: number[][] = [];
-    for (let i = 0; i < cols - 1; i++) loop.push(points[i]);
-    for (let j = 0; j < rows - 1; j++) loop.push(points[j * cols + cols - 1]);
-    for (let i = cols - 1; i > 0; i--) loop.push(points[(rows - 1) * cols + i]);
-    for (let j = rows - 1; j > 0; j--) loop.push(points[j * cols]);
-    const n = loop.length;
-    const band1: number[][] = [];
-    const band2: number[][] = [];
-    for (let i = 0; i < n; i++) {
-      const p = loop[i];
-      const wave = Math.sin(i * 0.37) * 0.5 + Math.sin(i * 0.11 + 2) * 0.5;
-      const k1 = 0.985 - rng.range(0, 0.02);
-      band1.push([
-        p[0] * k1,
-        Math.min(p[1] - 1.1, -1.5) - rng.range(0, 0.7) - wave * 0.3,
-        cz + (p[2] - cz) * k1,
-      ]);
-      const k2 = 0.72 + wave * 0.05 - rng.range(0, 0.05);
-      band2.push([
-        p[0] * k2,
-        (-5.2 + wave * 0.9 - rng.range(0, 0.8)) * deep,
-        cz + (p[2] - cz) * k2,
-      ]);
-    }
-    const apex = [rng.range(-2, 2), -11.5 * deep, cz + rng.range(-1.5, 1.5)];
-    const outward = (a: number[], b: number[], c: number[], swatch: SwatchName, frac: number) => {
-      const nx = (b[1] - a[1]) * (c[2] - a[2]) - (b[2] - a[2]) * (c[1] - a[1]);
-      const nz = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
-      const cx = a[0] + b[0] + c[0];
-      const cc = a[2] + b[2] + c[2] - 3 * cz;
-      if (nx * cx + nz * cc < 0) [b, c] = [c, b];
-      out.facet(a, b, c, swatchUV(swatch, frac + rng.range(-0.07, 0.07)));
-    };
-    for (let i = 0; i < n; i++) {
-      const j = (i + 1) % n;
-      // Where a mountain is cut by the rim, the wall under it is rock.
-      const wall: SwatchName = loop[i][1] > 2.5 ? 'Stone' : 'Earth';
-      outward(loop[i], loop[j], band1[j], wall, 0.3);
-      outward(loop[i], band1[j], band1[i], wall, 0.36);
-      outward(band1[i], band1[j], band2[j], 'Stone', 0.45);
-      outward(band1[i], band2[j], band2[i], 'Stone', 0.52);
-      outward(band2[i], band2[j], apex, 'Stone', 0.7);
-    }
+      return uv;
+    });
   }
 
   /** Shore value of a point of water: 1 where the bed is at the surface, 0 in deep water. */

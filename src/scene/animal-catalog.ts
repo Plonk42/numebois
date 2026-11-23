@@ -22,6 +22,11 @@ export const ANIMAL_CATALOG = {
   Stag: { file: 'Stag', clips: hoofed },
   Fox: { file: 'Fox', clips: canine },
   Wolf: { file: 'Wolf', clips: canine },
+  // The orchard's animals (#31).
+  Donkey: { file: 'Donkey', clips: hoofed },
+  Alpaca: { file: 'Alpaca', clips: hoofed },
+  Horse: { file: 'Horse_White', clips: hoofed },
+  Cow: { file: 'Cow', clips: hoofed },
 } as const satisfies Record<string, AnimalSource>;
 
 export type AnimalName = keyof typeof ANIMAL_CATALOG;

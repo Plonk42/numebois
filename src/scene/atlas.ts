@@ -269,6 +269,28 @@ export function hexCellTarget(col: number, row: number): { col: number; row: num
   return null;
 }
 
+/**
+ * Cells of the Medieval Hexagon atlas used by its buildings, drawn with a part of a swatch of
+ * close colours instead of a cell of their own: the atlas has no room left for them.
+ */
+export const HEX_ALIASES: Record<string, { swatch: SwatchName; from: number; to: number }> = {
+  // Stone, light to dark grey: the same ramp as the KayKit stone.
+  '2,0': { swatch: 'Stone', from: 0, to: 1 },
+  '3,0': { swatch: 'Stone', from: 0.85, to: 1 },
+  // Black of the windows.
+  '4,0': { swatch: 'DarkBark', from: 0.9, to: 1 },
+  '6,1': { swatch: 'Stone', from: 0.15, to: 0.9 },
+  // Wood, light and dark.
+  '5,0': { swatch: 'Earth', from: 0.15, to: 0.6 },
+  '6,0': { swatch: 'Earth', from: 0.35, to: 0.75 },
+  // Sand-coloured walls and sacks.
+  '5,1': { swatch: 'HexSand', from: 0, to: 1 },
+  // Red roofs and sails, golden grain, yellow roofs.
+  '1,3': { swatch: 'PetalRed', from: 0.25, to: 1 },
+  '3,1': { swatch: 'Gold', from: 0, to: 1 },
+  '2,3': { swatch: 'PetalYellow', from: 0.3, to: 1 },
+};
+
 function hexToRgb(color: string): [number, number, number] {
   const n = parseInt(color.slice(1), 16);
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];

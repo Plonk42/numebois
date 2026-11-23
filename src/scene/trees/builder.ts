@@ -1,6 +1,14 @@
 import { Rng, hashSeed } from '../../core/rng';
 import type { AssetLibrary } from '../assets';
-import { CELL_U, CELL_V, LEAF_ROW, swatchColumn, swatchUV, type SwatchName } from '../atlas';
+import {
+  CELL_U,
+  CELL_V,
+  LEAF_ROW,
+  shadeOf,
+  swatchColumn,
+  swatchUV,
+  type SwatchName,
+} from '../atlas';
 import { MeshWriter, grown, type MeshData } from '../mesh-data';
 import { FAMILIES, type Family, type FamilyName } from './families';
 import { buildSkeleton, chains, perpendicular, type Skeleton } from './skeleton';
@@ -18,6 +26,10 @@ export interface TreeSpec {
   scale: number;
   /** `light` trees (forest edge) have fewer forks and larger tufts; `far` ones even fewer. */
   detail: 'full' | 'light' | 'far';
+  /** Foliage colours in spring and summer instead of the season's, one drawn per tuft. */
+  foliage?: readonly SwatchName[];
+  /** Fruits hanging on the tufts. */
+  fruit?: SwatchName;
 }
 
 export interface TreeInfo {
@@ -120,6 +132,8 @@ interface TreeContext {
   /** Reference height for the wind bend. */
   top: number;
   sides: number;
+  /** Fruits on the tufts, with their own draws so the tree keeps its shape. */
+  fruit?: { swatch: SwatchName; rng: Rng };
 }
 
 /** Smooth low-poly tube with a pointed end, coloured with the bark gradient. */
@@ -280,13 +294,74 @@ function blob(ctx: TreeContext, b: BlobPlacement): void {
     if (b.snowAbove !== undefined && out.normals[i * 3 + 1] > b.snowAbove)
       out.uvs[i * 2 + 1] = snowV;
   }
+  if (ctx.fruit) fruits(ctx, b, ctx.fruit, bend * bend, tree);
+}
+
+const OCTAHEDRON = [
+  [1, 0, 0],
+  [-1, 0, 0],
+  [0, 1, 0],
+  [0, -1, 0],
+  [0, 0, 1],
+  [0, 0, -1],
+] as const;
+const OCTAHEDRON_FACES = [
+  [0, 2, 4],
+  [4, 2, 1],
+  [1, 2, 5],
+  [5, 2, 0],
+  [4, 3, 0],
+  [1, 3, 4],
+  [5, 3, 1],
+  [0, 3, 5],
+] as const;
+
+/** Small fruits on the outside of a tuft, growing and swaying with it. */
+function fruits(
+  ctx: TreeContext,
+  b: BlobPlacement,
+  fruit: { swatch: SwatchName; rng: Rng },
+  bend: number,
+  tree: number,
+): void {
+  const { out } = ctx;
+  const { rng } = fruit;
+  const count = rng.int(5, 7);
+  const size = 0.11 * b.width;
+  for (let f = 0; f < count; f++) {
+    // Mostly on the sides and the lower half, where they hang.
+    const a = rng.range(0, TAU);
+    const up = rng.range(-0.55, 0.35);
+    const side = Math.sqrt(1 - up * up);
+    const reach = 0.43 * b.width;
+    const cx = b.x + Math.cos(a) * side * reach;
+    const cy = b.y + up * reach * b.squash;
+    const cz = b.z + Math.sin(a) * side * reach;
+    const first = out.vertexCount;
+    for (const [nx, ny, nz] of OCTAHEDRON) {
+      const [u, v] = swatchUV(fruit.swatch, shadeOf(ny));
+      out.vertex(cx + nx * size, cy + ny * size * 1.1, cz + nz * size, nx, ny, nz, u, v);
+    }
+    for (const [i, j, k] of OCTAHEDRON_FACES) out.triangle(first + i, first + j, first + k);
+    for (let i = first; i < out.vertexCount; i++) {
+      out.setGrowth(i, b.px, b.py, b.pz, b.birth0, b.birth1, bend, 1, tree);
+    }
+  }
 }
 
 /** Foliage colour of a tree for the season: one atlas column per tuft. */
-function foliagePicker(rng: Rng, family: Family, season: Season): () => number {
+function foliagePicker(
+  rng: Rng,
+  family: Family,
+  season: Season,
+  foliage?: readonly SwatchName[],
+): () => number {
   const col = swatchColumn;
   const conifer = family.shape === 'conifer';
   const fixed = (name: SwatchName) => () => col(name);
+  if (foliage && (season === 'spring' || season === 'summer')) {
+    return () => col(rng.pick(foliage));
+  }
   switch (season) {
     case 'spring': {
       const r = rng.next();
@@ -487,12 +562,17 @@ export function buildTree(
     tree: treeIndex,
     top: total,
     sides: far ? 4 : light ? 5 : 6,
+    fruit:
+      spec.fruit && season !== 'winter'
+        ? { swatch: spec.fruit, rng: new Rng(hashSeed(spec.seed, 'fruit')) }
+        : undefined,
   };
   for (const chain of chains(sk)) if (chain.length >= 2) tube(ctx, sk, ages, chain);
   const column = foliagePicker(
     new Rng(hashSeed(spec.seed, `${spec.family}:foliage`)),
     family,
     season,
+    spec.foliage,
   );
   if (conifer) coniferBlobs(ctx, assets, sk, total, far ? 3 : light ? 4 : 5, column);
   else broadleafBlobs(ctx, assets, sk, ages, clump, light, column);

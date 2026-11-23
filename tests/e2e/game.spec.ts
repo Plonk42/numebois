@@ -260,12 +260,13 @@ test('la boutique : une biche achetée en graines dorées rejoint la prairie et 
   await page.goto('./?seed=3');
   await page.evaluate(() => window.__numebois!.ready);
   await loadSave(page, {
-    version: 3,
+    version: 4,
     savedAt: '2026-11-23T10:00:00.000Z',
     leaves: 0,
     seeds: 2,
     trailLength: 'short',
     painting: {
+      biome: 'clearing',
       seed: 3,
       stage: 3,
       season: 'summer',
@@ -347,12 +348,13 @@ test('les saisons : l’automne acheté, l’enfant choisit la saison de son tab
   await page.goto('./?seed=3');
   await page.evaluate(() => window.__numebois!.ready);
   await loadSave(page, {
-    version: 3,
+    version: 4,
     savedAt: '2026-11-23T10:00:00.000Z',
     leaves: 0,
     seeds: 3,
     trailLength: 'short',
     painting: {
+      biome: 'clearing',
       seed: 3,
       stage: 3,
       season: 'summer',
@@ -452,7 +454,7 @@ test('le choix : comparer avec <, = ou >, d’une touche, sans rouge', async ({ 
   await page.evaluate(() => window.__numebois!.ready);
   // A save where « comparer » is in progress: the trail warms up with it.
   await loadSave(page, {
-    version: 3,
+    version: 4,
     savedAt: '2026-11-23T10:00:00.000Z',
     leaves: 0,
     seeds: 0,
@@ -493,7 +495,7 @@ test('une notion acquise : une graine dorée, seule à l’écran, rejoint la r�
   // « Écrire en chiffres » at its last level: one more right answer acquires it.
   const recent = Array.from({ length: 4 }, () => ({ level: 3, right: true, day: 1 }));
   await loadSave(page, {
-    version: 3,
+    version: 4,
     savedAt: '2026-11-23T10:00:00.000Z',
     leaves: 7,
     seeds: 0,

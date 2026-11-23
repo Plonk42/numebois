@@ -9,7 +9,7 @@ import type { InstanceBatch, InstanceModel } from './render/instancing';
 import type { QualitySettings } from './render/quality';
 import type { Ambience } from './render/richness';
 import { groundSwatch } from './terrain/clearing';
-import type { Terrain } from './terrain/types';
+import type { CropRow, Terrain } from './terrain/types';
 import type { Season } from './trees/builder';
 import type { FamilyName } from './trees/families';
 import type { PlantedTree } from './trees/forest';
@@ -122,7 +122,7 @@ export function plantTrees(
     at: NonNullable<ReturnType<typeof place>>,
     family: FamilyName,
     size: number,
-    rest: Pick<PlantedTree, 'detail' | 'age' | 'islet' | 'slot'>,
+    rest: Pick<PlantedTree, 'detail' | 'age' | 'islet' | 'slot' | 'foliage' | 'fruit'>,
   ) => {
     const { seed, x, y, z, yaw } = at;
     trees.push({
@@ -147,18 +147,23 @@ export function plantTrees(
       const [young, old] = ambience.edgeAge;
       plant(
         at,
-        spot.conifer ? 'Pine' : families[Math.floor(at.pick * families.length)],
+        spot.family ?? (spot.conifer ? 'Pine' : families[Math.floor(at.pick * families.length)]),
         spot.size,
         {
           detail,
           age: young + (old - young) * at.ageDraw,
+          foliage: spot.foliage,
+          fruit: spot.fruit,
         },
       );
     } else if (spot.role === 'hero') {
-      const family = HERO_FAMILIES[((spot.slot ?? 0) + flora.shift) % HERO_FAMILIES.length];
+      const family =
+        spot.family ?? HERO_FAMILIES[((spot.slot ?? 0) + flora.shift) % HERO_FAMILIES.length];
       plant(at, family, spot.size, {
         detail: spot.detail ?? 'full',
         age: Math.max(ambience.edgeAge[0], 0.85),
+        foliage: spot.foliage,
+        fruit: spot.fruit,
       });
     } else {
       plant(at, flora.favourite, spot.size, {
@@ -181,13 +186,20 @@ export function plantTrees(
     const at = place(slot.x, slot.z);
     if (!at) continue;
     const family =
-      slot.index % 3 === 1
+      slot.family ??
+      (slot.index % 3 === 1
         ? flora.favourite
-        : CLEARING_FAMILIES[(slot.index + flora.shift) % CLEARING_FAMILIES.length];
+        : CLEARING_FAMILIES[(slot.index + flora.shift) % CLEARING_FAMILIES.length]);
     const age = childTreeAge(description, slot.index);
     (age > 0 ? grown : hidden).push(trees.length);
     slotTrees.set(slot.index, trees.length);
-    plant(at, family, slot.size, { detail: slot.detail, age, slot: slot.index });
+    plant(at, family, slot.size, {
+      detail: slot.detail,
+      age,
+      slot: slot.index,
+      foliage: slot.foliage,
+      fruit: slot.fruit,
+    });
   }
   return { trees, demo: [...hidden, ...grown], slotTrees };
 }
@@ -386,6 +398,44 @@ export function scatterVegetation(
   const cover = quality.groundCover * terrain.cover;
   // Along the water, a larger diorama is dressed more sparsely.
   const bankStep = 0.9 * Math.max(1, terrain.cover);
+
+  const CROPS = {
+    tulip: { model: 'gen:tulip', step: 0.8, scale: [2.0, 2.5] },
+    lavender: { model: 'gen:bellflower', step: 0.75, scale: [2.2, 2.8] },
+    wheat: { model: 'Grass_1_A', step: 0.8, scale: [0.9, 1.15] },
+  } as const satisfies Record<
+    CropRow['crop'],
+    { model: InstanceModel; step: number; scale: readonly [number, number] }
+  >;
+  // Cultivated strips: flowers or wheat in rows, a little irregular; bare under the snow.
+  for (const [index, row] of season === 'winter' ? [] : terrain.crops.entries()) {
+    const crop = CROPS[row.crop];
+    const rng = draw('crop', index);
+    for (let i = 0; i + 1 < row.points.length; i++) {
+      const a = row.points[i];
+      const b = row.points[i + 1];
+      const steps = Math.max(1, Math.round(Math.hypot(b.x - a.x, b.z - a.z) / crop.step));
+      for (let s = 0; s < steps; s++) {
+        const t = (s + rng.range(0.3, 0.7)) / steps;
+        const x = a.x + (b.x - a.x) * t + rng.range(-0.1, 0.1);
+        const z = a.z + (b.z - a.z) * t + rng.range(-0.1, 0.1);
+        const surface = terrain.surfaceAt(x, z);
+        if (surface?.kind !== 'field') continue;
+        const scale = rng.range(crop.scale[0], crop.scale[1]);
+        batch.add(
+          crop.model,
+          x,
+          surface.y - 0.03,
+          z,
+          rng.range(0, TAU),
+          scale,
+          scale * (row.crop === 'wheat' ? 1.4 : 1),
+          swatchColumn(row.crop === 'wheat' ? 'Gold' : rng.pick(leaves)),
+          swatchColumn(row.petal),
+        );
+      }
+    }
+  }
 
   // Banks: small rocks and tall grass along the water.
   const reed: ModelName[] = ['Grass_2_A', 'Grass_2_A', 'Grass_2_A', 'Grass_2_A', 'Grass_2_B'];

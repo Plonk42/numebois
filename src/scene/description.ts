@@ -9,6 +9,10 @@ export const LAST_STAGE: Stage = 11;
 /** One value per stage. */
 export type PerStage<T> = readonly [T, T, T, T, T, T, T, T, T, T, T, T];
 
+/** Décors of a painting: the clearing, then the orchard on its hills (#31). */
+export const BIOME_IDS = ['clearing', 'orchard'] as const;
+export type BiomeId = (typeof BIOME_IDS)[number];
+
 /** An element the child placed in a slot of the painting; its kind is the slot's. */
 export interface PlacedElement {
   slot: number;
@@ -26,16 +30,25 @@ export const MAX_ELEMENTS = SLOT_COUNT;
 export const ELEMENTS_AT_STAGE: PerStage<number> = [0, 1, 2, 3, 5, 7, 9, 11, 13, 15, 17, 19];
 
 /**
- * Animals of the shop (#83), each open from a stage: one newcomer at a time as the meadow
- * grows, and the wolf needs its ledge (stage 10). Once open, bought in any order.
+ * Animals of the shop of each décor (#83), each open from a stage: one newcomer at a time as
+ * the meadow grows, and the wolf needs its ledge (stage 10). Once open, bought in any order.
  */
-export const ANIMAL_OFFERS: readonly { animal: AnimalName; stage: Stage }[] = [
-  { animal: 'Deer', stage: 3 },
-  { animal: 'Fox', stage: 5 },
-  { animal: 'Stag', stage: 7 },
-  { animal: 'Deer', stage: 8 },
-  { animal: 'Wolf', stage: 10 },
-];
+export const ANIMAL_OFFERS: Record<BiomeId, readonly { animal: AnimalName; stage: Stage }[]> = {
+  clearing: [
+    { animal: 'Deer', stage: 3 },
+    { animal: 'Fox', stage: 5 },
+    { animal: 'Stag', stage: 7 },
+    { animal: 'Deer', stage: 8 },
+    { animal: 'Wolf', stage: 10 },
+  ],
+  orchard: [
+    { animal: 'Donkey', stage: 3 },
+    { animal: 'Alpaca', stage: 5 },
+    { animal: 'Horse', stage: 7 },
+    { animal: 'Cow', stage: 9 },
+    { animal: 'Alpaca', stage: 10 },
+  ],
+};
 
 /**
  * Stage from which the shop sells the second, third and fourth season of a painting (#82):
@@ -60,6 +73,7 @@ export function stageFor(elements: number): Stage {
  * painting is a pure function of this description (and of the growth triggered on top).
  */
 export interface SceneDescription {
+  biome: BiomeId;
   seed: number;
   stage: Stage;
   /** Season shown, chosen by the child among `seasons`. */
@@ -89,8 +103,8 @@ export function demoElements(seed: number, fill: number): PlacedElement[] {
 }
 
 /** Animals of a demonstration scene: every one open at its stage, as if the child had bought them. */
-export function demoAnimals(stage: Stage): AnimalName[] {
-  return ANIMAL_OFFERS.filter((offer) => offer.stage <= stage).map((offer) => offer.animal);
+export function demoAnimals(biome: BiomeId, stage: Stage): AnimalName[] {
+  return ANIMAL_OFFERS[biome].filter((offer) => offer.stage <= stage).map((offer) => offer.animal);
 }
 
 /** Share of the slots filled. */
@@ -99,17 +113,18 @@ export function fillOf(description: SceneDescription): number {
 }
 
 /** A painting where the child has placed nothing yet. */
-export function newPainting(seed: number, season: Season): SceneDescription {
-  return { seed, stage: 0, season, seasons: [season], elements: [], animals: [] };
+export function newPainting(seed: number, season: Season, biome: BiomeId): SceneDescription {
+  return { biome, seed, stage: 0, season, seasons: [season], elements: [], animals: [] };
 }
 
 export const DEFAULT_DESCRIPTION: SceneDescription = {
+  biome: 'clearing',
   seed: 7,
   stage: 6,
   season: 'summer',
   seasons: ['summer'],
   elements: demoElements(7, DEMO_FILL[6]),
-  animals: demoAnimals(6),
+  animals: demoAnimals('clearing', 6),
 };
 
 export function parseDescription(params: URLSearchParams): SceneDescription {
@@ -120,7 +135,12 @@ export function parseDescription(params: URLSearchParams): SceneDescription {
   const knownStage = STAGES.includes(stage as Stage) ? (stage as Stage) : DEFAULT_DESCRIPTION.stage;
   const fill = Number(params.get('fill') ?? Number.NaN);
   const knownSeed = Number.isFinite(seed) ? Math.abs(Math.floor(seed)) : DEFAULT_DESCRIPTION.seed;
+  const biome = params.get('biome');
+  const knownBiome = BIOME_IDS.includes(biome as BiomeId)
+    ? (biome as BiomeId)
+    : DEFAULT_DESCRIPTION.biome;
   return {
+    biome: knownBiome,
     seed: knownSeed,
     stage: knownStage,
     season,
@@ -129,11 +149,12 @@ export function parseDescription(params: URLSearchParams): SceneDescription {
       knownSeed,
       Number.isFinite(fill) ? Math.min(1, Math.max(0, fill / 100)) : DEMO_FILL[knownStage],
     ),
-    animals: demoAnimals(knownStage),
+    animals: demoAnimals(knownBiome, knownStage),
   };
 }
 
 export function writeDescription(params: URLSearchParams, description: SceneDescription): void {
+  params.set('biome', description.biome);
   params.set('stage', String(description.stage));
   params.set('season', description.season);
   params.set('seed', String(description.seed));
@@ -166,12 +187,13 @@ export function readDescription(value: unknown): SceneDescription | null {
     return null;
   }
   const animals = value.animals as unknown[];
+  const { biome, seed, stage, season } = value;
+  if (!BIOME_IDS.includes(biome as BiomeId)) return null;
   for (const animal of animals) {
-    const offered = ANIMAL_OFFERS.filter((offer) => offer.animal === animal).length;
+    const offered = ANIMAL_OFFERS[biome as BiomeId].filter((o) => o.animal === animal).length;
     if (!ANIMAL_NAMES.includes(animal as AnimalName)) return null;
     if (animals.filter((a) => a === animal).length > offered) return null;
   }
-  const { seed, stage, season } = value;
   const slots = new Set<number>();
   const elements: PlacedElement[] = [];
   for (const element of value.elements as unknown[]) {
@@ -188,6 +210,7 @@ export function readDescription(value: unknown): SceneDescription | null {
     return null;
   }
   return {
+    biome: biome as BiomeId,
     seed: seed as number,
     stage: stage as Stage,
     season: season as Season,

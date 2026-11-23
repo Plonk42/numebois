@@ -38,4 +38,28 @@ export const ANIMALS = {
     max: [0.533, 2.671, 2.561],
     clips: { idle: 3.333, look: 4, eat: 2.533, walk: 1.067 },
   },
+  Donkey: {
+    triangles: 2000,
+    min: [-0.58, 0.005, -1.709],
+    max: [0.58, 3.959, 2.999],
+    clips: { idle: 3.333, look: 3.333, eat: 6, walk: 1.167 },
+  },
+  Alpaca: {
+    triangles: 2060,
+    min: [-0.633, 0.005, -1.732],
+    max: [0.633, 5.403, 2.568],
+    clips: { idle: 4.167, look: 4.167, eat: 7.5, walk: 1.458 },
+  },
+  Horse: {
+    triangles: 2182,
+    min: [-0.703, -0.011, -2.223],
+    max: [0.703, 4.813, 3.453],
+    clips: { idle: 3.333, look: 3.333, eat: 6, walk: 1.167 },
+  },
+  Cow: {
+    triangles: 2450,
+    min: [-1.156, -0.056, -2.98],
+    max: [1.156, 4.531, 5.087],
+    clips: { idle: 3.333, look: 3.333, eat: 6, walk: 1.167 },
+  },
 } as const satisfies Record<AnimalName, AnimalInfo>;

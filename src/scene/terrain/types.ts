@@ -1,9 +1,12 @@
 import type { ModelName } from '../asset-catalog';
+import type { SwatchName } from '../atlas';
 import type { MeshWriter } from '../mesh-data';
 import type { WaterBuilder } from '../render/water';
 import type { Season, TreeSpec } from '../trees/builder';
+import type { FamilyName } from '../trees/families';
 
-export type SurfaceKind = 'grass' | 'sand' | 'rock' | 'water';
+/** `field`: cultivated strip, left to its crop (no wild grass, bushes or flowers). */
+export type SurfaceKind = 'grass' | 'field' | 'sand' | 'rock' | 'water';
 
 export interface Surface {
   y: number;
@@ -31,6 +34,10 @@ export interface TreeSpot {
   /** Stable index of the spot in its role, so a tree keeps its family at every stage. */
   slot?: number;
   detail?: TreeSpec['detail'];
+  /** Family and foliage chosen by the terrain (orchard rows), instead of the painting's. */
+  family?: FamilyName;
+  foliage?: TreeSpec['foliage'];
+  fruit?: TreeSpec['fruit'];
 }
 
 /** Slot of the painting on the diorama, where the child places an element. */
@@ -42,6 +49,10 @@ export interface SlotSpot {
   kind: 'tree' | 'grove';
   size: number;
   detail: TreeSpec['detail'];
+  /** Family and foliage chosen by the terrain (orchard rows), instead of the painting's. */
+  family?: FamilyName;
+  foliage?: TreeSpec['foliage'];
+  fruit?: TreeSpec['fruit'];
 }
 
 /** Beaver dam across the outlet of a lake: the base, and the direction of the flow below it. */
@@ -59,7 +70,7 @@ export type Reveal = 'waiting' | 'announced' | 'shown';
 /** Grand moment coming at the next stage: sparkles float over it. */
 export interface Announcement {
   /** Names its own random draws. */
-  label: 'lake';
+  label: 'lake' | 'windmill' | 'blossom';
   x: number;
   y: number;
   z: number;
@@ -74,6 +85,18 @@ export interface StaticModel {
   yaw: number;
   scale: number;
   scaleY?: number;
+}
+
+/** Part turning around the centre of its bounds, on the model's z axis (windmill sails). */
+export interface Spinner {
+  model: ModelName;
+  x: number;
+  y: number;
+  z: number;
+  yaw: number;
+  scale: number;
+  /** Turns per second. */
+  speed: number;
 }
 
 export interface Waterfall {
@@ -95,6 +118,14 @@ export interface Pond {
   y: number;
   z: number;
   radius: number;
+}
+
+/** Row of a cultivated strip: flowers or wheat planted along its points. */
+export interface CropRow {
+  points: readonly { x: number; z: number }[];
+  crop: 'tulip' | 'lavender' | 'wheat';
+  /** Petal colour of the flowers. */
+  petal: SwatchName;
 }
 
 /** The diorama: what trees, vegetation, light and effects need to know of the ground. */
@@ -119,10 +150,12 @@ export interface Terrain {
   nearLake(x: number, z: number): boolean;
   /** Large rocks and scenery merged in the static mesh. */
   readonly staticModels: readonly StaticModel[];
+  readonly spinners: readonly Spinner[];
   readonly waterfalls: readonly Waterfall[];
   /** Banks to dress with rocks and tall grass. */
   readonly banks: readonly BankPath[];
   readonly ponds: readonly Pond[];
+  readonly crops: readonly CropRow[];
   /** Half extents of the area to scatter vegetation on. */
   readonly extent: { x: number; z: number };
   /** Factor on the amounts of vegetation and ambient life, for the size of the diorama. */

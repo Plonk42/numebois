@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { Rng } from '../core/rng';
 import type { AnimalLibrary } from './animals';
 import type { AssetLibrary } from './assets';
+import { MODELS } from './assets.gen';
+import { BIOMES } from './biomes';
 import { swatchColor, type SwatchName } from './atlas';
 import { composeScene, compositionTriangles } from './compose';
 import { LAST_STAGE, type SceneDescription } from './description';
@@ -130,6 +132,7 @@ export class Painting {
     { mesh: THREE.InstancedMesh; index: number; matrix: THREE.Matrix4 }[]
   >();
   private readonly sprouting: { slot: number; start: number }[] = [];
+  private readonly spinners: { pivot: THREE.Group; speed: number }[] = [];
   private readonly burstOrigin = new THREE.Vector3();
   private readonly scratch = new THREE.Matrix4();
   /** Free slots offered for the next element, prepared hidden. */
@@ -143,7 +146,7 @@ export class Painting {
     quality: QualitySettings,
   ) {
     const { seed, season } = description;
-    const ambience = ambienceFor(description.stage, season);
+    const ambience = ambienceFor(description.stage, season, BIOMES[description.biome]);
     this.ambience = ambience;
     const composition = composeScene(description, assets, ambience, quality);
     const { terrain, ground, water, planting, population } = composition;
@@ -167,6 +170,28 @@ export class Painting {
 
     const waterMesh = water.build(materials.water);
     this.root.add(waterMesh);
+
+    for (const s of terrain.spinners) {
+      const { min, max } = MODELS[s.model];
+      const hub = new THREE.Vector3(
+        (min[0] + max[0]) / 2,
+        (min[1] + max[1]) / 2,
+        (min[2] + max[2]) / 2,
+      );
+      const mesh = new THREE.Mesh(assets.geometry(s.model), materials.solid);
+      mesh.position.copy(hub).negate();
+      mesh.castShadow = true;
+      const pivot = new THREE.Group();
+      pivot.position.copy(hub);
+      pivot.add(mesh);
+      const holder = new THREE.Group();
+      holder.position.set(s.x, s.y, s.z);
+      holder.rotation.y = s.yaw;
+      holder.scale.setScalar(s.scale);
+      holder.add(pivot);
+      this.root.add(holder);
+      this.spinners.push({ pivot, speed: s.speed * TAU });
+    }
 
     this.demo = planting.demo;
     this.slotTrees = planting.slotTrees;
@@ -342,8 +367,8 @@ export class Painting {
 
     const palette = foliagePalette(season);
     rng = drawn('leaves');
-    const leafColor = () => {
-      const [r, g, b] = swatchColor(rng.pick(palette), rng.range(0.1, 0.45));
+    const leafColor = (names = palette) => {
+      const [r, g, b] = swatchColor(rng.pick(names), rng.range(0.1, 0.45));
       return new THREE.Color().setRGB(r, g, b, THREE.SRGBColorSpace);
     };
     const leaves: Leaf[] = [];
@@ -360,6 +385,21 @@ export class Painting {
         z: tree.z + rng.range(-1.6, 1.6),
         fall,
         color: leafColor(),
+        burst: false,
+      });
+    }
+    // Trees in blossom shed their petals in the wind.
+    const blossoming = grown.filter((t) => t.tree.foliage?.includes('Blossom'));
+    const petals = Math.round(70 * life * Math.min(1, blossoming.length / 12));
+    for (let i = 0; i < petals; i++) {
+      const { tree, info } = rng.pick(blossoming);
+      const fall = info.height * 0.8;
+      leaves.push({
+        x: tree.x + rng.range(-1.4, 1.4),
+        y: tree.y + fall,
+        z: tree.z + rng.range(-1.4, 1.4),
+        fall,
+        color: leafColor(['Blossom', 'PetalPink', 'PetalWhite']),
         burst: false,
       });
     }
@@ -561,6 +601,7 @@ export class Painting {
     this.materials.shared.uTime.value = time;
     this.clouds.update(time);
     this.herd.update(time);
+    for (const s of this.spinners) s.pivot.rotation.z = time * s.speed;
     for (let i = this.growing.length - 1; i >= 0; i--) {
       const g = this.growing[i];
       const a = Math.min(1, Math.max(0, (time - g.start) / GROWTH_SECONDS));

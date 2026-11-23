@@ -20,7 +20,7 @@ function painting(
   seasons: SceneDescription['seasons'] = SEASONS,
 ): SceneDescription {
   return {
-    ...newPainting(4, 'summer'),
+    ...newPainting(4, 'summer', 'clearing'),
     stage: stageFor(placed),
     seasons,
     elements: Array.from({ length: placed }, (_, slot) => ({ slot, day: 1 })),
@@ -57,6 +57,8 @@ describe('boutique de la forêt', () => {
   });
 
   it('opens the animals with the stages, one of each kind, and the next one to come', () => {
+    const orchard = { ...painting(ELEMENTS_AT_STAGE[5]), biome: 'orchard' as const };
+    expect(names(orchard)).toEqual(['element', 'Donkey', 'Alpaca', 'Horse']);
     expect(names(painting(3))).toEqual(['element', 'Deer', 'Fox']);
     expect(names(painting(3, ['Deer']))).toEqual(['element', 'Fox']);
     expect(shopItems(painting(3, ['Deer']))[1].elementsToGo).toBe(ELEMENTS_AT_STAGE[5] - 3);
@@ -68,7 +70,7 @@ describe('boutique de la forêt', () => {
       'Wolf',
     ]);
     // Everything bought, the painting complete: nothing left to sell.
-    expect(names(painting(MAX_ELEMENTS, demoAnimals(11)))).toEqual([]);
+    expect(names(painting(MAX_ELEMENTS, demoAnimals('clearing', 11)))).toEqual([]);
   });
 
   it('stays short, and never offers more animals than the meadow takes', () => {
@@ -83,7 +85,7 @@ describe('boutique de la forêt', () => {
         if (!item || item.article.kind !== 'animal') break;
         animals = [...animals, item.article.animal];
       }
-      expect([...animals].sort(), `stage ${stage}`).toEqual(demoAnimals(stage).sort());
+      expect([...animals].sort(), `stage ${stage}`).toEqual(demoAnimals('clearing', stage).sort());
     }
   });
 

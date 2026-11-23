@@ -8,6 +8,10 @@ export const ANIMAL_LABELS: Record<AnimalName, string> = {
   Stag: 'Un cerf',
   Fox: 'Un renard',
   Wolf: 'Un loup',
+  Donkey: 'Un âne',
+  Alpaca: 'Un alpaga',
+  Horse: 'Un cheval',
+  Cow: 'Une vache',
 };
 
 const labelOf = (article: Article) => {
