@@ -84,9 +84,9 @@ for (const stage of [0, 11]) {
       `stage=${stage}&fill=100&landmarks=lake,mountain,season&quality=high&time=12`,
     );
     expect(await page.evaluate(() => window.__numebois!.describe())).toMatchObject({
-      fill: 1,
       landmarks: ['lake', 'mountain', 'season'],
     });
+    expect((await page.evaluate(() => window.__numebois!.describe())).elements).toHaveLength(22);
     await checkScene(page, `palier-${stage}-grands-moments`);
     expect(errors).toEqual([]);
   });
@@ -133,9 +133,9 @@ test('mode débogage : réglages, compteurs et pousse', async ({ page }) => {
   await page.locator('#debug-fill').fill('100');
   await page.locator('#debug-landmark-mountain').check();
   expect(await page.evaluate(() => window.__numebois!.describe())).toMatchObject({
-    fill: 1,
     landmarks: ['mountain'],
   });
+  expect((await page.evaluate(() => window.__numebois!.describe())).elements).toHaveLength(22);
   expect(new URL(page.url()).searchParams.get('landmarks')).toBe('mountain');
 
   // Growth demonstration: by the button, then by the key.

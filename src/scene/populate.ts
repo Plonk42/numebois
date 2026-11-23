@@ -68,16 +68,9 @@ export interface Planting {
   demo: number[];
 }
 
-/**
- * Slots filled in the demonstration scene, until the elements are really placed (#25): a
- * share of all the slots of the painting, mostly the first ones to open, as the child fills
- * the open slots. A filled slot stays filled at the next stage and with a larger share.
- */
-export function filledSlots(seed: number, fill: number): ReadonlySet<number> {
-  const rng = new Rng(seed).fork('fill');
-  const order = Array.from({ length: SLOT_COUNT }, (_, i) => ({ i, key: i + rng.range(0, 3) }));
-  order.sort((a, b) => a.key - b.key);
-  return new Set(order.slice(0, Math.round(fill * SLOT_COUNT)).map((o) => o.i));
+/** Slots holding an element placed by the child. */
+function filledSlots(description: SceneDescription): ReadonlySet<number> {
+  return new Set(description.elements.map((element) => element.slot));
 }
 
 /** Trees of the painting for its stage: the forest, the large trees, the tree slots. */
@@ -154,7 +147,7 @@ export function plantTrees(
   }
 
   // The child's trees: grown in the filled slots, waiting at age 0 in the empty ones.
-  const filled = filledSlots(description.seed, description.fill);
+  const filled = filledSlots(description);
   const empty: number[] = [];
   const grown: number[] = [];
   for (const slot of terrain.slots) {
@@ -304,7 +297,7 @@ export function scatterVegetation(
   }
 
   // Groves of the filled slots: a large bush, two small ones and the painting's flowers.
-  const filled = filledSlots(description.seed, description.fill);
+  const filled = filledSlots(description);
   for (const slot of terrain.slots) {
     if (slot.kind !== 'grove' || !filled.has(slot.index)) continue;
     const center = terrain.surfaceAt(slot.x, slot.z);
