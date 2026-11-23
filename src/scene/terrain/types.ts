@@ -47,6 +47,15 @@ export interface SlotSpot {
   detail: TreeSpec['detail'];
 }
 
+/** Beaver dam across the outlet of a lake: the base, and the direction of the flow below it. */
+export interface Dam {
+  x: number;
+  y: number;
+  z: number;
+  yaw: number;
+  width: number;
+}
+
 /** Grand moment still hidden: sparkles float over it. */
 export interface Announcement {
   landmark: Landmark;
@@ -99,6 +108,10 @@ export interface Terrain {
   readonly slots: readonly SlotSpot[];
   /** Grand moments of the terrain still to come. */
   readonly announcements: readonly Announcement[];
+  /** Beaver dam holding the lake moment once revealed. */
+  readonly dam: Dam | null;
+  /** Close to a grand moment, where revealing it changes the ground. */
+  nearLandmark(x: number, z: number): boolean;
   /** Large rocks and scenery merged in the static mesh. */
   readonly staticModels: readonly StaticModel[];
   readonly waterfalls: readonly Waterfall[];

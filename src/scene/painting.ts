@@ -151,7 +151,9 @@ export class Painting {
     this.batch = composition.batch;
     // Small rocks and bushes cast no shadow: barely visible from the camera, and costly.
     const instanced = this.batch.build((model) =>
-      model.startsWith('Rock') || model === 'gen:shadow' ? materials.solid : materials.vegetation,
+      model.startsWith('Rock') || model === 'gen:shadow' || model === 'gen:dam'
+        ? materials.solid
+        : materials.vegetation,
     );
     this.root.add(...instanced);
 

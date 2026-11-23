@@ -3,7 +3,7 @@ import type { ModelName } from './asset-catalog';
 import { swatchColumn, swatchUV, type SwatchName } from './atlas';
 import { nextSeason, shownSeason, type SceneDescription } from './description';
 import { MeshWriter, type MeshData } from './mesh-data';
-import { GENERATED_PROPS } from './props';
+import { beaverDam, GENERATED_PROPS } from './props';
 import type { InstanceBatch, InstanceModel } from './render/instancing';
 import type { QualitySettings } from './render/quality';
 import type { Ambience } from './render/richness';
@@ -262,6 +262,13 @@ export function scatterVegetation(
   const flora = floraOf(description.seed);
   const flowerSpots: Population['flowerSpots'] = [];
 
+  if (terrain.dam) {
+    const { x, y, z, yaw, width } = terrain.dam;
+    batch.register('gen:dam', beaverDam());
+    batch.add('gen:dam', x, y, z, yaw, width);
+    blocked.push({ x, z, r: width * 0.55 });
+  }
+
   // Groves of the filled slots: a large bush, two small ones and the painting's flowers.
   const filled = filledSlots(description.seed, description.fill);
   for (const slot of terrain.slots) {
@@ -397,6 +404,9 @@ export function scatterVegetation(
   for (let attempt = 0, placed = 0; attempt < grassTarget * 6 && placed < grassTarget; attempt++) {
     const rng = draw('grass', attempt);
     const { x, z } = sample(rng);
+    // Near a grand moment, an attempt counts placed or not: revealing it moves nothing further.
+    const near = terrain.nearLandmark(x, z);
+    if (near) placed++;
     if (valueNoise2(description.seed + 11, x / 3.2, z / 3.2) < 0.36) continue;
     const surface = terrain.surfaceAt(x, z);
     if (!surface || surface.kind !== 'grass' || surface.slope > 0.4 || !free(x, z, 0.1)) continue;
@@ -411,7 +421,7 @@ export function scatterVegetation(
       scale * rng.range(0.9, 1.3),
       col(rng, leaves),
     );
-    placed++;
+    if (!near) placed++;
   }
 
   // Flowers, in drifts of one kind and mostly one colour; most of them the painting's favourite.
@@ -419,6 +429,8 @@ export function scatterVegetation(
   for (let attempt = 0, made = 0; attempt < drifts * 8 && made < drifts; attempt++) {
     const rng = draw('flowers', attempt);
     const { x, z } = sample(rng);
+    const near = terrain.nearLandmark(x, z);
+    if (near) made++;
     const center = terrain.surfaceAt(x, z);
     if (!center || center.kind !== 'grass' || center.slope > 0.3 || !free(x, z, 0.8)) continue;
     const favourite = rng.chance(0.6);
@@ -426,7 +438,7 @@ export function scatterVegetation(
     const color = favourite ? flora.petal : rng.pick(kind.colors);
     const count = rng.int(5, 9);
     flowerSpots.push({ x, y: center.y, z });
-    made++;
+    if (!near) made++;
     for (let i = 0; i < count; i++) {
       const a = rng.range(0, TAU);
       const d = Math.sqrt(rng.next()) * 1.5;
@@ -479,6 +491,8 @@ export function scatterVegetation(
     } else {
       ({ x, z } = sample(rng));
     }
+    const near = terrain.nearLandmark(x, z);
+    if (near) placed++;
     const surface = terrain.surfaceAt(x, z);
     if (!surface || surface.kind !== 'grass' || surface.slope > 0.45 || !free(x, z, 0.9)) continue;
     const model = rng.pick(bushModels);
@@ -494,7 +508,7 @@ export function scatterVegetation(
       col(rng, bushColumns(season)),
     );
     blocked.push({ x, z, r: 0.8 });
-    placed++;
+    if (!near) placed++;
   }
 
   // Mushrooms at the foot of the trees; a fairy ring at the last stage.
@@ -512,6 +526,8 @@ export function scatterVegetation(
     const d = rng.range(1.0, 1.9);
     const x = tree.x + Math.cos(a) * d;
     const z = tree.z + Math.sin(a) * d;
+    const near = terrain.nearLandmark(x, z);
+    if (near) placed++;
     const surface = terrain.surfaceAt(x, z);
     if (!surface || surface.kind !== 'grass' || !free(x, z, 0.2)) continue;
     const toadstool = rng.chance(0.55);
@@ -530,7 +546,7 @@ export function scatterVegetation(
       0,
       accent,
     );
-    placed++;
+    if (!near) placed++;
   }
   if (ambience.mushrooms > 1.2) {
     const host = hosts.find((t) => t.age > 0.5 && t.detail === 'full' && t.family !== 'Gnarly');

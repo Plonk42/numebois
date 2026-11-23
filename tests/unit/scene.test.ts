@@ -27,6 +27,7 @@ import {
   hidesWater,
   rimValue,
 } from '../../src/scene/terrain/clearing-layout';
+import { distanceToPath } from '../../src/scene/terrain/types';
 import { SEASONS, type Season } from '../../src/scene/trees/builder';
 import { buildForestBuffers } from '../../src/scene/trees/forest';
 import { createBudgetLibrary, hashFloats } from './helpers';
@@ -456,11 +457,35 @@ describe('slots and grand moments', () => {
       const { layout } = clearingLayout(seed);
       const lake = basinAt(layout.basin, 6 / LAST_STAGE);
       const revealed = new Set(placed(seed, ['lake']).map((p) => p.key));
+      // Its banks, and the dam across its outlet, may move what is right next to them.
       const away = hidden.filter(
-        (p) => Math.hypot(p.x - lake.x * layout.mirror, p.z - lake.z) > lake.radius + 2.5,
+        (p) => Math.hypot(p.x - lake.x * layout.mirror, p.z - lake.z) > lake.radius + 5.5,
       );
-      expect(away.length, `seed ${seed}`).toBeGreaterThan(hidden.length * 0.8);
+      expect(away.length, `seed ${seed}`).toBeGreaterThan(hidden.length * 0.6);
       for (const p of away) expect(revealed.has(p.key), `seed ${seed}: ${p.key}`).toBe(true);
+    }
+  });
+
+  it('runs the east stream through the lake moment, held by a dam once revealed', () => {
+    for (let seed = 0; seed < 12; seed++) {
+      const label = `seed ${seed}`;
+      const { layout } = clearingLayout(seed);
+      const m = layout.mirror;
+      const { basin, eastPath, eastInlet, mainPath } = layout;
+      const inlet = eastPath[eastInlet];
+      expect(Math.hypot(inlet[0] - basin.x, inlet[1] - basin.z), label).toBeLessThan(1e-6);
+      const mouth = eastPath[eastPath.length - 1];
+      expect(distanceToPath(mainPath, mouth[0], mouth[1]).distance, label).toBeLessThan(0.01);
+      // Before the reveal, the stream crosses the dry hollow; nothing holds it back.
+      const hidden = createClearing(seed, 6, []);
+      expect(hidden.surfaceAt(basin.x * m, basin.z)?.kind, label).toBe('water');
+      expect(hidden.dam, label).toBeNull();
+      // Once revealed, the dam stands on the outlet, at the bank of the lake.
+      const lake = basinAt(basin, 6 / LAST_STAGE);
+      const dam = createClearing(seed, 6, ['lake']).dam!;
+      expect(dam, label).not.toBeNull();
+      expect(Math.hypot(dam.x * m - lake.x, dam.z - lake.z) - lake.radius, label).toBeLessThan(1);
+      expect(distanceToPath(eastPath, dam.x * m, dam.z).distance, label).toBeLessThan(0.01);
     }
   });
 

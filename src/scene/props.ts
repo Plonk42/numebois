@@ -298,6 +298,102 @@ export function mushroomClump(): MeshData {
   return out.toMeshData();
 }
 
+/** Log from a to b, not vertical: a prism with light cut ends. `squash` flattens it (mud). */
+function log(
+  out: MeshWriter,
+  a: readonly number[],
+  b: readonly number[],
+  radius: number,
+  swatch: SwatchName,
+  sides = 6,
+  squash = 1,
+): void {
+  const d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+  const len = Math.hypot(d[0], d[1], d[2]);
+  const ax = d.map((v) => v / len);
+  // u horizontal, v = ax × u (downwards for a level log): (u, v, ax) is right-handed.
+  const ul = Math.hypot(ax[2], ax[0]) || 1;
+  const u = [-ax[2] / ul, 0, ax[0] / ul];
+  const v = [ax[1] * u[2] - ax[2] * u[1], ax[2] * u[0] - ax[0] * u[2], ax[0] * u[1] - ax[1] * u[0]];
+  const ring = (c: readonly number[]): number[] =>
+    Array.from({ length: sides }, (_, i) => {
+      const t = (i / sides) * TAU;
+      const n = [0, 1, 2].map((k) => Math.cos(t) * u[k] + Math.sin(t) * v[k] * squash);
+      const [su, sv] = swatchUV(swatch, 0.35 + 0.5 * shadeOf(n[1]) - 0.06);
+      return out.vertex(
+        c[0] + n[0] * radius,
+        c[1] + n[1] * radius,
+        c[2] + n[2] * radius,
+        n[0],
+        n[1],
+        n[2],
+        su,
+        sv,
+      );
+    });
+  const ra = ring(a);
+  const rb = ring(b);
+  for (let i = 0; i < sides; i++) {
+    const j = (i + 1) % sides;
+    out.triangle(ra[i], ra[j], rb[i]);
+    out.triangle(ra[j], rb[j], rb[i]);
+  }
+  // Cut ends, lighter.
+  const [cu, cv] = swatchUV(swatch, 0.04);
+  for (const [c, sign] of [
+    [b, 1],
+    [a, -1],
+  ] as const) {
+    const n = ax.map((k) => k * sign);
+    const center = out.vertex(c[0], c[1], c[2], n[0], n[1], n[2], cu, cv);
+    const rim = Array.from({ length: sides }, (_, i) => {
+      const t = (i / sides) * TAU;
+      const p = [0, 1, 2].map(
+        (k) => c[k] + (Math.cos(t) * u[k] + Math.sin(t) * v[k] * squash) * radius,
+      );
+      return out.vertex(p[0], p[1], p[2], n[0], n[1], n[2], cu, cv);
+    });
+    for (let i = 0; i < sides; i++) {
+      const j = (i + 1) % sides;
+      if (sign > 0) out.triangle(center, rim[i], rim[j]);
+      else out.triangle(center, rim[j], rim[i]);
+    }
+  }
+}
+
+/**
+ * Beaver dam, 1 wide across the flow (x), the lake upstream (-z): a bank of mud, two rows
+ * of logs and sticks poking out.
+ */
+export function beaverDam(): MeshData {
+  const out = new MeshWriter(512, 1024);
+  log(out, [-0.58, 0.03, 0.02], [0.58, 0.03, 0.02], 0.2, 'Earth', 7, 0.55);
+  const logs: [number, number, number, number, number][] = [
+    // x from, x to, y, z from, z to
+    [-0.56, -0.04, 0.1, -0.1, -0.06],
+    [-0.16, 0.36, 0.11, 0.08, 0.12],
+    [0.18, 0.6, 0.09, -0.07, -0.12],
+    [-0.42, 0.06, 0.12, 0.13, 0.09],
+    [-0.46, -0.02, 0.19, 0.0, -0.03],
+    [-0.06, 0.44, 0.2, -0.04, 0.01],
+    [0.26, 0.54, 0.17, 0.06, 0.03],
+  ];
+  logs.forEach(([x0, x1, y, z0, z1]) => log(out, [x0, y, z0], [x1, y, z1], 0.045, 'DarkBark'));
+  const sticks: [number, number, number, number][] = [
+    // x, lean across, height, reach downstream
+    [-0.5, 0.06, 0.3, 0.16],
+    [-0.3, -0.05, 0.34, 0.2],
+    [-0.12, 0.08, 0.27, 0.14],
+    [0.05, -0.06, 0.33, 0.18],
+    [0.24, 0.05, 0.3, 0.2],
+    [0.43, -0.07, 0.28, 0.15],
+  ];
+  for (const [x, lean, h, reach] of sticks) {
+    log(out, [x, 0.12, -0.14], [x + lean, h, reach], 0.016, 'DarkBark', 4);
+  }
+  return out.toMeshData();
+}
+
 export const GENERATED_PROPS = {
   'gen:daisy': daisy,
   'gen:tulip': tulip,
