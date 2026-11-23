@@ -1,6 +1,7 @@
 import { readFileSync, statSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { SOUND_CATALOG, type SoundName } from '../../src/scene/audio/sound-catalog';
+import { familyWeights } from '../../src/scene/audio/soundscape';
 import { SOUND_BYTES, SOUND_FILES } from '../../src/scene/audio/sounds.gen';
 import { STAGES } from '../../src/scene/description';
 import { ambienceFor, type SoundLevels } from '../../src/scene/render/richness';
@@ -52,5 +53,44 @@ describe('sound layers', () => {
     const winter = ambienceFor(STAGES.at(-1)!, 'winter').sound;
     expect([winter.meadow, winter.crickets, winter.cuckoo]).toEqual([0, 0, 0]);
     expect(winter.wind).toBeGreaterThan(0);
+  });
+
+  it('never piles every loop up: older layers step back, families take turns', () => {
+    const loops = [
+      'wind',
+      'pond',
+      'brook',
+      'falls',
+      'birds',
+      'chorus',
+      'meadow',
+      'leaves',
+      'crickets',
+    ] as const;
+    for (const stage of STAGES) {
+      const levels = ambienceFor(stage, 'summer').sound;
+      const sum = loops.reduce((total, k) => total + levels[k], 0);
+      expect(sum, `stage ${stage}`).toBeLessThan(2.7);
+      for (let t = 0; t < 400; t += 7) {
+        const weights = Object.values(familyWeights(levels, t)).filter((w) => w > 0);
+        if (weights.length < 2) continue;
+        // One family (or two, crossing over) in front, the others back: 70 % on average.
+        const mean = weights.reduce((a, b) => a + b, 0) / weights.length;
+        expect(mean, `stage ${stage} at ${t} s`).toBeCloseTo(0.7, 5);
+      }
+      // Each family gets its turn in front.
+      const families = Object.keys(familyWeights(levels, 0)) as (keyof ReturnType<
+        typeof familyWeights
+      >)[];
+      for (const family of families) {
+        const peak = Math.max(
+          ...Array.from({ length: 160 }, (_, t) => familyWeights(levels, t)[family]),
+        );
+        if (peak > 0) expect(peak, `${family} at stage ${stage}`).toBeGreaterThan(0.95);
+      }
+    }
+    // Wind and pond alone at the first stage: they take turns too, softly.
+    const first = familyWeights(ambienceFor(0, 'summer').sound, 0);
+    expect(first.air + first.water).toBeGreaterThan(1.3);
   });
 });

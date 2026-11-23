@@ -175,23 +175,24 @@ const LIFE = {
   sunRays: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0.7, 0.85, 1],
   sparkle: [0, 0, 0, 0, 0, 0.08, 0.15, 0.2, 0.25, 0.3, 0.6, 1],
   rainbow: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-  windSound: [0.7, 0.7, 0.72, 0.74, 0.76, 0.78, 0.8, 0.8, 0.8, 0.8, 0.75, 0.7],
   // Sound, one new layer at stages 0, 2, 3, 6, 9 and 11: the spring's pond, the falls, the
   // stream and the first birds, a livelier chorus and the meadow's insects, woodpecker,
-  // cuckoo and leaves in the gusts, then crickets, tawny owl and chimes.
-  pondSound: [0.5, 0.5, 0.45, 0.4, 0.4, 0.35, 0.35, 0.3, 0.3, 0.3, 0.3, 0.3],
-  fallsSound: [0, 0, 0.25, 0.3, 0.35, 0.4, 0.45, 0.55, 0.6, 0.65, 0.7, 0.7],
-  brookSound: [0, 0, 0, 0.35, 0.4, 0.45, 0.5, 0.5, 0.55, 0.6, 0.6, 0.6],
-  birdsSound: [0, 0, 0, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.7, 0.65, 0.55],
-  songs: [0, 0, 0, 1.5, 2, 2.5, 3, 3, 4, 4, 3.5, 3],
-  chorusSound: [0, 0, 0, 0, 0, 0, 0.25, 0.3, 0.4, 0.4, 0.3, 0.2],
-  meadowSound: [0, 0, 0, 0, 0, 0, 0.45, 0.5, 0.55, 0.55, 0.55, 0.45],
-  woodpecker: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0.8, 0.8, 0.6],
-  cuckoo: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0.8, 0.8, 0.5],
-  leavesSound: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0.4, 0.45, 0.45],
-  cricketsSound: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.45],
-  owl: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.7],
-  magic: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+  // cuckoo and leaves in the gusts, then crickets, tawny owl and chimes. As layers come, the
+  // older ones step back, so the whole stays about as loud (and families take turns, #8).
+  windSound: [0.7, 0.7, 0.68, 0.62, 0.6, 0.58, 0.52, 0.5, 0.48, 0.45, 0.42, 0.4],
+  pondSound: [0.5, 0.5, 0.42, 0.32, 0.3, 0.28, 0.24, 0.22, 0.2, 0.18, 0.18, 0.15],
+  fallsSound: [0, 0, 0.3, 0.32, 0.35, 0.38, 0.38, 0.42, 0.42, 0.42, 0.42, 0.4],
+  brookSound: [0, 0, 0, 0.3, 0.32, 0.34, 0.34, 0.34, 0.36, 0.36, 0.36, 0.34],
+  birdsSound: [0, 0, 0, 0.45, 0.48, 0.5, 0.42, 0.42, 0.45, 0.38, 0.38, 0.32],
+  songs: [0, 0, 0, 1.5, 2, 2.5, 3, 3, 3.5, 3, 2.5, 2],
+  chorusSound: [0, 0, 0, 0, 0, 0, 0.22, 0.25, 0.3, 0.24, 0.22, 0.15],
+  meadowSound: [0, 0, 0, 0, 0, 0, 0.4, 0.4, 0.42, 0.32, 0.32, 0.28],
+  woodpecker: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0.6, 0.5, 0.4],
+  cuckoo: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0.6, 0.5, 0.3],
+  leavesSound: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0.3, 0.3, 0.25],
+  cricketsSound: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.35],
+  owl: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.5],
+  magic: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.5],
 } satisfies Record<string, PerStage<number>>;
 
 function mix(a: number, b: number, t: number): number {

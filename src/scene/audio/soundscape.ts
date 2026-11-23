@@ -37,6 +37,40 @@ const REWARD_GAIN = 0.6;
 /** Never two calls of a kind closer than this, in seconds. */
 const MIN_CALL_GAP = 6;
 
+export type Family = 'air' | 'water' | 'birds' | 'insects';
+const FAMILIES: readonly Family[] = ['air', 'water', 'birds', 'insects'];
+const FAMILY: Record<'wind' | LoopName, Family> = {
+  wind: 'air',
+  leaves: 'air',
+  pond: 'water',
+  brook: 'water',
+  falls: 'water',
+  birds: 'birds',
+  chorus: 'birds',
+  meadow: 'insects',
+  crickets: 'insects',
+};
+/** Time each family spends in front, in seconds. */
+const TURN_SECONDS = 40;
+/** Volume of a family while the others are in front. */
+const BACKGROUND = 0.4;
+
+/**
+ * Families of loops take turns in front, so a rich stage never piles every layer up at
+ * once: a family swells for about TURN_SECONDS, then steps back to BACKGROUND.
+ */
+export function familyWeights(levels: SoundLevels, time: number): Record<Family, number> {
+  const keys = Object.keys(FAMILY) as (keyof typeof FAMILY)[];
+  const active = FAMILIES.filter((f) => keys.some((k) => FAMILY[k] === f && levels[k] > 0));
+  const period = TURN_SECONDS * active.length;
+  const weights = { air: 0, water: 0, birds: 0, insects: 0 };
+  active.forEach((family, i) => {
+    const front = 0.5 + 0.5 * Math.cos(2 * Math.PI * (time / period - i / active.length));
+    weights[family] = active.length < 2 ? 1 : BACKGROUND + (1 - BACKGROUND) * front;
+  });
+  return weights;
+}
+
 /**
  * Ambient sound in layers (Web Audio): wind synthesised from filtered noise, recorded loops
  * (water, birds, insects, leaves) whose volumes follow the stage, and calls played at
@@ -47,6 +81,7 @@ export class Soundscape {
   private context: AudioContext | null = null;
   private master: GainNode | null = null;
   private wind: GainNode | null = null;
+  private readonly families = new Map<Family, GainNode>();
   private readonly loops = new Map<LoopName, GainNode>();
   private readonly buffers = new Map<SoundName, AudioBuffer>();
   private readonly nextCall = new Map<CallLevel, number>();
@@ -151,7 +186,12 @@ export class Soundscape {
     master.gain.value = 0;
     master.connect(context.destination);
     this.master = master;
-    this.buildWind(context, master);
+    for (const family of FAMILIES) {
+      const gain = context.createGain();
+      gain.connect(master);
+      this.families.set(family, gain);
+    }
+    this.buildWind(context, this.families.get('air')!);
     for (const name of Object.keys(SOUND_CATALOG) as SoundName[]) void this.load(context, name);
     this.timer = window.setInterval(this.tick, 500);
   }
@@ -220,7 +260,7 @@ export class Soundscape {
     source.loop = true;
     const gain = context.createGain();
     gain.gain.value = (this.levels?.[name] ?? 0) * LOOP_SCALE[name];
-    source.connect(gain).connect(this.master!);
+    source.connect(gain).connect(this.families.get(FAMILY[name])!);
     // Each loop starts somewhere else, so their seams never line up.
     source.start(0, this.rng.range(0, buffer.duration));
     this.loops.set(name, gain);
@@ -252,6 +292,10 @@ export class Soundscape {
     if (!context || context.state !== 'running' || !this.levels) return;
     const now = context.currentTime;
     const quiet = this.quiet();
+    const weights = familyWeights(this.levels, now);
+    for (const [family, gain] of this.families) {
+      gain.gain.setTargetAtTime(weights[family], now, 3);
+    }
     if (quiet !== this.wasQuiet) {
       this.wasQuiet = quiet;
       this.master?.gain.setTargetAtTime(this.volume(), now, FADE_SECONDS / 3);
