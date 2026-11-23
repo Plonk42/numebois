@@ -36,6 +36,7 @@ Numebois est un jeu web de maths pour un enfant de CE2 (8 ans, grande difficult�
 - **Risqué** (format de sauvegarde ou de l'Album, service worker, moteur de rendu partagé, chaîne de traitement des assets, CI, dépendances) : branche, PR avec le modèle, `gh pr merge --auto --squash`, sans attendre la CI.
 - Un commit par étape cohérente, avec ses tests et ses docs. Résumé à l'impératif, `(#N)` ou `Closes #N`. Ne jamais faire de force-push sur `main`, affaiblir un test ni ajouter de relances pour obtenir du vert.
 - Ticket avancé sans être fermé : y ajouter un commentaire court une fois livré (commit ou PR, ce qui est fait, ce qui reste).
+- Ordre (propriétaire) : prendre les tickets dans l'ordre de leurs dépendances (bloquants d'abord) et **finir puis fermer** chacun (`Closes #N`) avant le suivant, plutôt qu'avancer plusieurs tickets à moitié. Ce qui dépend d'un ticket encore à faire (Album, tableau…) part dans un ticket ou un commentaire, pas en suspens.
 - Changement d'interface : vérification en émulation tablette en paysage 1280×800 (la tablette n'est jamais utilisée en portrait). Changement de rendu : captures avant/après aux paliers 0, 6 et 11, et budget tablette mesuré. Un nouveau décor demande la validation du propriétaire.
 - Sauvegardes : compatibilité obligatoire une fois que le propriétaire a déclaré « l'enfant joue pour de vrai » (voir le workflow).
 - Lancer les commandes longues en mode synchrone et attendre leur fin. Ne jamais interroger une commande en arrière-plan avec `sleep` ou `tail`.
