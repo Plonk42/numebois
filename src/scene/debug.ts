@@ -1,5 +1,5 @@
 import type { SceneApp, SceneCounters } from './app';
-import { STAGES, writeDescription, type Stage } from './description';
+import { LANDMARKS, STAGES, writeDescription, type Landmark, type Stage } from './description';
 import { QUALITIES, type Quality } from './render/quality';
 import { STAGE_NAMES } from './render/richness';
 import { SEASONS, type Season } from './trees/builder';
@@ -15,6 +15,11 @@ const QUALITY_LABELS: Record<Quality | 'auto', string> = {
   high: 'Haute',
   medium: 'Moyenne',
   low: 'Basse',
+};
+const LANDMARK_LABELS: Record<Landmark, string> = {
+  lake: 'Le lac',
+  mountain: 'La montagne',
+  season: 'La saison suivante',
 };
 
 const STYLE = `
@@ -32,6 +37,10 @@ const STYLE = `
 #debug-panel dd { margin: 0; text-align: right; }
 #debug-panel .over { color: #c0262d; font-weight: 600; }
 #debug-panel p { margin: 6px 0 0; font-size: 12px; }
+#debug-panel fieldset { border: 0; margin: 4px 0; padding: 0; }
+#debug-panel legend { padding: 0; opacity: 0.75; }
+#debug-panel fieldset label { display: flex; gap: 6px; margin: 2px 0; }
+#debug-panel fieldset input { width: auto; min-height: 0; }
 `;
 
 function element<K extends keyof HTMLElementTagNameMap>(
@@ -102,6 +111,39 @@ export function mountDebugPanel(app: SceneApp, autoQuality: boolean): void {
     };
     apply();
   });
+  const fillValue = element('span', { textContent: `${Math.round(app.description.fill * 100)} %` });
+  const fill = element('input', {
+    id: 'debug-fill',
+    type: 'range',
+    min: '0',
+    max: '100',
+    step: '5',
+    value: String(Math.round(app.description.fill * 100)),
+  });
+  fill.addEventListener('input', () => {
+    app.description = { ...app.description, fill: Number(fill.value) / 100 };
+    fillValue.textContent = `${fill.value} %`;
+    apply();
+  });
+  const landmarks = element('fieldset', { id: 'debug-landmarks' }, [
+    element('legend', { textContent: 'Grands moments' }),
+  ]);
+  for (const landmark of LANDMARKS) {
+    const box = element('input', {
+      id: `debug-landmark-${landmark}`,
+      type: 'checkbox',
+      checked: app.description.landmarks.includes(landmark),
+    });
+    box.addEventListener('change', () => {
+      const revealed = app.description.landmarks;
+      app.description = {
+        ...app.description,
+        landmarks: LANDMARKS.filter((l) => (l === landmark ? box.checked : revealed.includes(l))),
+      };
+      apply();
+    });
+    landmarks.append(element('label', {}, [box, LANDMARK_LABELS[landmark]]));
+  }
 
   const stats = element('dl');
   const note = element('p');
@@ -116,6 +158,9 @@ export function mountDebugPanel(app: SceneApp, autoQuality: boolean): void {
       }),
     ]),
     element('label', {}, ['Graine', seed]),
+    element('label', {}, ['Emplacements', fill]),
+    fillValue,
+    landmarks,
     element('label', {}, [
       'Qualité',
       select(

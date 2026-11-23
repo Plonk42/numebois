@@ -34,8 +34,7 @@ export interface Ambience extends Light {
   bushes: number;
   mushrooms: number;
   lilies: number;
-  /** Trees of the clearing itself and of the forest around it, and their ages. */
-  clearingTrees: number;
+  /** Ages of the trees of the slots and of the forest around the clearing. */
   clearingAge: readonly [number, number];
   edgeTrees: number;
   edgeAge: readonly [number, number];
@@ -140,7 +139,6 @@ const LIFE = {
   bushes: [0.2, 0.28, 0.38, 0.5, 0.6, 0.7, 0.8, 0.86, 0.93, 1, 1, 1],
   mushrooms: [0, 0, 0, 0, 0, 0.15, 0.3, 0.5, 0.75, 1, 1.15, 1.3],
   lilies: [0, 0, 0.2, 0.4, 0.55, 0.7, 0.8, 0.87, 0.94, 1, 1, 1],
-  clearingTrees: [0.2, 0.3, 0.33, 0.36, 0.4, 0.45, 0.55, 0.6, 0.7, 0.75, 0.9, 1],
   clearingAgeMin: [0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.62, 0.68, 0.75, 0.82, 0.9],
   clearingAgeMax: [0.45, 0.5, 0.58, 0.65, 0.72, 0.78, 0.85, 0.88, 0.92, 0.95, 0.98, 1],
   edgeTrees: [0.45, 0.5, 0.55, 0.6, 0.66, 0.73, 0.8, 0.84, 0.88, 0.92, 0.96, 1],
@@ -271,7 +269,6 @@ export function ambienceFor(stage: Stage, season: Season): Ambience {
     bushes: LIFE.bushes[stage],
     mushrooms: LIFE.mushrooms[stage],
     lilies: LIFE.lilies[stage],
-    clearingTrees: LIFE.clearingTrees[stage],
     clearingAge: [LIFE.clearingAgeMin[stage], LIFE.clearingAgeMax[stage]],
     edgeTrees: LIFE.edgeTrees[stage],
     edgeAge: [LIFE.edgeAgeMin[stage], LIFE.edgeAgeMax[stage]],

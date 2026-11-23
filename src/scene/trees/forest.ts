@@ -15,7 +15,9 @@ export function buildForestBuffers(
   season: Season,
 ): { writer: TreeWriter; infos: TreeInfo[] } {
   const writer = new TreeWriter(trees.length * 1800, trees.length * 7000);
-  const infos = trees.map((tree, index) => buildTree(writer, tree, assets, season, index));
+  const infos = trees.map((tree, index) =>
+    buildTree(writer, tree, assets, tree.season ?? season, index),
+  );
   return { writer, infos };
 }
 

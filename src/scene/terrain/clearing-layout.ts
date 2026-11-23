@@ -36,6 +36,27 @@ export interface PoolDef {
   level: number;
 }
 
+/**
+ * Slot of the painting, where the child places an element: a tree, or a grove (bushes and
+ * flowers) where a tree would be too much.
+ */
+export interface SlotDef {
+  x: number;
+  z: number;
+  kind: 'tree' | 'grove';
+}
+
+/** Dry hollow of the lake moment, with the islet that rises once it is filled. */
+export interface BasinDef {
+  x: number;
+  z: number;
+  /** Radius at the first stage; the lake grows with the diorama, up to BASIN_GROWTH times. */
+  radius: number;
+  islet: Point;
+}
+
+export const BASIN_GROWTH = 1.35;
+
 /** Half extents of the diorama and centre of its outline on z. */
 export interface Outline {
   hx: number;
@@ -84,11 +105,12 @@ export interface Layout {
   eastSource: Point;
   eastTopSource: Point;
   westSource: Point;
-  demo: Point[];
+  /** Lake of the grand moment, in the first diorama. */
+  basin: BasinDef;
   /** Large foreground trees: position and size. */
   hero: [number, number, number][];
-  /** Trees of the clearing, in planting order. */
-  clearing: Point[];
+  /** Slots of the clearing, in opening order: nearest the middle of the first diorama first. */
+  slots: SlotDef[];
   /** Boulders: model, position, scale and how deep they sink in the ground. */
   rocks: [ModelName, number, number, number, number][];
   /** Back and side limits of the forest, and its share of conifers. */
@@ -160,12 +182,24 @@ const ROCK_MODELS: readonly [ModelName, number, number][] = [
   ['Rock_1_G', 0.9, 0.15],
   ['Rock_3_M', 0.5, 0.15],
 ];
-const CLEARING_COUNT = 13;
+/** About 25 slots per painting: these and the three grand moments. */
+export const SLOT_COUNT = 22;
+/** Slots open in the first diorama: room to choose from the first element on. */
+const FIRST_SLOTS = 4;
+/** Every fourth slot is a grove: a tree there would be one too many. */
+export function slotKind(index: number): SlotDef['kind'] {
+  return index % 4 === 2 ? 'grove' : 'tree';
+}
 /** Water level where the main stream leaves the diorama. */
 export const STREAM_END_LEVEL = -1.2;
 
 /** Outline value: 1 on the rim of the diorama, less inside. */
-export function rimValue(layout: Layout, outline: Outline, fx: number, z: number): number {
+export function rimValue(
+  layout: Pick<Layout, 'power' | 'wobble'>,
+  outline: Outline,
+  fx: number,
+  z: number,
+): number {
   const a = fx / outline.hx;
   const b = (z - outline.cz) / outline.hz;
   const theta = Math.atan2(b, a);
@@ -395,31 +429,45 @@ export function drawLayout(
   final: Outline & { lake: number },
 ): Layout {
   const rng = new Rng(seed).fork('layout');
-  for (let attempt = 0; attempt < 60; attempt++) {
+  for (let attempt = 0; attempt < 250; attempt++) {
     const water = drawWater(rng);
     if (!validWater(water, final)) continue;
     const layout = dress(water, rng, first, final);
-    // A demonstration slot and a large tree from the first stage on.
-    const early = layout.hero.some(([x, z]) => rimValue(layout, first, x, z) < 0.88);
-    if (layout.demo.length > 0 && early) return layout;
+    if (!layout) continue;
+    // Slots to choose from and a large tree from the first stage on.
+    const inFirst = ([x, z]: readonly number[]) => rimValue(layout, first, x, z) < 0.88;
+    const slots = layout.slots.filter((s) => inFirst([s.x, s.z])).length;
+    if (slots >= FIRST_SLOTS && layout.hero.some(inFirst)) return layout;
   }
-  return dress(REFERENCE_WATER, rng, first, final);
+  return dress(REFERENCE_WATER, rng, first, final, true)!;
 }
 
-function dress(water: Water, rng: Rng, first: Outline, final: Outline & { lake: number }): Layout {
+function dress(
+  water: Water,
+  rng: Rng,
+  first: Outline,
+  final: Outline & { lake: number },
+  fallback = false,
+): Layout | null {
   const { offsets, ...placed } = water;
-  const layout: Layout = {
-    ...placed,
-    mirror: rng.chance(0.5) ? -1 : 1,
+  const mirror = rng.chance(0.5) ? -1 : 1;
+  const shape: Pick<Layout, 'power' | 'wobble'> = {
     power: rng.range(2.9, 4),
     wobble: [rng.range(0.02, 0.05), rng.range(0, TAU), rng.range(0.01, 0.035), rng.range(0, TAU)],
+  };
+  const basin = placeBasin(water, shape, rng, first, final, fallback);
+  if (!basin) return null;
+  const layout: Layout = {
+    ...placed,
+    ...shape,
+    mirror,
     roll: rng.range(0.6, 1.3),
     rollScale: rng.range(7, 11),
     knolls: [],
     peaks: drawPeaks(rng, offsets),
-    demo: [],
+    basin,
     hero: [],
-    clearing: [],
+    slots: [],
     rocks: [],
     forestBack: rng.range(-4.6, -3.4),
     forestSide: rng.range(0.58, 0.7),
@@ -430,8 +478,49 @@ function dress(water: Water, rng: Rng, first: Outline, final: Outline & { lake: 
   return layout;
 }
 
-/** Distance from a point to the nearest water or step of the final layout, minus its reach. */
-export function dryness(layout: Layout, finalLake: number, x: number, z: number): number {
+/**
+ * Dry hollow for the lake moment: in the first diorama, in front of the massif, away from
+ * every stream and pool. Without room for it, the water is drawn again.
+ */
+function placeBasin(
+  water: Water,
+  shape: Pick<Layout, 'power' | 'wobble'>,
+  rng: Rng,
+  first: Outline,
+  final: Outline & { lake: number },
+  fallback: boolean,
+): BasinDef | null {
+  const radius = rng.range(2.3, 2.8);
+  for (let attempt = 0; attempt < 300; attempt++) {
+    const x = rng.range(-first.hx, first.hx) * 0.85;
+    const z = rng.range(first.cz - first.hz * 0.3, first.cz + first.hz * 0.75);
+    if (rimValue(shape, first, x, z) > (fallback ? 0.85 : 0.8)) continue;
+    // Its banks stay well inside the first diorama.
+    const banks = Array.from({ length: 8 }, (_, i) => (i / 8) * TAU);
+    const reach = radius + 1;
+    const out = (a: number) =>
+      rimValue(shape, first, x + Math.cos(a) * reach, z + Math.sin(a) * reach) > 0.95;
+    if (!fallback && banks.some(out)) continue;
+    const room = radius * BASIN_GROWTH + (fallback ? -1.2 : -0.6);
+    if (waterDryness(water, final.lake, x, z) < room) continue;
+    // The first large tree stands near its hand-made spot.
+    if (Math.hypot(x - HERO[0][0], z - HERO[0][1]) < radius * BASIN_GROWTH + 4.5) continue;
+    const a = rng.range(0, TAU);
+    const islet: Point = [x + Math.cos(a) * radius * 0.3, z + Math.sin(a) * radius * 0.3];
+    return { x, z, radius, islet };
+  }
+  if (!fallback) return null;
+  const z = first.cz + first.hz * 0.45;
+  return { x: 0, z, radius, islet: [radius * 0.3, z] };
+}
+
+/** Distance from a point to the nearest stream, pool or step of the final layout, minus its reach. */
+function waterDryness(
+  layout: Omit<Water, 'offsets'>,
+  finalLake: number,
+  x: number,
+  z: number,
+): number {
   const [lakeX, lakeZ] = lakeCenter(layout, finalLake);
   return Math.min(
     distanceToPath(layout.mainPath, x, z).distance - 3.2,
@@ -444,6 +533,15 @@ export function dryness(layout: Layout, finalLake: number, x: number, z: number)
   );
 }
 
+/** Distance from a point to the nearest water or step of the final layout, minus its reach. */
+export function dryness(layout: Layout, finalLake: number, x: number, z: number): number {
+  const { basin } = layout;
+  return Math.min(
+    waterDryness(layout, finalLake, x, z),
+    Math.hypot(x - basin.x, z - basin.z) - basin.radius * BASIN_GROWTH - 1.8,
+  );
+}
+
 /**
  * Whether a tree there would hide water: seen from the camera, a tree hides the ground far
  * behind it, so none stands in front of the lake, the falls, the pools or the confluence.
@@ -453,6 +551,7 @@ export function hidesWater(layout: Layout, finalLake: number, x: number, z: numb
   const end = layout.eastPath[layout.eastPath.length - 1];
   const views: [number, number, number][] = [
     [lakeX, lakeZ, finalLake],
+    [layout.basin.x, layout.basin.z, layout.basin.radius * BASIN_GROWTH],
     [layout.ledge.x, layout.ledge.z, 3],
     [layout.eastPool.x, layout.eastPool.z, 2.4],
     [layout.westPool.x, layout.westPool.z, 2.2],
@@ -487,41 +586,27 @@ function placeScenery(layout: Layout, rng: Rng, first: Outline, final: Outline &
       break;
     }
   });
+  // Without a large tree in the first diorama, the layout is drawn again: skip the rest.
+  if (!layout.hero.some(([x, z]) => rimFirst(x, z) < 0.88)) return;
 
-  // Candidates for the clearing, nearest the middle of the first diorama first.
+  // Candidate slots, nearest the middle of the first diorama first: the slots open in this
+  // order as the diorama grows. Any of them, filled or not, keeps the water in view.
   const candidates: Point[] = [];
-  for (let attempt = 0; attempt < 1200; attempt++) {
+  for (let attempt = 0; attempt < 1600; attempt++) {
     const x = rng.range(-22, 22);
     const z = rng.range(-8, 20);
     if (rimFinal(x, z) > 0.88 || dry(x, z) < 0.4 || inView(x, z)) continue;
     candidates.push([x, z]);
   }
   candidates.sort((a, b) => rimFirst(a[0], a[1]) - rimFirst(b[0], b[1]));
-  const plant = (count: number) => {
-    for (const [x, z] of candidates) {
-      if (layout.clearing.length >= count) break;
-      if (!spaced(x, z, 4.2)) continue;
-      layout.clearing.push([x, z]);
-      taken.push({ x, z, r: 4.2 });
-    }
-  };
-  // The first trees of the clearing grow on the first diorama, then come the demonstration
-  // slots, as near its middle as the water allows.
-  plant(3);
-  for (const [limit, spacing] of [
-    [0.75, 4],
-    [0.85, 4],
-    [0.9, 3],
-    [0.9, 2.2],
-  ]) {
-    for (const [x, z] of candidates) {
-      if (layout.demo.length >= 3) break;
-      if (rimFirst(x, z) > limit || !spaced(x, z, spacing)) continue;
-      layout.demo.push([x, z]);
-      taken.push({ x, z, r: spacing });
-    }
+  for (const [x, z] of candidates) {
+    if (layout.slots.length >= SLOT_COUNT) break;
+    const kind = slotKind(layout.slots.length);
+    const spacing = kind === 'tree' ? 4.2 : 3;
+    if (!spaced(x, z, spacing)) continue;
+    layout.slots.push({ x, z, kind });
+    taken.push({ x, z, r: spacing });
   }
-  plant(CLEARING_COUNT);
 
   // Boulders, a few already in the first diorama.
   for (let attempt = 0; attempt < 300 && layout.rocks.length < ROCK_MODELS.length; attempt++) {

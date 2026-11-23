@@ -76,6 +76,22 @@ for (const season of ['spring', 'summer', 'autumn', 'winter']) {
   });
 }
 
+for (const stage of [0, 11]) {
+  test(`palier ${stage}, emplacements remplis et grands moments révélés`, async ({ page }) => {
+    const errors = watchErrors(page);
+    await openScene(
+      page,
+      `stage=${stage}&fill=100&landmarks=lake,mountain,season&quality=high&time=12`,
+    );
+    expect(await page.evaluate(() => window.__numebois!.describe())).toMatchObject({
+      fill: 1,
+      landmarks: ['lake', 'mountain', 'season'],
+    });
+    await checkScene(page, `palier-${stage}-grands-moments`);
+    expect(errors).toEqual([]);
+  });
+}
+
 test('qualité basse', async ({ page }) => {
   const errors = watchErrors(page);
   await openScene(page, 'stage=11&quality=low&time=12');
@@ -112,6 +128,15 @@ test('mode débogage : réglages, compteurs et pousse', async ({ page }) => {
     stage: 11,
   });
   expect(new URL(page.url()).searchParams.get('season')).toBe('autumn');
+
+  // Slots and grand moments.
+  await page.locator('#debug-fill').fill('100');
+  await page.locator('#debug-landmark-mountain').check();
+  expect(await page.evaluate(() => window.__numebois!.describe())).toMatchObject({
+    fill: 1,
+    landmarks: ['mountain'],
+  });
+  expect(new URL(page.url()).searchParams.get('landmarks')).toBe('mountain');
 
   // Growth demonstration: by the button, then by the key.
   await page.locator('#debug-grow').click();

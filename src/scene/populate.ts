@@ -1,13 +1,14 @@
 import { hashSeed, Rng, valueNoise2 } from '../core/rng';
 import type { ModelName } from './asset-catalog';
 import { swatchColumn, swatchUV, type SwatchName } from './atlas';
-import type { SceneDescription } from './description';
+import { nextSeason, shownSeason, type SceneDescription } from './description';
 import { MeshWriter, type MeshData } from './mesh-data';
 import { GENERATED_PROPS } from './props';
 import type { InstanceBatch, InstanceModel } from './render/instancing';
 import type { QualitySettings } from './render/quality';
 import type { Ambience } from './render/richness';
 import { groundSwatch } from './terrain/clearing';
+import { SLOT_COUNT } from './terrain/clearing-layout';
 import type { Terrain } from './terrain/types';
 import type { Season } from './trees/builder';
 import type { FamilyName } from './trees/families';
@@ -30,8 +31,9 @@ const CLEARING_FAMILIES: readonly FamilyName[] = [
   'Umbrella',
 ];
 const HERO_FAMILIES: readonly FamilyName[] = ['Gnarly', 'Umbrella', 'Round', 'Cube', 'Birch'];
-const DEMO_FAMILIES: readonly FamilyName[] = ['Round', 'Cube', 'Umbrella', 'Birch'];
 const FAVOURITES: readonly FamilyName[] = ['Round', 'Cube', 'Birch', 'Umbrella'];
+/** Empty tree slots that get a hidden tree, ready for the growth demonstration. */
+const GROWABLE = 3;
 
 /** Character of the vegetation of a painting, drawn from its seed. */
 interface Flora {
@@ -61,82 +63,112 @@ function floraOf(seed: number): Flora {
 
 export interface Planting {
   trees: PlantedTree[];
-  /** Indices of the hidden trees used by the growth demonstration. */
+  /** Indices of the trees used by the growth demonstration: the empty tree slots first. */
   demo: number[];
 }
 
-/** Trees of the painting for its stage: the forest, the clearing trees, the demo slots. */
+/**
+ * Slots filled in the demonstration scene, until the elements are really placed (#25): a
+ * share of all the slots of the painting, mostly the first ones to open, as the child fills
+ * the open slots. A filled slot stays filled at the next stage and with a larger share.
+ */
+export function filledSlots(seed: number, fill: number): ReadonlySet<number> {
+  const rng = new Rng(seed).fork('fill');
+  const order = Array.from({ length: SLOT_COUNT }, (_, i) => ({ i, key: i + rng.range(0, 3) }));
+  order.sort((a, b) => a.key - b.key);
+  return new Set(order.slice(0, Math.round(fill * SLOT_COUNT)).map((o) => o.i));
+}
+
+/** Trees of the painting for its stage: the forest, the large trees, the tree slots. */
 export function plantTrees(
   terrain: Terrain,
   description: SceneDescription,
   ambience: Ambience,
 ): Planting {
   const trees: PlantedTree[] = [];
-  const demo: number[] = [];
   const flora = floraOf(description.seed);
-  const clearingSpots = terrain.treeSpots.filter((s) => s.role === 'clearing');
-  const clearingCount = Math.round(clearingSpots.length * ambience.clearingTrees);
-  const counters = { clearing: 0, hero: 0, demo: 0 };
-  for (const spot of terrain.treeSpots) {
+  const place = (x: number, z: number) => {
     // Numbers drawn from the place itself, so a tree keeps its shape from stage to stage.
     const rng = new Rng(
-      hashSeed(description.seed, `tree:${Math.round(spot.x * 8)}:${Math.round(spot.z * 8)}`),
+      hashSeed(description.seed, `tree:${Math.round(x * 8)}:${Math.round(z * 8)}`),
     );
     const seed = rng.int(1, 1e9);
     const yaw = rng.range(0, TAU);
-    const pick = rng.next();
-    const ageDraw = rng.next();
-    const surface = terrain.surfaceAt(spot.x, spot.z);
-    if (!surface) continue;
-    let family: FamilyName;
-    let age: number;
-    let detail: PlantedTree['detail'] = spot.detail ?? 'full';
-    if (spot.role === 'edge') {
-      if (spot.rank !== undefined && spot.rank >= ambience.edgeTrees) continue;
-      detail = spot.detail ?? 'light';
-      const families = detail === 'far' ? FAR_FAMILIES : flora.edge;
-      family = spot.conifer ? 'Pine' : families[Math.floor(pick * families.length)];
-      age = ambience.edgeAge[0] + (ambience.edgeAge[1] - ambience.edgeAge[0]) * ageDraw;
-    } else if (spot.role === 'hero') {
-      const slot = spot.slot ?? counters.hero++;
-      family = HERO_FAMILIES[(slot + flora.shift) % HERO_FAMILIES.length];
-      age = Math.max(ambience.edgeAge[0], 0.85);
-    } else if (spot.role === 'clearing') {
-      const index = counters.clearing++;
-      // The first trees planted are the oldest.
-      let t: number;
-      if (spot.rank !== undefined) {
-        if (spot.rank >= ambience.clearingTrees) continue;
-        t = spot.rank / ambience.clearingTrees;
-      } else {
-        if (index >= clearingCount) continue;
-        t = clearingCount > 1 ? index / (clearingCount - 1) : 0;
-      }
-      const slot = spot.slot ?? index;
-      family =
-        slot % 3 === 1
-          ? flora.favourite
-          : CLEARING_FAMILIES[(slot + flora.shift) % CLEARING_FAMILIES.length];
-      age = ambience.clearingAge[1] - (ambience.clearingAge[1] - ambience.clearingAge[0]) * t;
-    } else {
-      family = DEMO_FAMILIES[(spot.slot ?? counters.demo++) % DEMO_FAMILIES.length];
-      age = 0;
-      demo.push(trees.length);
-    }
+    const surface = terrain.surfaceAt(x, z);
+    if (!surface) return null;
+    // On a slope, the foot of the trunk stays in the ground.
+    const y = surface.y - 0.05 - 0.4 * surface.slope;
+    return { seed, x, y, z, yaw, pick: rng.next(), ageDraw: rng.next() };
+  };
+  const plant = (
+    at: NonNullable<ReturnType<typeof place>>,
+    family: FamilyName,
+    size: number,
+    rest: Pick<PlantedTree, 'detail' | 'age' | 'season'>,
+  ) => {
+    const { seed, x, y, z, yaw } = at;
     trees.push({
       family,
       seed,
-      x: spot.x,
-      // On a slope, the foot of the trunk stays in the ground.
-      y: surface.y - 0.05 - 0.4 * surface.slope,
-      z: spot.z,
+      x,
+      y,
+      z,
       yaw,
-      scale: spot.size * (family === 'Pine' ? 1.25 : 1),
-      detail,
-      age,
+      scale: size * (family === 'Pine' ? 1.25 : 1),
+      ...rest,
     });
+  };
+
+  for (const spot of terrain.treeSpots) {
+    const at = place(spot.x, spot.z);
+    if (!at) continue;
+    if (spot.role === 'edge') {
+      if (spot.rank !== undefined && spot.rank >= ambience.edgeTrees) continue;
+      const detail = spot.detail ?? 'light';
+      const families = detail === 'far' ? FAR_FAMILIES : flora.edge;
+      const [young, old] = ambience.edgeAge;
+      plant(
+        at,
+        spot.conifer ? 'Pine' : families[Math.floor(at.pick * families.length)],
+        spot.size,
+        {
+          detail,
+          age: young + (old - young) * at.ageDraw,
+        },
+      );
+    } else if (spot.role === 'hero') {
+      const family = HERO_FAMILIES[((spot.slot ?? 0) + flora.shift) % HERO_FAMILIES.length];
+      plant(at, family, spot.size, {
+        detail: spot.detail ?? 'full',
+        age: Math.max(ambience.edgeAge[0], 0.85),
+        season: spot.herald ? nextSeason(description.season) : undefined,
+      });
+    } else {
+      plant(at, flora.favourite, spot.size, { detail: spot.detail ?? 'light', age: 0.9 });
+    }
   }
-  return { trees, demo };
+
+  // The child's trees: grown in the filled slots, waiting at age 0 in the empty ones.
+  const filled = filledSlots(description.seed, description.fill);
+  const empty: number[] = [];
+  const grown: number[] = [];
+  for (const slot of terrain.slots) {
+    if (slot.kind !== 'tree') continue;
+    const at = place(slot.x, slot.z);
+    if (!at) continue;
+    const family =
+      slot.index % 3 === 1
+        ? flora.favourite
+        : CLEARING_FAMILIES[(slot.index + flora.shift) % CLEARING_FAMILIES.length];
+    // The first slots to open hold the oldest trees.
+    const [young, old] = ambience.clearingAge;
+    const age = filled.has(slot.index) ? old - (old - young) * (slot.index / (SLOT_COUNT - 1)) : 0;
+    // A hidden tree costs as much as a grown one: only the next few empty slots wait for one.
+    if (age === 0 && empty.length >= GROWABLE) continue;
+    (age > 0 ? grown : empty).push(trees.length);
+    plant(at, family, slot.size, { detail: slot.detail, age });
+  }
+  return { trees, demo: [...empty, ...grown] };
 }
 
 function leafColumns(season: Season): readonly SwatchName[] {
@@ -207,7 +239,7 @@ export function scatterVegetation(
   trees: readonly PlantedTree[],
 ): Population {
   const rng = new Rng(description.seed).fork('scatter');
-  const season = description.season;
+  const season = shownSeason(description);
   for (const [name, make] of Object.entries(GENERATED_PROPS)) {
     batch.register(name as keyof typeof GENERATED_PROPS, make());
   }
@@ -221,6 +253,54 @@ export function scatterVegetation(
     !blocked.some((b) => Math.hypot(b.x - x, b.z - z) < b.r + r);
   const col = (names: readonly SwatchName[]) => swatchColumn(rng.pick(names));
   const leaves = leafColumns(season);
+  const flora = floraOf(description.seed);
+  const flowerSpots: Population['flowerSpots'] = [];
+
+  // Groves of the filled slots: a large bush, two small ones and the painting's flowers.
+  const filled = filledSlots(description.seed, description.fill);
+  for (const slot of terrain.slots) {
+    if (slot.kind !== 'grove' || !filled.has(slot.index)) continue;
+    const center = terrain.surfaceAt(slot.x, slot.z);
+    if (!center) continue;
+    const turn = rng.range(0, TAU);
+    const bushes: [ModelName, number, number][] = [
+      ['Bush_1_B', 0.3, 1.9],
+      ['Bush_4_D', 1.3, 1.1],
+      ['Bush_2_D', 1.2, 1.0],
+    ];
+    bushes.forEach(([model, d, scale], i) => {
+      const a = turn + (i * TAU) / 3;
+      const x = slot.x + Math.cos(a) * d;
+      const z = slot.z + Math.sin(a) * d;
+      const surface = terrain.surfaceAt(x, z);
+      if (!surface) return;
+      const s = scale * slot.size;
+      batch.add(model, x, surface.y - 0.05, z, rng.range(0, TAU), s, s, col(bushColumns(season)));
+    });
+    blocked.push({ x: slot.x, z: slot.z, r: 1.6 });
+    if (season === 'winter') continue;
+    flowerSpots.push({ x: slot.x, y: center.y, z: slot.z });
+    for (let i = 0; i < 9; i++) {
+      const a = turn + Math.PI / 3 + rng.range(-1.1, 1.1);
+      const d = rng.range(1.5, 2.3);
+      const x = slot.x + Math.cos(a) * d;
+      const z = slot.z + Math.sin(a) * d;
+      const surface = terrain.surfaceAt(x, z);
+      if (surface?.kind !== 'grass') continue;
+      const scale = rng.range(1.6, 2.2);
+      batch.add(
+        flora.flower.model,
+        x,
+        surface.y - 0.02,
+        z,
+        rng.range(0, TAU),
+        scale,
+        scale,
+        col(leaves),
+        swatchColumn(flora.petal),
+      );
+    }
+  }
   const cover = quality.groundCover * terrain.cover;
   // Along the water, a larger diorama is dressed more sparsely.
   const bankStep = 0.9 * Math.max(1, terrain.cover);
@@ -317,10 +397,8 @@ export function scatterVegetation(
   }
 
   // Flowers, in drifts of one kind and mostly one colour; most of them the painting's favourite.
-  const flora = floraOf(description.seed);
-  const flowerSpots: Population['flowerSpots'] = [];
   const drifts = Math.round(15 * ambience.flowers * Math.sqrt(cover));
-  for (let attempt = 0; attempt < drifts * 8 && flowerSpots.length < drifts; attempt++) {
+  for (let attempt = 0, made = 0; attempt < drifts * 8 && made < drifts; attempt++) {
     const { x, z } = sample();
     const center = terrain.surfaceAt(x, z);
     if (!center || center.kind !== 'grass' || center.slope > 0.3 || !free(x, z, 0.8)) continue;
@@ -329,6 +407,7 @@ export function scatterVegetation(
     const color = favourite ? flora.petal : rng.pick(kind.colors);
     const count = rng.int(5, 9);
     flowerSpots.push({ x, y: center.y, z });
+    made++;
     for (let i = 0; i < count; i++) {
       const a = rng.range(0, TAU);
       const d = Math.sqrt(rng.next()) * 1.5;
