@@ -1,4 +1,5 @@
 import type { AssetLibrary } from './assets';
+import { BIOMES } from './biomes';
 import type { SceneDescription } from './description';
 import { MeshWriter, triangleCount } from './mesh-data';
 import { plantTrees, scatterVegetation, type Planting, type Population } from './populate';
@@ -6,7 +7,6 @@ import { InstanceBatch } from './render/instancing';
 import type { QualitySettings } from './render/quality';
 import type { Ambience } from './render/richness';
 import { WaterBuilder } from './render/water';
-import { createClearing } from './terrain/clearing';
 import type { Terrain } from './terrain/types';
 
 /** Everything of a painting that is plain data: no GPU object, usable in tests. */
@@ -29,7 +29,7 @@ export function composeScene(
   ambience: Ambience,
   quality: QualitySettings,
 ): Composition {
-  const terrain = createClearing(description.seed, description.stage);
+  const terrain = BIOMES[description.biome].terrain(description.seed, description.stage);
   const ground = new MeshWriter(24000, 24000);
   terrain.buildGround(ground, description.season);
   for (const m of terrain.staticModels) {

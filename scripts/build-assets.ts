@@ -53,6 +53,7 @@ import {
   ATLAS_SIZE,
   CELL_U,
   CELL_V,
+  HEX_ALIASES,
   SWATCHES,
   hexCellTarget,
   paintAtlas,
@@ -121,7 +122,12 @@ function readTexture(files: Files, pack: 'forest' | 'hex'): Uint8Array {
   return new Uint8Array(png.data);
 }
 
-async function readGeometry(io: NodeIO, files: Files, file: string): Promise<Geometry> {
+async function readGeometry(
+  io: NodeIO,
+  files: Files,
+  file: string,
+  nodes?: readonly string[],
+): Promise<Geometry> {
   const json = JSON.parse(new TextDecoder().decode(files.get(`${file}.gltf`)!));
   // Textures are replaced by the shared atlas: drop them so no image file is needed.
   delete json.images;
@@ -140,6 +146,7 @@ async function readGeometry(io: NodeIO, files: Files, file: string): Promise<Geo
   for (const node of doc.getRoot().listNodes()) {
     const mesh = node.getMesh();
     if (!mesh) continue;
+    if (nodes && !nodes.some((suffix) => node.getName().endsWith(suffix))) continue;
     const m = node.getWorldMatrix();
     for (const prim of mesh.listPrimitives()) {
       const pos = prim.getAttribute('POSITION')!;
@@ -336,17 +343,28 @@ function recenter(g: Geometry): void {
   }
 }
 
-/** Move the UVs of a Medieval Hexagon model to the cells copied into our atlas. */
+/**
+ * Move the UVs of a Medieval Hexagon model to the cells copied into our atlas, or to the
+ * part of the swatch standing in for a cell (`HEX_ALIASES`).
+ */
 function remapHexUvs(name: string, g: Geometry): void {
   for (let i = 0; i < g.uvs.length; i += 2) {
     const col = Math.min(ATLAS_COLS - 1, Math.floor(g.uvs[i] / CELL_U));
     const row = Math.min(ATLAS_ROWS - 1, Math.floor(g.uvs[i + 1] / CELL_V));
     const target = hexCellTarget(col, row);
-    if (!target) {
+    if (target) {
+      g.uvs[i] += (target.col - col) * CELL_U;
+      g.uvs[i + 1] += (target.row - row) * CELL_V;
+      continue;
+    }
+    const alias = HEX_ALIASES[`${col},${row}`];
+    if (!alias) {
       throw new Error(`${name}: hexagon atlas cell (${col}, ${row}) is not imported in atlas.ts`);
     }
-    g.uvs[i] += (target.col - col) * CELL_U;
-    g.uvs[i + 1] += (target.row - row) * CELL_V;
+    const f = g.uvs[i + 1] / CELL_V - row;
+    const [u, v] = swatchUV(alias.swatch, alias.from + (alias.to - alias.from) * f);
+    g.uvs[i] = u;
+    g.uvs[i + 1] = v;
   }
 }
 
@@ -732,7 +750,7 @@ async function buildKayKit(io: NodeIO): Promise<void> {
     let geometry =
       source.pack === 'nature'
         ? readObj(packs.nature!, source.file)
-        : await readGeometry(io, packs[source.pack]!, source.file);
+        : await readGeometry(io, packs[source.pack]!, source.file, source.nodes);
     if (source.leafPart !== undefined) {
       const parts = leafParts(geometry);
       if (source.leafPart >= parts.length)

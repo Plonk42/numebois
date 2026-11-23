@@ -53,12 +53,13 @@ function scene(
   { fill = DEMO_FILL[stage], ...more }: Partial<SceneDescription> & { fill?: number } = {},
 ): SceneDescription {
   return {
+    biome: 'clearing',
     seed,
     stage,
     season,
     seasons: [season],
     elements: demoElements(seed, fill),
-    animals: demoAnimals(stage),
+    animals: demoAnimals('clearing', stage),
     ...more,
   };
 }
@@ -110,16 +111,21 @@ describe('seeded random', () => {
 
 describe('scene description', () => {
   it('reads the URL parameters and falls back to defaults', () => {
-    const d = parseDescription(new URLSearchParams('stage=4&season=winter&seed=12&fill=50'));
+    const d = parseDescription(
+      new URLSearchParams('biome=orchard&stage=4&season=winter&seed=12&fill=50'),
+    );
     expect(d).toEqual({
+      biome: 'orchard',
       stage: 4,
       season: 'winter',
       seasons: ['winter'],
       seed: 12,
       elements: demoElements(12, 0.5),
-      animals: ['Deer'],
+      animals: ['Donkey'],
     });
-    const fallback = parseDescription(new URLSearchParams('stage=12&season=monsoon&seed=x'));
+    const fallback = parseDescription(
+      new URLSearchParams('biome=jungle&stage=12&season=monsoon&seed=x'),
+    );
     expect(fallback).toEqual(scene(7, 6, 'summer'));
     expect(parseDescription(new URLSearchParams('stage=0&fill=250')).elements).toHaveLength(
       MAX_ELEMENTS,
@@ -191,17 +197,17 @@ describe('triangle budget', () => {
 });
 
 describe('animals', () => {
-  const plan = (seed: number, stage: Stage, animals = demoAnimals(stage)) =>
+  const plan = (seed: number, stage: Stage, animals = demoAnimals('clearing', stage)) =>
     planHerd(createClearing(seed, stage), animals, seed);
 
   it('come from their stage on and all find a place in the meadow', { timeout: 30_000 }, () => {
     for (let seed = 0; seed < 8; seed++) {
       const counts = STAGES.map((stage) => plan(seed, stage).length);
-      const wanted = STAGES.map((stage) => demoAnimals(stage).length);
+      const wanted = STAGES.map((stage) => demoAnimals('clearing', stage).length);
       expect(counts, `seed ${seed}`).toEqual(wanted);
       expect(counts[0]).toBe(0);
       // Bought in another order, each one still finds a place.
-      const reversed = demoAnimals(LAST_STAGE).reverse();
+      const reversed = demoAnimals('clearing', LAST_STAGE).reverse();
       expect(plan(seed, LAST_STAGE, reversed), `seed ${seed}`).toHaveLength(reversed.length);
     }
   });
@@ -253,7 +259,7 @@ describe('animals', () => {
 
   it('are the same for the same seed, and a newcomer never moves the others', () => {
     expect(plan(3, LAST_STAGE)).toEqual(plan(3, LAST_STAGE));
-    const all = demoAnimals(LAST_STAGE);
+    const all = demoAnimals('clearing', LAST_STAGE);
     const few = plan(3, LAST_STAGE, all.slice(0, 3));
     expect(few).toHaveLength(3);
     expect(plan(3, LAST_STAGE).slice(0, few.length)).toEqual(few);

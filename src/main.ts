@@ -56,11 +56,11 @@ const ready = sceneOnly
         const practice = all.find((skill) => skill.id === params.get('practice'));
         const skills = practice ? [practice] : all;
         const saved = json === undefined || practice ? null : parseSave(json, skills);
-        // The painting in progress, or a new one (`?seed=` and `?season=` choose it).
+        // The painting in progress, or a new one (`?seed=`, `?season=` and `?biome=` choose it).
         const asked = parseDescription(params);
         app.description = saved?.ok
           ? saved.data.painting
-          : newPainting(params.has('seed') ? asked.seed : randomSeed(), asked.season);
+          : newPainting(params.has('seed') ? asked.seed : randomSeed(), asked.season, asked.biome);
         const started = app.start();
         persistStorage();
         game = mountGame(

@@ -10,7 +10,7 @@ import {
 } from './description';
 import type { Season } from './trees/builder';
 
-/** What the shop of the clearing sells (#83): an element to place, an animal, a season. */
+/** What the shop of a décor sells (#83): an element to place, an animal, a season. */
 export type Article =
   { kind: 'element' } | { kind: 'animal'; animal: AnimalName } | { kind: 'season'; season: Season };
 
@@ -53,7 +53,7 @@ export function shopItems(description: SceneDescription): ShopItem[] {
     });
   }
   const bought = [...description.animals];
-  const left = ANIMAL_OFFERS.filter((offer) => {
+  const left = ANIMAL_OFFERS[description.biome].filter((offer) => {
     const i = bought.indexOf(offer.animal);
     if (i >= 0) bought.splice(i, 1);
     return i < 0;

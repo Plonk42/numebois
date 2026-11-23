@@ -146,8 +146,9 @@ const MOOD_AT: PerStage<number> = [0, 0.35, 0.7, 1, 1.35, 1.7, 2, 2.35, 2.7, 3, 
 // One value per stage, so each line reads as a progression. Most stages bring one new kind
 // of life: flowers (1), water lilies (2), butterflies and mushrooms (5), birds (8), sun rays
 // and sparkling falls (9), fireflies (10), rainbow and fairy ring (11). The animals come from
-// the shop, from the stages of `ANIMAL_OFFERS` (doe 3, fox 5, stag 7, wolf 10).
-const LIFE = {
+// the shop, from the stages of `ANIMAL_OFFERS` (doe 3, fox 5, stag 7, wolf 10). These are the
+// clearing's; another décor replaces the columns it needs (`BiomeLook`).
+const LIFE_TABLE = {
   grass: [0.22, 0.3, 0.38, 0.5, 0.58, 0.67, 0.75, 0.8, 0.86, 0.92, 0.96, 1],
   flowers: [0, 0.1, 0.18, 0.25, 0.45, 0.7, 0.9, 0.95, 1, 1, 1.1, 1.2],
   bushes: [0.2, 0.28, 0.38, 0.5, 0.6, 0.7, 0.8, 0.86, 0.93, 1, 1, 1],
@@ -184,6 +185,18 @@ const LIFE = {
   owl: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.5],
   magic: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.5],
 } satisfies Record<string, PerStage<number>>;
+
+export type LifeColumn = keyof typeof LIFE_TABLE;
+
+/** What a décor changes to the shared ambience: names, life and sound, a tint of the light. */
+export interface BiomeLook {
+  stageNames: PerStage<string>;
+  /** Columns of life and sound replaced for this décor. */
+  life?: Partial<Record<LifeColumn, PerStage<number>>>;
+  light?: SeasonLight;
+}
+
+const CLEARING_LOOK: BiomeLook = { stageNames: STAGE_NAMES };
 
 function mix(a: number, b: number, t: number): number {
   return a + (b - a) * t;
@@ -235,7 +248,7 @@ function lightOf(stage: Stage): Light {
 /** Pull of a season on one colour of the stage light: target colour and amount (0 to 1). */
 type Tint = readonly [color: number, amount: number];
 
-interface SeasonLight {
+export interface SeasonLight {
   zenith?: Tint;
   horizon?: Tint;
   nadir?: Tint;
@@ -287,21 +300,27 @@ function tint(color: number, pull: Tint | undefined): number {
   return pull ? mixColor(color, pull[0], pull[1]) : color;
 }
 
-/** Ambience of a stage, adjusted for the season. */
-export function ambienceFor(stage: Stage, season: Season): Ambience {
+/** Ambience of a stage, adjusted for the décor and the season. */
+export function ambienceFor(
+  stage: Stage,
+  season: Season,
+  look: BiomeLook = CLEARING_LOOK,
+): Ambience {
   const light = lightOf(stage);
-  const s = SEASON_LIGHT[season];
-  light.sky.zenith = tint(light.sky.zenith, s.zenith);
-  light.sky.horizon = tint(light.sky.horizon, s.horizon);
-  light.sky.nadir = tint(light.sky.nadir, s.nadir);
-  light.fog.color = tint(light.fog.color, s.fog);
-  light.hemisphere.sky = tint(light.hemisphere.sky, s.hemisphereSky);
-  light.hemisphere.ground = tint(light.hemisphere.ground, s.hemisphereGround);
-  light.sun.color = tint(light.sun.color, s.sun);
-  light.sun.intensity *= s.sunIntensity ?? 1;
+  for (const s of look.light ? [look.light, SEASON_LIGHT[season]] : [SEASON_LIGHT[season]]) {
+    light.sky.zenith = tint(light.sky.zenith, s.zenith);
+    light.sky.horizon = tint(light.sky.horizon, s.horizon);
+    light.sky.nadir = tint(light.sky.nadir, s.nadir);
+    light.fog.color = tint(light.fog.color, s.fog);
+    light.hemisphere.sky = tint(light.hemisphere.sky, s.hemisphereSky);
+    light.hemisphere.ground = tint(light.hemisphere.ground, s.hemisphereGround);
+    light.sun.color = tint(light.sun.color, s.sun);
+    light.sun.intensity *= s.sunIntensity ?? 1;
+  }
+  const LIFE = { ...LIFE_TABLE, ...look.life };
   const a: Ambience = {
     ...light,
-    name: STAGE_NAMES[stage],
+    name: look.stageNames[stage],
     grass: LIFE.grass[stage],
     flowers: LIFE.flowers[stage],
     bushes: LIFE.bushes[stage],

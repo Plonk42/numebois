@@ -7,7 +7,7 @@ import { newPainting, stageFor } from '../../src/scene/description';
 
 const SKILLS = DOMAINS.flatMap((domain) => domain.skills);
 const PAINTING = {
-  ...newPainting(42, 'autumn'),
+  ...newPainting(42, 'autumn', 'clearing'),
   stage: stageFor(2),
   elements: [
     { slot: 0, day: 199 },

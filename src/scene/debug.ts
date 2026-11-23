@@ -1,14 +1,16 @@
 import type { SceneApp, SceneCounters } from './app';
+import { BIOMES } from './biomes';
 import {
+  BIOME_IDS,
   STAGES,
   demoAnimals,
   demoElements,
   fillOf,
   writeDescription,
+  type BiomeId,
   type Stage,
 } from './description';
 import { QUALITIES, type Quality } from './render/quality';
-import { STAGE_NAMES } from './render/richness';
 import { SEASONS, type Season } from './trees/builder';
 
 const SEASON_LABELS: Record<Season, string> = {
@@ -80,9 +82,11 @@ export function mountDebugPanel(app: SceneApp, autoQuality: boolean): void {
     app.rebuild();
   };
 
-  const stageValue = element('span', {
-    textContent: `${app.description.stage} · ${STAGE_NAMES[app.description.stage]}`,
-  });
+  const stageLabel = () => {
+    const { biome, stage } = app.description;
+    return `${stage} · ${BIOMES[biome].stageNames[stage]}`;
+  };
+  const stageValue = element('span', { textContent: stageLabel() });
   const stage = element('input', {
     id: 'debug-stage',
     type: 'range',
@@ -93,8 +97,12 @@ export function mountDebugPanel(app: SceneApp, autoQuality: boolean): void {
   });
   stage.addEventListener('input', () => {
     const next = Number(stage.value) as Stage;
-    app.description = { ...app.description, stage: next, animals: demoAnimals(next) };
-    stageValue.textContent = `${stage.value} · ${STAGE_NAMES[app.description.stage]}`;
+    app.description = {
+      ...app.description,
+      stage: next,
+      animals: demoAnimals(app.description.biome, next),
+    };
+    stageValue.textContent = stageLabel();
     apply();
   });
   const seed = element('input', {
@@ -137,6 +145,24 @@ export function mountDebugPanel(app: SceneApp, autoQuality: boolean): void {
   panel.append(
     element('label', {}, ['Palier', stage]),
     stageValue,
+    element('label', {}, [
+      'Décor',
+      select(
+        'debug-biome',
+        BIOME_IDS,
+        Object.fromEntries(BIOME_IDS.map((id) => [id, BIOMES[id].name])) as Record<BiomeId, string>,
+        app.description.biome,
+        (biome) => {
+          app.description = {
+            ...app.description,
+            biome,
+            animals: demoAnimals(biome, app.description.stage),
+          };
+          stageValue.textContent = stageLabel();
+          apply();
+        },
+      ),
+    ]),
     element('label', {}, [
       'Saison',
       select('debug-season', SEASONS, SEASON_LABELS, app.description.season, (season) => {

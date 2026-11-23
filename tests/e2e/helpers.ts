@@ -56,6 +56,7 @@ export function driver(input: ExerciseInput): Driver<ExerciseInput> {
 /** Writes a save in IndexedDB, as the game does, then reloads the page. */
 export async function loadSave(page: Page, save: object) {
   const painting = {
+    biome: 'clearing',
     seed: 3,
     stage: 0,
     season: 'summer',

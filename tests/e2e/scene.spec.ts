@@ -86,6 +86,20 @@ for (const stage of [0, 11]) {
   });
 }
 
+for (const [stage, fill] of [
+  [0, 20],
+  [6, 55],
+  [11, 100],
+]) {
+  test(`verger des collines, palier ${stage}`, async ({ page }) => {
+    const errors = watchErrors(page);
+    await openScene(page, `biome=orchard&stage=${stage}&fill=${fill}&quality=high&time=12`);
+    expect((await page.evaluate(() => window.__numebois!.describe())).biome).toBe('orchard');
+    await checkScene(page, `verger-palier-${stage}`);
+    expect(errors).toEqual([]);
+  });
+}
+
 test('qualité basse', async ({ page }) => {
   const errors = watchErrors(page);
   await openScene(page, 'stage=11&quality=low&time=12');
