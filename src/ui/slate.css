@@ -164,75 +164,21 @@
   }
 }
 
-/* Plume, perched on the left edge of the slate (a drawing until her model, #26). */
+/* Plume, perched on the left edge of the slate: her model is drawn in the canvas (#26). */
 .plume {
   position: absolute;
-  left: -70px;
-  bottom: 24px;
+  left: -108px;
+  bottom: 16px;
   z-index: 1;
-  width: 96px;
-  height: 108px;
+  width: 172px;
+  height: 142px;
   pointer-events: none;
   filter: drop-shadow(0 4px 6px rgba(0, 30, 20, 0.3));
 }
-.plume .feet,
-.plume .beak {
-  fill: #f2a83a;
-}
-.plume .dark {
-  fill: #8e6448;
-}
-.plume .body {
-  fill: #a97c5d;
-}
-.plume .belly {
-  fill: #f6e7c8;
-}
-.plume .chevrons {
-  fill: none;
-  stroke: #b08a6a;
-  stroke-width: 2;
-  stroke-linecap: round;
-}
-.plume .eye {
-  fill: #fbf1da;
-}
-.plume .pupil {
-  fill: #2b2420;
-}
-.plume .glint {
-  fill: #fff;
-}
-.plume .wing {
-  transform-box: fill-box;
-  transform-origin: 50% 20%;
-}
-.plume .wing.left {
-  transform: rotate(12deg);
-}
-.plume .wing.right {
-  transform: rotate(-12deg);
-}
-/* Calm, she looks at the question; talking, she leans towards her bubble. */
-.plume.calm .look {
-  transform: translate(4px, -1px);
-}
-.plume.talk {
-  transform: rotate(-6deg);
-}
-.plume.cheer {
-  animation: plume-hop 0.5s cubic-bezier(0.3, 1.6, 0.5, 1);
-}
-.plume.cheer .wing.left {
-  transform: rotate(50deg);
-}
-.plume.cheer .wing.right {
-  transform: rotate(-50deg);
-}
-@keyframes plume-hop {
-  40% {
-    transform: translateY(-14px);
-  }
+.plume canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 /* Buttons of the slate and of the end of the trail: big, soft, pressed under the finger. */
@@ -368,8 +314,8 @@
   line-height: 44px;
 }
 #trail-end .plume {
-  left: -56px;
-  top: -64px;
+  left: -94px;
+  top: -88px;
   bottom: auto;
 }
 #trail-end .next {

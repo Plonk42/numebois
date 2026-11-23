@@ -27,6 +27,10 @@ La biche, le cerf, le renard et le loup, extraits et optimisés par `npm run ass
 | -------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------- | --------------------------------------------------------------------------- |
 | Ultimate Animated Animal Pack (juillet 2021) | Quaternius ([quaternius.com](https://quaternius.com)) | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | [quaternius.com](https://quaternius.com/packs/ultimateanimatedanimals.html) |
 
+## `public/assets/plume.glb`
+
+Plume la chouette, créée pour Numebois sans pack tiers : modèle, squelette et clips générés dans Blender par `scripts/plume.py`, puis optimisés par `npm run assets`.
+
 ## `public/assets/sounds/`
 
 Enregistrements de [Freesound](https://freesound.org), tous en [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) (licence vérifiée sur la page de chaque son), découpés, mis en boucle et réencodés par `npm run sounds` (`scripts/build-sounds.ts`). La liste est dans `src/scene/audio/sound-catalog.ts`. Le vent est synthétisé par le code.
