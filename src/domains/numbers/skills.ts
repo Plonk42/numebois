@@ -1,4 +1,5 @@
 import { defineSkill } from '../../core/registry';
+import { validateNumber } from '../../core/validate';
 import {
   WRITE_DIGITS,
   WRITE_DIGITS_LEVELS,
@@ -6,7 +7,6 @@ import {
   type WriteDigitsExercise,
 } from './generators';
 import { writeDigitsHint } from './hints';
-import { validateNumber } from './validate';
 
 export const writeDigits = defineSkill<WriteDigitsExercise>({
   id: WRITE_DIGITS,

@@ -23,21 +23,23 @@ export interface GameProbe {
 }
 
 interface Props {
-  skill: Skill;
+  /** The first one asks the first question. */
+  skills: readonly Skill[];
   rng: Rng;
   grow(): void;
   probe: GameProbe;
 }
 
 /**
- * First playable loop: one notion, question after question; each right answer adds a leaf
- * to the gauge, a full gauge grows a tree. Mistakes cost nothing: a hint, then the answer.
+ * First playable loop: question after question; each right answer adds a leaf to the gauge,
+ * a full gauge grows a tree. Mistakes cost nothing: a hint, then the answer.
  */
-function Game({ skill, rng, grow, probe }: Props) {
+function Game({ skills, rng, grow, probe }: Props) {
   const [grown, setGrown] = useState(0);
   const [energy, setEnergy] = useState(0);
   const [round, setRound] = useState(0);
-  const [exercise, setExercise] = useState(() => skill.generate(rng, 0));
+  const [skill, setSkill] = useState(skills[0]);
+  const [exercise, setExercise] = useState(() => skills[0].generate(rng, 0));
   const [mistakes, setMistakes] = useState(0);
   const [phase, setPhase] = useState<Phase>('asking');
   const [praise, setPraise] = useState(PRAISES[0]);
@@ -55,12 +57,15 @@ function Game({ skill, rng, grow, probe }: Props) {
     timer.current = window.setTimeout(action, ms);
   };
 
-  // Until the trail chooses (#15): each tree grown opens the next level of the notion.
+  // Until the trail chooses (#15): another notion each time, each tree grown opens a level.
   const next = (unlocked: number) => {
+    const others = skills.filter((s) => s !== skill);
+    const chosen = others.length > 0 ? rng.pick(others) : skill;
     let candidate = exercise;
     while (candidate.statement === exercise.statement) {
-      candidate = skill.generate(rng, rng.int(0, Math.min(skill.levels - 1, unlocked)));
+      candidate = chosen.generate(rng, rng.int(0, Math.min(chosen.levels - 1, unlocked)));
     }
+    setSkill(chosen);
     setExercise(candidate);
     setMistakes(0);
     setRound((r) => r + 1);
@@ -135,8 +140,13 @@ function Game({ skill, rng, grow, probe }: Props) {
 }
 
 /** Mounts the game over the scene; `grow` makes the forest grow. */
-export function mountGame(root: HTMLElement, skill: Skill, seed: number, grow: () => void) {
+export function mountGame(
+  root: HTMLElement,
+  skills: readonly Skill[],
+  seed: number,
+  grow: () => void,
+) {
   const probe: GameProbe = { exercise: null, energy: 0, grown: 0 };
-  render(<Game skill={skill} rng={new Rng(seed)} grow={grow} probe={probe} />, root);
+  render(<Game skills={skills} rng={new Rng(seed)} grow={grow} probe={probe} />, root);
   return probe;
 }

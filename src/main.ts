@@ -1,4 +1,3 @@
-import { skillsById } from './core/registry';
 import { DOMAINS } from './domains';
 import { SceneApp, type SceneCounters } from './scene/app';
 import { mountSoundButton } from './scene/audio/sound-button';
@@ -33,8 +32,8 @@ const game =
     ? null
     : mountGame(
         document.querySelector<HTMLElement>('#ui')!,
-        // Until the trail chooses the notions (#15), the first exercise of `numbers`.
-        skillsById(DOMAINS).get('numbers.write-digits')!,
+        // Until the trail chooses the notions (#15), all of them.
+        DOMAINS.flatMap((domain) => domain.skills),
         Date.now() >>> 0,
         () => app.grow(),
       );

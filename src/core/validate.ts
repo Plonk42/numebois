@@ -1,4 +1,4 @@
-import type { Exercise } from '../../core/types';
+import type { Exercise } from './types';
 
 /** A whole number typed on the keypad; leading zeros do not matter. */
 export function validateNumber(exercise: Exercise, answer: string): boolean {

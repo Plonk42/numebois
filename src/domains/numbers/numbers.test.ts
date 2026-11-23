@@ -7,7 +7,7 @@ import {
   type WriteDigitsExercise,
 } from './generators';
 import { writeDigitsHint } from './hints';
-import { validateNumber } from './validate';
+import { validateNumber } from '../../core/validate';
 import { formatNumber, numberWords } from './words';
 
 describe('numberWords', () => {
