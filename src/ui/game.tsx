@@ -14,6 +14,7 @@ import type { AnimalName } from '../scene/animal-catalog';
 import { MAX_ELEMENTS, type SceneDescription } from '../scene/description';
 import { canBuy, shopItems, type ShopItem } from '../scene/shop';
 import type { Season } from '../scene/trees/builder';
+import { Basket } from './basket';
 import { ParentMenu } from './parent-menu';
 import { Plume, type PlumeMood } from './plume';
 import { plural, Reserve, SeedIcon } from './reserve';
@@ -30,6 +31,9 @@ const PRAISE_MS = 1100;
 /** The golden seed shows, then flies to the reserve. */
 const SEED_SHOW_MS = 1700;
 const SEED_FLY_MS = 1000;
+/** At the end of the trail, Plume pours her basket into the reserve, leaf after leaf. */
+const POUR_START_MS = 700;
+const POUR_STEP_MS = 150;
 const PRAISES = ['Bravo !', 'Super !', 'Oui !', 'Bien vu !', 'Génial !'];
 const DAY_MS = 86_400_000;
 
@@ -78,6 +82,8 @@ export interface GameProbe {
   exercise: Exercise | null;
   leaves: number;
   seeds: number;
+  /** Leaves of the trail in Plume's basket, not poured into the reserve yet. */
+  basket: number;
   grown: number;
   phase: Phase;
   stone: number;
@@ -139,6 +145,8 @@ function Game(props: Props) {
   const [seeds, setSeeds] = useState(props.seeds);
   const [leavesHere, setLeavesHere] = useState(0);
   const [seedsHere, setSeedsHere] = useState(0);
+  /** Saved in `leaves` at once, shown in Plume's basket until the end of the trail. */
+  const [basket, setBasket] = useState(0);
   const [gift, setGift] = useState<Gift | null>(null);
   const [round, setRound] = useState(0);
   const [{ skill, exercise }, setQuestion] = useState(() => session.ask());
@@ -164,6 +172,7 @@ function Game(props: Props) {
       exercise,
       leaves,
       seeds,
+      basket,
       grown,
       phase,
       stone: summary ? session.stones : session.stone,
@@ -191,6 +200,17 @@ function Game(props: Props) {
     );
   // Every answer changes the phase or the reserve, every element the phase: the save follows.
   useEffect(() => props.save(saveData()), [leaves, seeds, phase, length]);
+  // The end of the trail: the basket empties into the reserve, then the shop opens.
+  useEffect(() => {
+    if (phase !== 'summary' || basket === 0) return;
+    const id = window.setTimeout(
+      () => setBasket((b) => b - 1),
+      basket === leavesHere ? POUR_START_MS : POUR_STEP_MS,
+    );
+    return () => clearTimeout(id);
+  }, [phase, basket]);
+  /** What can be spent: the basket is not poured yet. */
+  const reserve = leaves - basket;
 
   const later = (ms: number, action: () => void) => {
     clearTimeout(timer.current);
@@ -229,12 +249,13 @@ function Game(props: Props) {
     setGrownHere(0);
     setLeavesHere(0);
     setSeedsHere(0);
+    setBasket(0);
     ask();
   };
 
   /** One touch in the shop: an element waits for its place, an animal or a season comes at once. */
   const buy = (item: ShopItem) => {
-    if (phase !== 'summary' || !canBuy(item, leaves, seeds)) return;
+    if (phase !== 'summary' || basket > 0 || !canBuy(item, leaves, seeds)) return;
     const { article } = item;
     if (article.kind === 'element') {
       const slots = forest.candidates();
@@ -315,6 +336,7 @@ function Game(props: Props) {
     forest.reward('right');
     setLeaves(leaves + LEAVES_PER_RIGHT_ANSWER);
     setLeavesHere(leavesHere + LEAVES_PER_RIGHT_ANSWER);
+    setBasket(basket + LEAVES_PER_RIGHT_ANSWER);
     const steps: Step[] = [];
     if (achievements.length > 0) {
       const count = achievements.length * SEEDS_PER_ACHIEVEMENT;
@@ -360,7 +382,7 @@ function Game(props: Props) {
   else if (hint) plume = 'talk';
   return (
     <>
-      <Reserve leaves={leaves} seeds={seeds} onLongPress={() => setMenu(true)} />
+      <Reserve leaves={reserve} seeds={seeds} onLongPress={() => setMenu(true)} />
       <SeasonPicker
         seasons={seasons}
         season={season}
@@ -409,13 +431,15 @@ function Game(props: Props) {
           grown={grownHere}
           complete={placed >= MAX_ELEMENTS}
           away={phase !== 'summary'}
+          basket={basket}
           onAgain={restart}
           onWalk={walk}
         >
           <Shop
             items={shopItems(forest.description())}
-            leaves={leaves}
+            leaves={reserve}
             seeds={seeds}
+            open={basket === 0}
             portrait={(animal) => forest.portrait(animal)}
             onBuy={buy}
           />
@@ -432,6 +456,7 @@ function Game(props: Props) {
           }
           plume={plume}
           hint={hint}
+          basket={basket}
         >
           <Widget
             key={round}
@@ -525,6 +550,8 @@ interface SummaryProps {
   complete: boolean;
   /** The forest has the stage: the card steps aside. */
   away: boolean;
+  /** Leaves still in Plume's basket: she pours them into the reserve. */
+  basket: number;
   onAgain(): void;
   /** A walk in the forest, the card aside. */
   onWalk(): void;
@@ -548,6 +575,7 @@ function Summary(props: SummaryProps) {
   return (
     <section id="trail-end" class={`card${props.away ? ' away' : ''}`} aria-live="polite">
       <Plume mood="cheer" />
+      <Basket leaves={props.basket} pouring={props.basket > 0} />
       <p class="praise">Sentier terminé !</p>
       <p class="statement text">Tu as franchi {stones} pierres.</p>
       {earned && <p class="instruction earned">{earned}</p>}
@@ -590,6 +618,7 @@ export function mountGame(
     exercise: null,
     leaves: 0,
     seeds: 0,
+    basket: 0,
     grown: 0,
     phase: welcome ? 'welcome' : 'asking',
     stone: 0,

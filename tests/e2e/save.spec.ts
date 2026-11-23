@@ -23,6 +23,7 @@ async function openParentMenu(page: Page) {
 
 const reserveLabel = (leaves: number) =>
   `Réserve : ${leaves} feuille${leaves > 1 ? 's' : ''}, 0 graine dorée`;
+const basketLabel = (leaves: number) => `Panier : ${leaves} feuille${leaves > 1 ? 's' : ''}`;
 
 test('la progression et la réserve survivent au rechargement ; export et import', async ({
   page,
@@ -33,9 +34,11 @@ test('la progression et la réserve survivent au rechargement ; export et import
   await page.evaluate(() => window.__numebois!.ready);
   await startTrail(page);
   const reserve = page.locator('#reserve');
+  const basket = page.locator('#question .basket');
   for (let i = 1; i <= 2; i++) {
     await answerRight(page);
-    await expect(reserve).toHaveAttribute('aria-label', reserveLabel(i));
+    await expect(basket).toHaveAttribute('aria-label', basketLabel(i));
+    await expect(reserve).toHaveAttribute('aria-label', reserveLabel(0));
     await expect(page.locator('#question .praise')).toHaveCount(0);
   }
 
@@ -79,6 +82,7 @@ test('la progression et la réserve survivent au rechargement ; export et import
   await page.getByRole('button', { name: 'Fermer' }).click();
   await expect(page.locator('#parent-menu')).toHaveCount(0);
 
+  // The trail is left halfway: the leaves of the basket are in the reserve.
   await page.reload();
   await page.evaluate(() => window.__numebois!.ready);
   await expect(reserve).toHaveAttribute('aria-label', reserveLabel(2));
@@ -87,7 +91,8 @@ test('la progression et la réserve survivent au rechargement ; export et import
   // Importing the exported save brings it back after a reload.
   await startTrail(page);
   await answerRight(page);
-  await expect(reserve).toHaveAttribute('aria-label', reserveLabel(3));
+  await expect(basket).toHaveAttribute('aria-label', basketLabel(1));
+  await expect(reserve).toHaveAttribute('aria-label', reserveLabel(2));
   await openParentMenu(page);
   const [again] = await Promise.all([
     page.waitForEvent('filechooser'),

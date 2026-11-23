@@ -73,8 +73,8 @@ test('une boucle jouable : questions, indices et feuilles', async ({ page }) => 
   await expect(card.locator('.hint')).toHaveCount(0);
   await expect(plume).toHaveClass(/calm/);
 
-  // Each right answer sends a leaf flying to the reserve. A flight lasts under a second:
-  // an observer counts them, however slow the browser is.
+  // Each right answer sends a leaf flying into Plume's basket, already saved in the reserve.
+  // A flight lasts under a second: an observer counts them, however slow the browser is.
   const flights = () => page.evaluate(() => (globalThis as unknown as { flights: number }).flights);
   await page.evaluate(() => {
     const counter = globalThis as unknown as { flights: number };
@@ -87,13 +87,18 @@ test('une boucle jouable : questions, indices et feuilles', async ({ page }) => 
       }
     }).observe(globalThis.document.body, { childList: true, subtree: true });
   });
+  const basket = card.locator('.basket');
   for (let answer = 1; answer <= 4; answer++) {
     exercise = await current(page);
     await page.keyboard.type(exercise.answer);
     await page.keyboard.press('Enter');
     await expect(card.locator('.praise')).toBeVisible();
     await expect(plume).toHaveClass(/cheer/);
-    await expect(reserve).toHaveAttribute('aria-label', reserveLabel(answer));
+    await expect(basket).toHaveAttribute(
+      'aria-label',
+      `Panier : ${answer} feuille${answer > 1 ? 's' : ''}`,
+    );
+    expect((await game(page)).leaves).toBe(answer);
     await expect.poll(flights).toBe(answer);
     if (answer === 1) {
       await test.info().attach('feuille', {
@@ -101,7 +106,8 @@ test('une boucle jouable : questions, indices et feuilles', async ({ page }) => 
         contentType: 'image/png',
       });
     }
-    await expect(reserve.locator('.leaves b')).toHaveText(String(answer));
+    await expect(basket.locator('b')).toHaveText(String(answer));
+    await expect(reserve).toHaveAttribute('aria-label', reserveLabel(0));
     await expect(card.locator('.praise')).toHaveCount(0);
   }
   // The forest only changes at the end of the trail: the slate never stepped aside.
@@ -135,6 +141,18 @@ test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt po
     expect(apart(box, pathBox), other).toBe(true);
   }
 
+  // Leaves flying into the basket, then out of it: short, an observer counts them.
+  await page.evaluate(() => {
+    const counter = globalThis as unknown as { flights: number };
+    counter.flights = 0;
+    new MutationObserver((records) => {
+      for (const record of records) {
+        for (const node of record.addedNodes) {
+          if (node instanceof Element && node.matches('.flying.leaf')) counter.flights++;
+        }
+      }
+    }).observe(globalThis.document.body, { childList: true, subtree: true });
+  });
   for (let stone = 0; stone < 10; stone++) {
     await expect(path.locator('.stone.crossed')).toHaveCount(stone);
     const exercise = await current(page);
@@ -151,6 +169,15 @@ test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt po
   await expect(card).toHaveCount(0);
   await expect(dim).not.toHaveClass(/on/);
   await expect(path.locator('.stone.crossed')).toHaveCount(10);
+  // Plume pours her basket into the reserve, leaf after leaf, then the shop opens.
+  await expect(page.locator('#reserve')).toHaveAttribute('aria-label', reserveLabel(10), {
+    timeout: 15_000,
+  });
+  await expect(end.locator('.basket')).toHaveAttribute('aria-label', 'Panier : 0 feuille');
+  await expect(end.locator('.basket.pouring')).toHaveCount(0);
+  await expect
+    .poll(() => page.evaluate(() => (globalThis as unknown as { flights: number }).flights))
+    .toBe(20);
   const [endBox] = await boxes(page, '#trail-end');
   const viewport = page.viewportSize()!;
   expect(endBox.y + endBox.height).toBeLessThanOrEqual(viewport.height);
@@ -291,7 +318,8 @@ test('la boutique : une biche achetée en graines dorées rejoint la prairie et 
   const end = page.locator('#trail-end');
   const shop = end.locator('.shop');
   const doe = shop.getByRole('button', { name: 'Une biche, 2 graines dorées' });
-  await expect(doe).toBeEnabled();
+  // The shop opens once Plume has poured her basket into the reserve.
+  await expect(doe).toBeEnabled({ timeout: 15_000 });
   await expect(doe.locator('img')).toHaveAttribute('src', /^data:image\/png/);
   // The fox waits for stage 5: four elements away.
   await expect(shop.getByRole('button', { name: /^Un renard/ })).toContainText('Encore 4 pousses');
@@ -389,7 +417,8 @@ test('les saisons : l’automne acheté, l’enfant choisit la saison de son tab
   }
   const end = page.locator('#trail-end');
   const offer = end.locator('.shop').getByRole('button', { name: 'L’automne, 3 graines dorées' });
-  await expect(offer).toBeEnabled();
+  // The shop opens once Plume has poured her basket into the reserve.
+  await expect(offer).toBeEnabled({ timeout: 15_000 });
   await expect(summer).toBeEnabled();
 
   // One touch: the seeds are spent and autumn comes over the painting, which keeps summer.
@@ -531,8 +560,9 @@ test('une notion acquise : une graine dorée, seule à l’écran, rejoint la r�
     body: await page.screenshot(),
     contentType: 'image/png',
   });
-  await expect(reserve).toHaveAttribute('aria-label', reserveLabel(8, 1));
+  await expect(reserve).toHaveAttribute('aria-label', reserveLabel(7, 1));
   await expect(reserve.locator('.seeds b')).toHaveText('1');
+  await expect(page.locator('#question .basket b')).toHaveText('1');
   await expect(gift).toHaveCount(0);
   await expect(page.locator('#question .instruction')).toBeVisible();
   expect((await game(page)).seeds).toBe(1);

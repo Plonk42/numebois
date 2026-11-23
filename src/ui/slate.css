@@ -181,6 +181,79 @@
   height: 100%;
 }
 
+/* Plume's basket, at her feet: the leaves of the trail, poured into the reserve at the end. */
+.basket {
+  position: absolute;
+  left: -132px;
+  bottom: 12px;
+  z-index: 2;
+  width: 80px;
+  height: 64px;
+  pointer-events: none;
+  filter: drop-shadow(0 3px 4px rgba(0, 30, 20, 0.3));
+  transform-origin: 20% 90%;
+  transition: transform 0.4s cubic-bezier(0.3, 1.4, 0.5, 1);
+}
+.basket.pouring {
+  transform: rotate(-32deg);
+}
+.basket .wicker {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 80px;
+  height: 56px;
+}
+.basket .handle {
+  fill: none;
+  stroke: #8a5a2b;
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+.basket .body {
+  fill: #d39a5a;
+  stroke: #8a5a2b;
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+}
+.basket .weave {
+  fill: none;
+  stroke: #a8703a;
+  stroke-width: 2;
+}
+.basket .heap {
+  position: absolute;
+  left: 14px;
+  bottom: 30px;
+  display: flex;
+}
+.basket .heap svg {
+  width: 30px;
+  height: 30px;
+}
+.basket .heap svg + svg {
+  margin-left: -8px;
+  transform: scaleX(-1);
+}
+.basket b {
+  position: absolute;
+  right: -12px;
+  bottom: 0;
+  min-width: 34px;
+  height: 34px;
+  padding: 0 6px;
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  border-radius: 17px;
+  background: #fff;
+  box-shadow: 0 2px 4px rgba(0, 30, 20, 0.25);
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+  color: #2f6e27;
+  animation: leaf-pop 0.45s cubic-bezier(0.3, 1.7, 0.5, 1);
+}
+
 /* Buttons of the slate, of the cards and of the walk: big, soft, pressed under the finger. */
 #question button,
 .card button,
@@ -320,6 +393,11 @@
 .card .plume {
   left: -94px;
   top: -88px;
+  bottom: auto;
+}
+.card .basket {
+  left: -112px;
+  top: 40px;
   bottom: auto;
 }
 /* The way on, wide, and a walk in the forest beside it. */

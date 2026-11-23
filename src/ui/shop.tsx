@@ -50,6 +50,8 @@ interface Props {
   items: readonly ShopItem[];
   leaves: number;
   seeds: number;
+  /** Closed while Plume pours her basket into the reserve. */
+  open: boolean;
   portrait(animal: AnimalName): string | null;
   onBuy(item: ShopItem): void;
 }
@@ -58,13 +60,13 @@ interface Props {
  * The shop of the forest, at the end of the trail: a few articles with big pictures, one
  * touch to buy. An article out of reach shows what is still to earn.
  */
-export function Shop({ items, leaves, seeds, portrait, onBuy }: Props) {
+export function Shop({ items, leaves, seeds, open, portrait, onBuy }: Props) {
   return (
     <ul class="shop" aria-label="Boutique de la forêt">
       {items.map((item) => {
         const { article } = item;
         const label = labelOf(article);
-        const ready = canBuy(item, leaves, seeds);
+        const ready = open && canBuy(item, leaves, seeds);
         const missing = toGo(item, leaves, seeds);
         const price = item.seeds > 0 ? item.seeds : item.leaves;
         const priceLabel =

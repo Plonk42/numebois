@@ -1,3 +1,5 @@
+import type { RefObject } from 'preact';
+import { createPortal } from 'preact/compat';
 import { useLayoutEffect, useRef, useState } from 'preact/hooks';
 
 /** Hold the reserve this long to open the parent menu. */
@@ -28,6 +30,8 @@ interface Flight {
   id: number;
   kind: 'leaf' | 'seed';
   from: DOMRect;
+  /** The count once it has landed. */
+  value: number;
 }
 
 /** A leaf or a seed flying from where it was earned to its counter, then gone. */
@@ -61,52 +65,65 @@ function Flying({ flight, to, onLanded }: { flight: Flight; to: Element; onLande
   );
 }
 
+/**
+ * A count fed by flights: when it grows, a leaf or a seed flies from `source` to `target` and
+ * the shown count follows when it lands; spent, or nowhere to fly from, it follows at once.
+ */
+export function useLanding(
+  kind: Flight['kind'],
+  value: number,
+  source: string,
+  target: RefObject<Element | null>,
+) {
+  const [shown, setShown] = useState(value);
+  const [flights, setFlights] = useState<Flight[]>([]);
+  const nextId = useRef(0);
+  const latest = useRef(value);
+  useLayoutEffect(() => {
+    const grew = value > latest.current;
+    latest.current = value;
+    const from = grew ? document.querySelector(source)?.getBoundingClientRect() : undefined;
+    if (from) setFlights((list) => [...list, { id: nextId.current++, kind, from, value }]);
+    else setShown(value);
+  }, [value]);
+  // Fixed over the whole screen, out of the slate or the card, which move.
+  const flying = createPortal(
+    <>
+      {flights.map((flight) => (
+        <Flying
+          key={flight.id}
+          flight={flight}
+          to={target.current!}
+          onLanded={() => {
+            setFlights((list) => list.filter((f) => f.id !== flight.id));
+            setShown(Math.min(flight.value, latest.current));
+          }}
+        />
+      ))}
+    </>,
+    document.body,
+  );
+  return [shown, flying] as const;
+}
+
 interface Props {
+  /** In the reserve, the leaves of the trail in progress still in Plume's basket aside. */
   leaves: number;
   seeds: number;
   onLongPress(): void;
 }
 
 /**
- * The reserve, top left: leaves and golden seeds, never lost. What is earned flies from
- * where it was won (the praise, the golden seed) and the counter pops when it lands.
+ * The reserve, top left: leaves and golden seeds, never lost. The leaves come from Plume's
+ * basket, the golden seeds from where they were won, and the counter pops when they land.
  */
 export function Reserve({ leaves, seeds, onLongPress }: Props) {
   const timer = useRef(0);
   const pressedAt = useRef<number | null>(null);
   const leafCounter = useRef<HTMLSpanElement>(null);
   const seedCounter = useRef<HTMLSpanElement>(null);
-  const [shown, setShown] = useState({ leaves, seeds });
-  const [flights, setFlights] = useState<Flight[]>([]);
-  const nextId = useRef(0);
-  const earned = useRef({ leaves, seeds });
-
-  useLayoutEffect(() => {
-    const before = earned.current;
-    earned.current = { leaves, seeds };
-    const add = (kind: Flight['kind'], source: string) => {
-      const from = document.querySelector(source)?.getBoundingClientRect();
-      if (!from) return false;
-      setFlights((list) => [...list, { id: nextId.current++, kind, from }]);
-      return true;
-    };
-    const leafFlies = leaves > before.leaves && add('leaf', '#question .praise');
-    const seedFlies = seeds > before.seeds && add('seed', '#seed-gift .seed-icon');
-    // Spent, or nowhere to fly from: the counters follow at once.
-    setShown((s) => ({
-      leaves: leafFlies ? s.leaves : leaves,
-      seeds: seedFlies ? s.seeds : seeds,
-    }));
-  }, [leaves, seeds]);
-
-  const landed = (flight: Flight) => {
-    setFlights((list) => list.filter((f) => f.id !== flight.id));
-    setShown((s) =>
-      flight.kind === 'leaf'
-        ? { ...s, leaves: earned.current.leaves }
-        : { ...s, seeds: earned.current.seeds },
-    );
-  };
+  const [shownLeaves, leafFlights] = useLanding('leaf', leaves, '.basket', leafCounter);
+  const [shownSeeds, seedFlights] = useLanding('seed', seeds, '#seed-gift .seed-icon', seedCounter);
 
   const cancel = () => {
     clearTimeout(timer.current);
@@ -139,21 +156,15 @@ export function Reserve({ leaves, seeds, onLongPress }: Props) {
       >
         <span class="counter leaves" ref={leafCounter}>
           <LeafIcon />
-          <b key={shown.leaves}>{shown.leaves}</b>
+          <b key={shownLeaves}>{shownLeaves}</b>
         </span>
         <span class="counter seeds" ref={seedCounter}>
           <SeedIcon />
-          <b key={shown.seeds}>{shown.seeds}</b>
+          <b key={shownSeeds}>{shownSeeds}</b>
         </span>
       </div>
-      {flights.map((flight) => (
-        <Flying
-          key={flight.id}
-          flight={flight}
-          to={(flight.kind === 'leaf' ? leafCounter : seedCounter).current!}
-          onLanded={() => landed(flight)}
-        />
-      ))}
+      {leafFlights}
+      {seedFlights}
     </>
   );
 }
