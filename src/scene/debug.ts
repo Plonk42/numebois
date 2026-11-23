@@ -1,5 +1,13 @@
 import type { SceneApp, SceneCounters } from './app';
-import { LANDMARKS, STAGES, writeDescription, type Landmark, type Stage } from './description';
+import {
+  LANDMARKS,
+  STAGES,
+  demoElements,
+  fillOf,
+  writeDescription,
+  type Landmark,
+  type Stage,
+} from './description';
 import { QUALITIES, type Quality } from './render/quality';
 import { STAGE_NAMES } from './render/richness';
 import { SEASONS, type Season } from './trees/builder';
@@ -105,23 +113,30 @@ export function mountDebugPanel(app: SceneApp, autoQuality: boolean): void {
     value: String(app.description.seed),
   });
   seed.addEventListener('change', () => {
+    const next = Math.max(0, Math.floor(Number(seed.value) || 0));
     app.description = {
       ...app.description,
-      seed: Math.max(0, Math.floor(Number(seed.value) || 0)),
+      seed: next,
+      elements: demoElements(next, fillOf(app.description)),
     };
     apply();
   });
-  const fillValue = element('span', { textContent: `${Math.round(app.description.fill * 100)} %` });
+  const fillValue = element('span', {
+    textContent: `${Math.round(fillOf(app.description) * 100)} %`,
+  });
   const fill = element('input', {
     id: 'debug-fill',
     type: 'range',
     min: '0',
     max: '100',
     step: '5',
-    value: String(Math.round(app.description.fill * 100)),
+    value: String(Math.round(fillOf(app.description) * 100)),
   });
   fill.addEventListener('input', () => {
-    app.description = { ...app.description, fill: Number(fill.value) / 100 };
+    app.description = {
+      ...app.description,
+      elements: demoElements(app.description.seed, Number(fill.value) / 100),
+    };
     fillValue.textContent = `${fill.value} %`;
     apply();
   });

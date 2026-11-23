@@ -1,3 +1,5 @@
+import { Rng } from '../core/rng';
+import { SLOT_COUNT } from './terrain/clearing-layout';
 import type { Season } from './trees/builder';
 
 export const STAGES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] as const;
@@ -13,17 +15,27 @@ export type PerStage<T> = readonly [T, T, T, T, T, T, T, T, T, T, T, T];
 export const LANDMARKS = ['lake', 'mountain', 'season'] as const;
 export type Landmark = (typeof LANDMARKS)[number];
 
+/** An element the child placed in a slot of the painting; its kind is the slot's. */
+export interface PlacedElement {
+  slot: number;
+  /** Local day number of the placing, for the Album. */
+  day: number;
+}
+
+/** Elements of a painting at most: one per slot. */
+export const MAX_ELEMENTS = SLOT_COUNT;
+
 /**
- * Everything needed to rebuild a scene identically: the painting is a pure function of
- * this description (and of the growth demo triggered on top of it).
+ * Everything needed to rebuild a scene identically, for the game and the Album: the
+ * painting is a pure function of this description (and of the growth triggered on top).
  */
 export interface SceneDescription {
   seed: number;
   stage: Stage;
   /** Season the painting started in; the season moment brings the next one. */
   season: Season;
-  /** Share of the slots filled (0 to 1), until the elements are really placed (#25). */
-  fill: number;
+  /** Elements placed by the child, in placing order. */
+  elements: readonly PlacedElement[];
   /** Grand moments already revealed. */
   landmarks: readonly Landmark[];
 }
@@ -33,11 +45,27 @@ export const DEMO_FILL: PerStage<number> = [
   0.2, 0.3, 0.33, 0.36, 0.4, 0.45, 0.55, 0.6, 0.7, 0.75, 0.9, 1,
 ];
 
+/**
+ * Elements of a demonstration scene (`?fill=`, debug panel, captures): a share of all the
+ * slots, mostly the first ones to open. A filled slot stays filled with a larger share.
+ */
+export function demoElements(seed: number, fill: number): PlacedElement[] {
+  const rng = new Rng(seed).fork('fill');
+  const order = Array.from({ length: SLOT_COUNT }, (_, i) => ({ i, key: i + rng.range(0, 3) }));
+  order.sort((a, b) => a.key - b.key);
+  return order.slice(0, Math.round(fill * SLOT_COUNT)).map((o) => ({ slot: o.i, day: 0 }));
+}
+
+/** Share of the slots filled. */
+export function fillOf(description: SceneDescription): number {
+  return description.elements.length / SLOT_COUNT;
+}
+
 export const DEFAULT_DESCRIPTION: SceneDescription = {
   seed: 7,
   stage: 6,
   season: 'summer',
-  fill: DEMO_FILL[6],
+  elements: demoElements(7, DEMO_FILL[6]),
   landmarks: [],
 };
 
@@ -60,13 +88,17 @@ export function parseDescription(params: URLSearchParams): SceneDescription {
   const knownStage = STAGES.includes(stage as Stage) ? (stage as Stage) : DEFAULT_DESCRIPTION.stage;
   const fill = Number(params.get('fill') ?? Number.NaN);
   const landmarks = new Set((params.get('landmarks') ?? '').split(','));
+  const knownSeed = Number.isFinite(seed) ? Math.abs(Math.floor(seed)) : DEFAULT_DESCRIPTION.seed;
   return {
-    seed: Number.isFinite(seed) ? Math.abs(Math.floor(seed)) : DEFAULT_DESCRIPTION.seed,
+    seed: knownSeed,
     stage: knownStage,
     season: SEASON_NAMES.includes(season as Season)
       ? (season as Season)
       : DEFAULT_DESCRIPTION.season,
-    fill: Number.isFinite(fill) ? Math.min(1, Math.max(0, fill / 100)) : DEMO_FILL[knownStage],
+    elements: demoElements(
+      knownSeed,
+      Number.isFinite(fill) ? Math.min(1, Math.max(0, fill / 100)) : DEMO_FILL[knownStage],
+    ),
     landmarks: LANDMARKS.filter((landmark) => landmarks.has(landmark)),
   };
 }
@@ -75,7 +107,51 @@ export function writeDescription(params: URLSearchParams, description: SceneDesc
   params.set('stage', String(description.stage));
   params.set('season', description.season);
   params.set('seed', String(description.seed));
-  params.set('fill', String(Math.round(description.fill * 100)));
+  params.set('fill', String(Math.round(fillOf(description) * 100)));
   if (description.landmarks.length > 0) params.set('landmarks', description.landmarks.join(','));
   else params.delete('landmarks');
+}
+
+const isObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+/**
+ * Reads a description kept in a save or the Album; null when anything is out of place
+ * (unknown stage, season or grand moment, slot outside the painting or placed twice).
+ */
+export function readDescription(value: unknown): SceneDescription | null {
+  if (!isObject(value) || !Array.isArray(value.elements) || !Array.isArray(value.landmarks)) {
+    return null;
+  }
+  const { seed, stage, season } = value;
+  const slots = new Set<number>();
+  const elements: PlacedElement[] = [];
+  for (const element of value.elements as unknown[]) {
+    if (!isObject(element)) return null;
+    const { slot, day } = element;
+    if (!Number.isInteger(slot) || !Number.isInteger(day)) return null;
+    if ((slot as number) < 0 || (slot as number) >= MAX_ELEMENTS || slots.has(slot as number)) {
+      return null;
+    }
+    slots.add(slot as number);
+    elements.push({ slot: slot as number, day: day as number });
+  }
+  const landmarks = value.landmarks as unknown[];
+  if (
+    !Number.isInteger(seed) ||
+    (seed as number) < 0 ||
+    !STAGES.includes(stage as Stage) ||
+    !SEASON_NAMES.includes(season as Season) ||
+    !landmarks.every((l) => LANDMARKS.includes(l as Landmark)) ||
+    new Set(landmarks).size !== landmarks.length
+  ) {
+    return null;
+  }
+  return {
+    seed: seed as number,
+    stage: stage as Stage,
+    season: season as Season,
+    elements,
+    landmarks: landmarks as Landmark[],
+  };
 }

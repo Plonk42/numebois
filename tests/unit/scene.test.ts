@@ -6,8 +6,11 @@ import {
   DEMO_FILL,
   LAST_STAGE,
   LANDMARKS,
+  MAX_ELEMENTS,
   STAGES,
+  demoElements,
   parseDescription,
+  readDescription,
   shownSeason,
   writeDescription,
   type Landmark,
@@ -15,7 +18,7 @@ import {
   type Stage,
 } from '../../src/scene/description';
 import { MAX_EFFECT_TRIANGLES } from '../../src/scene/painting';
-import { filledSlots } from '../../src/scene/populate';
+import { plantTrees } from '../../src/scene/populate';
 import {
   animalState,
   herdTriangles,
@@ -43,14 +46,14 @@ const TRIANGLE_BUDGET = 150_000;
 const budget = createBudgetLibrary();
 const placeholders = createPlaceholderLibrary();
 
-/** A description with the slots filled as at its stage, and no grand moment revealed. */
+/** A description with the slots filled as at its stage (or `fill`), no grand moment revealed. */
 function scene(
   seed: number,
   stage: Stage,
   season: Season,
-  more: Partial<SceneDescription> = {},
+  { fill = DEMO_FILL[stage], ...more }: Partial<SceneDescription> & { fill?: number } = {},
 ): SceneDescription {
-  return { seed, stage, season, fill: DEMO_FILL[stage], landmarks: [], ...more };
+  return { seed, stage, season, elements: demoElements(seed, fill), landmarks: [], ...more };
 }
 
 function sceneTriangles(description: SceneDescription, quality = QUALITY.high): number {
@@ -104,12 +107,14 @@ describe('scene description', () => {
       stage: 4,
       season: 'winter',
       seed: 12,
-      fill: 0.5,
+      elements: demoElements(12, 0.5),
       landmarks: ['lake', 'season'],
     });
     const fallback = parseDescription(new URLSearchParams('stage=12&season=monsoon&seed=x'));
     expect(fallback).toEqual(scene(7, 6, 'summer'));
-    expect(parseDescription(new URLSearchParams('stage=0&fill=250')).fill).toBe(1);
+    expect(parseDescription(new URLSearchParams('stage=0&fill=250')).elements).toHaveLength(
+      MAX_ELEMENTS,
+    );
     const params = new URLSearchParams();
     writeDescription(params, d);
     expect(parseDescription(params)).toEqual(d);
@@ -463,15 +468,64 @@ describe('slots and grand moments', () => {
   });
 
   it('fills the slots in a stable order, so a filled slot stays filled', () => {
+    const slots = (seed: number, fill: number) =>
+      new Set(demoElements(seed, fill).map((element) => element.slot));
     for (const seed of [1, 7, 30]) {
-      let before = filledSlots(seed, 0);
+      let before = slots(seed, 0);
       expect(before.size).toBe(0);
       for (const fill of [0.2, 0.5, 0.55, 1]) {
-        const after = filledSlots(seed, fill);
+        const after = slots(seed, fill);
         expect(after.size).toBe(Math.round(fill * SLOT_COUNT));
         for (const slot of before) expect(after.has(slot)).toBe(true);
         before = after;
       }
+    }
+  });
+
+  it('replays a painting from its compact description (300 seeds, 24 scenes)', () => {
+    for (let seed = 0; seed < 300; seed++) {
+      const stage = STAGES[seed % STAGES.length];
+      const rng = new Rng(seed);
+      const description = scene(seed, stage, 'spring', {
+        elements: demoElements(seed, rng.next()).map((e) => ({ ...e, day: 20_400 + seed })),
+        landmarks: LANDMARKS.filter(() => rng.chance(0.5)),
+      });
+      const json = JSON.stringify(description);
+      expect(json.length).toBeLessThan(2048);
+      const replayed = readDescription(JSON.parse(json));
+      expect(replayed).toEqual(description);
+      // Building the terrain is slow: the planting itself on a sample of seeds.
+      if (seed % 12 !== 0 && seed % 12 !== 7) continue;
+      const terrain = createClearing(seed, stage, description.landmarks);
+      const ambience = ambienceFor(stage, 'spring');
+      expect(plantTrees(terrain, replayed!, ambience)).toEqual(
+        plantTrees(terrain, description, ambience),
+      );
+    }
+  });
+
+  it('refuses a description out of place', () => {
+    const valid = scene(3, 2, 'autumn', { elements: [{ slot: 4, day: 1 }] });
+    expect(readDescription(JSON.parse(JSON.stringify(valid)))).toEqual(valid);
+    for (const broken of [
+      null,
+      { ...valid, stage: 12 },
+      { ...valid, season: 'monsoon' },
+      { ...valid, seed: -1 },
+      { ...valid, landmarks: ['storm'] },
+      { ...valid, landmarks: ['lake', 'lake'] },
+      { ...valid, elements: [{ slot: MAX_ELEMENTS, day: 1 }] },
+      {
+        ...valid,
+        elements: [
+          { slot: 1, day: 1 },
+          { slot: 1, day: 2 },
+        ],
+      },
+      { ...valid, elements: [{ slot: 1.5, day: 1 }] },
+      { ...valid, elements: undefined },
+    ]) {
+      expect(readDescription(broken), JSON.stringify(broken)).toBeNull();
     }
   });
 
