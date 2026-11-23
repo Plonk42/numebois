@@ -7,6 +7,7 @@ import {
   game,
   loadSave,
   reserveLabel,
+  startTrail,
   wrong,
 } from './helpers';
 
@@ -18,6 +19,7 @@ test('une boucle jouable : questions, indices et feuilles', async ({ page }) => 
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('./?seed=3');
   await page.evaluate(() => window.__numebois!.ready);
+  await startTrail(page);
 
   const card = page.locator('#question');
   const reserve = page.locator('#reserve');
@@ -119,6 +121,7 @@ test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt po
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('./?seed=3');
   await page.evaluate(() => window.__numebois!.ready);
+  await startTrail(page);
   const card = page.locator('#question');
   const path = page.locator('#trail');
   const dim = page.locator('#dim');
@@ -164,6 +167,14 @@ test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt po
   await expect(doe).toContainText('Encore 3 pousses');
   await expect(doe.locator('img')).toHaveAttribute('src', /^data:image\/png/);
   await test.info().attach('résumé', { body: await page.screenshot(), contentType: 'image/png' });
+
+  // A walk in the forest from the end of the trail, then back to the shop.
+  await end.getByRole('button', { name: 'Se promener' }).click();
+  await expect(end).toHaveClass(/away/);
+  await expect(page.locator('#walk')).toBeVisible();
+  await page.getByRole('button', { name: 'J’ai fini' }).click();
+  await expect(page.locator('#walk')).toHaveCount(0);
+  await expect(end).not.toHaveClass(/away/);
 
   // Four leaves each: the child chooses among the glowing places, the element grows there,
   // and passes a stage under a veil of light.
@@ -266,6 +277,7 @@ test('la boutique : une biche achetée en graines dorées rejoint la prairie et 
     facts: [],
     history: [],
   });
+  await startTrail(page);
   const animals = async () => (await page.evaluate(() => window.__numebois!.counters())).animals;
   expect(await animals()).toBe(0);
   const { stones } = await game(page);
@@ -352,6 +364,7 @@ test('les saisons : l’automne acheté, l’enfant choisit la saison de son tab
     facts: [],
     history: [],
   });
+  await startTrail(page);
   const describe = () => page.evaluate(() => window.__numebois!.describe());
   const picker = page.locator('#seasons');
   const summer = picker.getByRole('button', { name: 'L’été' });
@@ -450,6 +463,7 @@ test('le choix : comparer avec <, = ou >, d’une touche, sans rouge', async ({ 
     facts: [],
     history: [],
   });
+  await startTrail(page);
   const exercise = await current(page);
   expect(exercise.skill).toBe('numbers.compare');
   const card = page.locator('#question');
@@ -499,6 +513,7 @@ test('une notion acquise : une graine dorée, seule à l’écran, rejoint la r�
   });
   const reserve = page.locator('#reserve');
   await expect(reserve).toHaveAttribute('aria-label', reserveLabel(7));
+  await startTrail(page);
   const exercise = await current(page);
   expect(exercise.skill).toBe('numbers.write-digits');
   await page.keyboard.type(exercise.answer);
@@ -527,6 +542,7 @@ test('l’ardoise tient le plus long énoncé avec la réponse montrée ; Entré
 }) => {
   await page.goto('./?seed=3&time=1');
   await page.evaluate(() => window.__numebois!.ready);
+  await startTrail(page);
   const exercise = await current(page);
   await page.keyboard.type(wrong(exercise.answer));
   await page.keyboard.press('Enter');

@@ -6,6 +6,7 @@ import { Soundscape } from './audio/soundscape';
 import { MAX_ELEMENTS, parseDescription, stageFor, type SceneDescription } from './description';
 import { Painting, type PaintingStats } from './painting';
 import { animalPortrait } from './render/portrait';
+import { parseViewShares, type View } from './render/explore';
 import { QUALITY, QualityGovernor, parseQuality, type Quality } from './render/quality';
 import { Stage } from './render/stage';
 import type { Season } from './trees/builder';
@@ -66,6 +67,8 @@ export class SceneApp {
   /** Light over the whole scene while a new stage is built. */
   private readonly veil: HTMLElement;
   private readonly portraits = new Map<AnimalName, string>();
+  /** `view=yaw,pitch,zoom,x,z`: an explored view as shares of its limits, for captures. */
+  private readonly viewShares: number[] | null;
 
   constructor(
     canvas: HTMLCanvasElement,
@@ -92,6 +95,7 @@ export class SceneApp {
     const fixed = params.get('time');
     this.fixedTime = fixed !== null && Number.isFinite(Number(fixed)) ? Number(fixed) : null;
     this.forcePlaceholders = params.get('assets') === 'placeholder';
+    this.viewShares = parseViewShares(params.get('view'));
   }
 
   async start(): Promise<void> {
@@ -114,6 +118,9 @@ export class SceneApp {
     this.painting = new Painting(this.stage, this.assets, this.animals, this.description, settings);
     this.sound.setLevels(this.painting.ambience.sound);
     this.stage.frame(this.painting.terrain.frame);
+    if (this.viewShares && this.stage.explorer.active) {
+      this.stage.explorer.showShares(this.viewShares);
+    }
     this.painting.resized();
     this.renderFrame(0);
   }
@@ -135,6 +142,30 @@ export class SceneApp {
       this.governor = null;
     }
     this.rebuild();
+  }
+
+  /**
+   * The child explores the forest (#72), told when the view leaves or comes back to the
+   * framing; null stops the gestures and the view glides back to the framing.
+   */
+  explore(onAway: ((away: boolean) => void) | null): void {
+    if (onAway) this.stage.explorer.enable(onAway);
+    else this.stage.explorer.disable();
+  }
+
+  /** Back to the framing, gliding. */
+  recenter(): void {
+    this.stage.explorer.recenter();
+  }
+
+  /** The explored view: where it is, where it goes, and whether gestures move it. */
+  view(): { now: View; goal: View; active: boolean } {
+    const explorer = this.stage.explorer;
+    return {
+      now: { ...explorer.view },
+      goal: { ...explorer.destination },
+      active: explorer.active,
+    };
   }
 
   /** Growth demonstration (debug key or button). */
