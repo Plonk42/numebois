@@ -12,6 +12,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "assets": "tsx scripts/build-assets.ts",
+    "sounds": "tsx scripts/build-sounds.ts",
     "capture": "tsx scripts/capture.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

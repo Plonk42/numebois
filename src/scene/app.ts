@@ -117,6 +117,7 @@ export class SceneApp {
   /** Growth demonstration (debug key or button). */
   grow(): void {
     this.painting?.grow(this.time);
+    this.sound.chime();
   }
 
   private readonly onResize = () => {

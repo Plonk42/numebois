@@ -1,5 +1,7 @@
 import { Rng } from '../../core/rng';
 import type { SoundLevels } from '../render/richness';
+import { SOUND_CATALOG, type CallName, type LoopName, type SoundName } from './sound-catalog';
+import { SOUND_FILES } from './sounds.gen';
 
 export type SoundState = 'waiting' | 'playing' | 'paused' | 'muted';
 
@@ -8,26 +10,55 @@ const NOISE_SECONDS = 3;
 const FADE_SECONDS = 1.5;
 /** Overall volume: an ambience stays in the background. */
 const MASTER = 0.5;
-
-interface Layer {
-  gain: GainNode;
-  /** Gain of the layer at level 1. */
-  scale: number;
-}
+/** Share of it kept during a question: low and continuous, nothing that distracts. */
+const QUIET = 0.6;
+const WIND_SCALE = 0.9;
+/** Gain of each recorded loop at level 1 (the files share one loudness). */
+const LOOP_SCALE: Record<LoopName, number> = {
+  pond: 0.8,
+  brook: 0.8,
+  falls: 0.8,
+  birds: 0.9,
+  chorus: 0.7,
+  meadow: 0.8,
+  leaves: 0.8,
+  crickets: 0.6,
+};
+type CallLevel = 'songs' | 'woodpecker' | 'cuckoo' | 'owl' | 'magic';
+/** Recordings of each kind of call, and their gain. */
+const CALLS: Record<CallLevel, { sounds: readonly CallName[]; gain: number }> = {
+  songs: { sounds: ['chaffinch', 'blackbird', 'blackbird'], gain: 0.35 },
+  woodpecker: { sounds: ['woodpecker'], gain: 0.35 },
+  cuckoo: { sounds: ['cuckoo'], gain: 0.3 },
+  owl: { sounds: ['owl'], gain: 0.4 },
+  magic: { sounds: ['chimes'], gain: 0.25 },
+};
+const REWARD_GAIN = 0.6;
+/** Never two calls of a kind closer than this, in seconds. */
+const MIN_CALL_GAP = 6;
 
 /**
- * Ambient sound synthesised from filtered noise (Web Audio). The noise buffer is white, so
- * its loop has no audible seam; filters and slow oscillators give it its colour and life.
- * Nothing plays before the first touch (browser rule), while the tab is hidden or when muted.
+ * Ambient sound in layers (Web Audio): wind synthesised from filtered noise, recorded loops
+ * (water, birds, insects, leaves) whose volumes follow the stage, and calls played at
+ * random moments, panned left or right. Nothing plays before the first touch (browser
+ * rule), while the tab is hidden or when muted.
  */
 export class Soundscape {
   private context: AudioContext | null = null;
   private master: GainNode | null = null;
-  private layers: Record<keyof SoundLevels, Layer> | null = null;
-  private levels: SoundLevels = { wind: 0, water: 0 };
+  private wind: GainNode | null = null;
+  private readonly loops = new Map<LoopName, GainNode>();
+  private readonly buffers = new Map<SoundName, AudioBuffer>();
+  private readonly nextCall = new Map<CallLevel, number>();
+  private readonly rng = new Rng(29);
+  private timer = 0;
+  private levels: SoundLevels | null = null;
+  private wasQuiet = false;
   private touched = false;
   private hidden = false;
   private mutedValue: boolean;
+  /** True while a question is on screen (set by the game). */
+  quiet: () => boolean = () => false;
 
   constructor() {
     this.mutedValue = localStorage.getItem(MUTED_KEY) === '1';
@@ -49,6 +80,11 @@ export class Soundscape {
     return this.context?.state ?? 'none';
   }
 
+  /** Recordings decoded so far, for the tests. */
+  get loaded(): number {
+    return this.buffers.size;
+  }
+
   setMuted(muted: boolean): void {
     this.mutedValue = muted;
     localStorage.setItem(MUTED_KEY, muted ? '1' : '0');
@@ -62,19 +98,26 @@ export class Soundscape {
     this.update();
   }
 
-  /** Volumes of the painting's stage; they glide to the new values. */
+  /** Volumes and rates of the painting's stage; volumes glide to the new values. */
   setLevels(levels: SoundLevels): void {
     this.levels = levels;
-    if (!this.context || !this.layers) return;
+    if (!this.context) return;
     const now = this.context.currentTime;
-    for (const key of Object.keys(levels) as (keyof SoundLevels)[]) {
-      const layer = this.layers[key];
-      layer.gain.gain.setTargetAtTime(levels[key] * layer.scale, now, FADE_SECONDS / 3);
+    this.wind?.gain.setTargetAtTime(levels.wind * WIND_SCALE, now, FADE_SECONDS / 3);
+    for (const [name, gain] of this.loops) {
+      gain.gain.setTargetAtTime(levels[name] * LOOP_SCALE[name], now, FADE_SECONDS / 3);
     }
+    this.nextCall.clear();
+  }
+
+  /** Short chime of a reward (an element grows): never skipped while the sound plays. */
+  chime(): void {
+    if (this.state === 'playing') this.play('chime', REWARD_GAIN, this.rng.range(-0.3, 0.3));
   }
 
   dispose(): void {
     window.removeEventListener('pointerdown', this.onFirstTouch);
+    window.clearInterval(this.timer);
     void this.context?.close();
     this.context = null;
   }
@@ -94,7 +137,7 @@ export class Soundscape {
     this.master.gain.cancelScheduledValues(now);
     if (play) {
       void context.resume();
-      this.master.gain.setTargetAtTime(MASTER, now, FADE_SECONDS / 3);
+      this.master.gain.setTargetAtTime(this.volume(), now, FADE_SECONDS / 3);
     } else {
       this.master.gain.setValueAtTime(0, now);
       void context.suspend();
@@ -108,7 +151,14 @@ export class Soundscape {
     master.gain.value = 0;
     master.connect(context.destination);
     this.master = master;
+    this.buildWind(context, master);
+    for (const name of Object.keys(SOUND_CATALOG) as SoundName[]) void this.load(context, name);
+    this.timer = window.setInterval(this.tick, 500);
+  }
 
+  // Wind: deep noise whose colour and loudness swell in slow, irregular gusts. The noise
+  // buffer is white, so its loop has no audible seam.
+  private buildWind(context: AudioContext, master: GainNode): void {
     const buffer = context.createBuffer(
       2,
       Math.round(context.sampleRate * NOISE_SECONDS),
@@ -119,13 +169,10 @@ export class Soundscape {
       const data = buffer.getChannelData(channel);
       for (let i = 0; i < data.length; i++) data[i] = rng.next() * 2 - 1;
     }
-    const noise = (offset: number) => {
-      const source = context.createBufferSource();
-      source.buffer = buffer;
-      source.loop = true;
-      source.start(0, offset);
-      return source;
-    };
+    const source = context.createBufferSource();
+    source.buffer = buffer;
+    source.loop = true;
+    source.start();
     const lfo = (frequency: number, depth: number, target: AudioParam) => {
       const oscillator = context.createOscillator();
       oscillator.frequency.value = frequency;
@@ -134,42 +181,98 @@ export class Soundscape {
       oscillator.connect(amount).connect(target);
       oscillator.start();
     };
-    const filter = (type: BiquadFilterType, frequency: number, q: number) => {
+    const filter = (frequency: number, q: number) => {
       const node = context.createBiquadFilter();
-      node.type = type;
+      node.type = 'lowpass';
       node.frequency.value = frequency;
       node.Q.value = q;
       return node;
     };
-
-    // Wind: deep noise whose colour and loudness swell in slow, irregular gusts.
-    const windTone = filter('lowpass', 420, 0.8);
-    const windBody = filter('lowpass', 900, 0.5);
-    const windSwell = context.createGain();
-    windSwell.gain.value = 0.7;
-    lfo(0.071, 0.25, windSwell.gain);
-    lfo(0.113, 0.15, windSwell.gain);
-    lfo(0.053, 220, windTone.frequency);
+    const tone = filter(420, 0.8);
+    const body = filter(900, 0.5);
+    const swell = context.createGain();
+    swell.gain.value = 0.7;
+    lfo(0.071, 0.25, swell.gain);
+    lfo(0.113, 0.15, swell.gain);
+    lfo(0.053, 220, tone.frequency);
     const wind = context.createGain();
-    noise(0).connect(windTone).connect(windBody).connect(windSwell).connect(wind).connect(master);
-
-    // Water from afar: a band of brighter noise with a quick, shallow burble.
-    const waterBand = filter('bandpass', 1400, 0.6);
-    const waterFar = filter('lowpass', 2600, 0.5);
-    const burble = context.createGain();
-    burble.gain.value = 0.85;
-    lfo(6.3, 0.08, burble.gain);
-    lfo(0.09, 0.08, burble.gain);
-    const water = context.createGain();
-    noise(NOISE_SECONDS / 2)
-      .connect(waterBand)
-      .connect(waterFar)
-      .connect(burble)
-      .connect(water)
-      .connect(master);
-
-    this.layers = { wind: { gain: wind, scale: 0.9 }, water: { gain: water, scale: 0.7 } };
-    wind.gain.value = this.levels.wind * this.layers.wind.scale;
-    water.gain.value = this.levels.water * this.layers.water.scale;
+    wind.gain.value = (this.levels?.wind ?? 0) * WIND_SCALE;
+    source.connect(tone).connect(body).connect(swell).connect(wind).connect(master);
+    this.wind = wind;
   }
+
+  private async load(context: AudioContext, name: SoundName): Promise<void> {
+    try {
+      const response = await fetch(import.meta.env.BASE_URL + SOUND_FILES[name].file);
+      const buffer = await context.decodeAudioData(await response.arrayBuffer());
+      if (this.context !== context || !this.master) return;
+      this.buffers.set(name, buffer);
+      if (SOUND_CATALOG[name].kind === 'loop') this.startLoop(context, name as LoopName, buffer);
+    } catch (error) {
+      // Offline before the first visit cached them: the painting stays with the wind.
+      console.warn(`Son ${name} indisponible`, error);
+    }
+  }
+
+  private startLoop(context: AudioContext, name: LoopName, buffer: AudioBuffer): void {
+    const source = context.createBufferSource();
+    source.buffer = buffer;
+    source.loop = true;
+    const gain = context.createGain();
+    gain.gain.value = (this.levels?.[name] ?? 0) * LOOP_SCALE[name];
+    source.connect(gain).connect(this.master!);
+    // Each loop starts somewhere else, so their seams never line up.
+    source.start(0, this.rng.range(0, buffer.duration));
+    this.loops.set(name, gain);
+  }
+
+  private play(name: CallName, gain: number, pan: number): void {
+    const context = this.context;
+    const buffer = this.buffers.get(name);
+    if (!context || !buffer || !this.master) return;
+    const cuts = SOUND_FILES[name].cuts;
+    const [start, duration] = cuts[this.rng.int(0, cuts.length - 1)];
+    const source = context.createBufferSource();
+    source.buffer = buffer;
+    const volume = context.createGain();
+    volume.gain.value = gain;
+    const panner = context.createStereoPanner();
+    panner.pan.value = pan;
+    source.connect(volume).connect(panner).connect(this.master);
+    source.start(0, start, duration);
+  }
+
+  private volume(): number {
+    return this.wasQuiet ? MASTER * QUIET : MASTER;
+  }
+
+  /** Calls of the stage at random moments, about `rate` a minute each; none during a question. */
+  private readonly tick = () => {
+    const context = this.context;
+    if (!context || context.state !== 'running' || !this.levels) return;
+    const now = context.currentTime;
+    const quiet = this.quiet();
+    if (quiet !== this.wasQuiet) {
+      this.wasQuiet = quiet;
+      this.master?.gain.setTargetAtTime(this.volume(), now, FADE_SECONDS / 3);
+    }
+    if (quiet) {
+      this.nextCall.clear();
+      return;
+    }
+    for (const level of Object.keys(CALLS) as CallLevel[]) {
+      const rate = this.levels[level];
+      if (rate <= 0) continue;
+      const mean = 60 / rate;
+      const next = this.nextCall.get(level);
+      if (next === undefined) {
+        this.nextCall.set(level, now + this.rng.range(1, mean));
+        continue;
+      }
+      if (now < next) continue;
+      const { sounds, gain } = CALLS[level];
+      this.play(this.rng.pick(sounds), gain, this.rng.range(-0.8, 0.8));
+      this.nextCall.set(level, now + Math.max(MIN_CALL_GAP, -mean * Math.log(1 - this.rng.next())));
+    }
+  };
 }

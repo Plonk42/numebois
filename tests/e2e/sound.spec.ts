@@ -1,7 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
+import { SOUND_FILES } from '../../src/scene/audio/sounds.gen';
 
 async function sound(page: Page) {
-  return page.evaluate(() => window.__numebois!.sound());
+  const { state, context } = await page.evaluate(() => window.__numebois!.sound());
+  return { state, context };
 }
 
 test('le son attend le premier toucher, se coupe et se met en pause', async ({ page }) => {
@@ -18,6 +20,10 @@ test('le son attend le premier toucher, se coupe et se met en pause', async ({ p
 
   await page.mouse.click(640, 500);
   await expect.poll(() => sound(page)).toEqual({ state: 'playing', context: 'running' });
+  // Every recording is fetched and decoded (Opus).
+  await expect
+    .poll(() => page.evaluate(() => window.__numebois!.sound().loaded))
+    .toBe(Object.keys(SOUND_FILES).length);
 
   // Hidden tab: paused.
   await page.evaluate(() => {

@@ -19,7 +19,7 @@ declare global {
       describe(): SceneDescription;
       trees(): { family: string; detail: string; triangles: number }[];
       grow(): void;
-      sound(): { state: SoundState; context: AudioContextState | 'none' };
+      sound(): { state: SoundState; context: AudioContextState | 'none'; loaded: number };
       game(): GameProbe | null;
     };
   }
@@ -51,6 +51,8 @@ const gameReady =
             json === undefined ? null : parseSave(json, skills),
             (data) => void writeSave(data).catch((error: unknown) => console.warn(error)),
           );
+          // During a question, the soundscape stays low and plays no calls.
+          app.sound.quiet = () => game?.phase !== 'reward' && game?.phase !== 'summary';
         });
 
 window.__numebois = {
@@ -59,7 +61,11 @@ window.__numebois = {
   describe: () => app.description,
   trees: () => app.painting?.treeInfos() ?? [],
   grow: () => app.grow(),
-  sound: () => ({ state: app.sound.state, context: app.sound.contextState }),
+  sound: () => ({
+    state: app.sound.state,
+    context: app.sound.contextState,
+    loaded: app.sound.loaded,
+  }),
   game: () => game && { ...game },
 };
 mountSoundButton(app.sound);
