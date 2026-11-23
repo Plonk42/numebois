@@ -1,5 +1,5 @@
 import type { AssetLibrary } from './assets';
-import { shownSeason, type SceneDescription } from './description';
+import type { SceneDescription } from './description';
 import { MeshWriter, triangleCount } from './mesh-data';
 import { plantTrees, scatterVegetation, type Planting, type Population } from './populate';
 import { InstanceBatch } from './render/instancing';
@@ -29,9 +29,9 @@ export function composeScene(
   ambience: Ambience,
   quality: QualitySettings,
 ): Composition {
-  const terrain = createClearing(description.seed, description.stage, description.landmarks);
+  const terrain = createClearing(description.seed, description.stage);
   const ground = new MeshWriter(24000, 24000);
-  terrain.buildGround(ground, shownSeason(description));
+  terrain.buildGround(ground, description.season);
   for (const m of terrain.staticModels) {
     ground.append(
       assets.data(m.model),

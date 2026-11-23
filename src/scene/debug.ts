@@ -1,12 +1,10 @@
 import type { SceneApp, SceneCounters } from './app';
 import {
-  LANDMARKS,
   STAGES,
   demoAnimals,
   demoElements,
   fillOf,
   writeDescription,
-  type Landmark,
   type Stage,
 } from './description';
 import { QUALITIES, type Quality } from './render/quality';
@@ -25,11 +23,6 @@ const QUALITY_LABELS: Record<Quality | 'auto', string> = {
   medium: 'Moyenne',
   low: 'Basse',
 };
-const LANDMARK_LABELS: Record<Landmark, string> = {
-  lake: 'Le lac',
-  mountain: 'La montagne',
-  season: 'La saison suivante',
-};
 
 const STYLE = `
 #debug-panel {
@@ -46,10 +39,6 @@ const STYLE = `
 #debug-panel dd { margin: 0; text-align: right; }
 #debug-panel .over { color: #c0262d; font-weight: 600; }
 #debug-panel p { margin: 6px 0 0; font-size: 12px; }
-#debug-panel fieldset { border: 0; margin: 4px 0; padding: 0; }
-#debug-panel legend { padding: 0; opacity: 0.75; }
-#debug-panel fieldset label { display: flex; gap: 6px; margin: 2px 0; }
-#debug-panel fieldset input { width: auto; min-height: 0; }
 `;
 
 function element<K extends keyof HTMLElementTagNameMap>(
@@ -142,25 +131,6 @@ export function mountDebugPanel(app: SceneApp, autoQuality: boolean): void {
     fillValue.textContent = `${fill.value} %`;
     apply();
   });
-  const landmarks = element('fieldset', { id: 'debug-landmarks' }, [
-    element('legend', { textContent: 'Grands moments' }),
-  ]);
-  for (const landmark of LANDMARKS) {
-    const box = element('input', {
-      id: `debug-landmark-${landmark}`,
-      type: 'checkbox',
-      checked: app.description.landmarks.includes(landmark),
-    });
-    box.addEventListener('change', () => {
-      const revealed = app.description.landmarks;
-      app.description = {
-        ...app.description,
-        landmarks: LANDMARKS.filter((l) => (l === landmark ? box.checked : revealed.includes(l))),
-      };
-      apply();
-    });
-    landmarks.append(element('label', {}, [box, LANDMARK_LABELS[landmark]]));
-  }
 
   const stats = element('dl');
   const note = element('p');
@@ -177,7 +147,6 @@ export function mountDebugPanel(app: SceneApp, autoQuality: boolean): void {
     element('label', {}, ['Graine', seed]),
     element('label', {}, ['Emplacements', fill]),
     fillValue,
-    landmarks,
     element('label', {}, [
       'Qualité',
       select(

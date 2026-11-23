@@ -9,13 +9,6 @@ export const LAST_STAGE: Stage = 11;
 /** One value per stage. */
 export type PerStage<T> = readonly [T, T, T, T, T, T, T, T, T, T, T, T];
 
-/**
- * The three grand moments of a painting, announced from the start and revealed during play:
- * a lake fills its dry hollow, a great mountain comes out of the haze, the next season comes.
- */
-export const LANDMARKS = ['lake', 'mountain', 'season'] as const;
-export type Landmark = (typeof LANDMARKS)[number];
-
 /** An element the child placed in a slot of the painting; its kind is the slot's. */
 export interface PlacedElement {
   slot: number;
@@ -58,14 +51,11 @@ export function stageFor(elements: number): Stage {
 export interface SceneDescription {
   seed: number;
   stage: Stage;
-  /** Season the painting started in; the season moment brings the next one. */
   season: Season;
   /** Elements placed by the child, in placing order. */
   elements: readonly PlacedElement[];
   /** Animals the child brought from the shop, in buying order. */
   animals: readonly AnimalName[];
-  /** Grand moments already revealed. */
-  landmarks: readonly Landmark[];
 }
 
 /** Share of the slots filled by default at each stage, as if the child had played. */
@@ -96,7 +86,7 @@ export function fillOf(description: SceneDescription): number {
 
 /** A painting where the child has placed nothing yet. */
 export function newPainting(seed: number, season: Season): SceneDescription {
-  return { seed, stage: 0, season, elements: [], animals: [], landmarks: [] };
+  return { seed, stage: 0, season, elements: [], animals: [] };
 }
 
 export const DEFAULT_DESCRIPTION: SceneDescription = {
@@ -105,20 +95,9 @@ export const DEFAULT_DESCRIPTION: SceneDescription = {
   season: 'summer',
   elements: demoElements(7, DEMO_FILL[6]),
   animals: demoAnimals(6),
-  landmarks: [],
 };
 
 const SEASON_NAMES: readonly Season[] = ['spring', 'summer', 'autumn', 'winter'];
-
-/** Season shown by the painting: the next one once the season moment is revealed. */
-export function shownSeason(description: SceneDescription): Season {
-  const { season, landmarks } = description;
-  return landmarks.includes('season') ? nextSeason(season) : season;
-}
-
-export function nextSeason(season: Season): Season {
-  return SEASON_NAMES[(SEASON_NAMES.indexOf(season) + 1) % SEASON_NAMES.length];
-}
 
 export function parseDescription(params: URLSearchParams): SceneDescription {
   const season = params.get('season');
@@ -126,7 +105,6 @@ export function parseDescription(params: URLSearchParams): SceneDescription {
   const seed = Number(params.get('seed') ?? DEFAULT_DESCRIPTION.seed);
   const knownStage = STAGES.includes(stage as Stage) ? (stage as Stage) : DEFAULT_DESCRIPTION.stage;
   const fill = Number(params.get('fill') ?? Number.NaN);
-  const landmarks = new Set((params.get('landmarks') ?? '').split(','));
   const knownSeed = Number.isFinite(seed) ? Math.abs(Math.floor(seed)) : DEFAULT_DESCRIPTION.seed;
   return {
     seed: knownSeed,
@@ -139,7 +117,6 @@ export function parseDescription(params: URLSearchParams): SceneDescription {
       Number.isFinite(fill) ? Math.min(1, Math.max(0, fill / 100)) : DEMO_FILL[knownStage],
     ),
     animals: demoAnimals(knownStage),
-    landmarks: LANDMARKS.filter((landmark) => landmarks.has(landmark)),
   };
 }
 
@@ -148,8 +125,6 @@ export function writeDescription(params: URLSearchParams, description: SceneDesc
   params.set('season', description.season);
   params.set('seed', String(description.seed));
   params.set('fill', String(Math.round(fillOf(description) * 100)));
-  if (description.landmarks.length > 0) params.set('landmarks', description.landmarks.join(','));
-  else params.delete('landmarks');
 }
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
@@ -157,16 +132,11 @@ const isObject = (value: unknown): value is Record<string, unknown> =>
 
 /**
  * Reads a description kept in a save or the Album; null when anything is out of place
- * (unknown stage, season, animal or grand moment, slot outside the painting or placed twice,
- * more animals of a kind than the shop offers).
+ * (unknown stage, season or animal, slot outside the painting or placed twice, more animals
+ * of a kind than the shop offers).
  */
 export function readDescription(value: unknown): SceneDescription | null {
-  if (
-    !isObject(value) ||
-    !Array.isArray(value.elements) ||
-    !Array.isArray(value.animals) ||
-    !Array.isArray(value.landmarks)
-  ) {
+  if (!isObject(value) || !Array.isArray(value.elements) || !Array.isArray(value.animals)) {
     return null;
   }
   const animals = value.animals as unknown[];
@@ -188,14 +158,11 @@ export function readDescription(value: unknown): SceneDescription | null {
     slots.add(slot as number);
     elements.push({ slot: slot as number, day: day as number });
   }
-  const landmarks = value.landmarks as unknown[];
   if (
     !Number.isInteger(seed) ||
     (seed as number) < 0 ||
     !STAGES.includes(stage as Stage) ||
-    !SEASON_NAMES.includes(season as Season) ||
-    !landmarks.every((l) => LANDMARKS.includes(l as Landmark)) ||
-    new Set(landmarks).size !== landmarks.length
+    !SEASON_NAMES.includes(season as Season)
   ) {
     return null;
   }
@@ -205,6 +172,5 @@ export function readDescription(value: unknown): SceneDescription | null {
     season: season as Season,
     elements,
     animals: animals as AnimalName[],
-    landmarks: landmarks as Landmark[],
   };
 }

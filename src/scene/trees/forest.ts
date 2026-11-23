@@ -6,8 +6,8 @@ import { buildTree, TreeWriter, type Season, type TreeInfo, type TreeSpec } from
 export interface PlantedTree extends TreeSpec {
   /** Age at creation, 0 (not sprouted) to 1 (adult). */
   age: number;
-  /** Brought by a grand moment: nothing is placed around it. */
-  landmark?: boolean;
+  /** The islet's tree in the beavers' lake: nothing is placed around it. */
+  islet?: boolean;
   /** Slot of the child holding it. */
   slot?: number;
 }
@@ -19,9 +19,7 @@ export function buildForestBuffers(
   season: Season,
 ): { writer: TreeWriter; infos: TreeInfo[] } {
   const writer = new TreeWriter(trees.length * 1800, trees.length * 7000);
-  const infos = trees.map((tree, index) =>
-    buildTree(writer, tree, assets, tree.season ?? season, index),
-  );
+  const infos = trees.map((tree, index) => buildTree(writer, tree, assets, season, index));
   return { writer, infos };
 }
 

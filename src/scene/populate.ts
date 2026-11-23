@@ -2,7 +2,7 @@ import { hashSeed, Rng, valueNoise2 } from '../core/rng';
 import type { ModelName } from './asset-catalog';
 import { MODELS } from './assets.gen';
 import { swatchColumn, swatchUV, type SwatchName } from './atlas';
-import { nextSeason, shownSeason, type SceneDescription } from './description';
+import type { SceneDescription } from './description';
 import { MeshWriter, type MeshData } from './mesh-data';
 import { beaverDam, GENERATED_PROPS } from './props';
 import type { InstanceBatch, InstanceModel } from './render/instancing';
@@ -122,7 +122,7 @@ export function plantTrees(
     at: NonNullable<ReturnType<typeof place>>,
     family: FamilyName,
     size: number,
-    rest: Pick<PlantedTree, 'detail' | 'age' | 'season' | 'landmark' | 'slot'>,
+    rest: Pick<PlantedTree, 'detail' | 'age' | 'islet' | 'slot'>,
   ) => {
     const { seed, x, y, z, yaw } = at;
     trees.push({
@@ -159,13 +159,12 @@ export function plantTrees(
       plant(at, family, spot.size, {
         detail: spot.detail ?? 'full',
         age: Math.max(ambience.edgeAge[0], 0.85),
-        season: spot.herald ? nextSeason(description.season) : undefined,
       });
     } else {
       plant(at, flora.favourite, spot.size, {
         detail: spot.detail ?? 'light',
         age: 0.9,
-        landmark: true,
+        islet: true,
       });
     }
   }
@@ -281,10 +280,10 @@ export function scatterVegetation(
   quality: QualitySettings,
   trees: readonly PlantedTree[],
 ): Population {
-  // Numbers drawn for each item, so a grand moment only changes the items it touches.
+  // Numbers drawn for each item, so the lake only changes the items it touches.
   const draw = (label: string, index: number) =>
     new Rng(hashSeed(description.seed, `scatter:${label}:${index}`));
-  const season = shownSeason(description);
+  const season = description.season;
   for (const [name, make] of Object.entries(GENERATED_PROPS)) {
     batch.register(name as keyof typeof GENERATED_PROPS, make());
   }
@@ -464,8 +463,8 @@ export function scatterVegetation(
   for (let attempt = 0, placed = 0; attempt < grassTarget * 6 && placed < grassTarget; attempt++) {
     const rng = draw('grass', attempt);
     const { x, z } = sample(rng);
-    // Near a grand moment, an attempt counts placed or not: revealing it moves nothing further.
-    const near = terrain.nearLandmark(x, z);
+    // Near the lake, an attempt counts placed or not: the meadow stays the same, filled or not.
+    const near = terrain.nearLake(x, z);
     if (near) placed++;
     if (valueNoise2(description.seed + 11, x / 3.2, z / 3.2) < 0.36) continue;
     const surface = terrain.surfaceAt(x, z);
@@ -489,7 +488,7 @@ export function scatterVegetation(
   for (let attempt = 0, made = 0; attempt < drifts * 8 && made < drifts; attempt++) {
     const rng = draw('flowers', attempt);
     const { x, z } = sample(rng);
-    const near = terrain.nearLandmark(x, z);
+    const near = terrain.nearLake(x, z);
     if (near) made++;
     const center = terrain.surfaceAt(x, z);
     if (!center || center.kind !== 'grass' || center.slope > 0.3 || !free(x, z, 0.8)) continue;
@@ -534,8 +533,8 @@ export function scatterVegetation(
     'Bush_3_B',
     'Bush_1_E',
   ];
-  // Neither a grand moment's own trees nor the child's host anything: they move nothing else.
-  const hosts = trees.filter((t) => !t.landmark && t.slot === undefined);
+  // Neither the islet's tree nor the child's host anything: they move nothing else.
+  const hosts = trees.filter((t) => !t.islet && t.slot === undefined);
   const anchors = [...hosts.filter((t) => t.age > 0), ...terrain.staticModels];
   const bushTarget = Math.round(30 * ambience.bushes * terrain.cover);
   for (let attempt = 0, placed = 0; attempt < bushTarget * 8 && placed < bushTarget; attempt++) {
@@ -551,7 +550,7 @@ export function scatterVegetation(
     } else {
       ({ x, z } = sample(rng));
     }
-    const near = terrain.nearLandmark(x, z);
+    const near = terrain.nearLake(x, z);
     if (near) placed++;
     const surface = terrain.surfaceAt(x, z);
     if (!surface || surface.kind !== 'grass' || surface.slope > 0.45 || !free(x, z, 0.9)) continue;
@@ -602,7 +601,7 @@ export function scatterVegetation(
       x = tree.x + Math.cos(a) * d;
       z = tree.z + Math.sin(a) * d;
     }
-    const near = terrain.nearLandmark(x, z);
+    const near = terrain.nearLake(x, z);
     if (near) placed++;
     const yaw = rng.range(0, TAU);
     const scale = stump ? rng.range(0.6, 0.8) : rng.range(0.65, 0.85);
@@ -636,7 +635,7 @@ export function scatterVegetation(
       const z = terrain.dam.z + Math.sin(a) * d;
       const surface = terrain.surfaceAt(x, z);
       if (surface?.kind !== 'grass' || surface.slope > 0.3) continue;
-      if (!terrain.nearLandmark(x, z) || !free(x, z, 0.45)) continue;
+      if (!terrain.nearLake(x, z) || !free(x, z, 0.45)) continue;
       const scale = rng.range(0.45, 0.6);
       batch.add(winter ? 'Stump_Snow' : 'Stump', x, surface.y - 0.04, z, rng.range(0, TAU), scale);
       blocked.push({ x, z, r: 0.45 });
@@ -658,7 +657,7 @@ export function scatterVegetation(
     const d = rng.range(1.0, 1.9);
     const x = tree.x + Math.cos(a) * d;
     const z = tree.z + Math.sin(a) * d;
-    const near = terrain.nearLandmark(x, z);
+    const near = terrain.nearLake(x, z);
     if (near) placed++;
     const surface = terrain.surfaceAt(x, z);
     if (!surface || surface.kind !== 'grass' || !free(x, z, 0.2)) continue;
