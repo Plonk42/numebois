@@ -574,6 +574,20 @@ function Game(props: Props) {
   }
   const { season, seasons } = forest.description();
   const items = shopItems(forest.description());
+  // A walk between two trails: the next one waits at the bottom, a touch on it starts it; it
+  // stays there while the season turns, out of sight in the shop, the finale and the Album.
+  let start: { label: string; onStart(): void } | undefined;
+  if (shown === 'walking' && !done) {
+    const go = walkFrom === 'welcome' ? begin : restart;
+    start = {
+      label: walkFrom === 'welcome' ? 'Commencer le sentier' : 'Nouveau sentier',
+      onStart: () => {
+        if (walking) go();
+      },
+    };
+  }
+  const aside =
+    !start && (SHOP_PHASES.has(shown) || FINALE_PHASES.has(shown) || ALBUM_PHASES.has(shown));
   // A golden seed: the slate steps aside, the forest lights up.
   const away = phase === 'seed';
   let plume: PlumeMood = 'calm';
@@ -607,20 +621,15 @@ function Game(props: Props) {
       <TrailPath
         art={art}
         stones={session.stones}
-        current={ended ? session.stones : session.stone}
-        onNewTrail={free ? restart : undefined}
+        current={start ? 0 : ended ? session.stones : session.stone}
+        start={start}
+        aside={aside}
       />
       {/* During a question, the forest dims: one thing at a time. */}
       <div id="dim" class={ended || welcome || away ? '' : 'on'} />
       {gift && phase === 'seed' && <SeedGift {...gift} />}
       {phase === 'choosing' && <Spots forest={forest} slots={spots} onPick={plant} />}
-      {roaming && !done && (
-        <Walk
-          away={viewAway}
-          onRecenter={() => forest.recenter()}
-          onStart={walking && walkFrom === 'welcome' ? begin : undefined}
-        />
-      )}
+      {roaming && !done && <Walk away={viewAway} onRecenter={() => forest.recenter()} />}
       {idle && album.length > 0 && <AlbumButton onOpen={openAlbum} />}
       {phase === 'album' && <AlbumGrid entries={album} onVisit={visit} onClose={closeAlbum} />}
       {phase === 'visiting' && page && (
@@ -757,15 +766,13 @@ interface WalkProps {
   /** The view has left the framing. */
   away: boolean;
   onRecenter(): void;
-  /** From the welcome card: the way on to the trail (at the end, the sign by the path). */
-  onStart?: () => void;
 }
 
 /**
- * During a walk in the forest: how to move until the child has moved, the whole forest again
- * once the view has left it, and from the welcome card the way on to the trail.
+ * During a walk in the forest: how to move until the child has moved, and the whole forest
+ * again once the view has left it. The way on is the trail, waiting at the bottom.
  */
-function Walk({ away, onRecenter, onStart }: WalkProps) {
+function Walk({ away, onRecenter }: WalkProps) {
   const [moved, setMoved] = useState(false);
   useEffect(() => {
     if (away) setMoved(true);
@@ -787,11 +794,6 @@ function Walk({ away, onRecenter, onStart }: WalkProps) {
           <br />
           deux doigts pour t’approcher et tourner.
         </p>
-      )}
-      {onStart && (
-        <button type="button" class="next" onPointerDown={onStart}>
-          Commencer le sentier
-        </button>
       )}
     </section>
   );

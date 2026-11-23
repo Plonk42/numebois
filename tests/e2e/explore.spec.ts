@@ -76,11 +76,21 @@ test('se promener dans la forêt : gestes dans leurs limites, retour au cadrage,
   for (const box of await boxes(page, '#walk button')) {
     expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(56);
   }
-  const [walkBox] = await boxes(page, '#walk');
-  for (const other of ['#reserve', '#trail', '#sound-toggle']) {
-    const [box] = await boxes(page, other);
-    expect(apart(box, walkBox), other).toBe(true);
-  }
+  // How to move at the top; the trail waits big at the bottom, its sign at its start.
+  const trail = page
+    .getByRole('button', { name: 'Commencer le sentier' })
+    .and(page.locator('#trail'));
+  await expect(trail.locator('.sign')).toHaveText('Commencerle sentier');
+  await expect
+    .poll(async () => {
+      const [path, sign] = await boxes(page, '#trail, #trail .sign');
+      return [Math.round(viewport.height - path.y - path.height), sign.width > 150];
+    })
+    .toEqual([16, true]);
+  const [hintBox] = await boxes(page, '#walk .hint');
+  const [pathBox, signBox] = await boxes(page, '#trail, #trail .sign');
+  const bar = await boxes(page, '#reserve, #seasons, #sound-toggle, #album-button');
+  for (const box of [...bar, pathBox, signBox]) expect(apart(box, hintBox)).toBe(true);
 
   // Pinch: zoom in, up to its limit and no further.
   await touch(
@@ -93,8 +103,10 @@ test('se promener dans la forêt : gestes dans leurs limites, retour au cadrage,
   );
   expect((await view(page)).goal.zoom).toBe(2.5);
   await expect(back).toBeVisible();
-  // Once the child has moved, the hint has done its work.
+  // Once the child has moved, the hint has done its work: the whole painting takes its place.
   await expect(hint).toHaveCount(0);
+  const [backBox] = await boxes(page, '#walk .whole');
+  for (const box of [...bar, pathBox, signBox]) expect(apart(box, backBox)).toBe(true);
 
   // One finger moves the view; far away, it stops at the edge of the painting.
   await touch(cdp, drag([300, 330], [1000, 330]));
@@ -144,8 +156,8 @@ test('se promener dans la forêt : gestes dans leurs limites, retour au cadrage,
   await page.mouse.wheel(0, -400);
   await expect.poll(async () => (await view(page)).goal.zoom).toBeGreaterThan(1.5);
 
-  // From the welcome card, the walk ends on the trail; the view glides home.
-  await walk.getByRole('button', { name: 'Commencer le sentier' }).click();
+  // From the welcome card, a touch on the trail starts it; the view glides home.
+  await trail.click();
   await expect(walk).toHaveCount(0);
   await expect(welcome).toHaveCount(0);
   await expect(page.locator('#question')).toBeVisible();

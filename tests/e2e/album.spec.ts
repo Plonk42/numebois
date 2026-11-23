@@ -58,7 +58,7 @@ test('un tableau complet : grand final, cadre, nouveau décor ; il reste vivant 
   // The probe follows the page after its paint.
   await expect.poll(async () => (await game(page)).phase).toBe('finale');
   await expect(page.locator('#shop')).toHaveCount(0);
-  await expect(page.locator('#new-trail')).toHaveCount(0);
+  await expect(page.locator('#trail')).toHaveClass(/aside/);
   await expect
     .poll(() => page.evaluate(() => window.__numebois!.sound().played.includes('finale')))
     .toBe(true);
@@ -149,7 +149,9 @@ test('un tableau complet : grand final, cadre, nouveau décor ; il reste vivant 
   await expect
     .poll(() => page.evaluate(() => window.__numebois!.counters().fps), { timeout: 10_000 })
     .toBeGreaterThan(0);
-  for (const other of ['#reserve', '#trail', '#sound-toggle']) {
+  // The trail steps aside in the Album.
+  await expect(page.locator('#trail')).toHaveClass(/aside/);
+  for (const other of ['#reserve', '#sound-toggle']) {
     const [box] = await boxes(page, other);
     expect(apart(box, (await boxes(page, '#album-page'))[0]), other).toBe(true);
   }

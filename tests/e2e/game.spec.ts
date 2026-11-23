@@ -195,18 +195,29 @@ test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt po
   expect(endBox.y + endBox.height).toBeLessThanOrEqual(viewport.height);
   expect(Math.abs(endBox.x + endBox.width / 2 - viewport.width / 2)).toBeLessThan(2);
 
-  // Then the forest is the child's: a walk, the reserve glows, a sign starts another trail.
+  // Then the forest is the child's: a walk, the reserve glows, the next trail waits big at the
+  // bottom with its sign: a touch on it starts it.
   await expect(end).toHaveCount(0, { timeout: 8000 });
   await expect(page.locator('#walk')).toBeVisible();
   await expect(page.locator('#walk button')).toHaveCount(0);
   expect((await game(page)).phase).toBe('walking');
   await expect(page.locator('#reserve')).toHaveClass(/ready/);
   const sign = page.getByRole('button', { name: 'Nouveau sentier' });
-  const [signBox] = await boxes(page, '#new-trail');
-  expect(Math.min(signBox.width, signBox.height)).toBeGreaterThanOrEqual(56);
-  for (const other of ['#reserve', '#trail', '#sound-toggle']) {
+  await expect(sign).toHaveId('trail');
+  await expect(sign.locator('.sign')).toHaveText('Nouveausentier');
+  await expect(path.locator('.stone.here')).toHaveCount(1);
+  await expect
+    .poll(async () => {
+      const [trail, plank] = await boxes(page, '#trail, #trail .sign');
+      return [Math.round(viewport.height - trail.y - trail.height), plank.width > 150];
+    })
+    .toEqual([16, true]);
+  const [trailBox, signBox] = await boxes(page, '#trail, #trail .sign');
+  expect(trailBox.width).toBeGreaterThan(pathBox.width * 1.3);
+  expect(signBox.y).toBeGreaterThanOrEqual(0);
+  for (const other of ['#reserve', '#sound-toggle', '#walk .hint']) {
     const [box] = await boxes(page, other);
-    expect(apart(box, signBox), other).toBe(true);
+    expect(apart(box, signBox) && apart(box, trailBox), other).toBe(true);
   }
   // A single season: nothing to choose, no bar.
   await expect(page.locator('#seasons')).toHaveCount(0);
@@ -305,6 +316,13 @@ test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt po
   await expect(dim).toHaveClass(/on/);
   await expect(path.locator('.stone.crossed')).toHaveCount(0);
   await expect(path.locator('.stone.here')).toHaveCount(1);
+  // The trail climbs back to the top, small again.
+  await expect
+    .poll(async () => {
+      const [box] = await boxes(page, '#trail');
+      return [Math.round(box.y), Math.round(box.width)];
+    })
+    .toEqual([4, Math.round(pathBox.width)]);
   expect((await game(page)).role).toBe('warmup');
 
   // The painting and the reserve come back as they were.
@@ -494,7 +512,7 @@ test('les saisons : l’automne acheté, l’enfant choisit la saison de son tab
   await end.getByRole('button', { name: 'Fermer' }).click();
   await expect(summer).toBeEnabled();
   const [bar, ...others] = await Promise.all(
-    ['#seasons', '#trail', '#new-trail', '#sound-toggle'].map(
+    ['#seasons', '#trail', '#trail .sign', '#sound-toggle'].map(
       async (s) => (await boxes(page, s))[0],
     ),
   );

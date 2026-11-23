@@ -14,7 +14,10 @@ export interface Sprite {
 
 export type StoneState = 'ahead' | 'here' | 'crossed';
 
-/** The trail at the top of the screen, drawn as a tiny diorama of the forest. */
+/**
+ * The trail drawn as a tiny diorama of the forest, at its size between two trails (at the
+ * bottom of the screen); during a trail, it shows `1 / TRAIL_ZOOM` as big at the top.
+ */
 export interface TrailArt {
   /** The strip of land with its dirt path and the tree at the end. */
   path: Sprite;
@@ -22,11 +25,19 @@ export interface TrailArt {
   stones: readonly (readonly [number, number])[];
   /** A stepping stone, centred on its place. */
   stone: Record<StoneState, Sprite>;
-  /** The wooden sign that starts another trail, and where its words go on the plank. */
-  sign: Sprite & { label: { x: number; y: number; width: number; height: number } };
+  /** Where the sign stands on the strip, at the start of the path. */
+  start: readonly [number, number];
+  /** The wooden sign that starts a trail: the foot of its post, where its words go. */
+  sign: Sprite & {
+    foot: readonly [number, number];
+    label: { x: number; y: number; width: number; height: number };
+  };
 }
 
-// Spacing of the stones, in CSS pixels (one world unit is one pixel).
+/** CSS pixels per world unit of the art: its size at the bottom of the screen. */
+export const TRAIL_ZOOM = 1.35;
+
+// Spacing of the stones, in world units (CSS pixels at the top of the screen).
 const FIRST = 30;
 const GAP = 46;
 const TO_TREE = 42;
@@ -37,6 +48,8 @@ const THICKNESS = 16;
 const TOP = 36;
 const BOTTOM = 29;
 const STONE_BOX = 40;
+/** Where the sign stands on the strip (x, z): on the grass at the back, before the first stone. */
+const START = [13, -13] as const;
 
 /** The path winds gently through the grass. */
 const wind = (x: number) => 5.5 * Math.sin(x / 34);
@@ -193,6 +206,8 @@ function pathSprite(stage: Stage, kit: Kit, stones: number) {
       if (rng.next() < 0.3) continue;
       const z = wind(x) + side * (14 + rng.next() * 5);
       if (Math.abs(z) > DEPTH / 2 - 2.5 || Math.abs(x - tree) < 16) continue;
+      // The foot of the sign stays clear.
+      if (side < 0 && x < START[0] + 10) continue;
       const roll = rng.next();
       if (roll < 0.22) {
         const bloom = new THREE.Mesh(flower, petals[Math.floor(rng.next() * petals.length)]);
@@ -233,12 +248,17 @@ function pathSprite(stage: Stage, kit: Kit, stones: number) {
 
   const at = new THREE.Vector3(width / 2, 0, 0);
   const view = camera(at, PITCH, 0, [-width / 2, width / 2, TOP, BOTTOM]);
-  const url = stage.cutout(scene, view, width, TOP + BOTTOM);
-  const places = Array.from({ length: stones }, (_, i) => {
-    const x = FIRST + i * GAP;
-    return [x, TOP + wind(x) * Math.sin(PITCH)] as const;
-  });
-  return { path: { url, width, height: TOP + BOTTOM }, stones: places };
+  const height = TOP + BOTTOM;
+  const url = stage.cutout(scene, view, width * TRAIL_ZOOM, height * TRAIL_ZOOM);
+  const onStrip = (x: number, z: number) =>
+    [x * TRAIL_ZOOM, (TOP + z * Math.sin(PITCH)) * TRAIL_ZOOM] as const;
+  return {
+    path: { url, width: width * TRAIL_ZOOM, height: height * TRAIL_ZOOM },
+    stones: Array.from({ length: stones }, (_, i) =>
+      onStrip(FIRST + i * GAP, wind(FIRST + i * GAP)),
+    ),
+    start: onStrip(START[0], START[1]),
+  };
 }
 
 function stoneSprites(stage: Stage, kit: Kit): Record<StoneState, Sprite> {
@@ -267,32 +287,37 @@ function stoneSprites(stage: Stage, kit: Kit): Record<StoneState, Sprite> {
     scene.add(stone);
     const half = STONE_BOX / 2;
     const view = camera(new THREE.Vector3(), PITCH, 0, [-half, half, half, half]);
+    const size = STONE_BOX * TRAIL_ZOOM;
     sprites[state] = {
-      url: stage.cutout(scene, view, STONE_BOX, STONE_BOX),
-      width: STONE_BOX,
-      height: STONE_BOX,
+      url: stage.cutout(scene, view, size, size),
+      width: size,
+      height: size,
     };
   }
   return sprites;
 }
 
-const SIGN_W = 140;
-const SIGN_H = 84;
-const SIGN_TOP = 40;
+// The sign, in world units: an arrow-shaped plank pointing along the path, on a post.
+const PLANK_W = 112;
+const PLANK_TIP = 18;
+const PLANK_H = 40;
+const POST_X = 20;
+const POST_H = 34;
+const SIGN_PITCH = (14 * Math.PI) / 180;
+const SIGN_BOX: [number, number, number, number] = [-70, 70, 44, 44];
 
 function signSprite(stage: Stage, kit: Kit): TrailArt['sign'] {
   const scene = new THREE.Scene();
   lights(scene);
-  // An arrow-shaped plank pointing along the path, on a post planted in a tuft of grass.
   const arrow = new THREE.Shape();
   arrow.moveTo(0, 0);
-  arrow.lineTo(100, 0);
-  arrow.lineTo(120, 20);
-  arrow.lineTo(100, 40);
-  arrow.lineTo(0, 40);
+  arrow.lineTo(PLANK_W, 0);
+  arrow.lineTo(PLANK_W + PLANK_TIP, PLANK_H / 2);
+  arrow.lineTo(PLANK_W, PLANK_H);
+  arrow.lineTo(0, PLANK_H);
   arrow.lineTo(0, 0);
   const plankGeometry = new THREE.ExtrudeGeometry(arrow, {
-    depth: 6,
+    depth: 5,
     bevelEnabled: true,
     bevelThickness: 1.5,
     bevelSize: 1.8,
@@ -302,43 +327,38 @@ function signSprite(stage: Stage, kit: Kit): TrailArt['sign'] {
     kit.flat(paletteColor('DarkBark', 0.02)),
     kit.flat(paletteColor('DarkBark', 0.35)),
   ]);
-  plank.position.set(-60, 2, 0);
-  const post = kit.mesh(new THREE.BoxGeometry(9, 44, 8), kit.flat(paletteColor('DarkBark', 0.5)));
-  post.position.set(-6, -16, -4.5);
+  plank.position.set(0, POST_H, 0);
+  const post = kit.mesh(
+    new THREE.BoxGeometry(8, POST_H + PLANK_H - 4, 7),
+    kit.flat(paletteColor('DarkBark', 0.5)),
+  );
+  post.position.set(POST_X, (POST_H + PLANK_H - 4) / 2, -4);
   scene.add(
     plank,
     post,
-    kit.model('Grass_2_B', 20, -14, -38, 2, 0.4),
-    kit.model('Grass_1_A', 24, 3, -38, 3, 2.1),
-    kit.model('Rock_1_A', 9, 8, -38, -2, 1.2),
+    kit.model('Grass_2_B', 16, POST_X - 9, 0, 3, 0.4),
+    kit.model('Grass_1_A', 18, POST_X + 8, 0, 4, 2.1),
+    kit.model('Rock_1_A', 7, POST_X + 12, 0, -2, 1.2),
   );
-  const yaw = (-26 * Math.PI) / 180;
-  const view = camera(new THREE.Vector3(0, 6, 0), (16 * Math.PI) / 180, yaw, [
-    -SIGN_W / 2,
-    SIGN_W / 2,
-    SIGN_TOP,
-    SIGN_H - SIGN_TOP,
-  ]);
-  const url = stage.cutout(scene, view, SIGN_W, SIGN_H);
-  // Where the front of the plank shows, for the words written on it.
-  const corners = [
-    [-60, 2],
-    [36, 2],
-    [-60, 42],
-    [36, 42],
-  ].map(([x, y]) => {
-    const p = new THREE.Vector3(x, y, 7.5).project(view);
-    return [((p.x + 1) / 2) * SIGN_W, ((1 - p.y) / 2) * SIGN_H];
-  });
-  const xs = corners.map((c) => c[0]);
-  const ys = corners.map((c) => c[1]);
-  const x = Math.min(...xs);
-  const y = Math.min(...ys);
+  // Faces the camera: the words written over the plank stay square with it.
+  const center = new THREE.Vector3((PLANK_W + PLANK_TIP) / 2, (POST_H + PLANK_H) / 2, 0);
+  const view = camera(center, SIGN_PITCH, 0, SIGN_BOX);
+  const width = (SIGN_BOX[1] - SIGN_BOX[0]) * TRAIL_ZOOM;
+  const height = (SIGN_BOX[2] + SIGN_BOX[3]) * TRAIL_ZOOM;
+  const url = stage.cutout(scene, view, width, height);
+  const place = (x: number, y: number, z: number) => {
+    const p = new THREE.Vector3(x, y, z).project(view);
+    return [((p.x + 1) / 2) * width, ((1 - p.y) / 2) * height] as const;
+  };
+  // The front of the plank, short of the tip.
+  const [left, top] = place(4, POST_H + PLANK_H - 2, 6.5);
+  const [right, bottom] = place(PLANK_W - 2, POST_H + 2, 6.5);
   return {
     url,
-    width: SIGN_W,
-    height: SIGN_H,
-    label: { x, y, width: Math.max(...xs) - x, height: Math.max(...ys) - y },
+    width,
+    height,
+    foot: place(POST_X, 0, -4),
+    label: { x: left, y: top, width: right - left, height: bottom - top },
   };
 }
 
