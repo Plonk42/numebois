@@ -14,6 +14,7 @@ import type { AnimalName } from '../scene/animal-catalog';
 import { MAX_ELEMENTS, type SceneDescription } from '../scene/description';
 import { canBuy, shopItems, type ShopItem } from '../scene/shop';
 import type { Quality } from '../scene/render/quality';
+import type { TrailArt } from '../scene/render/trail-art';
 import type { Season } from '../scene/trees/builder';
 import { Basket } from './basket';
 import { ParentMenu } from './parent-menu';
@@ -69,6 +70,10 @@ export interface GameForest extends SpotsForest {
   changeSeason(season: Season): Promise<unknown>;
   /** Picture of an animal for the shop, null while the animals load. */
   portrait(animal: AnimalName): string | null;
+  /** The trail and its sign drawn with the models of the forest, null while they load. */
+  trailArt(stones: number): TrailArt | null;
+  /** The models are loaded. */
+  ready: Promise<unknown>;
   /** Short sound of a reward of the trail. */
   reward(kind: 'right' | 'seed'): void;
   /**
@@ -160,6 +165,7 @@ function Game(props: Props) {
   const [praise, setPraise] = useState(PRAISES[0]);
   const [menu, setMenu] = useState(false);
   const [length, setLength] = useState<TrailLength>(session.length);
+  const [art, setArt] = useState<TrailArt | null>(null);
   const [spots, setSpots] = useState<readonly number[]>([]);
   const [arrival, setArrival] = useState<string | null>(null);
   /** Whether the walk started from the welcome card or the end of the trail. */
@@ -190,6 +196,13 @@ function Game(props: Props) {
     });
   });
   useEffect(() => () => clearTimeout(timer.current), []);
+  useEffect(() => {
+    let live = true;
+    void forest.ready.then(() => live && setArt(forest.trailArt(session.stones)));
+    return () => {
+      live = false;
+    };
+  }, [session.stones]);
   // Gestures move the view only during a walk; after it, the view glides back to the framing.
   useEffect(() => {
     forest.explore(walking ? setViewAway : null);
@@ -419,6 +432,7 @@ function Game(props: Props) {
         }}
       />
       <TrailPath
+        art={art}
         stones={session.stones}
         current={ended ? session.stones : session.stone}
         onNewTrail={free ? restart : undefined}

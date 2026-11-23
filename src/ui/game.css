@@ -385,118 +385,73 @@
   padding: 0 28px;
 }
 
-/* The trail, top centre: a dirt path through the grass, a stone per question, to a tree. */
+/* The trail, top centre: a tiny diorama of the forest, a stepping stone per question, to a tree. */
 #trail {
   position: fixed;
-  top: 12px;
+  top: 4px;
   left: 50%;
   z-index: 5;
   transform: translateX(-50%);
-  height: 56px;
-  overflow: hidden;
-  border-radius: 28px;
-  background: linear-gradient(#d7eec0, #b4d995);
-  box-shadow: 0 2px 8px rgba(0, 40, 80, 0.18);
+  filter: drop-shadow(0 3px 4px rgba(0, 30, 20, 0.28));
 }
-#trail svg {
+#trail img {
+  position: absolute;
   display: block;
+  pointer-events: none;
 }
-#trail .verge,
-#trail .dirt {
-  fill: none;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-#trail .verge {
-  stroke: #a98153;
-  stroke-width: 26px;
-}
-#trail .dirt {
-  stroke: #e2c38e;
-  stroke-width: 21px;
-}
-#trail .stone {
-  transform-box: fill-box;
-  transform-origin: center;
-}
-#trail .stone .halo {
-  fill: none;
-}
-#trail .stone .rock {
-  fill: #b9b3a7;
-  stroke: #857e72;
-  stroke-width: 1.5px;
-}
-#trail .stone .shine {
-  fill: rgba(255, 255, 255, 0.5);
+#trail .land {
+  inset: 0;
+  width: 100%;
+  height: 100%;
 }
 #trail .stone.crossed {
   animation: leaf-pop 0.5s cubic-bezier(0.3, 1.7, 0.5, 1);
 }
-#trail .stone.crossed .rock {
-  fill: #8cc56c;
-  stroke: #4f8a3a;
-}
-#trail .stone.here .rock {
-  fill: #ffe27a;
-  stroke: #c9971f;
-}
 /* Still: the trail shows during questions, where nothing may draw the eye. */
-#trail .stone.here .halo {
-  fill: rgba(255, 244, 190, 0.9);
-}
-#trail .trunk {
-  fill: #8a5a32;
-}
-#trail .crown {
-  fill: #4e9a35;
-  stroke: #3a7527;
-  stroke-width: 1.5px;
+#trail .stone.here {
+  filter: drop-shadow(0 0 3px #fff6c8) drop-shadow(0 0 6px rgba(255, 226, 122, 0.9));
 }
 
 /* At the end of the trail, a wooden sign at the start of the path: another trail. */
 #new-trail {
   position: fixed;
-  top: 6px;
+  top: 0;
   z-index: 5;
-  width: 140px;
-  height: 76px;
   padding: 0;
   border: 0;
   background: none;
   font: inherit;
   touch-action: manipulation;
   filter: drop-shadow(0 3px 4px rgba(0, 30, 20, 0.3));
-  animation: leaf-pop 0.5s cubic-bezier(0.3, 1.7, 0.5, 1);
+  animation: sign-in 0.5s cubic-bezier(0.3, 1.4, 0.5, 1);
+}
+@keyframes sign-in {
+  from {
+    opacity: 0;
+    transform: translateY(-14px);
+  }
 }
 #new-trail:active {
   transform: translateY(3px);
 }
-#new-trail svg {
+#new-trail img {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
+  pointer-events: none;
 }
-#new-trail .post {
-  fill: #8a5a32;
-}
-#new-trail .plank {
-  fill: #c79a6b;
-  stroke: #8a5a32;
-  stroke-width: 3;
-  stroke-linejoin: round;
-}
+/* The words painted on the plank. */
 #new-trail span {
   position: absolute;
-  left: 6px;
-  top: 8px;
-  width: 110px;
-  font-size: 18px;
-  line-height: 20px;
-  font-weight: 700;
-  color: #fffaf0;
-  text-shadow: 0 1px 0 #6b4424;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  font-size: 17px;
+  line-height: 19px;
+  font-weight: 800;
+  color: #5b3620;
+  text-shadow: 0 1px 0 rgba(255, 238, 205, 0.7);
 }
 
 /* Hidden parent menu, over everything. */

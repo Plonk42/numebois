@@ -75,6 +75,8 @@ const ready = sceneOnly
             adopt: (animal) => app.adopt(animal),
             changeSeason: (season) => app.changeSeason(season),
             portrait: (animal) => app.portrait(animal),
+            trailArt: (stones) => app.trailArt(stones),
+            ready: started,
             reward: (kind) => app.sound.reward(kind),
             explore: (onAway) => app.explore(onAway),
             recenter: () => app.recenter(),

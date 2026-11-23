@@ -1,4 +1,8 @@
+import type { TrailArt } from '../scene/render/trail-art';
+
 interface Props {
+  /** Drawn with the models of the forest; nothing shows while they load. */
+  art: TrailArt | null;
   stones: number;
   /** The stone in progress; all stones are crossed when it equals `stones`. */
   current: number;
@@ -6,35 +10,39 @@ interface Props {
   onNewTrail?: () => void;
 }
 
-const HEIGHT = 56;
-const FIRST = 30;
-const GAP = 46;
-/** From the last stone to the tree at the end of the path. */
-const TO_TREE = 42;
-/** The path winds gently through the grass. */
-const wind = (x: number) => 31 + 5 * Math.sin(x / 34);
-const SIGN_GAP = 10;
+const SIGN_GAP = 4;
 
-/** The trail as a dirt path through the grass, a stone per question, to a tree: the end is always in sight. */
-export function TrailPath({ stones, current, onNewTrail }: Props) {
-  const tree = FIRST + (stones - 1) * GAP + TO_TREE;
-  const width = tree + 28;
-  let path = `M 0 ${wind(0).toFixed(1)}`;
-  for (let x = 6; x <= tree; x += 6) path += ` L ${x} ${wind(x).toFixed(1)}`;
+/**
+ * The trail as a tiny diorama of the forest: a dirt path through the grass, a stepping stone
+ * per question, to a tree: the end is always in sight.
+ */
+export function TrailPath({ art, stones, current, onNewTrail }: Props) {
+  const label = `Pierre ${Math.min(current + 1, stones)} sur ${stones}`;
+  if (!art) return <div id="trail" role="img" aria-label={label} />;
+  const { path, sign } = art;
   return (
     <>
       {onNewTrail && (
         <button
           type="button"
           id="new-trail"
-          style={{ right: `calc(50% + ${width / 2 + SIGN_GAP}px)` }}
+          aria-label="Nouveau sentier"
+          style={{
+            right: `calc(50% + ${path.width / 2 + SIGN_GAP}px)`,
+            width: `${sign.width}px`,
+            height: `${sign.height}px`,
+          }}
           onPointerDown={onNewTrail}
         >
-          <svg viewBox="0 0 140 76" aria-hidden="true">
-            <rect class="post" x="60" y="48" width="12" height="28" rx="3" />
-            <path class="plank" d="M4 3h112l20 25-20 25H4z" />
-          </svg>
-          <span>
+          <img src={sign.url} alt="" draggable={false} />
+          <span
+            style={{
+              left: `${sign.label.x}px`,
+              top: `${sign.label.y}px`,
+              width: `${sign.label.width}px`,
+              height: `${sign.label.height}px`,
+            }}
+          >
             Nouveau
             <br />
             sentier
@@ -44,33 +52,31 @@ export function TrailPath({ stones, current, onNewTrail }: Props) {
       <div
         id="trail"
         role="img"
-        aria-label={`Pierre ${Math.min(current + 1, stones)} sur ${stones}`}
+        aria-label={label}
+        style={{ width: `${path.width}px`, height: `${path.height}px` }}
       >
-        <svg width={width} height={HEIGHT} viewBox={`0 0 ${width} ${HEIGHT}`} aria-hidden="true">
-          <path class="verge" d={path} />
-          <path class="dirt" d={path} />
-          {Array.from({ length: stones }, (_, i) => {
-            let state = 'ahead';
-            if (i < current) state = 'crossed';
-            else if (i === current) state = 'here';
-            const x = FIRST + i * GAP;
-            return (
-              <g key={`${i}-${state}`} transform={`translate(${x} ${wind(x).toFixed(1)})`}>
-                <g class={`stone ${state}`}>
-                  <ellipse class="halo" rx="19" ry="13" />
-                  <ellipse class="rock" rx="14" ry="9" />
-                  <ellipse class="shine" cx="-4" cy="-3" rx="5" ry="2.4" />
-                </g>
-              </g>
-            );
-          })}
-          <g class="tree" transform={`translate(${tree} ${wind(tree).toFixed(1)})`}>
-            <rect class="trunk" x="-3" y="-6" width="6" height="14" rx="2" />
-            <circle class="crown" cx="0" cy="-14" r="11" />
-            <circle class="crown" cx="-7" cy="-8" r="7" />
-            <circle class="crown" cx="7" cy="-8" r="7" />
-          </g>
-        </svg>
+        <img class="land" src={path.url} alt="" draggable={false} />
+        {art.stones.slice(0, stones).map(([x, y], i) => {
+          let state: keyof TrailArt['stone'] = 'ahead';
+          if (i < current) state = 'crossed';
+          else if (i === current) state = 'here';
+          const sprite = art.stone[state];
+          return (
+            <img
+              key={`${i}-${state}`}
+              class={`stone ${state}`}
+              src={sprite.url}
+              alt=""
+              draggable={false}
+              style={{
+                left: `${x - sprite.width / 2}px`,
+                top: `${y - sprite.height / 2}px`,
+                width: `${sprite.width}px`,
+                height: `${sprite.height}px`,
+              }}
+            />
+          );
+        })}
       </div>
     </>
   );

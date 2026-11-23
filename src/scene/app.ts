@@ -9,6 +9,7 @@ import { animalPortrait } from './render/portrait';
 import { parseViewShares, type View } from './render/explore';
 import { QUALITY, QualityGovernor, parseQuality, type Quality } from './render/quality';
 import { Stage } from './render/stage';
+import { trailArt, type TrailArt } from './render/trail-art';
 import type { Season } from './trees/builder';
 
 export interface SceneCounters extends PaintingStats {
@@ -70,6 +71,7 @@ export class SceneApp {
   /** Light over the whole scene while a new stage is built. */
   private readonly veil: HTMLElement;
   private readonly portraits = new Map<AnimalName, string>();
+  private readonly trails = new Map<number, TrailArt>();
   /** `view=yaw,pitch,zoom,x,z`: an explored view as shares of its limits, for captures. */
   private readonly viewShares: number[] | null;
 
@@ -277,6 +279,17 @@ export class SceneApp {
       this.renderFrame(0);
     }
     return url ?? null;
+  }
+
+  /** The trail of `stones` stones drawn with the models of the forest, null while they load. */
+  trailArt(stones: number): TrailArt | null {
+    let art = this.trails.get(stones);
+    if (!art && this.assets) {
+      art = trailArt(this.stage, this.assets, stones);
+      this.trails.set(stones, art);
+      this.renderFrame(0);
+    }
+    return art ?? null;
   }
 
   private readonly onResize = () => {

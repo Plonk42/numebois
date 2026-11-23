@@ -287,7 +287,8 @@ test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt po
     await expect(shopCard).not.toHaveClass(/away/, { timeout: 12_000 });
     expect(await describe()).toMatchObject({ stage: placed });
   }
-  expect((await game(page)).grown).toBe(2);
+  // The probe follows the render a moment after the card comes back.
+  await expect.poll(async () => (await game(page)).grown).toBe(2);
   // What is still to earn, never what is missing.
   await expect(shoot).toBeDisabled();
   await expect(shoot).toContainText('Encore 2 feuilles');

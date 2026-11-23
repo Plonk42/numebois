@@ -220,6 +220,54 @@ export class Stage {
     return image.toDataURL('image/png');
   }
 
+  /**
+   * Like `snapshot`, with a transparent background and any size (in CSS pixels): rendered
+   * over black then over white, the difference gives the coverage of each pixel.
+   */
+  cutout(scene: THREE.Scene, camera: THREE.Camera, width: number, height: number): string {
+    const renderer = this.renderer;
+    const ratio = renderer.getPixelRatio();
+    const w = Math.round(width * ratio);
+    const h = Math.round(height * ratio);
+    const viewport = renderer.getViewport(new THREE.Vector4());
+    const clear = renderer.getClearColor(new THREE.Color());
+    const clearAlpha = renderer.getClearAlpha();
+    renderer.setViewport(0, 0, w / ratio, h / ratio);
+    renderer.setScissor(0, 0, w / ratio, h / ratio);
+    renderer.setScissorTest(true);
+    const source = renderer.domElement;
+    const grab = (background: number) => {
+      renderer.setClearColor(background, 1);
+      renderer.render(scene, camera);
+      const image = document.createElement('canvas');
+      image.width = w;
+      image.height = h;
+      const context = image.getContext('2d', { willReadFrequently: true })!;
+      context.drawImage(source, 0, source.height - h, w, h, 0, 0, w, h);
+      return context;
+    };
+    const onBlack = grab(0x000000);
+    const onWhite = grab(0xffffff).getImageData(0, 0, w, h).data;
+    renderer.setScissorTest(false);
+    renderer.setViewport(viewport);
+    renderer.setClearColor(clear, clearAlpha);
+    const pixels = onBlack.getImageData(0, 0, w, h);
+    const p = pixels.data;
+    for (let i = 0; i < p.length; i += 4) {
+      const spread = onWhite[i] - p[i] + onWhite[i + 1] - p[i + 1] + onWhite[i + 2] - p[i + 2];
+      const alpha = Math.max(0, Math.min(255, 255 - spread / 3));
+      if (alpha > 0) {
+        const k = 255 / alpha;
+        p[i] = Math.min(255, p[i] * k);
+        p[i + 1] = Math.min(255, p[i + 1] * k);
+        p[i + 2] = Math.min(255, p[i + 2] * k);
+      }
+      p[i + 3] = alpha;
+    }
+    onBlack.putImageData(pixels, 0, 0);
+    return onBlack.canvas.toDataURL('image/png');
+  }
+
   dispose(): void {
     this.explorer.dispose();
     this.renderer.dispose();
