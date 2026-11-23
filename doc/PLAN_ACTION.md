@@ -364,11 +364,17 @@ Principe : le contenu grandit, mais la charge par session reste fixe. Tout est l
    - énoncés de longueur limitée ;
    - au plus 15 éléments par quête.
 2. Identifiants stables. Une notion nouvelle démarre à zéro, et une notion inconnue de la sauvegarde est ignorée.
-3. Tableau de bord parent (menu caché) :
-   - par domaine : acquis, en cours, à revoir, automatisé ;
+3. Tableau de bord parent (menu caché, #47) :
+   - par domaine, puis notion par notion : étape (à découvrir, en cours, acquis, à revoir, ancré, automatisé), niveau atteint sur le nombre de niveaux, taux de réussite récent ;
    - les faits fragiles ;
    - temps et taux de réussite des dernières sessions ;
-   - actions : mettre en pause, forcer un focus, régler la longueur.
+   - réglage de chaque notion (2026-11-23, demande du propriétaire) :
+     - **Auto** (par défaut) : le sentier décide ;
+     - **Fermée** : jamais proposée, ni comme nouveauté ni en révision ;
+     - **Ouverte** : disponible tout de suite, même sans prérequis acquis ;
+     - **Focus** : prioritaire, au moins la moitié du sentier ;
+   - les réglages sont dans la sauvegarde (exportés avec elle) et le sentier les respecte (`composeTrail`) ;
+   - autres actions : régler la longueur, la rafale recommandée et le seuil d'automatisation (M2).
 
 ## Jalons
 
@@ -759,3 +765,4 @@ Vérification : frontmatter YAML valide, `name` identique au nom du dossier, `de
 - 2026-11-23 : panier de Plume (demande du propriétaire). Pendant le sentier, chaque feuille gagnée s'envole dans un panier aux pieds de Plume (`src/ui/basket.tsx`, compteur sur le panier) ; la réserve affiche les feuilles d'avant le sentier. Dans le résumé, le panier bascule et Plume le verse dans la réserve, une feuille toutes les 150 ms, puis la boutique s'ouvre (fermée pendant le versement). Mise en scène seulement : `leaves` est sauvegardé à chaque bonne réponse, un sentier quitté en route ne perd rien. Les envols partagent `useLanding` (`src/ui/reserve.tsx`), dans un portail hors de l'ardoise et de la carte.
 - 2026-11-23 : qualité du rendu dans l'espace parent (demande du propriétaire) : Auto, Haute, Moyenne, Basse, avec le palier choisi par l'automatique en ce moment. Le choix reste sur l'appareil (`localStorage`, comme le son), pas dans la sauvegarde exportée ; `?quality=` passe devant.
 - 2026-11-23 : petite nouveauté du lendemain abandonnée (#35, décision du propriétaire) : difficile à articuler avec la boucle de progression (tout ce qui arrive dans le tableau s'achète), et trop ambitieux pour ce qu'elle apporte. Retirée de l'objectif principal et de la phase 4.
+- 2026-11-23 : suivi des notions et notions disponibles dans le tableau de bord parent (demande du propriétaire, #47). Constat : une sauvegarde neuve n'ouvre qu'« écrire en chiffres », qui remplit tout le premier sentier, puis reste parmi les notions en cours jusqu'à son acquisition. Le parent voit la progression notion par notion et règle chacune : Auto, Fermée, Ouverte (sans attendre les prérequis) ou Focus (au moins la moitié du sentier). À faire plus tard (décision du propriétaire).
