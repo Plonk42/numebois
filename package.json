@@ -23,6 +23,7 @@
     "icons": "tsx scripts/build-icons.ts"
   },
   "dependencies": {
+    "preact": "11.2.0",
     "three": "0.187.0"
   },
   "devDependencies": {

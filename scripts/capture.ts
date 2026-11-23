@@ -42,7 +42,7 @@ const files: { file: string; label: string }[] = [];
 for (const season of seasons) {
   for (const stage of stages)
     for (const seed of seeds) {
-      const query = `?stage=${stage}&season=${season}&seed=${seed}&quality=${quality}&time=${time}${extra ? `&${extra}` : ''}`;
+      const query = `?scene&stage=${stage}&season=${season}&seed=${seed}&quality=${quality}&time=${time}${extra ? `&${extra}` : ''}`;
       await page.goto(url + query);
       await page.evaluate(() => window.__numebois!.ready);
       // Two frames, so the shadow map and the instanced buffers are drawn.
