@@ -1,5 +1,4 @@
 import type { ModelName } from '../asset-catalog';
-import type { Landmark } from '../description';
 import type { MeshWriter } from '../mesh-data';
 import type { WaterBuilder } from '../render/water';
 import type { Season, TreeSpec } from '../trees/builder';
@@ -17,7 +16,7 @@ export interface Surface {
  * Place for a tree that is not the child's.
  * - edge: forest around the clearing, planted by rank as the stages go;
  * - hero: large foreground tree, always there;
- * - islet: small tree of a grand moment.
+ * - islet: small tree in the beavers' lake.
  */
 export interface TreeSpot {
   x: number;
@@ -32,8 +31,6 @@ export interface TreeSpot {
   /** Stable index of the spot in its role, so a tree keeps its family at every stage. */
   slot?: number;
   detail?: TreeSpec['detail'];
-  /** Wears the next season: it announces the season moment. */
-  herald?: boolean;
 }
 
 /** Slot of the painting on the diorama, where the child places an element. */
@@ -56,9 +53,13 @@ export interface Dam {
   width: number;
 }
 
-/** Grand moment still hidden: sparkles float over it. */
+/** Grand moment of a later stage: waiting (its shape only), announced the stage before, shown. */
+export type Reveal = 'waiting' | 'announced' | 'shown';
+
+/** Grand moment coming at the next stage: sparkles float over it. */
 export interface Announcement {
-  landmark: Landmark;
+  /** Names its own random draws. */
+  label: 'lake';
   x: number;
   y: number;
   z: number;
@@ -106,14 +107,16 @@ export interface Terrain {
   readonly treeSpots: readonly TreeSpot[];
   /** Slots open at this stage, in opening order. */
   readonly slots: readonly SlotSpot[];
-  /** Grand moments of the terrain still to come. */
+  /** Grand moments of the terrain coming at the next stage. */
   readonly announcements: readonly Announcement[];
-  /** Beaver dam holding the lake moment once revealed. */
+  /** The far chain behind the diorama. */
+  readonly chain: Reveal;
+  /** Beaver dam holding the lake, once filled. */
   readonly dam: Dam | null;
   /** Flat ledge on a mountain where the wolf watches over the valley, once it is cut. */
   readonly perch: { x: number; y: number; z: number; radius: number } | null;
-  /** Close to a grand moment, where revealing it changes the ground. */
-  nearLandmark(x: number, z: number): boolean;
+  /** Close to the beavers' lake (banks, dam), filled or not. */
+  nearLake(x: number, z: number): boolean;
   /** Large rocks and scenery merged in the static mesh. */
   readonly staticModels: readonly StaticModel[];
   readonly waterfalls: readonly Waterfall[];

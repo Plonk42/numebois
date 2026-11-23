@@ -5,17 +5,14 @@ import { composeScene, compositionTriangles } from '../../src/scene/compose';
 import {
   DEMO_FILL,
   LAST_STAGE,
-  LANDMARKS,
   MAX_ELEMENTS,
   STAGES,
   demoAnimals,
   demoElements,
   parseDescription,
   readDescription,
-  shownSeason,
   stageFor,
   writeDescription,
-  type Landmark,
   type SceneDescription,
   type Stage,
 } from '../../src/scene/description';
@@ -48,7 +45,7 @@ const TRIANGLE_BUDGET = 150_000;
 const budget = createBudgetLibrary();
 const placeholders = createPlaceholderLibrary();
 
-/** A description with the slots filled and the animals bought as at its stage (or `fill`), no grand moment revealed. */
+/** A description with the slots filled and the animals bought as at its stage (or `fill`). */
 function scene(
   seed: number,
   stage: Stage,
@@ -61,13 +58,15 @@ function scene(
     season,
     elements: demoElements(seed, fill),
     animals: demoAnimals(stage),
-    landmarks: [],
     ...more,
   };
 }
 
+/** First stage where the beavers have filled their lake. */
+const lakeStage = () => STAGES.find((stage) => createClearing(0, stage).dam !== null)!;
+
 function sceneTriangles(description: SceneDescription, quality = QUALITY.high): number {
-  const season = shownSeason(description);
+  const season = description.season;
   const ambience = ambienceFor(description.stage, season);
   const composition = composeScene(description, budget, ambience, quality);
   const parts = compositionTriangles(composition, budget);
@@ -110,16 +109,13 @@ describe('seeded random', () => {
 
 describe('scene description', () => {
   it('reads the URL parameters and falls back to defaults', () => {
-    const d = parseDescription(
-      new URLSearchParams('stage=4&season=winter&seed=12&fill=50&landmarks=season,lake,storm'),
-    );
+    const d = parseDescription(new URLSearchParams('stage=4&season=winter&seed=12&fill=50'));
     expect(d).toEqual({
       stage: 4,
       season: 'winter',
       seed: 12,
       elements: demoElements(12, 0.5),
       animals: ['Deer'],
-      landmarks: ['lake', 'season'],
     });
     const fallback = parseDescription(new URLSearchParams('stage=12&season=monsoon&seed=x'));
     expect(fallback).toEqual(scene(7, 6, 'summer'));
@@ -133,15 +129,9 @@ describe('scene description', () => {
     expect(LAST_STAGE).toBe(STAGES[STAGES.length - 1]);
   });
 
-  it('brings the next season with the season moment', () => {
-    expect(shownSeason(scene(1, 6, 'summer'))).toBe('summer');
-    expect(shownSeason(scene(1, 6, 'summer', { landmarks: ['season'] }))).toBe('autumn');
-    expect(shownSeason(scene(1, 6, 'winter', { landmarks: ['season'] }))).toBe('spring');
-  });
-
   it('composes the same scene twice from the same description', () => {
-    const description = scene(21, 3, 'autumn', { fill: 0.5, landmarks: ['lake'] });
-    const ambience = ambienceFor(3, 'autumn');
+    const description = scene(21, 9, 'autumn', { fill: 0.5 });
+    const ambience = ambienceFor(9, 'autumn');
     const a = composeScene(description, placeholders, ambience, QUALITY.high);
     const b = composeScene(description, placeholders, ambience, QUALITY.high);
     expect(b.ground.vertexCount).toBe(a.ground.vertexCount);
@@ -166,14 +156,14 @@ describe('triangle budget', () => {
     }
   });
 
-  it('keeps the richest stage under the budget for other seeds, slots and moments', () => {
+  it('keeps the richest stage under the budget for other seeds and slots', () => {
     for (let seed = 1; seed <= 12; seed++) {
       const triangles = sceneTriangles(scene(seed, LAST_STAGE, 'summer'));
       expect(triangles, `seed ${seed}`).toBeLessThan(TRIANGLE_BUDGET);
     }
     for (const season of SEASONS) {
       for (const fill of [0, 1]) {
-        const full = scene(7, LAST_STAGE, season, { fill, landmarks: LANDMARKS });
+        const full = scene(7, LAST_STAGE, season, { fill });
         expect(sceneTriangles(full), `${season} ${fill}`).toBeLessThan(TRIANGLE_BUDGET);
       }
     }
@@ -199,26 +189,18 @@ describe('triangle budget', () => {
 });
 
 describe('animals', () => {
-  const plan = (
-    seed: number,
-    stage: Stage,
-    landmarks: readonly Landmark[] = [],
-    animals = demoAnimals(stage),
-  ) => planHerd(createClearing(seed, stage, landmarks), animals, seed);
+  const plan = (seed: number, stage: Stage, animals = demoAnimals(stage)) =>
+    planHerd(createClearing(seed, stage), animals, seed);
 
   it('come from their stage on and all find a place in the meadow', { timeout: 30_000 }, () => {
     for (let seed = 0; seed < 8; seed++) {
-      for (const landmarks of [[], LANDMARKS]) {
-        const counts = STAGES.map((stage) => plan(seed, stage, landmarks).length);
-        const wanted = STAGES.map((stage) => demoAnimals(stage).length);
-        expect(counts, `seed ${seed} ${landmarks.join()}`).toEqual(wanted);
-        expect(counts[0]).toBe(0);
-        // Bought in another order, each one still finds a place.
-        const reversed = demoAnimals(LAST_STAGE).reverse();
-        expect(plan(seed, LAST_STAGE, landmarks, reversed), `seed ${seed}`).toHaveLength(
-          reversed.length,
-        );
-      }
+      const counts = STAGES.map((stage) => plan(seed, stage).length);
+      const wanted = STAGES.map((stage) => demoAnimals(stage).length);
+      expect(counts, `seed ${seed}`).toEqual(wanted);
+      expect(counts[0]).toBe(0);
+      // Bought in another order, each one still finds a place.
+      const reversed = demoAnimals(LAST_STAGE).reverse();
+      expect(plan(seed, LAST_STAGE, reversed), `seed ${seed}`).toHaveLength(reversed.length);
     }
   });
 
@@ -226,8 +208,8 @@ describe('animals', () => {
     const state = {} as AnimalState;
     for (const seed of [1, 7]) {
       for (const stage of [3, 7, LAST_STAGE] as Stage[]) {
-        const terrain = createClearing(seed, stage, LANDMARKS);
-        for (const member of plan(seed, stage, LANDMARKS)) {
+        const terrain = createClearing(seed, stage);
+        for (const member of plan(seed, stage)) {
           for (let t = 0; t < member.period; t += 0.5) {
             animalState(member, t, state);
             const surface = terrain.surfaceAt(state.x, state.z);
@@ -244,8 +226,8 @@ describe('animals', () => {
   it('put the wolf on its ledge, high on the mountain, in view and from stage 10 on', () => {
     let ledges = 0;
     for (let seed = 0; seed < 10; seed++) {
-      expect(createClearing(seed, 9, []).perch, `seed ${seed}`).toBeNull();
-      const terrain = createClearing(seed, 10, []);
+      expect(createClearing(seed, 9).perch, `seed ${seed}`).toBeNull();
+      const terrain = createClearing(seed, 10);
       const perch = terrain.perch;
       if (!perch) continue;
       ledges++;
@@ -270,7 +252,7 @@ describe('animals', () => {
   it('are the same for the same seed, and a newcomer never moves the others', () => {
     expect(plan(3, LAST_STAGE)).toEqual(plan(3, LAST_STAGE));
     const all = demoAnimals(LAST_STAGE);
-    const few = plan(3, LAST_STAGE, [], all.slice(0, 3));
+    const few = plan(3, LAST_STAGE, all.slice(0, 3));
     expect(few).toHaveLength(3);
     expect(plan(3, LAST_STAGE).slice(0, few.length)).toEqual(few);
   });
@@ -325,7 +307,7 @@ describe('clearing terrain', () => {
   it('plants trees on the ground, away from the water, at every stage', () => {
     for (let seed = 0; seed < 12; seed++) {
       for (const stage of STAGES) {
-        const terrain = createClearing(seed, stage, []);
+        const terrain = createClearing(seed, stage);
         const label = `seed ${seed}, stage ${stage}`;
         // Slots to choose from at the first stage already, and a large tree.
         expect(terrain.slots.length, label).toBeGreaterThanOrEqual(4);
@@ -380,13 +362,14 @@ describe('clearing terrain', () => {
     const edges = (terrain: ReturnType<typeof createClearing>) =>
       terrain.treeSpots.filter((s) => s.role === 'edge').length;
     for (let seed = 0; seed < 6; seed++) {
-      const terrains = STAGES.map((stage) => createClearing(seed, stage, []));
+      const terrains = STAGES.map((stage) => createClearing(seed, stage));
       const tops = terrains.map(highest);
-      // One new thing at a time: a fall, the stream out of the lake (3), a stream with its pool.
+      // One new thing at a time: a fall, the stream out of the lake (3), a stream with its pool,
+      // the beavers' lake (8).
       expect(terrains.map((t) => t.waterfalls.length)).toEqual([
         0, 0, 1, 2, 3, 4, 4, 5, 6, 7, 7, 7,
       ]);
-      expect(terrains.map((t) => t.ponds.length)).toEqual([1, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3]);
+      expect(terrains.map((t) => t.ponds.length)).toEqual([1, 1, 1, 1, 1, 2, 2, 2, 3, 4, 4, 4]);
       for (let stage = 1; stage < terrains.length; stage++) {
         const label = `seed ${seed}, stage ${stage}`;
         expect(terrains[stage].extent.x, label).toBeGreaterThan(terrains[stage - 1].extent.x);
@@ -409,7 +392,7 @@ describe('clearing terrain', () => {
     const summits = new Set<number>();
     const pines = new Set<number>();
     for (let seed = 0; seed < 16; seed++) {
-      const terrain = createClearing(seed, LAST_STAGE, []);
+      const terrain = createClearing(seed, LAST_STAGE);
       // The stream leaves the diorama at a different place.
       const exit = terrain.waterfalls.find((fall) => !fall.splash)!;
       exits.add(Math.round(exit.top[0] / 3));
@@ -432,8 +415,10 @@ describe('clearing terrain', () => {
         ambienceFor(stage, 'summer'),
         QUALITY.high,
       );
-      // The grown trees: hidden ones wait in the slots offered to the child at that stage.
-      return new Map(planting.trees.filter((t) => t.age > 0).map((t) => [`${t.x},${t.z}`, t]));
+      // The grown trees: hidden ones wait in the slots offered to the child at that stage. The
+      // islet's tree moves with the lake as it grows.
+      const grown = planting.trees.filter((t) => t.age > 0 && !t.islet);
+      return new Map(grown.map((t) => [`${t.x},${t.z}`, t]));
     };
     const all = STAGES.map(trees);
     for (let stage = 1; stage < all.length; stage++) {
@@ -503,7 +488,6 @@ describe('slots and grand moments', () => {
       const rng = new Rng(seed);
       const description = scene(seed, stage, 'spring', {
         elements: demoElements(seed, rng.next()).map((e) => ({ ...e, day: 20_400 + seed })),
-        landmarks: LANDMARKS.filter(() => rng.chance(0.5)),
       });
       const json = JSON.stringify(description);
       expect(json.length).toBeLessThan(2048);
@@ -511,7 +495,7 @@ describe('slots and grand moments', () => {
       expect(replayed).toEqual(description);
       // Building the terrain is slow: the planting itself on a sample of seeds.
       if (seed % 12 !== 0 && seed % 12 !== 7) continue;
-      const terrain = createClearing(seed, stage, description.landmarks);
+      const terrain = createClearing(seed, stage);
       const ambience = ambienceFor(stage, 'spring');
       expect(plantTrees(terrain, replayed!, ambience)).toEqual(
         plantTrees(terrain, description, ambience),
@@ -527,8 +511,6 @@ describe('slots and grand moments', () => {
       { ...valid, stage: 12 },
       { ...valid, season: 'monsoon' },
       { ...valid, seed: -1 },
-      { ...valid, landmarks: ['storm'] },
-      { ...valid, landmarks: ['lake', 'lake'] },
       { ...valid, elements: [{ slot: MAX_ELEMENTS, day: 1 }] },
       {
         ...valid,
@@ -581,7 +563,7 @@ describe('slots and grand moments', () => {
   it('passes the stages with the elements placed, always leaving slots to choose from', () => {
     expect([0, 1, 2, 3, 4, 5, 19, 21, 22].map(stageFor)).toEqual([0, 1, 2, 3, 3, 4, 11, 11, 11]);
     for (let seed = 0; seed < 16; seed++) {
-      const open = STAGES.map((stage) => createClearing(seed, stage, []).slots.length);
+      const open = STAGES.map((stage) => createClearing(seed, stage).slots.length);
       for (let placed = 0; placed < MAX_ELEMENTS; placed++) {
         const free = open[stageFor(placed)] - placed;
         expect(free, `seed ${seed}, ${placed} placed`).toBeGreaterThanOrEqual(
@@ -627,84 +609,47 @@ describe('slots and grand moments', () => {
     expect(ages(8)).toBe(1);
   });
 
-  it('announces each grand moment until it is revealed', () => {
+  it("fills the beavers' lake at its stage, with sparkles over the hollow the stage before", () => {
+    const lake = lakeStage();
     for (let seed = 0; seed < 12; seed++) {
-      const hidden = createClearing(seed, 0, []);
       const label = `seed ${seed}`;
-      const announced = new Set(hidden.announcements.map((a) => a.landmark));
-      expect([...announced].sort(), label).toEqual(['lake', 'season']);
-      const lake = hidden.announcements.find((a) => a.landmark === 'lake')!;
-      // A dry sandy hollow, in the first diorama.
-      expect(hidden.surfaceAt(lake.x, lake.z)?.kind, label).toBe('sand');
-      expect(
-        hidden.treeSpots.filter((s) => s.herald),
-        label,
-      ).toHaveLength(1);
-
-      const revealed = createClearing(seed, 0, LANDMARKS);
-      expect(revealed.announcements, label).toEqual([]);
-      expect(
-        revealed.treeSpots.some((s) => s.herald),
-        label,
-      ).toBe(false);
-      expect(revealed.ponds.length, label).toBe(hidden.ponds.length + 1);
-      const islet = revealed.treeSpots.find((s) => s.role === 'islet')!;
-      expect(revealed.surfaceAt(islet.x, islet.z)?.kind, label).toBe('grass');
-      const [wx, wz] = [lake.x + (lake.x - islet.x) * 1.5, lake.z + (lake.z - islet.z) * 1.5];
-      expect(revealed.surfaceAt(wx, wz)?.kind, label).toBe('water');
-    }
-    // The large tree heralds the next season, then the whole painting takes it.
-    const seasons = (landmarks: readonly Landmark[]) =>
-      composeScene(
-        scene(3, 6, 'summer', { landmarks }),
-        placeholders,
-        ambienceFor(6, 'summer'),
-        QUALITY.high,
-      ).planting.trees.flatMap((t) => (t.season ? [t.season] : []));
-    expect(seasons([])).toEqual(['autumn']);
-    expect(seasons(['season'])).toEqual([]);
-  });
-
-  it('moves nothing away from a grand moment when it is revealed', () => {
-    const placed = (seed: number, landmarks: readonly Landmark[]) => {
-      const { batch, planting } = composeScene(
-        scene(seed, 6, 'summer', { landmarks }),
-        placeholders,
-        ambienceFor(6, 'summer'),
-        QUALITY.high,
-      );
-      const items = [...batch['items']].flatMap(([model, list]) =>
-        Array.from({ length: list.length / 9 }, (_, i) => ({
-          key: `${model}:${list[i * 9]}:${list[i * 9 + 2]}`,
-          x: list[i * 9],
-          z: list[i * 9 + 2],
-        })),
-      );
-      const trees = planting.trees.map((t) => ({
-        key: `${t.family}:${t.x}:${t.z}`,
-        x: t.x,
-        z: t.z,
-      }));
-      return [...items, ...trees];
-    };
-    for (const seed of [3, 7]) {
-      const hidden = placed(seed, []);
-      expect(placed(seed, ['mountain', 'season']).map((p) => p.key)).toEqual(
-        hidden.map((p) => p.key),
-      );
       const { layout } = clearingLayout(seed);
-      const lake = basinAt(layout.basin, 6 / LAST_STAGE);
-      const revealed = new Set(placed(seed, ['lake']).map((p) => p.key));
-      // Its banks, and the dam across its outlet, may move what is right next to them.
-      const away = hidden.filter(
-        (p) => Math.hypot(p.x - lake.x * layout.mirror, p.z - lake.z) > lake.radius + 5.5,
-      );
-      expect(away.length, `seed ${seed}`).toBeGreaterThan(hidden.length * 0.6);
-      for (const p of away) expect(revealed.has(p.key), `seed ${seed}: ${p.key}`).toBe(true);
+      const m = layout.mirror;
+      // A dry sandy hollow from the first diorama, nothing announced yet.
+      const first = createClearing(seed, 0);
+      const hollow = basinAt(layout.basin, 0);
+      expect(first.surfaceAt(hollow.x * m, hollow.z)?.kind, label).toBe('sand');
+      expect(first.announcements, label).toEqual([]);
+
+      const before = createClearing(seed, (lake - 1) as Stage);
+      expect(
+        before.announcements.map((a) => a.label),
+        label,
+      ).toEqual(['lake']);
+      const filled = createClearing(seed, lake);
+      expect(filled.announcements, label).toEqual([]);
+      const center = basinAt(layout.basin, lake / LAST_STAGE);
+      const islet = filled.treeSpots.find((s) => s.role === 'islet')!;
+      expect(filled.surfaceAt(islet.x, islet.z)?.kind, label).toBe('grass');
+      const [cx, cz] = [center.x * m, center.z];
+      const [wx, wz] = [cx + (cx - islet.x) * 1.5, cz + (cz - islet.z) * 1.5];
+      expect(filled.surfaceAt(wx, wz)?.kind, label).toBe('water');
     }
   });
 
-  it('runs the east stream through the lake moment, held by a dam once revealed', () => {
+  it('brings the far chain out of the haze at its stage, announced the stage before', () => {
+    const reveals = STAGES.map((stage) => createClearing(3, stage).chain);
+    const shown = reveals.indexOf('shown');
+    expect(shown).toBeGreaterThan(1);
+    expect(reveals.slice(0, shown - 1).every((r) => r === 'waiting')).toBe(true);
+    expect(reveals[shown - 1]).toBe('announced');
+    expect(reveals.slice(shown).every((r) => r === 'shown')).toBe(true);
+    // One axis of progress: the lake comes later, once the chain is there.
+    expect(lakeStage()).toBeGreaterThan(shown);
+  });
+
+  it("runs the east stream through the beavers' lake, held by a dam once filled", () => {
+    const lakeAt = lakeStage();
     for (let seed = 0; seed < 12; seed++) {
       const label = `seed ${seed}`;
       const { layout } = clearingLayout(seed);
@@ -714,13 +659,13 @@ describe('slots and grand moments', () => {
       expect(Math.hypot(inlet[0] - basin.x, inlet[1] - basin.z), label).toBeLessThan(1e-6);
       const mouth = eastPath[eastPath.length - 1];
       expect(distanceToPath(mainPath, mouth[0], mouth[1]).distance, label).toBeLessThan(0.01);
-      // Before the reveal, the stream crosses the dry hollow; nothing holds it back.
-      const hidden = createClearing(seed, 6, []);
-      expect(hidden.surfaceAt(basin.x * m, basin.z)?.kind, label).toBe('water');
-      expect(hidden.dam, label).toBeNull();
-      // Once revealed, the dam stands on the outlet, at the bank of the lake.
-      const lake = basinAt(basin, 6 / LAST_STAGE);
-      const dam = createClearing(seed, 6, ['lake']).dam!;
+      // The stage before, the stream already crosses the dry hollow; nothing holds it back.
+      const before = createClearing(seed, (lakeAt - 1) as Stage);
+      expect(before.surfaceAt(basin.x * m, basin.z)?.kind, label).toBe('water');
+      expect(before.dam, label).toBeNull();
+      // Then the dam stands on the outlet, at the bank of the lake.
+      const lake = basinAt(basin, lakeAt / LAST_STAGE);
+      const dam = createClearing(seed, lakeAt).dam!;
       expect(dam, label).not.toBeNull();
       expect(Math.hypot(dam.x * m - lake.x, dam.z - lake.z) - lake.radius, label).toBeLessThan(1);
       expect(distanceToPath(eastPath, dam.x * m, dam.z).distance, label).toBeLessThan(0.01);
@@ -730,7 +675,7 @@ describe('slots and grand moments', () => {
   it('heaps large logs on the dam, and lays fallen logs and stumps on the grass', () => {
     const compose = (seed: number, stage: Stage, season: Season) =>
       composeScene(
-        scene(seed, stage, season, { landmarks: ['lake'] }),
+        scene(seed, stage, season),
         placeholders,
         ambienceFor(stage, season),
         QUALITY.high,
@@ -743,22 +688,22 @@ describe('slots and grand moments', () => {
       }));
     };
     const deadwood = ['Log_Moss', 'Stump', 'Stump_Moss'];
+    const lake = lakeStage();
     for (const seed of [3, 7, 11]) {
       const label = `seed ${seed}`;
       for (const season of ['summer', 'winter'] as const) {
-        const { batch, terrain } = compose(seed, 6, season);
+        const { batch, terrain } = compose(seed, lake, season);
         const dam = terrain.dam!;
         const logs = at(batch, season === 'winter' ? 'Log_Snow' : 'Log');
         const onDam = logs.filter((l) => Math.hypot(l.x - dam.x, l.z - dam.z) < dam.width * 0.35);
         expect(onDam, `${label} ${season}`).toHaveLength(3);
       }
-      // The first stage has only the dam's logs, and the stumps the beavers gnawed.
+      // The first stage has no wood lying around yet.
       const first = compose(seed, 0, 'summer').batch;
       expect(
-        ['Log_Moss', 'Stump_Moss'].flatMap((m) => at(first, m)),
+        [...deadwood, 'Log'].flatMap((m) => at(first, m)),
         label,
       ).toEqual([]);
-      expect(at(first, 'Log'), label).toHaveLength(3);
       const { batch, terrain } = compose(seed, LAST_STAGE, 'summer');
       const dam = terrain.dam!;
       const lying = [...deadwood, 'Log']

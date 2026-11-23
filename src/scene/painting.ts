@@ -4,7 +4,7 @@ import type { AnimalLibrary } from './animals';
 import type { AssetLibrary } from './assets';
 import { swatchColor, type SwatchName } from './atlas';
 import { composeScene, compositionTriangles } from './compose';
-import { LAST_STAGE, shownSeason, type SceneDescription } from './description';
+import { LAST_STAGE, type SceneDescription } from './description';
 import { candidateSlots, childTreeAge } from './populate';
 import { Backdrop, BACKDROP_TRIANGLES } from './render/backdrop';
 import type { InstanceBatch } from './render/instancing';
@@ -142,8 +142,7 @@ export class Painting {
     readonly description: SceneDescription,
     quality: QualitySettings,
   ) {
-    const { seed } = description;
-    const season = shownSeason(description);
+    const { seed, season } = description;
     const ambience = ambienceFor(description.stage, season);
     this.ambience = ambience;
     const composition = composeScene(description, assets, ambience, quality);
@@ -207,7 +206,7 @@ export class Painting {
     this.backdrop = new Backdrop(
       seed,
       season,
-      description.landmarks.includes('mountain'),
+      terrain.chain,
       assets.atlas,
       ambience,
       materials.shared,
@@ -225,7 +224,7 @@ export class Painting {
     stage.scene.fog = fog;
 
     // Ambient life, in proportion to the diorama.
-    // One generator per kind of life, so a grand moment or a season only changes its own.
+    // One generator per kind of life, so the lake filling only changes its own.
     const drawn = (label: string) => new Rng(seed).fork(`life:${label}`);
     let rng = drawn('pollen');
     const shared = materials.shared;
@@ -274,9 +273,9 @@ export class Painting {
         }
       }
     }
-    // Grand moments still to come: golden sparkles float over them.
+    // Grand moments coming at the next stage: golden sparkles float over them.
     for (const a of terrain.announcements) {
-      rng = drawn(a.landmark);
+      rng = drawn(a.label);
       for (let i = 0; i < 26; i++) {
         const angle = rng.range(0, TAU);
         const d = a.radius * Math.sqrt(rng.next());
@@ -350,7 +349,7 @@ export class Painting {
     const leaves: Leaf[] = [];
     const grown = planting.trees
       .map((tree, i) => ({ tree, info: this.forest.infos[i] }))
-      .filter((t) => t.tree.age > 0.6 && t.tree.family !== 'Pine' && !t.tree.landmark);
+      .filter((t) => t.tree.age > 0.6 && t.tree.family !== 'Pine' && !t.tree.islet);
     const falling = Math.round(46 * ambience.fallingLeaves * life);
     for (let i = 0; i < falling && grown.length > 0; i++) {
       const { tree, info } = rng.pick(grown);

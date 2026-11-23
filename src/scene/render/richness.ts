@@ -84,7 +84,7 @@ export const STAGE_NAMES: PerStage<string> = [
   'confluent',
   'neiges',
   'grande cascade',
-  'oiseaux',
+  'lac des castors',
   'trois ruisseaux',
   'doré',
   'féerique',

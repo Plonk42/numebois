@@ -3,6 +3,7 @@ import { Rng } from '../../core/rng';
 import { swatchUV, type SwatchName } from '../atlas';
 import { MeshWriter } from '../mesh-data';
 import { groundSwatch } from '../terrain/clearing';
+import type { Reveal } from '../terrain/types';
 import type { Season } from '../trees/builder';
 import { GLOW_SPARKLE, GlowPoints } from './particles';
 import type { Ambience } from './richness';
@@ -137,9 +138,9 @@ function buildIsland(seed: number, season: Season): MeshWriter {
 }
 
 /**
- * The mountain moment: a great mountain far behind the diorama, on its own floating island.
- * Until it is revealed, only its silhouette shows through the haze. It keeps the same place
- * on the screen whatever the size of the diorama.
+ * The far chain: a great mountain far behind the diorama, on its own floating island. Until
+ * its stage, only its silhouette shows through the haze, with golden sparkles the stage
+ * before. It keeps the same place on the screen whatever the size of the diorama.
  */
 export class Backdrop {
   readonly root = new THREE.Group();
@@ -154,14 +155,14 @@ export class Backdrop {
   constructor(
     seed: number,
     season: Season,
-    revealed: boolean,
+    reveal: Reveal,
     atlas: THREE.Texture,
     ambience: Ambience,
     shared: { uTime: { value: number } },
   ) {
     const writer = buildIsland(seed, season);
     this.triangles = writer.triangles;
-    if (revealed) {
+    if (reveal === 'shown') {
       // Far away: lit like the scene, lifted towards the haze.
       this.material = new THREE.MeshLambertMaterial({
         map: atlas,
@@ -174,6 +175,8 @@ export class Backdrop {
         0.55,
       );
       this.material = new THREE.MeshBasicMaterial({ color: haze.multiplyScalar(0.82), fog: false });
+    }
+    if (reveal === 'announced') {
       const particles = Array.from({ length: 22 }, (_, i) => {
         const a = (i / 22) * TAU * 3.7;
         const d = 0.15 + (i % 5) * 0.1;

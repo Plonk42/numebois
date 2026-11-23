@@ -25,7 +25,6 @@ async function loadSave(page: Page, save: object) {
     season: 'summer',
     elements: [],
     animals: [],
-    landmarks: [],
   };
   await page.evaluate(
     (json) =>
@@ -353,7 +352,6 @@ test('la boutique : une biche achetée en graines dorées rejoint la prairie et 
       season: 'summer',
       elements: [0, 1, 2].map((slot) => ({ slot, day: 1 })),
       animals: [],
-      landmarks: [],
     },
     progress: [],
     facts: [],

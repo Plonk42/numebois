@@ -2,8 +2,7 @@
  * Visual review captures: fixed camera, frozen time. Writes one PNG per scene and a contact
  * sheet under `test-results/captures/`.
  *
- *   npm run capture -- --stages 0,6,11 --seasons summer [--seed 7,8,9]
- *     [--fill 0,50,100] [--landmarks none,lake,mountain+season]
+ *   npm run capture -- --stages 0,6,11 --seasons summer [--seed 7,8,9] [--fill 0,50,100]
  *     [--size 1280x800] [--url http://127.0.0.1:5173/numebois/] [--name review] [--time 12]
  *
  * Needs a running server (`npm run dev` or `npm run preview`).
@@ -20,9 +19,8 @@ function option(name: string, fallback: string): string {
 const stages = option('stages', '0,6,11').split(',');
 const seasons = option('seasons', 'summer').split(',');
 const seeds = option('seed', '7').split(',');
-// Share of the slots filled (default: the one of the stage) and grand moments revealed.
+// Share of the slots filled (default: the one of the stage).
 const fills = option('fill', '').split(',');
-const landmarkSets = option('landmarks', 'none').split(',');
 const time = option('time', '12');
 const quality = option('quality', 'high');
 const extra = option('query', '');
@@ -30,10 +28,7 @@ const url = option('url', 'http://127.0.0.1:5173/numebois/');
 const name = option('name', 'review');
 const [width, height] = option('size', '1280x800').split('x').map(Number);
 const columns = Number(
-  option(
-    'columns',
-    String(stages.length * seasons.length * seeds.length * fills.length * landmarkSets.length),
-  ),
+  option('columns', String(stages.length * seasons.length * seeds.length * fills.length)),
 );
 const out = resolve('test-results', 'captures');
 mkdirSync(out, { recursive: true });
@@ -50,19 +45,13 @@ page.on('pageerror', (error) => console.error(`[page] ${error.message}`));
 const files: { file: string; label: string }[] = [];
 const scenes = seasons.flatMap((season) =>
   stages.flatMap((stage) =>
-    seeds.flatMap((seed) =>
-      fills.flatMap((fill) =>
-        landmarkSets.map((landmarks) => ({ season, stage, seed, fill, landmarks })),
-      ),
-    ),
+    seeds.flatMap((seed) => fills.map((fill) => ({ season, stage, seed, fill }))),
   ),
 );
-for (const { season, stage, seed, fill, landmarks } of scenes) {
-  const revealed = landmarks === 'none' ? '' : landmarks.replaceAll('+', ',');
+for (const { season, stage, seed, fill } of scenes) {
   const query =
     `?scene&stage=${stage}&season=${season}&seed=${seed}&quality=${quality}&time=${time}` +
     (fill ? `&fill=${fill}` : '') +
-    (revealed ? `&landmarks=${revealed}` : '') +
     (extra ? `&${extra}` : '');
   await page.goto(url + query);
   await page.evaluate(() => window.__numebois!.ready);
@@ -84,15 +73,12 @@ for (const { season, stage, seed, fill, landmarks } of scenes) {
       );
     }
   }
-  const suffix = (fill ? `-f${fill}` : '') + (revealed ? `-${landmarks}` : '');
+  const suffix = fill ? `-f${fill}` : '';
   const file = `${name}-${season}-${stage}-${seed}${suffix}.png`;
   await page.screenshot({ path: join(out, file) });
   files.push({
     file,
-    label:
-      `${season} · palier ${stage} · graine ${seed}` +
-      (fill ? ` · ${fill} %` : '') +
-      (revealed ? ` · ${landmarks}` : ''),
+    label: `${season} · palier ${stage} · graine ${seed}` + (fill ? ` · ${fill} %` : ''),
   });
   console.log(
     `${file}: ${counters.drawCalls} appels, ${counters.triangles} triangles ` +

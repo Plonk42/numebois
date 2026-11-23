@@ -18,8 +18,6 @@ export interface TreeSpec {
   scale: number;
   /** `light` trees (forest edge) have fewer forks and larger tufts; `far` ones even fewer. */
   detail: 'full' | 'light' | 'far';
-  /** Own season, ahead of the painting's: the tree that heralds the season moment. */
-  season?: Season;
 }
 
 export interface TreeInfo {

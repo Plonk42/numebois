@@ -1,7 +1,7 @@
 import { Rng, hashSeed, valueNoise2 } from '../../core/rng';
 import type { ModelName } from '../asset-catalog';
 import { swatchUV, type SwatchName } from '../atlas';
-import { LAST_STAGE, STAGES, type Landmark, type PerStage, type Stage } from '../description';
+import { LAST_STAGE, STAGES, type PerStage, type Stage } from '../description';
 import type { MeshWriter } from '../mesh-data';
 import {
   WATER_FALL,
@@ -35,6 +35,7 @@ import {
   type BankPath,
   type Dam,
   type Pond,
+  type Reveal,
   type SlotSpot,
   type StaticModel,
   type Surface,
@@ -89,7 +90,9 @@ interface Relief {
 // One value per stage, so each line reads as a progression. Every stage is a little larger
 // than the one before, and most bring one new thing: ledge and first fall (2), the lake
 // overflows into a stream (3), mountain and second fall (4), east stream and confluence (5),
-// snow (6), third fall (7), second east fall (8), west brook (9), the wolf's ledge (10).
+// snow and the far chain in colour (6), third fall (7), second east fall and the beavers'
+// lake (8), west brook (9), the wolf's ledge (10). A grand moment (far chain, beavers' lake)
+// shows its shape before, and sparkles the stage before it comes.
 const RELIEF_BY_STAGE = {
   hx: [13.5, 15.5, 17.5, 19, 21, 22.5, 24, 25.5, 27, 28.5, 29.3, 30],
   hz: [10.5, 12, 14.5, 18.5, 20, 21.25, 22.25, 23.5, 24.5, 25.5, 26.3, 27],
@@ -107,7 +110,17 @@ const RELIEF_BY_STAGE = {
   snow: [99, 99, 99, 99, 99, 99, 12, 12.5, 12.5, 13, 13.2, 13.5],
   cover: [0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.08, 1.15, 1.22, 1.3, 1.35, 1.4],
   perch: [false, false, false, false, false, false, false, false, false, false, true, true],
+  /** The far chain comes out of the haze, in colour and snowy. */
+  chain: [false, false, false, false, false, false, true, true, true, true, true, true],
+  /** The beavers' dam fills the dry hollow crossed by the east stream. */
+  beavers: [false, false, false, false, false, false, false, false, true, true, true, true],
 } satisfies Record<string, PerStage<number> | PerStage<boolean>>;
+
+/** A grand moment at a stage: there, announced by sparkles the stage before, or waiting. */
+function revealAt(column: PerStage<boolean>, stage: Stage): Reveal {
+  if (column[stage]) return 'shown';
+  return stage < LAST_STAGE && column[stage + 1] ? 'announced' : 'waiting';
+}
 
 function reliefOf(stage: Stage): Relief {
   const r = RELIEF_BY_STAGE;
@@ -237,10 +250,12 @@ class Clearing implements Terrain {
   readonly cover: number;
   readonly frame: Terrain['frame'];
   readonly shadow: Terrain['shadow'];
+  readonly chain: Reveal;
 
   private readonly relief: Relief;
   private readonly layout: Layout;
   private readonly mirror: number;
+  private readonly beavers: Reveal;
   /** Highest first. */
   private readonly steps: Step[] = [];
   private readonly pools: Pool[] = [];
@@ -256,13 +271,14 @@ class Clearing implements Terrain {
   constructor(
     private readonly seed: number,
     private readonly stage: Stage,
-    private readonly landmarks: readonly Landmark[],
     /** Without its scenery, a terrain only answers questions about its ground. */
     scenery = true,
   ) {
     const layout = layoutOf(seed);
     this.layout = layout;
     this.mirror = layout.mirror;
+    this.chain = revealAt(RELIEF_BY_STAGE.chain, stage);
+    this.beavers = revealAt(RELIEF_BY_STAGE.beavers, stage);
     this.perchDef = this.choosePerch();
     const relief = reliefOf(stage);
     this.relief = relief;
@@ -324,7 +340,7 @@ class Clearing implements Terrain {
       sum += this.heightRef(rx, rz);
     }
     const ground = Math.min(l.eastPool.level - 0.05, Math.max(sum / 16, this.mouthLevel() + 0.8));
-    const filled = this.landmarks.includes('lake');
+    const filled = this.beavers === 'shown';
     // The islet and its tree grow with the lake, a little slower.
     const grow = Math.sqrt(radius / def.radius);
     const basin = { x, z, radius, ground, level: ground - 0.25, filled, islet, grow };
@@ -366,8 +382,8 @@ class Clearing implements Terrain {
     return !!b && !b.filled && Math.hypot(fx - b.x, z - b.z) < b.radius - 0.3;
   }
 
-  /** Its banks and its dam, at this stage, whether it is revealed or not. */
-  nearLandmark(x: number, z: number): boolean {
+  /** Its banks and its dam, at this stage, whether it is filled or not. */
+  nearLake(x: number, z: number): boolean {
     const b = this.basin!;
     return Math.hypot(x * this.mirror - b.x, z - b.z) < b.radius + 3.5;
   }
@@ -842,25 +858,17 @@ class Clearing implements Terrain {
       const kind = this.surfaceAt(fx * m, z)?.kind;
       return kind === 'grass' || kind === 'rock';
     };
-    // The large tree nearest the middle of the first diorama heralds the next season.
-    const firstRim = l.hero.map(([fx, z]) => rimValue(l, FIRST, fx, z));
-    const herald = this.landmarks.includes('season') ? -1 : firstRim.indexOf(Math.min(...firstRim));
     l.hero.forEach(([fx, z, size], slot) => {
       if (!open(fx, z)) return;
-      const x = fx * m;
-      this.treeSpots.push({ x, z, role: 'hero', size, slot, herald: slot === herald });
-      if (slot === herald) {
-        const y = this.heightRef(fx, z) + 4.2 * size;
-        this.announcements.push({ landmark: 'season', x, y, z, radius: 2.6 * size });
-      }
+      this.treeSpots.push({ x: fx * m, z, role: 'hero', size, slot });
     });
     const b = this.basin!;
     if (b.filled) {
       const [fx, z] = b.islet;
       this.treeSpots.push({ x: fx * m, z, role: 'islet', size: 0.5 * b.grow, detail: 'light' });
-    } else if (this.rim(b.x, b.z) < 0.93) {
+    } else if (this.beavers === 'announced' && this.rim(b.x, b.z) < 0.93) {
       const y = this.heightRef(b.x, b.z) + 0.7;
-      this.announcements.push({ landmark: 'lake', x: b.x * m, y, z: b.z, radius: b.radius });
+      this.announcements.push({ label: 'lake', x: b.x * m, y, z: b.z, radius: b.radius });
     }
     // The slots open strictly in their order, so a slot open at a stage stays open after.
     for (const [index, { x: fx, z, kind }] of l.slots.entries()) {
@@ -888,8 +896,7 @@ class Clearing implements Terrain {
     const rng = new Rng(this.seed).fork('forest');
     const m = this.mirror;
     const l = this.layout;
-    const final =
-      this.stage === LAST_STAGE ? this : new Clearing(this.seed, LAST_STAGE, this.landmarks, false);
+    const final = this.stage === LAST_STAGE ? this : new Clearing(this.seed, LAST_STAGE, false);
     const placed = [...l.hero, ...l.slots.map((s) => [s.x, s.z])].map(([x, z]) => ({
       x,
       z,
@@ -1361,10 +1368,6 @@ class Clearing implements Terrain {
   }
 }
 
-export function createClearing(
-  seed: number,
-  stage: Stage,
-  landmarks: readonly Landmark[],
-): Terrain {
-  return new Clearing(seed, stage, landmarks);
+export function createClearing(seed: number, stage: Stage): Terrain {
+  return new Clearing(seed, stage);
 }
