@@ -216,7 +216,8 @@
       0 0 36px 14px rgba(255, 226, 122, 0.9);
   }
 }
-#spots-hint {
+#spots-hint,
+#arrival {
   position: fixed;
   bottom: 20px;
   left: 50%;
@@ -231,10 +232,12 @@
   color: #5a6e5f;
   pointer-events: none;
 }
-#spots-hint p {
+#spots-hint p,
+#arrival p {
   margin: 0;
 }
-#spots-hint .title {
+#spots-hint .title,
+#arrival .title {
   font-size: 28px;
   line-height: 34px;
   font-weight: 700;

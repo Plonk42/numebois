@@ -1,12 +1,9 @@
 import * as THREE from 'three';
 import { Rng, hashSeed } from '../../core/rng';
-import { ANIMAL_NAMES, type AnimalClip, type AnimalName } from '../animal-catalog';
+import type { AnimalClip, AnimalName } from '../animal-catalog';
 import type { AnimalBody, AnimalLibrary } from '../animals';
 import { ANIMALS } from '../animals.gen';
-import { STAGES } from '../description';
 import type { Terrain } from '../terrain/types';
-import type { QualitySettings } from './quality';
-import { ambienceFor, type Ambience } from './richness';
 
 /** Height in the scene: about twice life size next to 2.4 to 3 tall trees, to read from the camera (#9). */
 export const ANIMAL_HEIGHT: Record<AnimalName, number> = {
@@ -53,34 +50,26 @@ export interface HerdMember {
   phase: number;
 }
 
-/** Stage at which the n-th animal of a kind arrives, from the columns of the stages. */
-function arrival(name: AnimalName, n: number): number {
-  return STAGES.find((stage) => ambienceFor(stage, 'summer').animals[name] > n) ?? Infinity;
-}
-
 function wraps(a: number): number {
   return Math.atan2(Math.sin(a), Math.cos(a));
 }
 
 /**
- * Where the animals of a painting live and what they do, as a pure function of the seed: the
- * Album replays the same scene. Animals are placed in arrival order, each from its own draw,
- * so a newcomer never moves the others.
+ * Where the animals the child bought live and what they do, as a pure function of the seed:
+ * the Album replays the same scene. Animals are placed in buying order, each from its own
+ * draw, so a newcomer never moves the others. Bought, they are never cut by the quality tier.
  */
 export function planHerd(
   terrain: Terrain,
-  ambience: Ambience,
-  quality: QualitySettings,
+  animals: readonly AnimalName[],
   seed: number,
 ): HerdMember[] {
-  const wanted = ANIMAL_NAMES.flatMap((name) =>
-    Array.from({ length: ambience.animals[name] }, (_, n) => ({ name, n })),
-  )
-    .sort((a, b) => arrival(a.name, a.n) - arrival(b.name, b.n))
-    .slice(0, quality.animals);
   const members: HerdMember[] = [];
   const homes: Point[] = [];
-  for (const { name, n } of wanted) {
+  const counts = new Map<AnimalName, number>();
+  for (const name of animals) {
+    const n = counts.get(name) ?? 0;
+    counts.set(name, n + 1);
     const rng = new Rng(hashSeed(seed, `animal:${name}:${n}`));
     const member =
       name === 'Wolf' && n === 0 && terrain.perch
@@ -311,8 +300,8 @@ export function herdTriangles(members: readonly HerdMember[]): number {
 /** The animals of a painting, posed every frame from the time alone. */
 export class Herd {
   readonly group = new THREE.Group();
-  readonly triangles: number;
-  private readonly bodies: { member: HerdMember; body: AnimalBody }[];
+  triangles = 0;
+  private readonly bodies: { member: HerdMember; body: AnimalBody }[] = [];
   private readonly state: AnimalState = {
     x: 0,
     y: 0,
@@ -325,15 +314,24 @@ export class Herd {
     blend: 1,
   };
 
-  constructor(library: AnimalLibrary, members: readonly HerdMember[]) {
+  constructor(
+    private readonly library: AnimalLibrary,
+    members: readonly HerdMember[],
+  ) {
     this.group.name = 'herd';
-    this.bodies = members.map((member) => {
-      const body = library.create(member.name);
-      body.object.scale.setScalar(member.scale);
-      this.group.add(body.object);
-      return { member, body };
-    });
-    this.triangles = this.bodies.reduce((sum, b) => sum + b.body.triangles, 0);
+    for (const member of members) this.add(member);
+  }
+
+  get size(): number {
+    return this.bodies.length;
+  }
+
+  add(member: HerdMember): void {
+    const body = this.library.create(member.name);
+    body.object.scale.setScalar(member.scale);
+    this.group.add(body.object);
+    this.bodies.push({ member, body });
+    this.triangles += body.triangles;
   }
 
   update(time: number): void {

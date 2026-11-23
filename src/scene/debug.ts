@@ -2,6 +2,7 @@ import type { SceneApp, SceneCounters } from './app';
 import {
   LANDMARKS,
   STAGES,
+  demoAnimals,
   demoElements,
   fillOf,
   writeDescription,
@@ -102,7 +103,8 @@ export function mountDebugPanel(app: SceneApp, autoQuality: boolean): void {
     value: String(app.description.stage),
   });
   stage.addEventListener('input', () => {
-    app.description = { ...app.description, stage: Number(stage.value) as Stage };
+    const next = Number(stage.value) as Stage;
+    app.description = { ...app.description, stage: next, animals: demoAnimals(next) };
     stageValue.textContent = `${stage.value} · ${STAGE_NAMES[app.description.stage]}`;
     apply();
   });

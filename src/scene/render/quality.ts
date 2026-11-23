@@ -28,8 +28,6 @@ export interface QualitySettings {
   clouds: number;
   /** Factor on grass and flower density. */
   groundCover: number;
-  /** Most animals in the meadow (skinned meshes: one draw call and ~2 000 triangles each). */
-  animals: number;
   /** Growth and reward effects are never cut: always 1. */
   growthFx: 1;
 }
@@ -47,7 +45,6 @@ export const QUALITY: Record<Quality, QualitySettings> = {
     rainbow: true,
     clouds: 1,
     groundCover: 1,
-    animals: 8,
     growthFx: 1,
   },
   medium: {
@@ -62,7 +59,6 @@ export const QUALITY: Record<Quality, QualitySettings> = {
     rainbow: true,
     clouds: 1,
     groundCover: 0.8,
-    animals: 8,
     growthFx: 1,
   },
   low: {
@@ -77,7 +73,6 @@ export const QUALITY: Record<Quality, QualitySettings> = {
     rainbow: true,
     clouds: 0.5,
     groundCover: 0.55,
-    animals: 3,
     growthFx: 1,
   },
 };

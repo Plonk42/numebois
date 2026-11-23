@@ -19,7 +19,14 @@ function wrong(answer: string): string {
 
 /** Writes a save in IndexedDB, as the game does, then reloads the page. */
 async function loadSave(page: Page, save: object) {
-  const painting = { seed: 3, stage: 0, season: 'summer', elements: [], landmarks: [] };
+  const painting = {
+    seed: 3,
+    stage: 0,
+    season: 'summer',
+    elements: [],
+    animals: [],
+    landmarks: [],
+  };
   await page.evaluate(
     (json) =>
       new Promise<void>((resolve, reject) => {
@@ -241,14 +248,22 @@ test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt po
   for (const box of await boxes(page, '#trail-end button')) {
     expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(56);
   }
+  // The shop of the forest: an element in leaves, the doe still three elements away.
+  const shop = end.locator('.shop');
+  const shoot = shop.getByRole('button', { name: 'Une pousse, 4 feuilles' });
+  const doe = shop.getByRole('button', { name: 'Une biche, 2 graines dorées' });
+  await expect(shoot).toBeEnabled();
+  await expect(doe).toBeDisabled();
+  await expect(doe).toContainText('Encore 3 pousses');
+  await expect(doe.locator('img')).toHaveAttribute('src', /^data:image\/png/);
   await test.info().attach('résumé', { body: await page.screenshot(), contentType: 'image/png' });
 
   // Four leaves each: the child chooses among the glowing places, the element grows there,
   // and passes a stage under a veil of light.
   const describe = () => page.evaluate(() => window.__numebois!.describe());
-  expect(await describe()).toMatchObject({ seed: 3, stage: 0, elements: [] });
+  expect(await describe()).toMatchObject({ seed: 3, stage: 0, elements: [], animals: [] });
   for (let placed = 1; placed <= 2; placed++) {
-    await page.getByRole('button', { name: 'Faire pousser' }).click();
+    await shoot.click();
     await expect(end).toHaveClass(/away/);
     const spots = page.getByRole('button', { name: 'Planter ici' });
     await expect(spots).toHaveCount(3);
@@ -295,8 +310,11 @@ test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt po
     expect(await describe()).toMatchObject({ stage: placed });
   }
   expect((await game(page)).grown).toBe(2);
-  await expect(page.getByRole('button', { name: 'Faire pousser' })).toHaveCount(0);
-  await expect(end).toContainText('Encore 2 feuilles pour faire pousser ta forêt.');
+  // What is still to earn, never what is missing.
+  await expect(shoot).toBeDisabled();
+  await expect(shoot).toContainText('Encore 2 feuilles');
+  await expect(doe).toContainText('Encore 1 pousse');
+  await expect(end).toContainText('Ta forêt a grandi !');
 
   await page.getByRole('button', { name: 'Encore un sentier' }).click();
   await expect(card.locator('.instruction')).toBeVisible();
@@ -314,6 +332,92 @@ test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt po
   expect(errors).toEqual([]);
 });
 
+test('la boutique : une biche achetée en graines dorées rejoint la prairie et y reste', async ({
+  page,
+}) => {
+  // A short trail, then the doe settles: about a minute on CI.
+  test.setTimeout(180_000);
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto('./?seed=3');
+  await page.evaluate(() => window.__numebois!.ready);
+  await loadSave(page, {
+    version: 2,
+    savedAt: '2026-11-23T10:00:00.000Z',
+    leaves: 0,
+    seeds: 2,
+    trailLength: 'short',
+    painting: {
+      seed: 3,
+      stage: 3,
+      season: 'summer',
+      elements: [0, 1, 2].map((slot) => ({ slot, day: 1 })),
+      animals: [],
+      landmarks: [],
+    },
+    progress: [],
+    facts: [],
+    history: [],
+  });
+  const animals = async () => (await page.evaluate(() => window.__numebois!.counters())).animals;
+  expect(await animals()).toBe(0);
+  const { stones } = await game(page);
+  for (let stone = 0; stone < stones; stone++) {
+    const exercise = await current(page);
+    await page.keyboard.type(exercise.answer);
+    await page.keyboard.press('Enter');
+    await expect.poll(async () => (await game(page)).stone, { timeout: 8000 }).toBe(stone + 1);
+  }
+  const end = page.locator('#trail-end');
+  const shop = end.locator('.shop');
+  const doe = shop.getByRole('button', { name: 'Une biche, 2 graines dorées' });
+  await expect(doe).toBeEnabled();
+  await expect(doe.locator('img')).toHaveAttribute('src', /^data:image\/png/);
+  // The fox waits for stage 5: four elements away.
+  await expect(shop.getByRole('button', { name: /^Un renard/ })).toContainText('Encore 4 pousses');
+  const layout = await page.evaluate(() => {
+    const box = (element: Element) => {
+      const { x, y, width, height } = element.getBoundingClientRect();
+      return { x, y, width, height };
+    };
+    const doc = globalThis.document;
+    return {
+      card: box(doc.querySelector('#trail-end')!),
+      reserve: box(doc.querySelector('#reserve')!),
+      buttons: [...doc.querySelectorAll('#trail-end button')].map(box),
+    };
+  });
+  const viewport = page.viewportSize()!;
+  expect(layout.card.y).toBeGreaterThan(layout.reserve.y + layout.reserve.height);
+  expect(layout.card.y + layout.card.height).toBeLessThanOrEqual(viewport.height);
+  for (const box of layout.buttons) {
+    expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(56);
+  }
+  await test.info().attach('boutique', { body: await page.screenshot(), contentType: 'image/png' });
+
+  // One touch: the seeds are spent, the card steps aside, the doe comes into the meadow.
+  const seeds = (await game(page)).seeds;
+  await doe.click();
+  await expect(page.locator('#arrival')).toHaveText('Une biche arrive !');
+  await expect(end).toHaveClass(/away/);
+  await test.info().attach('arrivée', { body: await page.screenshot(), contentType: 'image/png' });
+  expect((await game(page)).seeds).toBe(seeds - 2);
+  expect(await page.evaluate(() => window.__numebois!.describe().animals)).toEqual(['Deer']);
+  expect(await animals()).toBe(1);
+  await expect(end).not.toHaveClass(/away/, { timeout: 12_000 });
+  await expect(page.locator('#arrival')).toHaveCount(0);
+  await expect(shop.getByRole('button', { name: /^Une biche/ })).toHaveCount(0);
+  await expect(end).toContainText('Ta forêt a grandi !');
+
+  // The doe stays in the painting.
+  await page.reload();
+  await page.evaluate(() => window.__numebois!.ready);
+  expect(await page.evaluate(() => window.__numebois!.describe().animals)).toEqual(['Deer']);
+  expect(await animals()).toBe(1);
+  expect((await game(page)).seeds).toBe(seeds - 2);
+  expect(errors).toEqual([]);
+});
+
 test('le choix : comparer avec <, = ou >, d’une touche, sans rouge', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
@@ -321,7 +425,7 @@ test('le choix : comparer avec <, = ou >, d’une touche, sans rouge', async ({ 
   await page.evaluate(() => window.__numebois!.ready);
   // A save where « comparer » is in progress: the trail warms up with it.
   await loadSave(page, {
-    version: 1,
+    version: 2,
     savedAt: '2026-11-23T10:00:00.000Z',
     leaves: 0,
     seeds: 0,
@@ -361,7 +465,7 @@ test('une notion acquise : une graine dorée, seule à l’écran, rejoint la r�
   // « Écrire en chiffres » at its last level: one more right answer acquires it.
   const recent = Array.from({ length: 4 }, () => ({ level: 3, right: true, day: 1 }));
   await loadSave(page, {
-    version: 1,
+    version: 2,
     savedAt: '2026-11-23T10:00:00.000Z',
     leaves: 7,
     seeds: 0,
