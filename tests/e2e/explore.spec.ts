@@ -67,7 +67,7 @@ test('se promener dans la forêt : gestes dans leurs limites, retour au cadrage,
   await page.getByRole('button', { name: 'Se promener' }).click();
   await expect(welcome).toHaveClass(/away/);
   const walk = page.locator('#walk');
-  const back = walk.getByRole('button', { name: 'Toute la forêt' });
+  const back = walk.getByRole('button', { name: 'Tout le paysage' });
   const hint = walk.locator('.hint');
   await expect(walk).toBeVisible();
   await expect(hint).toBeVisible();

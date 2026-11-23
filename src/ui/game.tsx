@@ -730,7 +730,7 @@ function Welcome({ away, onStart, onWalk }: WelcomeProps) {
     <section id="welcome" class={`card${away ? ' away' : ''}`} aria-live="polite">
       <Plume mood="cheer" />
       <p class="praise">Bonjour !</p>
-      <p class="instruction">Ta forêt t’attend.</p>
+      <p class="instruction">Ton paysage t’attend.</p>
       <div class="actions">
         <button type="button" class="walk" onPointerDown={onWalk}>
           Se promener
@@ -761,14 +761,14 @@ function Walk({ away, onRecenter, onStart }: WalkProps) {
     if (away) setMoved(true);
   }, [away]);
   return (
-    <section id="walk" aria-label="Promenade dans la forêt">
+    <section id="walk" aria-label="Promenade dans le paysage">
       {away && (
         <button type="button" class="whole" onPointerDown={onRecenter}>
           <svg viewBox="0 0 32 32" aria-hidden="true">
             <path d="M4 11V5h6M22 5h6v6M28 21v6h-6M10 27H4v-6" />
             <path class="hill" d="M8 22l5-7 4 5 3-3 4 5z" />
           </svg>
-          Toute la forêt
+          Tout le paysage
         </button>
       )}
       {!moved && (

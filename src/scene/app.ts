@@ -89,7 +89,7 @@ export class SceneApp {
     this.veil = document.createElement('div');
     this.veil.id = 'veil';
     this.veil.append(
-      Object.assign(document.createElement('p'), { textContent: 'Ta forêt grandit !' }),
+      Object.assign(document.createElement('p'), { textContent: 'Ton paysage grandit !' }),
     );
     canvas.after(this.veil);
     this.description = parseDescription(params);
