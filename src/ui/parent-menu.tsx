@@ -70,6 +70,12 @@ export function ParentMenu({ skills, length, problem, exportSave, onLength, onCl
         Importer une sauvegarde
       </button>
       {message && <p class="message">{message}</p>}
+      {/* Measured on the tablet to calibrate the viewport of the UI tests. */}
+      <p class="screen">
+        Écran : {window.innerWidth} × {window.innerHeight} px, ×
+        {window.devicePixelRatio.toLocaleString('fr', { maximumFractionDigits: 2 })} ({screen.width}{' '}
+        × {screen.height})
+      </p>
       <button type="button" class="close" onPointerDown={onClose}>
         Fermer
       </button>
