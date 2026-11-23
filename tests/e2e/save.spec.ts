@@ -55,6 +55,14 @@ test('la progression et la réserve survivent au rechargement ; export et import
     'aria-pressed',
     'true',
   );
+  // The quality of the rendering, kept on the device (not in the save).
+  await expect(page.getByRole('button', { name: 'Auto' })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'Basse' }).click();
+  await expect(page.getByRole('button', { name: 'Basse' })).toHaveAttribute('aria-pressed', 'true');
+  expect(await page.evaluate(() => window.__numebois!.counters())).toMatchObject({
+    quality: 'low',
+    autoQuality: false,
+  });
   const [download] = await Promise.all([
     page.waitForEvent('download'),
     page.getByRole('button', { name: 'Exporter la sauvegarde' }).click(),
@@ -87,6 +95,10 @@ test('la progression et la réserve survivent au rechargement ; export et import
   await page.evaluate(() => window.__numebois!.ready);
   await expect(reserve).toHaveAttribute('aria-label', reserveLabel(2));
   await expect(page.locator('#trail .stone')).toHaveCount(6);
+  expect(await page.evaluate(() => window.__numebois!.counters())).toMatchObject({
+    quality: 'low',
+    autoQuality: false,
+  });
 
   // Importing the exported save brings it back after a reload.
   await startTrail(page);

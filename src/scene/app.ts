@@ -41,6 +41,9 @@ const ARRIVAL_MS = 3200;
 /** Side of the animal portraits of the shop, in pixels of the image. */
 const PORTRAIT_PX = 256;
 
+/** Quality chosen in the parent menu or the debug panel: a setting of the device, not of the save. */
+const QUALITY_KEY = 'numebois.quality';
+
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** The demonstration scene: loads the assets, builds the painting, runs the frame loop. */
@@ -83,7 +86,8 @@ export class SceneApp {
     );
     canvas.after(this.veil);
     this.description = parseDescription(params);
-    const requested = parseQuality(params.get('quality'));
+    // `?quality=` (captures, tests) wins over the saved choice.
+    const requested = parseQuality(params.get('quality') ?? localStorage.getItem(QUALITY_KEY));
     this.quality = requested === 'auto' ? 'high' : requested;
     if (requested === 'auto') {
       this.governor = new QualityGovernor('high', (quality) => {
@@ -130,7 +134,13 @@ export class SceneApp {
     this.rebuild();
   }
 
+  get qualityChoice(): Quality | 'auto' {
+    return this.governor ? 'auto' : this.quality;
+  }
+
+  /** Changes the quality tier and keeps the choice on this device. */
   setQuality(quality: Quality | 'auto'): void {
+    localStorage.setItem(QUALITY_KEY, quality);
     if (quality === 'auto') {
       this.quality = 'high';
       this.governor = new QualityGovernor('high', (q) => {

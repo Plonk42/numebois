@@ -77,6 +77,13 @@ export const QUALITY: Record<Quality, QualitySettings> = {
   },
 };
 
+export const QUALITY_LABELS: Record<Quality | 'auto', string> = {
+  auto: 'Automatique',
+  high: 'Haute',
+  medium: 'Moyenne',
+  low: 'Basse',
+};
+
 export function parseQuality(value: string | null): Quality | 'auto' {
   return QUALITIES.includes(value as Quality) ? (value as Quality) : 'auto';
 }

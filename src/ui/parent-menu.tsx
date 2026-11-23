@@ -1,6 +1,7 @@
 import { useState } from 'preact/hooks';
 import type { TrailLength } from '../core/trail';
 import type { Skill } from '../core/types';
+import { QUALITIES, QUALITY_LABELS, type Quality } from '../scene/render/quality';
 import { parseSave } from '../save/save';
 import { writeSave } from '../save/store';
 
@@ -10,13 +11,25 @@ interface Props {
   /** Why the save could not be read at start, if it could not. */
   problem: string | null;
   exportSave(): string;
+  quality(): { chosen: Quality | 'auto'; current: Quality };
+  onQuality(quality: Quality | 'auto'): void;
   onLength(length: TrailLength): void;
   onClose(): void;
 }
 
-/** Hidden parent menu (long press on the gauge): trail length, export and import. */
-export function ParentMenu({ skills, length, problem, exportSave, onLength, onClose }: Props) {
+/** Hidden parent menu (long press on the gauge): trail length, quality, export and import. */
+export function ParentMenu({
+  skills,
+  length,
+  problem,
+  exportSave,
+  quality,
+  onQuality,
+  onLength,
+  onClose,
+}: Props) {
   const [message, setMessage] = useState(problem);
+  const [{ chosen, current }, setQuality] = useState(quality);
 
   const download = () => {
     const day = new Date().toISOString().slice(0, 10);
@@ -59,6 +72,27 @@ export function ParentMenu({ skills, length, problem, exportSave, onLength, onCl
             onPointerDown={() => onLength(option)}
           >
             {option === 'short' ? 'Court (6)' : 'Normal (10)'}
+          </button>
+        ))}
+      </div>
+      <p>
+        Qualité du rendu
+        {chosen === 'auto' && (
+          <span class="current"> (en ce moment : {QUALITY_LABELS[current]})</span>
+        )}
+      </p>
+      <div class="choices">
+        {(['auto', ...QUALITIES] as const).map((option) => (
+          <button
+            key={option}
+            type="button"
+            aria-pressed={chosen === option}
+            onPointerDown={() => {
+              onQuality(option);
+              setQuality(quality());
+            }}
+          >
+            {option === 'auto' ? 'Auto' : QUALITY_LABELS[option]}
           </button>
         ))}
       </div>

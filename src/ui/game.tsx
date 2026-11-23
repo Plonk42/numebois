@@ -13,6 +13,7 @@ import { serializeSave, type ParsedSave } from '../save/save';
 import type { AnimalName } from '../scene/animal-catalog';
 import { MAX_ELEMENTS, type SceneDescription } from '../scene/description';
 import { canBuy, shopItems, type ShopItem } from '../scene/shop';
+import type { Quality } from '../scene/render/quality';
 import type { Season } from '../scene/trees/builder';
 import { Basket } from './basket';
 import { ParentMenu } from './parent-menu';
@@ -75,6 +76,9 @@ export interface GameForest extends SpotsForest {
   explore(onAway: ((away: boolean) => void) | null): void;
   /** Back to the framing. */
   recenter(): void;
+  /** Quality chosen in the parent menu, and the tier drawn now (the automatic one steps down). */
+  quality(): { chosen: Quality | 'auto'; current: Quality };
+  setQuality(quality: Quality | 'auto'): void;
 }
 
 /** Read by the end-to-end tests. */
@@ -415,6 +419,8 @@ function Game(props: Props) {
           length={length}
           problem={props.problem}
           exportSave={saveData}
+          quality={forest.quality}
+          onQuality={(value) => forest.setQuality(value)}
           onLength={(value) => {
             session.length = value;
             setLength(value);

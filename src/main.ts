@@ -5,7 +5,6 @@ import { mountSoundButton } from './scene/audio/sound-button';
 import type { Reward, SoundState } from './scene/audio/soundscape';
 import { newPainting, parseDescription, type SceneDescription } from './scene/description';
 import { mountDebugPanel } from './scene/debug';
-import { parseQuality } from './scene/render/quality';
 import { parseSave, practiceSave } from './save/save';
 import { persistStorage, readSave, writeSave } from './save/store';
 import { mountGame, type GameProbe } from './ui/game';
@@ -79,6 +78,8 @@ const ready = sceneOnly
             reward: (kind) => app.sound.reward(kind),
             explore: (onAway) => app.explore(onAway),
             recenter: () => app.recenter(),
+            quality: () => ({ chosen: app.qualityChoice, current: app.quality }),
+            setQuality: (quality) => app.setQuality(quality),
           },
           practice ? practiceSave(practice, Number(params.get('level')), app.description) : saved,
           practice
@@ -123,6 +124,4 @@ window.addEventListener('keydown', (event) => {
   if (event.key === 'g' || event.key === 'G') app.grow();
 });
 
-if (params.has('debug')) {
-  mountDebugPanel(app, parseQuality(params.get('quality')) === 'auto');
-}
+if (params.has('debug')) mountDebugPanel(app);

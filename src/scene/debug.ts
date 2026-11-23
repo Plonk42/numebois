@@ -10,7 +10,7 @@ import {
   type BiomeId,
   type Stage,
 } from './description';
-import { QUALITIES, type Quality } from './render/quality';
+import { QUALITIES, QUALITY_LABELS } from './render/quality';
 import { SEASONS, type Season } from './trees/builder';
 
 const SEASON_LABELS: Record<Season, string> = {
@@ -18,12 +18,6 @@ const SEASON_LABELS: Record<Season, string> = {
   summer: 'Été',
   autumn: 'Automne',
   winter: 'Hiver',
-};
-const QUALITY_LABELS: Record<Quality | 'auto', string> = {
-  auto: 'Automatique',
-  high: 'Haute',
-  medium: 'Moyenne',
-  low: 'Basse',
 };
 
 const STYLE = `
@@ -72,7 +66,7 @@ function select<T extends string>(
 export const BUDGET = { drawCalls: 100, triangles: 150_000, memoryMb: 64 };
 
 /** Debug panel (`?debug`): stage, season, seed and quality controls, live counters. */
-export function mountDebugPanel(app: SceneApp, autoQuality: boolean): void {
+export function mountDebugPanel(app: SceneApp): void {
   document.head.append(element('style', { textContent: STYLE }));
   const panel = element('div', { id: 'debug-panel' });
   const apply = () => {
@@ -179,7 +173,7 @@ export function mountDebugPanel(app: SceneApp, autoQuality: boolean): void {
         'debug-quality',
         ['auto', ...QUALITIES] as const,
         QUALITY_LABELS,
-        autoQuality ? 'auto' : app.quality,
+        app.qualityChoice,
         (quality) => app.setQuality(quality),
       ),
     ]),
