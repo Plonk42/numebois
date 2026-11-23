@@ -49,33 +49,53 @@ function apart(a: Box, b: Box): boolean {
   );
 }
 
+/** Boxes of elements, measured in a single round trip (each one costs about a second on CI). */
+async function boxes(page: Page, selector: string): Promise<Box[]> {
+  return page.evaluate(
+    (s) =>
+      [...globalThis.document.querySelectorAll(s)].map((element) => {
+        const { x, y, width, height } = element.getBoundingClientRect();
+        return { x, y, width, height };
+      }),
+    selector,
+  );
+}
+
 /** The slate stays under the top bar, on screen, without scrolling, every key 56 px or more. */
 async function expectSlateLayout(page: Page) {
-  const card = page.locator('#question');
   const viewport = page.viewportSize()!;
-  const cardBox = (await card.boundingBox())!;
-  for (const other of ['#reserve', '#trail', '#sound-toggle']) {
-    const box = (await page.locator(other).boundingBox())!;
+  const layout = await page.evaluate(() => {
+    const doc = globalThis.document;
+    const box = (element: Element | null) => {
+      if (!element) return null;
+      const { x, y, width, height } = element.getBoundingClientRect();
+      return { x, y, width, height };
+    };
+    const card = doc.querySelector('#question')!;
+    return {
+      card: box(card)!,
+      bars: ['#reserve', '#trail', '#sound-toggle'].map((s) => [s, box(doc.querySelector(s))!]),
+      scrolled: [card, ...card.querySelectorAll('.bench > *')]
+        .filter((el) => el.scrollHeight > el.clientHeight + 1)
+        .map((el) => el.className),
+      keys: [...card.querySelectorAll('button')].map((key) => box(key)!),
+      hint: box(card.querySelector('.hint')),
+      zone: box(card.querySelector('.answer-zone')),
+    };
+  });
+  const cardBox = layout.card;
+  for (const [other, box] of layout.bars as [string, Box][]) {
     expect(cardBox.y, other).toBeGreaterThan(box.y + box.height);
   }
   expect(cardBox.x).toBeGreaterThanOrEqual(0);
   expect(cardBox.x + cardBox.width).toBeLessThanOrEqual(viewport.width);
   expect(cardBox.y + cardBox.height).toBeLessThanOrEqual(viewport.height);
-  for (const part of [card, card.locator('.bench > *')]) {
-    for (const element of await part.all()) {
-      expect(await element.evaluate((el) => el.scrollHeight <= el.clientHeight + 1)).toBe(true);
-    }
-  }
-  for (const key of await card.locator('button').all()) {
-    const box = (await key.boundingBox())!;
+  expect(layout.scrolled).toEqual([]);
+  for (const box of layout.keys) {
     expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(56);
   }
   // Plume's bubble never covers the answer zone.
-  const hint = card.locator('.hint');
-  if ((await hint.count()) > 0) {
-    const zone = (await card.locator('.answer-zone').boundingBox())!;
-    expect(apart((await hint.boundingBox())!, zone)).toBe(true);
-  }
+  if (layout.hint) expect(apart(layout.hint, layout.zone!)).toBe(true);
 }
 
 test('une boucle jouable : questions, indices et feuilles', async ({ page }) => {
@@ -137,7 +157,20 @@ test('une boucle jouable : questions, indices et feuilles', async ({ page }) => 
   await expect(card.locator('.hint')).toHaveCount(0);
   await expect(plume).toHaveClass(/calm/);
 
-  // Each right answer sends a leaf flying to the reserve.
+  // Each right answer sends a leaf flying to the reserve. A flight lasts under a second:
+  // an observer counts them, however slow the browser is.
+  const flights = () => page.evaluate(() => (globalThis as unknown as { flights: number }).flights);
+  await page.evaluate(() => {
+    const counter = globalThis as unknown as { flights: number };
+    counter.flights = 0;
+    new MutationObserver((records) => {
+      for (const record of records) {
+        for (const node of record.addedNodes) {
+          if (node instanceof Element && node.matches('.flying.leaf')) counter.flights++;
+        }
+      }
+    }).observe(globalThis.document.body, { childList: true, subtree: true });
+  });
   for (let answer = 1; answer <= 4; answer++) {
     exercise = await current(page);
     await page.keyboard.type(exercise.answer);
@@ -145,8 +178,8 @@ test('une boucle jouable : questions, indices et feuilles', async ({ page }) => 
     await expect(card.locator('.praise')).toBeVisible();
     await expect(plume).toHaveClass(/cheer/);
     await expect(reserve).toHaveAttribute('aria-label', reserveLabel(answer));
+    await expect.poll(flights).toBe(answer);
     if (answer === 1) {
-      await expect(page.locator('.flying.leaf')).toHaveCount(1);
       await test.info().attach('feuille', {
         body: await page.screenshot(),
         contentType: 'image/png',
@@ -166,6 +199,8 @@ test('une boucle jouable : questions, indices et feuilles', async ({ page }) => 
 test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt pousse où l’enfant choisit', async ({
   page,
 }) => {
+  // A whole trail, then two elements that grow and pass a stage: about 2 minutes on CI.
+  test.setTimeout(240_000);
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('./?seed=3');
@@ -177,9 +212,9 @@ test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt po
   await expect(path).toHaveAttribute('aria-label', 'Pierre 1 sur 10');
 
   // The path stays clear of the reserve, the sound button and the slate.
-  const pathBox = (await path.boundingBox())!;
+  const [pathBox] = await boxes(page, '#trail');
   for (const other of ['#reserve', '#sound-toggle', '#question']) {
-    const box = (await page.locator(other).boundingBox())!;
+    const [box] = await boxes(page, other);
     expect(apart(box, pathBox), other).toBe(true);
   }
 
@@ -199,12 +234,11 @@ test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt po
   await expect(card).toHaveCount(0);
   await expect(dim).not.toHaveClass(/on/);
   await expect(path.locator('.stone.crossed')).toHaveCount(10);
-  const endBox = (await end.boundingBox())!;
+  const [endBox] = await boxes(page, '#trail-end');
   const viewport = page.viewportSize()!;
   expect(endBox.y + endBox.height).toBeLessThanOrEqual(viewport.height);
   expect(Math.abs(endBox.x + endBox.width / 2 - viewport.width / 2)).toBeLessThan(2);
-  for (const button of await end.locator('button').all()) {
-    const box = (await button.boundingBox())!;
+  for (const box of await boxes(page, '#trail-end button')) {
     expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(56);
   }
   await test.info().attach('résumé', { body: await page.screenshot(), contentType: 'image/png' });
@@ -219,8 +253,7 @@ test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt po
     const spots = page.getByRole('button', { name: 'Planter ici' });
     await expect(spots).toHaveCount(3);
     await expect(page.locator('#spots-hint')).toContainText('Touche une place qui brille.');
-    for (const spot of await spots.all()) {
-      const box = (await spot.boundingBox())!;
+    for (const box of await boxes(page, '.spot')) {
       expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(56);
       expect(box.x).toBeGreaterThanOrEqual(0);
       expect(box.y).toBeGreaterThanOrEqual(56);
