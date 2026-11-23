@@ -196,6 +196,7 @@ export function mountDebugPanel(app: SceneApp, autoQuality: boolean): void {
     row('Plus gros arbre', `${format.format(c.largestTree)} tri.`);
     row('Génération des arbres', `${c.treeGenerationMs.toFixed(1)} ms`);
     row('Instances', format.format(c.instances));
+    row('Animaux', `${c.animals} · ${format.format(c.animalTriangles)} tri.`);
     row(
       'Qualité',
       `${QUALITY_LABELS[c.quality]}${c.autoQuality ? ' (auto)' : ''} · ×${c.pixelRatio.toFixed(2)}`,

@@ -12,3 +12,11 @@ Modèles extraits et optimisés par `npm run assets` (`scripts/build-assets.ts`)
 | KayKit : Medieval Hexagon Pack 1.0 (FREE) | Kay Lousberg ([kaylousberg.com](https://www.kaylousberg.com)) | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | [itch.io](https://kaylousberg.itch.io/kaykit-medieval-hexagon) |
 
 Les fichiers bruts des packs ne sont pas dans le dépôt. Les fleurs, champignons, arbres, terrain et effets sont générés par le code de Numebois.
+
+## `public/assets/animals.glb`
+
+La biche, le cerf, le renard et le loup, extraits et optimisés par `npm run assets` (clips doux seulement, couleurs avivées). La liste est dans `src/scene/animal-catalog.ts`.
+
+| Pack                                         | Auteur                                                | Licence                                                       | Source                                                                      |
+| -------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Ultimate Animated Animal Pack (juillet 2021) | Quaternius ([quaternius.com](https://quaternius.com)) | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | [quaternius.com](https://quaternius.com/packs/ultimateanimatedanimals.html) |

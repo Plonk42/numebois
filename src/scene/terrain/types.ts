@@ -110,6 +110,8 @@ export interface Terrain {
   readonly announcements: readonly Announcement[];
   /** Beaver dam holding the lake moment once revealed. */
   readonly dam: Dam | null;
+  /** Flat ledge on a mountain where the wolf watches over the valley, once it is cut. */
+  readonly perch: { x: number; y: number; z: number; radius: number } | null;
   /** Close to a grand moment, where revealing it changes the ground. */
   nearLandmark(x: number, z: number): boolean;
   /** Large rocks and scenery merged in the static mesh. */

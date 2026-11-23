@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import { VitePWA } from 'vite-plugin-pwa';
 import { defineConfig } from 'vitest/config';
+import { ANIMAL_FILE } from './src/scene/animals.gen.ts';
 import { ASSET_FILE } from './src/scene/assets.gen.ts';
 
 export default defineConfig({
@@ -8,6 +9,7 @@ export default defineConfig({
   define: {
     // Without the optimised KayKit models (CI, fresh clone), the scene uses placeholders.
     __KAYKIT_ASSETS__: JSON.stringify(existsSync(`public/${ASSET_FILE}`)),
+    __ANIMAL_ASSETS__: JSON.stringify(existsSync(`public/${ANIMAL_FILE}`)),
   },
   plugins: [
     VitePWA({

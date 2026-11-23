@@ -16,6 +16,12 @@ import {
 } from '../../src/scene/description';
 import { MAX_EFFECT_TRIANGLES } from '../../src/scene/painting';
 import { filledSlots } from '../../src/scene/populate';
+import {
+  animalState,
+  herdTriangles,
+  planHerd,
+  type AnimalState,
+} from '../../src/scene/render/ambient-life';
 import { BACKDROP_TRIANGLES } from '../../src/scene/render/backdrop';
 import { QUALITIES, QUALITY, QualityGovernor } from '../../src/scene/render/quality';
 import { ambienceFor } from '../../src/scene/render/richness';
@@ -52,12 +58,14 @@ function sceneTriangles(description: SceneDescription, quality = QUALITY.high): 
   const composition = composeScene(description, budget, ambience, quality);
   const parts = compositionTriangles(composition, budget);
   const forest = buildForestBuffers(composition.planting.trees, budget, season);
+  const herd = planHerd(composition.terrain, ambience, quality, description.seed);
   return (
     parts.ground +
     parts.water +
     parts.instances +
     parts.clouds +
     forest.writer.triangles +
+    herdTriangles(herd) +
     MAX_EFFECT_TRIANGLES +
     BACKDROP_TRIANGLES
   );
@@ -170,6 +178,101 @@ describe('triangle budget', () => {
       expect(stages[stage], `stage ${stage}`).toBeLessThan(stages[stage - 1] * 1.35);
     }
     expect(stages[LAST_STAGE]).toBeGreaterThan(stages[0] * 3);
+  });
+});
+
+describe('animals', () => {
+  const plan = (
+    seed: number,
+    stage: Stage,
+    quality = QUALITY.high,
+    landmarks: readonly Landmark[] = [],
+  ) =>
+    planHerd(createClearing(seed, stage, landmarks), ambienceFor(stage, 'summer'), quality, seed);
+
+  it('arrive over the stages and all find a place in the meadow', { timeout: 30_000 }, () => {
+    for (let seed = 0; seed < 8; seed++) {
+      for (const landmarks of [[], LANDMARKS]) {
+        const counts = STAGES.map((stage) => plan(seed, stage, QUALITY.high, landmarks).length);
+        const wanted = STAGES.map((stage) =>
+          Object.values(ambienceFor(stage, 'summer').animals).reduce((a, b) => a + b, 0),
+        );
+        expect(counts, `seed ${seed} ${landmarks.join()}`).toEqual(wanted);
+        expect(counts[0]).toBe(0);
+      }
+    }
+  });
+
+  it('only walk on grass, away from the water', () => {
+    const state = {} as AnimalState;
+    for (const seed of [1, 7]) {
+      for (const stage of [3, 7, LAST_STAGE] as Stage[]) {
+        const terrain = createClearing(seed, stage, LANDMARKS);
+        for (const member of plan(seed, stage, QUALITY.high, LANDMARKS)) {
+          for (let t = 0; t < member.period; t += 0.5) {
+            animalState(member, t, state);
+            const surface = terrain.surfaceAt(state.x, state.z);
+            expect(surface?.kind, `seed ${seed} stage ${stage} ${member.name} t ${t}`).toBe(
+              'grass',
+            );
+            expect(Math.abs(state.y - surface!.y)).toBeLessThan(0.3);
+          }
+        }
+      }
+    }
+  });
+
+  it('put the wolf on its ledge, high on the mountain, in view and from stage 10 on', () => {
+    let ledges = 0;
+    for (let seed = 0; seed < 10; seed++) {
+      expect(createClearing(seed, 9, []).perch, `seed ${seed}`).toBeNull();
+      const terrain = createClearing(seed, 10, []);
+      const perch = terrain.perch;
+      if (!perch) continue;
+      ledges++;
+      expect(perch.y, `seed ${seed}`).toBeGreaterThan(4);
+      expect(terrain.surfaceAt(perch.x, perch.z)!.slope, `seed ${seed}`).toBeLessThan(0.1);
+      for (const tree of terrain.treeSpots) {
+        const dz = tree.z - perch.z;
+        const inFront = dz > -2 && dz < 8 && Math.abs(tree.x - perch.x) < 3.5;
+        expect(inFront, `seed ${seed}: tree at ${tree.x},${tree.z}`).toBe(false);
+      }
+      const wolf = plan(seed, 10).find((m) => m.name === 'Wolf')!;
+      for (const leg of wolf.legs) {
+        for (const p of leg.path) {
+          expect(Math.hypot(p.x - perch.x, p.z - perch.z)).toBeLessThan(perch.radius);
+          expect(p.y).toBe(perch.y);
+        }
+      }
+    }
+    expect(ledges).toBeGreaterThanOrEqual(7);
+  });
+
+  it('are the same for the same seed, and a newcomer never moves the others', () => {
+    expect(plan(3, LAST_STAGE)).toEqual(plan(3, LAST_STAGE));
+    const few = plan(3, LAST_STAGE, QUALITY.low);
+    expect(few).toHaveLength(QUALITY.low.animals);
+    expect(plan(3, LAST_STAGE).slice(0, few.length)).toEqual(few);
+  });
+
+  it('move smoothly, through the end of their loop too', () => {
+    const state = {} as AnimalState;
+    for (const member of plan(7, LAST_STAGE)) {
+      let last: { x: number; z: number; yaw: number } | null = null;
+      for (let t = 0; t < member.period * 2; t += 0.05) {
+        animalState(member, t, state);
+        expect(state.blend).toBeGreaterThanOrEqual(0);
+        expect(state.blend).toBeLessThanOrEqual(1);
+        if (last) {
+          expect(Math.hypot(state.x - last.x, state.z - last.z), member.name).toBeLessThan(0.1);
+          const turn = Math.abs(
+            Math.atan2(Math.sin(state.yaw - last.yaw), Math.cos(state.yaw - last.yaw)),
+          );
+          expect(turn, member.name).toBeLessThan(0.3);
+        }
+        last = { x: state.x, z: state.z, yaw: state.yaw };
+      }
+    }
   });
 });
 

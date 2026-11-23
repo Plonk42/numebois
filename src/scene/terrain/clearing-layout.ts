@@ -94,6 +94,9 @@ export interface Outline {
   cz: number;
 }
 
+/** The last diorama: its outline, the radius of its lake and the heights of its summits. */
+export type Final = Outline & { lake: number; peaks: readonly number[] };
+
 /**
  * Where everything is in a clearing, drawn once from the seed: the same at every stage.
  * The topology stays the hand-made one (massif with its cascade at the back, lake, stream
@@ -152,6 +155,11 @@ export interface Layout {
   conifers: number;
   /** Tone shift of the meadow: positive is lusher. */
   lush: number;
+  /**
+   * Ledges on the camera side of a summit where the wolf could watch over the valley (#10), in
+   * order of preference: the terrain keeps the first one high enough and in view.
+   */
+  perches: StepDef[];
 }
 
 // Reference layout, composed by hand; the seed moves its groups.
@@ -455,7 +463,7 @@ export function drawLayout(
   seed: number,
   /** Outline of the diorama at each stage, from the first. */
   stages: readonly Outline[],
-  final: Outline & { lake: number },
+  final: Final,
 ): Layout {
   const first = stages[0];
   const rng = new Rng(seed).fork('layout');
@@ -477,7 +485,7 @@ function dress(
   water: Water,
   rng: Rng,
   stages: readonly Outline[],
-  final: Outline & { lake: number },
+  final: Final,
   fallback = false,
 ): Layout | null {
   const { offsets, ...placed } = water;
@@ -507,9 +515,60 @@ function dress(
     forestSide: rng.range(0.58, 0.7),
     conifers: rng.range(0.05, 0.85),
     lush: rng.range(-0.06, 0.06),
+    perches: [],
   };
   placeScenery(layout, rng.fork('scenery'), stages, final);
+  layout.perches = placePerches(layout, rng.fork('perch'), final);
   return layout;
+}
+
+/** Wide enough to stand out on the mountain and for the wolf to walk across, and high on it. */
+const PERCH = { radius: 4.5, edge: 1.6 };
+const PERCH_HEIGHT = 5;
+
+/**
+ * The wolf's ledge: on the flank of the main or the east summit that faces the camera, on the
+ * sunny side if it can (the sun comes from -x in every mood), high enough, away from the
+ * water, the slots and the boulders. Without one, the wolf stays below.
+ */
+function placePerches(layout: Layout, rng: Rng, final: Final): StepDef[] {
+  const candidates = [0, 1]
+    .flatMap((i) =>
+      [-50, -25, 25, 50].flatMap((degrees) =>
+        [0.6, 0.72].map((share) => {
+          const peak = layout.peaks[i];
+          const a = (degrees * Math.PI) / 180;
+          return {
+            x: peak.x + Math.sin(a) * peak.radius * share,
+            z: peak.z + Math.cos(a) * peak.radius * share,
+            // The profile of the summit, without its ridges and crags.
+            height: final.peaks[i] * peak.scale * (1 - share) ** peak.sharp,
+            sunny: Math.sin(a) * layout.mirror < 0,
+          };
+        }),
+      ),
+    )
+    .filter((c) => c.height >= PERCH_HEIGHT);
+  for (let i = candidates.length - 1; i > 0; i--) {
+    const j = rng.int(0, i);
+    [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+  }
+  candidates.sort((a, b) => Number(b.sunny) - Number(a.sunny));
+  const clear = (x: number, z: number) =>
+    rimValue(layout, final, x, z) < 0.8 &&
+    dryness(layout, final.lake, x, z) > 1.5 &&
+    !hidesWater(layout, final.lake, x, z) &&
+    [...layout.hero, ...layout.slots.map((s) => [s.x, s.z])].every(
+      ([sx, sz]) => Math.hypot(sx - x, sz - z) > PERCH.radius + 3,
+    ) &&
+    layout.rocks.every(([, rx, rz]) => Math.hypot(rx - x, rz - z) > PERCH.radius + 3);
+  return candidates.filter((c) => clear(c.x, c.z)).map((c) => ({ x: c.x, z: c.z, ...PERCH }));
+}
+
+/** Whether a tree there would hide the wolf's ledge from the camera, or stand on it. */
+export function hidesPerch(perch: StepDef, x: number, z: number): boolean {
+  const dz = z - perch.z;
+  return dz > -perch.radius && dz < 8 && Math.abs(x - perch.x) < perch.radius * 0.7 + 1;
 }
 
 /**

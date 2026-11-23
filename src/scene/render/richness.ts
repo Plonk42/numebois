@@ -1,3 +1,4 @@
+import type { AnimalName } from '../animal-catalog';
 import type { PerStage, Stage } from '../description';
 import type { Season } from '../trees/builder';
 
@@ -44,6 +45,8 @@ export interface Ambience extends Light {
   fallingLeaves: number;
   fireflies: number;
   birds: number;
+  /** Number of each animal wandering in the meadow. */
+  animals: Record<AnimalName, number>;
   sunRays: number;
   /** Glints on the water and sparkles around the waterfall. */
   sparkle: number;
@@ -131,8 +134,9 @@ const MOODS: readonly Light[] = [
 const MOOD_AT: PerStage<number> = [0, 0.35, 0.7, 1, 1.35, 1.7, 2, 2.35, 2.7, 3, 3.5, 4];
 
 // One value per stage, so each line reads as a progression. Most stages bring one new kind
-// of life: flowers (1), water lilies (2), butterflies and mushrooms (5), birds (8),
-// sun rays and sparkling falls (9), fireflies (10), rainbow and fairy ring (11).
+// of life: flowers (1), water lilies (2), a doe (3), butterflies, mushrooms and a fox (5),
+// a stag (7), birds (8), sun rays and sparkling falls (9), fireflies and a wolf (10),
+// rainbow and fairy ring (11).
 const LIFE = {
   grass: [0.22, 0.3, 0.38, 0.5, 0.58, 0.67, 0.75, 0.8, 0.86, 0.92, 0.96, 1],
   flowers: [0, 0.1, 0.18, 0.25, 0.45, 0.7, 0.9, 0.95, 1, 1, 1.1, 1.2],
@@ -149,6 +153,10 @@ const LIFE = {
   fallingLeaves: [0.1, 0.13, 0.17, 0.2, 0.23, 0.27, 0.3, 0.33, 0.37, 0.4, 0.45, 0.5],
   fireflies: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.3, 1],
   birds: [0, 0, 0, 0, 0, 0, 0, 0, 0.5, 1, 0.8, 0.6],
+  deer: [0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 2],
+  fox: [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1],
+  stag: [0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1],
+  wolf: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1],
   sunRays: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0.7, 0.85, 1],
   sparkle: [0, 0, 0, 0, 0, 0.08, 0.15, 0.2, 0.25, 0.3, 0.6, 1],
   rainbow: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
@@ -277,6 +285,12 @@ export function ambienceFor(stage: Stage, season: Season): Ambience {
     fallingLeaves: LIFE.fallingLeaves[stage],
     fireflies: LIFE.fireflies[stage],
     birds: LIFE.birds[stage],
+    animals: {
+      Deer: LIFE.deer[stage],
+      Fox: LIFE.fox[stage],
+      Stag: LIFE.stag[stage],
+      Wolf: LIFE.wolf[stage],
+    },
     sunRays: LIFE.sunRays[stage],
     sparkle: LIFE.sparkle[stage],
     rainbow: LIFE.rainbow[stage],

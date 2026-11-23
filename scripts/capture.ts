@@ -99,7 +99,8 @@ for (const { season, stage, seed, fill, landmarks } of scenes) {
       `(${counters.renderedTriangles} avec ombres), ${counters.sceneMemoryMb.toFixed(1)} Mo, ` +
       `arbres ${counters.trees} en ${counters.treeGenerationMs.toFixed(1)} ms ` +
       `[arbres ${counters.treeTriangles}, sol ${counters.groundTriangles}, eau ${counters.waterTriangles}, ` +
-      `instances ${counters.instancedTriangles}, nuages ${counters.cloudTriangles}]` +
+      `instances ${counters.instancedTriangles}, nuages ${counters.cloudTriangles}, ` +
+      `animaux ${counters.animals} : ${counters.animalTriangles}]` +
       (counters.placeholders ? ' [formes de remplacement]' : ''),
   );
 }

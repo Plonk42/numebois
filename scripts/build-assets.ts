@@ -2,17 +2,43 @@
  * Asset pipeline: extracts the models listed in `src/scene/asset-catalog.ts` from the local
  * KayKit zips (`assets/*.zip`, never committed), paints the extended atlas, optimises
  * everything into one GLB under `public/assets/` (committed, CC0: see LICENSES.md) and
- * writes the typed manifest `src/scene/assets.gen.ts`.
+ * writes the typed manifest `src/scene/assets.gen.ts`. The animals of
+ * `src/scene/animal-catalog.ts` go the same way from the Quaternius zip, into their own GLB
+ * and manifest (`src/scene/animals.gen.ts`).
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Document, NodeIO, type JSONDocument } from '@gltf-transform/core';
+import {
+  Document,
+  NodeIO,
+  type AnimationChannel,
+  type JSONDocument,
+  type Node,
+  type Primitive,
+} from '@gltf-transform/core';
 import { EXTMeshoptCompression, KHRMeshQuantization } from '@gltf-transform/extensions';
-import { dedup, meshopt, prune, weld } from '@gltf-transform/functions';
+import {
+  dedup,
+  joinPrimitives,
+  mergeDocuments,
+  meshopt,
+  prune,
+  resample,
+  transformPrimitive,
+  weld,
+} from '@gltf-transform/functions';
 import { unzipSync } from 'fflate';
 import { MeshoptEncoder } from 'meshoptimizer';
 import { PNG } from 'pngjs';
+import { Color, LinearSRGBColorSpace, Matrix4, SRGBColorSpace } from 'three';
+import {
+  ANIMAL_CATALOG,
+  ANIMAL_CLIPS,
+  ANIMAL_ZIP_PREFIX,
+  type AnimalClip,
+  type AnimalSource,
+} from '../src/scene/animal-catalog';
 import {
   CATALOG,
   PACK_TEXTURES,
@@ -36,6 +62,8 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT_DIR = join(ROOT, 'public', 'assets');
 const OUT_FILE = 'kaykit.glb';
 const MANIFEST = join(ROOT, 'src', 'scene', 'assets.gen.ts');
+const ANIMAL_FILE = 'animals.glb';
+const ANIMAL_MANIFEST = join(ROOT, 'src', 'scene', 'animals.gen.ts');
 
 interface Geometry {
   positions: Float32Array<ArrayBuffer>;
@@ -279,7 +307,279 @@ function buildAtlas(forest: Uint8Array, hexTexture: Uint8Array): Uint8Array {
 
 const round = (v: number) => Math.round(v * 1000) / 1000;
 
+function loadAnimalPack(): Files | null {
+  const dir = join(ROOT, 'assets');
+  const zip = existsSync(dir)
+    ? readdirSync(dir).find((f) => f.startsWith(ANIMAL_ZIP_PREFIX) && f.endsWith('.zip'))
+    : undefined;
+  if (!zip) return null;
+  const wanted = new Set(Object.values<AnimalSource>(ANIMAL_CATALOG).map((s) => `${s.file}.gltf`));
+  const entries = unzipSync(readFileSync(join(dir, zip)), {
+    filter: (file) => file.name.includes('/glTF/') && wanted.has(basename(file.name)),
+  });
+  const files: Files = new Map();
+  for (const [name, data] of Object.entries(entries)) files.set(basename(name), data);
+  return files;
+}
+
+/** The pack's browns look dull on the KayKit grass (#9): livelier colours, in sRGB. */
+const VIVID = { saturation: 1.35, lightness: 1.1 };
+
+function vivid(linear: readonly number[]): [number, number, number] {
+  const color = new Color().setRGB(linear[0], linear[1], linear[2], LinearSRGBColorSpace);
+  const hsl = { h: 0, s: 0, l: 0 };
+  color.getHSL(hsl, SRGBColorSpace);
+  color.setHSL(
+    hsl.h,
+    Math.min(1, hsl.s * VIVID.saturation),
+    Math.min(1, hsl.l * VIVID.lightness),
+    SRGBColorSpace,
+  );
+  return [color.r, color.g, color.b];
+}
+
+/** Material colour into a vertex colour, so the whole animal shares one material. */
+function bakeColour(doc: Document, prim: Primitive): void {
+  const rgb = vivid(prim.getMaterial()?.getBaseColorFactor() ?? [1, 1, 1]);
+  const count = prim.getAttribute('POSITION')!.getCount();
+  const colours = new Float32Array(count * 3);
+  for (let i = 0; i < count; i++) colours.set(rgb, i * 3);
+  const buffer = doc.getRoot().listBuffers()[0];
+  prim.setAttribute(
+    'COLOR_0',
+    doc.createAccessor().setType('VEC3').setArray(colours).setBuffer(buffer),
+  );
+  prim.setAttribute('TEXCOORD_0', null);
+}
+
+interface AnimalInfo {
+  triangles: number;
+  min: number[];
+  max: number[];
+  clips: Record<AnimalClip, number>;
+}
+
+/** Keep and rename the gentle clips, drop the others; returns their durations. */
+function keepGentleClips(
+  doc: Document,
+  name: string,
+  source: AnimalSource,
+): Record<AnimalClip, number> {
+  const root = doc.getRoot();
+  const joints = root.listSkins()[0].listJoints();
+  const ours = new Map(Object.entries(source.clips).map(([clip, theirs]) => [theirs, clip]));
+  const clips: Partial<Record<AnimalClip, number>> = {};
+  for (const animation of root.listAnimations()) {
+    const clip = ours.get(animation.getName()) as AnimalClip | undefined;
+    if (!clip) {
+      // Its samplers would otherwise keep their accessors in the file.
+      for (const sampler of animation.listSamplers()) sampler.dispose();
+      animation.dispose();
+      continue;
+    }
+    animation.setName(`${name}:${clip}`);
+    // IK targets are animated too, but only joints deform the mesh.
+    for (const channel of animation.listChannels()) {
+      if (!joints.includes(channel.getTargetNode()!)) dropChannel(channel);
+    }
+    clips[clip] = Math.max(
+      ...animation.listSamplers().map((s) => s.getInput()!.getMax([])[0] as number),
+    );
+  }
+  const missing = ANIMAL_CLIPS.filter((clip) => clips[clip] === undefined);
+  if (missing.length > 0) throw new Error(`${name}: clips not found: ${missing.join(', ')}`);
+  return clips as Record<AnimalClip, number>;
+}
+
+/** Skin a rigid primitive fully to one joint, with the attribute types of `like`. */
+function skinToJoint(doc: Document, prim: Primitive, joint: number, like: Primitive): void {
+  const count = prim.getAttribute('POSITION')!.getCount();
+  const likeJoints = like.getAttribute('JOINTS_0')!;
+  const likeWeights = like.getAttribute('WEIGHTS_0')!;
+  const joints = new (likeJoints.getArray()!.constructor as Uint8ArrayConstructor)(count * 4);
+  const weights = new (likeWeights.getArray()!.constructor as Float32ArrayConstructor)(count * 4);
+  let full = 1;
+  if (likeWeights.getNormalized()) full = weights instanceof Uint8Array ? 255 : 65535;
+  for (let i = 0; i < count; i++) {
+    joints[i * 4] = joint;
+    weights[i * 4] = full;
+  }
+  const buffer = doc.getRoot().listBuffers()[0];
+  const accessor = (array: Uint8Array<ArrayBuffer> | Float32Array<ArrayBuffer>) =>
+    doc.createAccessor().setType('VEC4').setArray(array).setBuffer(buffer);
+  prim.setAttribute('JOINTS_0', accessor(joints));
+  prim.setAttribute('WEIGHTS_0', accessor(weights).setNormalized(likeWeights.getNormalized()));
+}
+
+/** Remove a channel with its sampler, so prune drops their accessors. */
+function dropChannel(channel: AnimationChannel): void {
+  const sampler = channel.getSampler();
+  channel.dispose();
+  sampler?.dispose();
+}
+
+function restValue(node: Node, path: string | null): number[] | null {
+  if (path === 'rotation') return node.getRotation();
+  if (path === 'translation') return node.getTranslation();
+  if (path === 'scale') return node.getScale();
+  return null;
+}
+
+function holdsRest(channel: AnimationChannel): boolean {
+  const rest = restValue(channel.getTargetNode()!, channel.getTargetPath());
+  if (!rest) return false;
+  const output = channel.getSampler()!.getOutput()!;
+  const value: number[] = [];
+  for (let i = 0; i < output.getCount(); i++) {
+    output.getElement(i, value);
+    // q and -q are the same rotation.
+    const sign = rest.length === 4 && value[3] * rest[3] < 0 ? -1 : 1;
+    if (value.some((v, a) => Math.abs(sign * v - rest[a]) > 1e-4)) return false;
+  }
+  return true;
+}
+
+/** Channels that only hold the rest pose change nothing: most of the file without them. */
+function dropRestChannels(doc: Document): void {
+  for (const animation of doc.getRoot().listAnimations()) {
+    for (const channel of animation.listChannels()) if (holdsRest(channel)) dropChannel(channel);
+  }
+}
+
+async function prepareAnimal(
+  io: NodeIO,
+  files: Files,
+  name: string,
+  source: AnimalSource,
+): Promise<{ doc: Document; info: AnimalInfo }> {
+  const json = JSON.parse(new TextDecoder().decode(files.get(`${source.file}.gltf`)!));
+  const doc = await io.readJSON({ json, resources: {} } as JSONDocument);
+  const root = doc.getRoot();
+  const skin = root.listSkins()[0];
+  const joints = skin.listJoints();
+  const clips = keepGentleClips(doc, name, source);
+
+  const body = root.listNodes().find((n) => n.getSkin() && n.getMesh())!;
+  const mesh = body.getMesh()!;
+  const prims = [...mesh.listPrimitives()];
+  // Rigid parts parented to a joint (the stag's antlers) are skinned to it, then joined.
+  for (const node of root.listNodes()) {
+    const part = node.getMesh();
+    if (!part || node === body) continue;
+    const index = joints.indexOf(node.getParentNode()!);
+    if (index < 0) throw new Error(`${name}: ${node.getName()} is neither skinned nor on a joint`);
+    // Skinned: jointWorld × inverseBind × v; rigid child: jointWorld × local × v.
+    const matrix = new Matrix4()
+      .fromArray(skin.getInverseBindMatrices()!.getElement(index, []))
+      .invert()
+      .multiply(new Matrix4().fromArray(node.getMatrix()));
+    for (const prim of part.listPrimitives()) {
+      transformPrimitive(prim, matrix.toArray() as Parameters<typeof transformPrimitive>[1]);
+      skinToJoint(doc, prim, index, prims[0]);
+      prims.push(prim);
+    }
+    node.dispose();
+  }
+  const material = doc.createMaterial(name).setRoughnessFactor(1).setMetallicFactor(0);
+  for (const prim of prims) {
+    bakeColour(doc, prim);
+    prim.setMaterial(material);
+  }
+  const joined = joinPrimitives(prims);
+  for (const prim of mesh.listPrimitives()) mesh.removePrimitive(prim);
+  mesh.addPrimitive(joined);
+
+  const scene = root.listScenes()[0];
+  scene.setName(name);
+  // The loader makes names unique across the file: keep the scene name free for its animal.
+  scene.listChildren()[0].setName(`${name}_rig`);
+  body.setName(`${name}_body`);
+  await doc.transform(prune(), resample({ tolerance: 2e-3 }), dedup(), weld());
+  dropRestChannels(doc);
+  await doc.transform(prune());
+
+  const position = joined.getAttribute('POSITION')!;
+  return {
+    doc,
+    info: {
+      triangles: joined.getIndices()!.getCount() / 3,
+      min: position.getMin([]),
+      max: position.getMax([]),
+      clips,
+    },
+  };
+}
+
+async function buildAnimals(io: NodeIO): Promise<void> {
+  const files = loadAnimalPack();
+  if (!files) {
+    console.log(
+      `Pack d'animaux absent (assets/${ANIMAL_ZIP_PREFIX}*.zip) : rien n'est généré, ` +
+        'la scène utilisera les formes de remplacement.',
+    );
+    return;
+  }
+  const out = new Document();
+  out.createBuffer();
+  const manifest: string[] = [];
+  let totalTriangles = 0;
+  for (const [name, source] of Object.entries<AnimalSource>(ANIMAL_CATALOG)) {
+    const { doc, info } = await prepareAnimal(io, files, name, source);
+    mergeDocuments(out, doc);
+    totalTriangles += info.triangles;
+    const clips = ANIMAL_CLIPS.map((clip) => `${clip}: ${round(info.clips[clip])}`).join(', ');
+    manifest.push(
+      `  ${name}: { triangles: ${info.triangles}, ` +
+        `min: [${info.min.map(round).join(', ')}], max: [${info.max.map(round).join(', ')}], ` +
+        `clips: { ${clips} } },`,
+    );
+  }
+  // One buffer for the whole file.
+  const [buffer, ...others] = out.getRoot().listBuffers();
+  for (const accessor of out.getRoot().listAccessors()) accessor.setBuffer(buffer);
+  for (const other of others) other.dispose();
+  await out.transform(prune(), meshopt({ encoder: MeshoptEncoder, level: 'high' }));
+  const glb = await io.writeBinary(out);
+  mkdirSync(OUT_DIR, { recursive: true });
+  writeFileSync(join(OUT_DIR, ANIMAL_FILE), glb);
+  writeFileSync(
+    ANIMAL_MANIFEST,
+    `// Generated by \`npm run assets\` from the local Quaternius pack. Do not edit.
+import type { AnimalClip, AnimalName } from './animal-catalog';
+
+/** Optimised animals, relative to the site base. Absent without the pack. */
+export const ANIMAL_FILE = 'assets/${ANIMAL_FILE}';
+
+export interface AnimalInfo {
+  triangles: number;
+  /** Bounds in the bind pose, in model units. */
+  min: readonly [number, number, number];
+  max: readonly [number, number, number];
+  /** Duration of each clip, in seconds. */
+  clips: Record<AnimalClip, number>;
+}
+
+export const ANIMALS = {
+${manifest.join('\n')}
+} as const satisfies Record<AnimalName, AnimalInfo>;
+`,
+  );
+  console.log(
+    `${manifest.length} animaux, ${totalTriangles} triangles, ` +
+      `${(glb.byteLength / 1024).toFixed(0)} ko -> public/assets/${ANIMAL_FILE} ; manifeste src/scene/animals.gen.ts`,
+  );
+}
+
 async function main(): Promise<void> {
+  await MeshoptEncoder.ready;
+  const io = new NodeIO()
+    .registerExtensions([EXTMeshoptCompression, KHRMeshQuantization])
+    .registerDependencies({ 'meshopt.encoder': MeshoptEncoder });
+  await buildKayKit(io);
+  await buildAnimals(io);
+}
+
+async function buildKayKit(io: NodeIO): Promise<void> {
   const packs: Record<Pack, Files | null> = { forest: loadPack('forest'), hex: loadPack('hex') };
   const missing = (Object.keys(packs) as Pack[]).filter((p) => !packs[p]);
   if (missing.length > 0) {
@@ -289,10 +589,6 @@ async function main(): Promise<void> {
     );
     return;
   }
-  await MeshoptEncoder.ready;
-  const io = new NodeIO()
-    .registerExtensions([EXTMeshoptCompression, KHRMeshQuantization])
-    .registerDependencies({ 'meshopt.encoder': MeshoptEncoder });
 
   const atlas = buildAtlas(readTexture(packs.forest!, 'forest'), readTexture(packs.hex!, 'hex'));
   const png = new PNG({ width: ATLAS_SIZE, height: ATLAS_SIZE });

@@ -54,7 +54,7 @@ Le workflow `.github/workflows/ci.yml` tourne sur les PR, les pushs sur `main` e
 | `Delivery gate` | Réussit seulement si tous les jobs ci-dessus ont réussi                                                                     |
 | `deploy`        | Seulement sur `main`, après le `Delivery gate` : construit et publie sur GitHub Pages (https://plonk42.github.io/numebois/) |
 
-- Seulement des assets gratuits (KayKit CC0) et des compléments générés : pas de pack payant ni de dépôt privé. Les fichiers bruts des packs restent hors du dépôt ; seuls les modèles optimisés (`public/assets/kaykit.glb`) y entrent, avec `LICENSES.md`.
+- Seulement des assets gratuits (KayKit CC0, animaux Quaternius CC0) et des compléments générés : pas de pack payant ni de dépôt privé. Les fichiers bruts des packs restent hors du dépôt ; seuls les modèles optimisés (`public/assets/kaykit.glb`, `public/assets/animals.glb`) y entrent, avec `LICENSES.md`.
 - Une nouvelle version de la PWA s'active au lancement suivant, jamais au milieu d'une session.
 - Protection de `main` :
   - PR obligatoire pour les non-administrateurs, avec le **Delivery gate** comme seul contrôle requis (les branches n'ont pas besoin d'être à jour) ;
