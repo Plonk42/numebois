@@ -23,6 +23,7 @@ import {
   type AnimalState,
 } from '../../src/scene/render/ambient-life';
 import { BACKDROP_TRIANGLES } from '../../src/scene/render/backdrop';
+import type { InstanceBatch, InstanceModel } from '../../src/scene/render/instancing';
 import { QUALITIES, QUALITY, QualityGovernor } from '../../src/scene/render/quality';
 import { ambienceFor } from '../../src/scene/render/richness';
 import { clearingLayout, createClearing } from '../../src/scene/terrain/clearing';
@@ -589,6 +590,48 @@ describe('slots and grand moments', () => {
       expect(dam, label).not.toBeNull();
       expect(Math.hypot(dam.x * m - lake.x, dam.z - lake.z) - lake.radius, label).toBeLessThan(1);
       expect(distanceToPath(eastPath, dam.x * m, dam.z).distance, label).toBeLessThan(0.01);
+    }
+  });
+
+  it('heaps large logs on the dam, and lays fallen logs and stumps on the grass', () => {
+    const compose = (seed: number, stage: Stage, season: Season) =>
+      composeScene(
+        scene(seed, stage, season, { landmarks: ['lake'] }),
+        placeholders,
+        ambienceFor(stage, season),
+        QUALITY.high,
+      );
+    const at = (batch: InstanceBatch, model: string) => {
+      const list = batch['items'].get(model as InstanceModel) ?? [];
+      return Array.from({ length: list.length / 9 }, (_, i) => ({
+        x: list[i * 9],
+        z: list[i * 9 + 2],
+      }));
+    };
+    const deadwood = ['Log_Moss', 'Stump', 'Stump_Moss'];
+    for (const seed of [3, 7, 11]) {
+      const label = `seed ${seed}`;
+      for (const season of ['summer', 'winter'] as const) {
+        const { batch, terrain } = compose(seed, 6, season);
+        const dam = terrain.dam!;
+        const logs = at(batch, season === 'winter' ? 'Log_Snow' : 'Log');
+        const onDam = logs.filter((l) => Math.hypot(l.x - dam.x, l.z - dam.z) < dam.width * 0.35);
+        expect(onDam, `${label} ${season}`).toHaveLength(3);
+      }
+      // The first stage has only the dam's logs, and the stumps the beavers gnawed.
+      const first = compose(seed, 0, 'summer').batch;
+      expect(
+        ['Log_Moss', 'Stump_Moss'].flatMap((m) => at(first, m)),
+        label,
+      ).toEqual([]);
+      expect(at(first, 'Log'), label).toHaveLength(3);
+      const { batch, terrain } = compose(seed, LAST_STAGE, 'summer');
+      const dam = terrain.dam!;
+      const lying = [...deadwood, 'Log']
+        .flatMap((m) => at(batch, m))
+        .filter((p) => Math.hypot(p.x - dam.x, p.z - dam.z) > dam.width * 0.35);
+      expect(lying.length, label).toBeGreaterThan(3);
+      for (const p of lying) expect(terrain.surfaceAt(p.x, p.z)?.kind, label).toBe('grass');
     }
   });
 

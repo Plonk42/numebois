@@ -156,9 +156,9 @@ export class Painting {
     this.root.add(this.forest.mesh);
 
     this.batch = composition.batch;
-    // Small rocks and bushes cast no shadow: barely visible from the camera, and costly.
+    // Small rocks, logs and bushes cast no shadow: barely visible from the camera, and costly.
     const instanced = this.batch.build((model) =>
-      model.startsWith('Rock') || model === 'gen:shadow' || model === 'gen:dam'
+      /^(Rock|Log|Stump)/.test(model) || model === 'gen:shadow' || model === 'gen:dam'
         ? materials.solid
         : materials.vegetation,
     );

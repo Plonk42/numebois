@@ -19,6 +19,9 @@ export function placeholderModel(name: ModelName): MeshData {
       return ellipsoid(min, max, 'HexCloud', true);
     case 'rock':
       return ellipsoid(min, max, 'Stone', false);
+    case 'log':
+    case 'stump':
+      return ellipsoid(min, max, 'Bark', false);
     case 'mountain':
       return ellipsoid([min[0], min[1] - (max[1] - min[1]), min[2]], max, 'HexStone', false);
     case 'waterplant':

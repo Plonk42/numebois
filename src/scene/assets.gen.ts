@@ -26,7 +26,6 @@ export const MODELS = {
   Bush_3_B: { kind: 'bush', triangles: 240, min: [-0.842, -0.026, -0.842], max: [0.842, 0.777, 0.842] },
   Bush_4_D: { kind: 'bush', triangles: 132, min: [-0.921, -0.003, -0.667], max: [0.82, 0.74, 0.62] },
   Grass_1_A: { kind: 'grass', triangles: 44, min: [-0.17, -0.02, -0.078], max: [0.17, 0.539, 0.073] },
-  Grass_1_B: { kind: 'grass', triangles: 132, min: [-0.266, -0.056, -0.337], max: [0.239, 0.481, 0.219] },
   Grass_2_A: { kind: 'grass', triangles: 44, min: [-0.078, -0.031, -0.174], max: [0.078, 0.887, 0.08] },
   Grass_2_B: { kind: 'grass', triangles: 132, min: [-0.214, -0.031, -0.274], max: [0.19, 0.887, 0.123] },
   Rock_1_A: { kind: 'rock', triangles: 48, min: [-0.32, 0, -0.304], max: [0.259, 0.54, 0.304] },
@@ -49,4 +48,10 @@ export const MODELS = {
   waterplant_A: { kind: 'waterplant', triangles: 66, min: [-0.122, -0.02, -0.123], max: [0.076, 0.113, 0.093] },
   cloud_big: { kind: 'cloud', triangles: 672, min: [-1.797, -0.884, -1.094], max: [1.81, 1.062, 1.148] },
   cloud_small: { kind: 'cloud', triangles: 366, min: [-1.163, -0.908, -0.963], max: [1.175, 0.932, 0.829] },
+  Log: { kind: 'log', triangles: 464, min: [-0.316, 0, -1.335], max: [0.316, 0.748, 1.335] },
+  Log_Moss: { kind: 'log', triangles: 614, min: [-0.448, 0, -1.335], max: [0.448, 0.688, 1.335] },
+  Log_Snow: { kind: 'log', triangles: 280, min: [-0.313, 0, -1.247], max: [0.313, 0.584, 1.247] },
+  Stump: { kind: 'stump', triangles: 232, min: [-0.68, 0, -0.516], max: [0.68, 0.622, 0.516] },
+  Stump_Moss: { kind: 'stump', triangles: 232, min: [-0.68, 0, -0.516], max: [0.68, 0.622, 0.516] },
+  Stump_Snow: { kind: 'stump', triangles: 258, min: [-0.68, 0, -0.516], max: [0.68, 0.622, 0.516] },
 } as const satisfies Record<ModelName, ModelInfo>;

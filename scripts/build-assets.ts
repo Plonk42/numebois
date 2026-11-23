@@ -55,7 +55,10 @@ import {
   SWATCHES,
   hexCellTarget,
   paintAtlas,
+  shadeOf,
+  swatchUV,
   type SwatchDef,
+  type SwatchName,
 } from '../src/scene/atlas';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -74,24 +77,38 @@ interface Geometry {
 
 type Files = Map<string, Uint8Array>;
 
+function findZip(prefix: string): string | null {
+  const dir = join(ROOT, 'assets');
+  const start = prefix.replace(/\.zip$/, '');
+  const zip = existsSync(dir)
+    ? readdirSync(dir).find((f) => f.startsWith(start) && f.endsWith('.zip'))
+    : undefined;
+  return zip ? join(dir, zip) : null;
+}
+
 function loadPack(pack: Pack): Files | null {
-  const zipPath = join(ROOT, 'assets', PACK_ZIPS[pack]);
-  if (!existsSync(zipPath)) return null;
-  const wanted = new Set<string>([PACK_TEXTURES[pack]]);
+  const zipPath = findZip(PACK_ZIPS[pack]);
+  if (!zipPath) return null;
+  const wanted = new Set<string>(pack === 'nature' ? [] : [PACK_TEXTURES[pack]]);
   for (const source of Object.values<ModelSource>(CATALOG)) {
     if (source.pack !== pack) continue;
-    wanted.add(`${source.file}.gltf`);
-    wanted.add(`${source.file}.bin`);
+    if (pack === 'nature') {
+      wanted.add(`${source.file}.obj`);
+    } else {
+      wanted.add(`${source.file}.gltf`);
+      wanted.add(`${source.file}.bin`);
+    }
   }
+  const folder = pack === 'nature' ? '/OBJ/' : '/Assets/gltf/';
   const entries = unzipSync(readFileSync(zipPath), {
-    filter: (file) => file.name.includes('/Assets/gltf/') && wanted.has(basename(file.name)),
+    filter: (file) => file.name.includes(folder) && wanted.has(basename(file.name)),
   });
   const files: Files = new Map();
   for (const [name, data] of Object.entries(entries)) files.set(basename(name), data);
   return files;
 }
 
-function readTexture(files: Files, pack: Pack): Uint8Array {
+function readTexture(files: Files, pack: 'forest' | 'hex'): Uint8Array {
   const png = PNG.sync.read(Buffer.from(files.get(PACK_TEXTURES[pack])!));
   if (png.width !== ATLAS_SIZE || png.height !== ATLAS_SIZE) {
     throw new Error(
@@ -185,6 +202,71 @@ function subset(g: Geometry, triangles: number[]): Geometry {
     uvs: new Float32Array(uvs),
     indices: new Uint32Array(indices),
   };
+}
+
+/**
+ * Plain colours of the Quaternius materials, as an atlas swatch and an offset down its
+ * gradient: the models then share the KayKit material, lit from above like KayKit.
+ */
+const NATURE_SWATCHES: Record<string, readonly [SwatchName, number]> = {
+  Wood: ['DarkBark', 0],
+  LightWood: ['Cream', 0],
+  Mushroom_Top: ['Earth', 0],
+  Mushroom_Bottom: ['Cream', 0],
+  Green: ['Summer', 0],
+  DarkGreen: ['Summer', 0.2],
+  Snow: ['SnowGround', -0.05],
+};
+
+/** Quaternius OBJ (flat normals, one plain material per face) onto the atlas. */
+function readObj(files: Files, file: string): Geometry {
+  const text = new TextDecoder().decode(files.get(`${file}.obj`)!);
+  const v: number[][] = [];
+  const vn: number[][] = [];
+  const positions: number[] = [];
+  const normals: number[] = [];
+  const uvs: number[] = [];
+  const indices: number[] = [];
+  const corners = new Map<string, number>();
+  let material = '';
+  for (const line of text.split('\n')) {
+    const [tag, ...rest] = line.trim().split(/\s+/);
+    if (tag === 'v') v.push(rest.map(Number));
+    else if (tag === 'vn') vn.push(rest.map(Number));
+    else if (tag === 'usemtl') material = rest[0];
+    else if (tag === 'f') {
+      const swatch = NATURE_SWATCHES[material];
+      if (!swatch) throw new Error(`${file}: no swatch for material ${material}`);
+      const face = rest.map((corner) => {
+        const key = `${corner}:${material}`;
+        let index = corners.get(key);
+        if (index === undefined) {
+          const [p, , n] = corner.split('/').map(Number);
+          const normal = vn[n - 1];
+          index = positions.length / 3;
+          corners.set(key, index);
+          positions.push(...v[p - 1]);
+          normals.push(...normal);
+          uvs.push(...swatchUV(swatch[0], shadeOf(normal[1]) + swatch[1]));
+        }
+        return index;
+      });
+      for (let k = 1; k + 1 < face.length; k++) indices.push(face[0], face[k], face[k + 1]);
+    }
+  }
+  const g: Geometry = {
+    positions: new Float32Array(positions),
+    normals: new Float32Array(normals),
+    uvs: new Float32Array(uvs),
+    indices: new Uint32Array(indices),
+  };
+  // Centred, standing on y = 0.
+  const b = bounds(g);
+  const shift = [(b.min[0] + b.max[0]) / 2, b.min[1], (b.min[2] + b.max[2]) / 2];
+  for (let i = 0; i < g.positions.length; i += 3) {
+    for (let a = 0; a < 3; a++) g.positions[i + a] -= shift[a];
+  }
+  return g;
 }
 
 function bounds(g: Geometry): { min: number[]; max: number[] } {
@@ -580,11 +662,15 @@ async function main(): Promise<void> {
 }
 
 async function buildKayKit(io: NodeIO): Promise<void> {
-  const packs: Record<Pack, Files | null> = { forest: loadPack('forest'), hex: loadPack('hex') };
+  const packs: Record<Pack, Files | null> = {
+    forest: loadPack('forest'),
+    hex: loadPack('hex'),
+    nature: loadPack('nature'),
+  };
   const missing = (Object.keys(packs) as Pack[]).filter((p) => !packs[p]);
   if (missing.length > 0) {
     console.log(
-      `Packs absents (${missing.map((p) => `assets/${PACK_ZIPS[p]}`).join(', ')}) : rien n'est généré, ` +
+      `Packs absents (${missing.map((p) => `assets/${PACK_ZIPS[p]}*`).join(', ')}) : rien n'est généré, ` +
         'la scène utilisera les formes de remplacement.',
     );
     return;
@@ -611,7 +697,10 @@ async function buildKayKit(io: NodeIO): Promise<void> {
   const manifest: string[] = [];
   let totalTriangles = 0;
   for (const [name, source] of Object.entries<ModelSource>(CATALOG)) {
-    let geometry = await readGeometry(io, packs[source.pack]!, source.file);
+    let geometry =
+      source.pack === 'nature'
+        ? readObj(packs.nature!, source.file)
+        : await readGeometry(io, packs[source.pack]!, source.file);
     if (source.leafPart !== undefined) {
       const parts = leafParts(geometry);
       if (source.leafPart >= parts.length)

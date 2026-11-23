@@ -1,3 +1,4 @@
+import { Rng } from '../core/rng';
 import { shadeOf, swatchUV, type SwatchName } from './atlas';
 import { MeshWriter, type MeshData } from './mesh-data';
 
@@ -362,34 +363,32 @@ function log(
 }
 
 /**
- * Beaver dam, 1 wide across the flow (x), the lake upstream (-z): a bank of mud, two rows
- * of logs and sticks poking out.
+ * Beaver dam, 1 wide across the flow (x), the lake upstream (-z): a mound of mud, higher in
+ * the middle, under branches criss-crossed every way, a few poking up.
  */
 export function beaverDam(): MeshData {
-  const out = new MeshWriter(512, 1024);
-  log(out, [-0.58, 0.03, 0.02], [0.58, 0.03, 0.02], 0.2, 'Earth', 7, 0.55);
-  const logs: [number, number, number, number, number][] = [
-    // x from, x to, y, z from, z to
-    [-0.56, -0.04, 0.1, -0.1, -0.06],
-    [-0.16, 0.36, 0.11, 0.08, 0.12],
-    [0.18, 0.6, 0.09, -0.07, -0.12],
-    [-0.42, 0.06, 0.12, 0.13, 0.09],
-    [-0.46, -0.02, 0.19, 0.0, -0.03],
-    [-0.06, 0.44, 0.2, -0.04, 0.01],
-    [0.26, 0.54, 0.17, 0.06, 0.03],
-  ];
-  logs.forEach(([x0, x1, y, z0, z1]) => log(out, [x0, y, z0], [x1, y, z1], 0.045, 'DarkBark'));
-  const sticks: [number, number, number, number][] = [
-    // x, lean across, height, reach downstream
-    [-0.5, 0.06, 0.3, 0.16],
-    [-0.3, -0.05, 0.34, 0.2],
-    [-0.12, 0.08, 0.27, 0.14],
-    [0.05, -0.06, 0.33, 0.18],
-    [0.24, 0.05, 0.3, 0.2],
-    [0.43, -0.07, 0.28, 0.15],
-  ];
-  for (const [x, lean, h, reach] of sticks) {
-    log(out, [x, 0.12, -0.14], [x + lean, h, reach], 0.016, 'DarkBark', 4);
+  const out = new MeshWriter(1024, 2048);
+  log(out, [-0.6, 0.02, 0.02], [0.6, 0.02, 0.02], 0.17, 'Earth', 7, 0.6);
+  log(out, [-0.36, 0.07, 0.0], [0.36, 0.07, 0.0], 0.2, 'Earth', 7, 0.6);
+  const rng = new Rng(7);
+  const count = 24;
+  for (let i = 0; i < count; i++) {
+    const x = -0.52 + (i / (count - 1)) * 1.04 + rng.range(-0.03, 0.03);
+    const turn = (i % 2 === 0 ? 1 : -1) * rng.range(0.3, 1.1);
+    const half = rng.range(0.12, 0.22);
+    const y = 0.13 + 0.09 * (1 - (x / 0.6) ** 2) + rng.range(0, 0.04);
+    const rise = rng.chance(0.3) ? rng.range(0.12, 0.22) : rng.range(-0.03, 0.05);
+    const dx = Math.cos(turn) * half;
+    const dz = Math.sin(turn) * half;
+    const z = rng.range(-0.08, 0.08);
+    log(
+      out,
+      [x - dx, y - rise / 2, z - dz],
+      [x + dx, y + rise / 2, z + dz],
+      rng.range(0.014, 0.024),
+      'DarkBark',
+      4,
+    );
   }
   return out.toMeshData();
 }

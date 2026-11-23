@@ -1,5 +1,6 @@
 import { hashSeed, Rng, valueNoise2 } from '../core/rng';
 import type { ModelName } from './asset-catalog';
+import { MODELS } from './assets.gen';
 import { swatchColumn, swatchUV, type SwatchName } from './atlas';
 import { nextSeason, shownSeason, type SceneDescription } from './description';
 import { MeshWriter, type MeshData } from './mesh-data';
@@ -212,6 +213,25 @@ const FLOWERS: readonly FlowerKind[] = [
   { model: 'gen:bellflower', colors: ['PetalViolet', 'PetalBlue', 'PetalPink'] },
 ];
 
+/** Half length of a fallen log at scale 1 (the model lies along z). */
+const LOG_HALF_LENGTH = MODELS.Log.max[2];
+
+const DEADWOOD: Record<'woods' | 'meadow' | 'winter', { log: ModelName; stump: ModelName }> = {
+  woods: { log: 'Log_Moss', stump: 'Stump_Moss' },
+  meadow: { log: 'Log', stump: 'Stump' },
+  winter: { log: 'Log_Snow', stump: 'Stump_Snow' },
+};
+
+/**
+ * Large logs across the beaver dam, in its frame and in dam widths: x across the flow,
+ * z downstream, y above its base; turn is the angle off the dam line.
+ */
+const DAM_LOGS: readonly { x: number; y: number; z: number; turn: number; scale: number }[] = [
+  { x: -0.2, y: 0.15, z: -0.04, turn: 0.35, scale: 0.85 },
+  { x: 0.2, y: 0.15, z: 0.03, turn: -0.4, scale: 0.8 },
+  { x: 0.0, y: 0.22, z: -0.01, turn: 0.06, scale: 0.95 },
+];
+
 /** Dark disc of the ground colour: contact shadow of the low quality tier. */
 function contactShadow(season: Season): MeshData {
   const out = new MeshWriter(16, 32);
@@ -267,6 +287,20 @@ export function scatterVegetation(
     batch.register('gen:dam', beaverDam());
     batch.add('gen:dam', x, y, z, yaw, width);
     blocked.push({ x, z, r: width * 0.55 });
+    const c = Math.cos(yaw);
+    const s = Math.sin(yaw);
+    for (const log of DAM_LOGS) {
+      const lx = log.x * width;
+      const lz = log.z * width;
+      batch.add(
+        season === 'winter' ? 'Log_Snow' : 'Log',
+        x + lx * c + lz * s,
+        y + log.y * width,
+        z - lx * s + lz * c,
+        yaw + Math.PI / 2 + log.turn,
+        log.scale,
+      );
+    }
   }
 
   // Groves of the filled slots: a large bush, two small ones and the painting's flowers.
@@ -386,7 +420,7 @@ export function scatterVegetation(
     z: rng.range(-terrain.extent.z, terrain.extent.z),
   });
 
-  // Grass tufts, in patches. The heavy tuft is rare: the meadow is large.
+  // Grass tufts, in patches. Light tufts only (44 triangles): the meadow is large.
   const grassModels: ModelName[] = [
     'Grass_1_A',
     'Grass_1_A',
@@ -398,7 +432,7 @@ export function scatterVegetation(
     'Grass_2_A',
     'Grass_2_A',
     'Grass_2_A',
-    'Grass_1_B',
+    'Grass_1_A',
   ];
   const grassTarget = Math.round(290 * ambience.grass * cover);
   for (let attempt = 0, placed = 0; attempt < grassTarget * 6 && placed < grassTarget; attempt++) {
@@ -509,6 +543,69 @@ export function scatterVegetation(
     );
     blocked.push({ x, z, r: 0.8 });
     if (!near) placed++;
+  }
+
+  // Fallen logs and stumps: mossy under the trees, bare in the meadow, snowy in winter.
+  const winter = season === 'winter';
+  const woods = hosts.filter((t) => t.age > 0.5 && t.detail !== 'far');
+  for (
+    let attempt = 0, placed = 0;
+    attempt < ambience.deadwood * 12 && placed < ambience.deadwood;
+    attempt++
+  ) {
+    const rng = draw('deadwood', attempt);
+    const stump = rng.chance(0.35);
+    const meadow = woods.length === 0 || rng.chance(0.3);
+    let x: number;
+    let z: number;
+    if (meadow) {
+      ({ x, z } = sample(rng));
+    } else {
+      const tree = rng.pick(woods);
+      const a = rng.range(0, TAU);
+      const d = rng.range(1.6, 2.6);
+      x = tree.x + Math.cos(a) * d;
+      z = tree.z + Math.sin(a) * d;
+    }
+    const near = terrain.nearLandmark(x, z);
+    if (near) placed++;
+    const yaw = rng.range(0, TAU);
+    const scale = stump ? rng.range(0.6, 0.8) : rng.range(0.65, 0.85);
+    // A log lies on both its ends and its middle; a stump stands on its foot.
+    const half = stump ? 0 : LOG_HALF_LENGTH * scale;
+    const feet = [0, -1, 1].map((k) =>
+      terrain.surfaceAt(x + Math.sin(yaw) * half * k, z + Math.cos(yaw) * half * k),
+    );
+    const room = stump ? 0.5 : half + 0.3;
+    if (feet.some((f) => f?.kind !== 'grass' || f.slope > 0.3) || !free(x, z, room)) continue;
+    const look = DEADWOOD[winter ? 'winter' : meadow ? 'meadow' : 'woods'];
+    batch.add(
+      stump ? look.stump : look.log,
+      x,
+      Math.min(...feet.map((f) => f!.y)) - 0.04,
+      z,
+      yaw,
+      scale,
+    );
+    blocked.push({ x, z, r: room });
+    if (!near) placed++;
+  }
+
+  // Around the lake, the beavers' work: freshly gnawed stumps.
+  if (terrain.dam) {
+    for (let i = 0; i < 3; i++) {
+      const rng = draw('gnawed', i);
+      const a = rng.range(0, TAU);
+      const d = rng.range(2.6, 4.4);
+      const x = terrain.dam.x + Math.cos(a) * d;
+      const z = terrain.dam.z + Math.sin(a) * d;
+      const surface = terrain.surfaceAt(x, z);
+      if (surface?.kind !== 'grass' || surface.slope > 0.3) continue;
+      if (!terrain.nearLandmark(x, z) || !free(x, z, 0.45)) continue;
+      const scale = rng.range(0.45, 0.6);
+      batch.add(winter ? 'Stump_Snow' : 'Stump', x, surface.y - 0.04, z, rng.range(0, TAU), scale);
+      blocked.push({ x, z, r: 0.45 });
+    }
   }
 
   // Mushrooms at the foot of the trees; a fairy ring at the last stage.
