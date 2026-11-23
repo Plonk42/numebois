@@ -74,26 +74,39 @@ test('une boucle jouable : questions, indices et feuilles', async ({ page }) => 
   await expect(plume).toHaveClass(/calm/);
 
   // Each right answer sends a leaf flying into Plume's basket, already saved in the reserve.
-  // A flight lasts under a second: an observer counts them, however slow the browser is.
+  // A flight lasts under a second, the praise just over one: an observer records them,
+  // however slow the browser is (the CI missed the praise between two polls).
   const flights = () => page.evaluate(() => (globalThis as unknown as { flights: number }).flights);
+  const praises = () => page.evaluate(() => (globalThis as unknown as { praises: number }).praises);
   await page.evaluate(() => {
-    const counter = globalThis as unknown as { flights: number };
+    const doc = globalThis.document;
+    const counter = globalThis as unknown as { flights: number; praises: number };
     counter.flights = 0;
+    counter.praises = 0;
+    let praising = false;
     new MutationObserver((records) => {
       for (const record of records) {
         for (const node of record.addedNodes) {
           if (node instanceof Element && node.matches('.flying.leaf')) counter.flights++;
         }
       }
-    }).observe(globalThis.document.body, { childList: true, subtree: true });
+      // A praise counts once, if it showed while Plume was cheering (Preact reuses its <p>).
+      const praise = doc.querySelector('#question .praise');
+      const cheering = doc.querySelector('#question .plume')?.classList.contains('cheer');
+      if (praise?.checkVisibility() && cheering) {
+        if (!praising) counter.praises++;
+        praising = true;
+      } else if (!praise) {
+        praising = false;
+      }
+    }).observe(doc.body, { childList: true, subtree: true, attributes: true });
   });
   const basket = card.locator('.basket');
   for (let answer = 1; answer <= 4; answer++) {
     exercise = await current(page);
     await page.keyboard.type(exercise.answer);
     await page.keyboard.press('Enter');
-    await expect(card.locator('.praise')).toBeVisible();
-    await expect(plume).toHaveClass(/cheer/);
+    await expect.poll(praises).toBe(answer);
     await expect(basket).toHaveAttribute(
       'aria-label',
       `Panier : ${answer} feuille${answer > 1 ? 's' : ''}`,
