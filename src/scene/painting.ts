@@ -8,7 +8,7 @@ import { LAST_STAGE, shownSeason, type SceneDescription } from './description';
 import { candidateSlots, childTreeAge } from './populate';
 import { Backdrop, BACKDROP_TRIANGLES } from './render/backdrop';
 import type { InstanceBatch } from './render/instancing';
-import { Herd, planHerd } from './render/ambient-life';
+import { animalState, Herd, planHerd, type AnimalState } from './render/ambient-life';
 import { Lighting, sunDirection } from './render/lighting';
 import { createMaterials, paletteColor, type SceneMaterials } from './render/materials';
 import {
@@ -199,7 +199,7 @@ export class Painting {
       );
     }
 
-    this.herd = new Herd(animals, planHerd(terrain, ambience, quality, seed));
+    this.herd = new Herd(animals, planHerd(terrain, description.animals, seed));
     this.root.add(this.herd.group);
 
     this.sky = new Sky(ambience);
@@ -520,6 +520,24 @@ export class Painting {
       }
     }
     this.celebrate(point.x, point.y, point.z, time);
+    return true;
+  }
+
+  /**
+   * A bought animal comes into the meadow, where its own draw puts it, with a burst of sparks
+   * and the camera leaning towards it. `next` is the description with the animal. False when
+   * it found no place.
+   */
+  adopt(next: SceneDescription, time: number): boolean {
+    const plan = planHerd(this.terrain, next.animals, next.seed);
+    if (plan.length <= this.herd.size) return false;
+    const before = this.herd.triangles;
+    for (const member of plan.slice(this.herd.size)) this.herd.add(member);
+    this.stats.animals = this.herd.size;
+    this.stats.animalTriangles = this.herd.triangles;
+    this.stats.triangles += this.herd.triangles - before;
+    const at = animalState(plan.at(-1)!, time, {} as AnimalState);
+    this.celebrate(at.x, at.y, at.z, time);
     return true;
   }
 

@@ -1,4 +1,4 @@
-import { render } from 'preact';
+import { render, type ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import {
   LEAVES_PER_ELEMENT,
@@ -10,10 +10,13 @@ import { Session, type Achievement } from '../core/session';
 import type { StepRole, TrailLength } from '../core/trail';
 import type { Exercise, Skill } from '../core/types';
 import { serializeSave, type ParsedSave } from '../save/save';
+import type { AnimalName } from '../scene/animal-catalog';
 import { MAX_ELEMENTS, type SceneDescription } from '../scene/description';
+import { canBuy, shopItems, type ShopItem } from '../scene/shop';
 import { ParentMenu } from './parent-menu';
 import { Plume, type PlumeMood } from './plume';
-import { LeafIcon, plural, Reserve, SeedIcon } from './reserve';
+import { plural, Reserve, SeedIcon } from './reserve';
+import { ANIMAL_LABELS, Shop } from './shop';
 import { Slate, type SlateHint } from './slate';
 import { Spots, type SpotsForest } from './spots';
 import { TrailPath } from './trail-path';
@@ -28,7 +31,8 @@ const SEED_FLY_MS = 1000;
 const PRAISES = ['Bravo !', 'Super !', 'Oui !', 'Bien vu !', 'Génial !'];
 const DAY_MS = 86_400_000;
 
-type Phase = 'asking' | 'right' | 'reveal' | 'seed' | 'summary' | 'choosing' | 'planting';
+type Phase =
+  'asking' | 'right' | 'reveal' | 'seed' | 'summary' | 'choosing' | 'planting' | 'adopting';
 
 /** The painting in progress, as the game sees it. */
 export interface GameForest extends SpotsForest {
@@ -37,6 +41,10 @@ export interface GameForest extends SpotsForest {
   candidates(): readonly number[];
   /** Places an element; resolves once it has grown (and the stage has passed). */
   plant(slot: number, day: number): Promise<unknown>;
+  /** Brings a bought animal into the meadow; resolves once it has settled. */
+  adopt(animal: AnimalName): Promise<unknown>;
+  /** Picture of an animal for the shop, null while the animals load. */
+  portrait(animal: AnimalName): string | null;
 }
 
 /** Read by the end-to-end tests. */
@@ -92,8 +100,8 @@ function giftReason(achievement: Achievement, skill: Skill): string {
 /**
  * The trail: question after question along a path of stones; each right answer brings a
  * leaf to the reserve, each notion acquired or fact automated a golden seed, and a kind
- * summary closes the trail, where the leaves make the forest grow. Mistakes cost nothing:
- * a hint, then the answer.
+ * summary closes the trail, with the shop of the forest where the reserve is spent. Mistakes
+ * cost nothing: a hint, then the answer.
  */
 function Game(props: Props) {
   const { session, rng, forest, probe } = props;
@@ -112,11 +120,12 @@ function Game(props: Props) {
   const [menu, setMenu] = useState(false);
   const [length, setLength] = useState<TrailLength>(session.length);
   const [spots, setSpots] = useState<readonly number[]>([]);
+  const [arrival, setArrival] = useState<AnimalName | null>(null);
   const timer = useRef(0);
   const shownAt = useRef(performance.now());
   const firstAnswerMs = useRef<number | null>(null);
 
-  const summary = phase === 'summary' || phase === 'choosing' || phase === 'planting';
+  const summary = ['summary', 'choosing', 'planting', 'adopting'].includes(phase);
   useEffect(() => {
     Object.assign(probe, {
       exercise,
@@ -172,13 +181,26 @@ function Game(props: Props) {
     ask();
   };
 
-  /** Until the shop of the forest (#83): leaves make an element grow where the child wants. */
-  const choose = () => {
-    if (phase !== 'summary' || leaves < LEAVES_PER_ELEMENT) return;
-    const slots = forest.candidates();
-    if (slots.length === 0) return;
-    setSpots(slots);
-    setPhase('choosing');
+  /** One touch in the shop: an element waits for its place, an animal comes at once. */
+  const buy = (item: ShopItem) => {
+    if (phase !== 'summary' || !canBuy(item, leaves, seeds)) return;
+    const { article } = item;
+    if (article.kind === 'element') {
+      const slots = forest.candidates();
+      if (slots.length === 0) return;
+      setSpots(slots);
+      setPhase('choosing');
+      return;
+    }
+    setLeaves(leaves - item.leaves);
+    setSeeds(seeds - item.seeds);
+    setArrival(article.animal);
+    setPhase('adopting');
+    void forest.adopt(article.animal).then(() => {
+      setGrownHere((g) => g + 1);
+      setArrival(null);
+      setPhase('summary');
+    });
   };
 
   const plant = (slot: number) => {
@@ -274,6 +296,11 @@ function Game(props: Props) {
       <div id="dim" class={summary || away ? '' : 'on'} />
       {gift && phase === 'seed' && <SeedGift {...gift} />}
       {phase === 'choosing' && <Spots forest={forest} slots={spots} onPick={plant} />}
+      {arrival && (
+        <section id="arrival" aria-live="polite">
+          <p class="title">{ANIMAL_LABELS[arrival]} arrive !</p>
+        </section>
+      )}
       {menu && (
         <ParentMenu
           skills={props.skills}
@@ -293,12 +320,18 @@ function Game(props: Props) {
           leaves={leavesHere}
           seeds={seedsHere}
           grown={grownHere}
-          reserve={leaves}
           complete={placed >= MAX_ELEMENTS}
           away={phase !== 'summary'}
-          onPlant={choose}
           onAgain={restart}
-        />
+        >
+          <Shop
+            items={shopItems(forest.description())}
+            leaves={leaves}
+            seeds={seeds}
+            portrait={(animal) => forest.portrait(animal)}
+            onBuy={buy}
+          />
+        </Summary>
       ) : (
         <Slate
           away={away}
@@ -343,36 +376,30 @@ interface SummaryProps {
   /** Earned on this trail. */
   leaves: number;
   seeds: number;
-  /** Elements grown since the end of this trail. */
+  /** Elements grown and animals come since the end of this trail. */
   grown: number;
-  /** Leaves in the reserve. */
-  reserve: number;
   /** Every slot of the painting holds an element. */
   complete: boolean;
   /** The forest has the stage: the card steps aside. */
   away: boolean;
-  onPlant(): void;
   onAgain(): void;
+  /** The shop of the forest. */
+  children: ComponentChildren;
 }
 
 /**
- * The end of a trail, over the whole forest: what was done, never what was missed. Until
- * the shop of the forest (#83), the leaves of the reserve make the next element grow, one
- * tap each time.
+ * The end of a trail, over the whole forest: what was done, never what was missed, then the
+ * shop of the forest; another trail stays one touch away.
  */
 function Summary(props: SummaryProps) {
-  const { stones, leaves, seeds, grown, reserve } = props;
+  const { stones, leaves, seeds, grown } = props;
   let earned = '';
   if (leaves > 0 && seeds > 0) {
     earned = `Tu as gagné ${plural(leaves, 'feuille', 'feuilles')} et ${plural(seeds, 'graine dorée', 'graines dorées')}.`;
   } else if (leaves > 0) earned = `Tu as gagné ${plural(leaves, 'feuille', 'feuilles')}.`;
   let forest = '';
   if (props.complete) forest = 'Ton tableau est complet !';
-  else if (reserve < LEAVES_PER_ELEMENT) {
-    const missing = plural(LEAVES_PER_ELEMENT - reserve, 'feuille', 'feuilles');
-    forest = `Encore ${missing} pour faire pousser ta forêt.`;
-  } else if (grown > 0) forest = 'Ta forêt a grandi !';
-  const canPlant = !props.complete && reserve >= LEAVES_PER_ELEMENT;
+  else if (grown > 0) forest = 'Ta forêt a grandi !';
   return (
     <section id="trail-end" class={props.away ? 'away' : ''} aria-live="polite">
       <Plume mood="cheer" />
@@ -380,16 +407,8 @@ function Summary(props: SummaryProps) {
       <p class="statement text">Tu as franchi {stones} pierres.</p>
       {earned && <p class="instruction earned">{earned}</p>}
       {forest && <p class="instruction">{forest}</p>}
-      {canPlant && (
-        <button type="button" class="next plant" onPointerDown={props.onPlant}>
-          Faire pousser
-          <span class="cost" aria-label={plural(LEAVES_PER_ELEMENT, 'feuille', 'feuilles')}>
-            <LeafIcon />
-            {LEAVES_PER_ELEMENT}
-          </span>
-        </button>
-      )}
-      <button type="button" class={canPlant ? 'again' : 'next'} onPointerDown={props.onAgain}>
+      {props.children}
+      <button type="button" class="next" onPointerDown={props.onAgain}>
         Encore un sentier
       </button>
     </section>

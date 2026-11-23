@@ -158,6 +158,34 @@ export class Stage {
     this.renderer.render(this.scene, this.camera);
   }
 
+  /**
+   * Renders a small scene into an image of `size` pixels (portraits of the shop), in a corner
+   * of the canvas: render the main scene again in the same task, before the page shows it.
+   */
+  snapshot(scene: THREE.Scene, camera: THREE.Camera, size: number, background: number): string {
+    const renderer = this.renderer;
+    const viewport = renderer.getViewport(new THREE.Vector4());
+    const clear = renderer.getClearColor(new THREE.Color());
+    const alpha = renderer.getClearAlpha();
+    const css = size / renderer.getPixelRatio();
+    renderer.setViewport(0, 0, css, css);
+    renderer.setScissor(0, 0, css, css);
+    renderer.setScissorTest(true);
+    renderer.setClearColor(background, 1);
+    renderer.render(scene, camera);
+    const image = document.createElement('canvas');
+    image.width = size;
+    image.height = size;
+    const source = renderer.domElement;
+    image
+      .getContext('2d')!
+      .drawImage(source, 0, source.height - size, size, size, 0, 0, size, size);
+    renderer.setScissorTest(false);
+    renderer.setViewport(viewport);
+    renderer.setClearColor(clear, alpha);
+    return image.toDataURL('image/png');
+  }
+
   dispose(): void {
     this.renderer.dispose();
   }

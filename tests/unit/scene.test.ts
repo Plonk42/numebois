@@ -8,6 +8,7 @@ import {
   LANDMARKS,
   MAX_ELEMENTS,
   STAGES,
+  demoAnimals,
   demoElements,
   parseDescription,
   readDescription,
@@ -47,14 +48,22 @@ const TRIANGLE_BUDGET = 150_000;
 const budget = createBudgetLibrary();
 const placeholders = createPlaceholderLibrary();
 
-/** A description with the slots filled as at its stage (or `fill`), no grand moment revealed. */
+/** A description with the slots filled and the animals bought as at its stage (or `fill`), no grand moment revealed. */
 function scene(
   seed: number,
   stage: Stage,
   season: Season,
   { fill = DEMO_FILL[stage], ...more }: Partial<SceneDescription> & { fill?: number } = {},
 ): SceneDescription {
-  return { seed, stage, season, elements: demoElements(seed, fill), landmarks: [], ...more };
+  return {
+    seed,
+    stage,
+    season,
+    elements: demoElements(seed, fill),
+    animals: demoAnimals(stage),
+    landmarks: [],
+    ...more,
+  };
 }
 
 function sceneTriangles(description: SceneDescription, quality = QUALITY.high): number {
@@ -63,7 +72,7 @@ function sceneTriangles(description: SceneDescription, quality = QUALITY.high): 
   const composition = composeScene(description, budget, ambience, quality);
   const parts = compositionTriangles(composition, budget);
   const forest = buildForestBuffers(composition.planting.trees, budget, season);
-  const herd = planHerd(composition.terrain, ambience, quality, description.seed);
+  const herd = planHerd(composition.terrain, description.animals, description.seed);
   return (
     parts.ground +
     parts.water +
@@ -109,6 +118,7 @@ describe('scene description', () => {
       season: 'winter',
       seed: 12,
       elements: demoElements(12, 0.5),
+      animals: ['Deer'],
       landmarks: ['lake', 'season'],
     });
     const fallback = parseDescription(new URLSearchParams('stage=12&season=monsoon&seed=x'));
@@ -192,20 +202,22 @@ describe('animals', () => {
   const plan = (
     seed: number,
     stage: Stage,
-    quality = QUALITY.high,
     landmarks: readonly Landmark[] = [],
-  ) =>
-    planHerd(createClearing(seed, stage, landmarks), ambienceFor(stage, 'summer'), quality, seed);
+    animals = demoAnimals(stage),
+  ) => planHerd(createClearing(seed, stage, landmarks), animals, seed);
 
-  it('arrive over the stages and all find a place in the meadow', { timeout: 30_000 }, () => {
+  it('come from their stage on and all find a place in the meadow', { timeout: 30_000 }, () => {
     for (let seed = 0; seed < 8; seed++) {
       for (const landmarks of [[], LANDMARKS]) {
-        const counts = STAGES.map((stage) => plan(seed, stage, QUALITY.high, landmarks).length);
-        const wanted = STAGES.map((stage) =>
-          Object.values(ambienceFor(stage, 'summer').animals).reduce((a, b) => a + b, 0),
-        );
+        const counts = STAGES.map((stage) => plan(seed, stage, landmarks).length);
+        const wanted = STAGES.map((stage) => demoAnimals(stage).length);
         expect(counts, `seed ${seed} ${landmarks.join()}`).toEqual(wanted);
         expect(counts[0]).toBe(0);
+        // Bought in another order, each one still finds a place.
+        const reversed = demoAnimals(LAST_STAGE).reverse();
+        expect(plan(seed, LAST_STAGE, landmarks, reversed), `seed ${seed}`).toHaveLength(
+          reversed.length,
+        );
       }
     }
   });
@@ -215,7 +227,7 @@ describe('animals', () => {
     for (const seed of [1, 7]) {
       for (const stage of [3, 7, LAST_STAGE] as Stage[]) {
         const terrain = createClearing(seed, stage, LANDMARKS);
-        for (const member of plan(seed, stage, QUALITY.high, LANDMARKS)) {
+        for (const member of plan(seed, stage, LANDMARKS)) {
           for (let t = 0; t < member.period; t += 0.5) {
             animalState(member, t, state);
             const surface = terrain.surfaceAt(state.x, state.z);
@@ -257,8 +269,9 @@ describe('animals', () => {
 
   it('are the same for the same seed, and a newcomer never moves the others', () => {
     expect(plan(3, LAST_STAGE)).toEqual(plan(3, LAST_STAGE));
-    const few = plan(3, LAST_STAGE, QUALITY.low);
-    expect(few).toHaveLength(QUALITY.low.animals);
+    const all = demoAnimals(LAST_STAGE);
+    const few = plan(3, LAST_STAGE, [], all.slice(0, 3));
+    expect(few).toHaveLength(3);
     expect(plan(3, LAST_STAGE).slice(0, few.length)).toEqual(few);
   });
 
@@ -526,9 +539,15 @@ describe('slots and grand moments', () => {
       },
       { ...valid, elements: [{ slot: 1.5, day: 1 }] },
       { ...valid, elements: undefined },
+      { ...valid, animals: undefined },
+      { ...valid, animals: ['Bear'] },
+      { ...valid, animals: ['Fox', 'Fox'] },
+      { ...valid, animals: ['Deer', 'Deer', 'Deer'] },
     ]) {
       expect(readDescription(broken), JSON.stringify(broken)).toBeNull();
     }
+    const twoDeer = { ...valid, animals: ['Deer', 'Wolf', 'Deer'] };
+    expect(readDescription(JSON.parse(JSON.stringify(twoDeer)))).toEqual(twoDeer);
   });
 
   it('plants the filled slots and keeps the candidate ones ready to grow', () => {

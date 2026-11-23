@@ -1,9 +1,11 @@
 import * as THREE from 'three';
+import type { AnimalName } from './animal-catalog';
 import { loadAnimals, type AnimalLibrary } from './animals';
 import { loadAssets, type AssetLibrary } from './assets';
 import { Soundscape } from './audio/soundscape';
 import { parseDescription, stageFor, type SceneDescription } from './description';
 import { Painting, type PaintingStats } from './painting';
+import { animalPortrait } from './render/portrait';
 import { QUALITY, QualityGovernor, parseQuality, type Quality } from './render/quality';
 import { Stage } from './render/stage';
 
@@ -32,6 +34,10 @@ function textureBytes(texture: THREE.Texture | null | undefined): number {
 const GROWTH_MS = 3600;
 const VEIL_IN_MS = 700;
 const VEIL_OUT_MS = 1400;
+/** A bought animal settles in the meadow, with sparks and the camera leaning towards it. */
+const ARRIVAL_MS = 3200;
+/** Side of the animal portraits of the shop, in pixels of the image. */
+const PORTRAIT_PX = 256;
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -58,6 +64,7 @@ export class SceneApp {
   private readonly forcePlaceholders: boolean;
   /** Light over the whole scene while a new stage is built. */
   private readonly veil: HTMLElement;
+  private readonly portraits = new Map<AnimalName, string>();
 
   constructor(
     canvas: HTMLCanvasElement,
@@ -182,6 +189,28 @@ export class SceneApp {
       await wait(VEIL_OUT_MS);
     }
     return next;
+  }
+
+  /** A bought animal comes into the meadow. Resolves once it has settled, with the new description. */
+  async adopt(animal: AnimalName): Promise<SceneDescription> {
+    const next = { ...this.description, animals: [...this.description.animals, animal] };
+    this.painting?.adopt(next, this.time);
+    this.description = next;
+    this.sound.chime();
+    await wait(ARRIVAL_MS);
+    return next;
+  }
+
+  /** Portrait of an animal for the shop, made once; null before the animals are loaded. */
+  portrait(animal: AnimalName): string | null {
+    let url = this.portraits.get(animal);
+    if (!url && this.animals) {
+      url = animalPortrait(this.stage, this.animals, animal, PORTRAIT_PX);
+      this.portraits.set(animal, url);
+      // The portrait was drawn in a corner of the canvas: the forest covers it again at once.
+      this.renderFrame(0);
+    }
+    return url ?? null;
   }
 
   private readonly onResize = () => {
