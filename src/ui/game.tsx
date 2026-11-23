@@ -3,9 +3,11 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { ENERGY_PER_ELEMENT } from '../core/energy';
 import { Rng } from '../core/rng';
 import { Session } from '../core/session';
-import type { StepRole } from '../core/trail';
+import type { StepRole, TrailLength } from '../core/trail';
 import type { Exercise, Skill } from '../core/types';
+import { serializeSave, type ParsedSave } from '../save/save';
 import { EnergyGauge } from './energy-gauge';
+import { ParentMenu } from './parent-menu';
 import { TrailPath } from './trail-path';
 import { Keypad, grouped } from './widgets/keypad';
 import './game.css';
@@ -38,8 +40,13 @@ function today(): number {
 
 interface Props {
   session: Session;
+  skills: readonly Skill[];
   rng: Rng;
+  energy: number;
+  /** Why the save could not be read, if it could not. */
+  problem: string | null;
   grow(): void;
+  save(json: string): void;
   probe: GameProbe;
 }
 
@@ -48,15 +55,18 @@ interface Props {
  * to the gauge, a full gauge grows a tree, and a kind summary closes the trail. Mistakes
  * cost nothing: a hint, then the answer.
  */
-function Game({ session, rng, grow, probe }: Props) {
+function Game(props: Props) {
+  const { session, rng, grow, probe } = props;
   const [grown, setGrown] = useState(0);
   const [grownHere, setGrownHere] = useState(0);
-  const [energy, setEnergy] = useState(0);
+  const [energy, setEnergy] = useState(props.energy);
   const [round, setRound] = useState(0);
   const [{ skill, exercise }, setQuestion] = useState(() => session.ask());
   const [mistakes, setMistakes] = useState(0);
   const [phase, setPhase] = useState<Phase>('asking');
   const [praise, setPraise] = useState(PRAISES[0]);
+  const [menu, setMenu] = useState(false);
+  const [length, setLength] = useState<TrailLength>(session.length);
   const timer = useRef(0);
   const shownAt = useRef(performance.now());
   const firstAnswerMs = useRef<number | null>(null);
@@ -74,6 +84,11 @@ function Game({ session, rng, grow, probe }: Props) {
     });
   });
   useEffect(() => () => clearTimeout(timer.current), []);
+
+  const saveData = () =>
+    serializeSave({ ...session.snapshot(), energy, trailLength: session.length }, new Date());
+  // Every answer changes the phase or the energy: the save follows.
+  useEffect(() => props.save(saveData()), [energy, phase, length]);
 
   const later = (ms: number, action: () => void) => {
     clearTimeout(timer.current);
@@ -135,8 +150,21 @@ function Game({ session, rng, grow, probe }: Props) {
   if (mistakes > 0) hint = skill.hint(exercise, revealed ? 2 : 1);
   return (
     <>
-      <EnergyGauge energy={energy} />
+      <EnergyGauge energy={energy} onLongPress={() => setMenu(true)} />
       <TrailPath stones={session.stones} current={summary ? session.stones : session.stone} />
+      {menu && (
+        <ParentMenu
+          skills={props.skills}
+          length={length}
+          problem={props.problem}
+          exportSave={saveData}
+          onLength={(value) => {
+            session.length = value;
+            setLength(value);
+          }}
+          onClose={() => setMenu(false)}
+        />
+      )}
       {summary ? (
         <Summary stones={session.stones} grown={grownHere} onAgain={restart} />
       ) : (
@@ -202,15 +230,24 @@ function Summary({ stones, grown, onAgain }: SummaryProps) {
   );
 }
 
-/** Mounts the game over the scene; `grow` makes the forest grow. */
+/**
+ * Mounts the game over the scene; `grow` makes the forest grow. A save that could not be
+ * read is never overwritten: the game is played without saving, and the parent menu says why.
+ */
 export function mountGame(
   root: HTMLElement,
   skills: readonly Skill[],
   seed: number,
   grow: () => void,
+  saved: ParsedSave | null,
+  write: (json: string) => void,
 ) {
   const rng = new Rng(seed);
   const session = new Session(skills, rng.fork('trail'), today);
+  if (saved?.ok) {
+    session.restore(saved.data);
+    session.length = saved.data.trailLength;
+  }
   session.startTrail();
   const probe: GameProbe = {
     exercise: null,
@@ -221,6 +258,22 @@ export function mountGame(
     stones: session.stones,
     role: null,
   };
-  render(<Game session={session} rng={rng} grow={grow} probe={probe} />, root);
+  const problem =
+    saved && !saved.ok
+      ? `La sauvegarde n’a pas pu être lue : ${saved.reason} Elle est gardée intacte.`
+      : null;
+  render(
+    <Game
+      session={session}
+      skills={skills}
+      rng={rng}
+      energy={saved?.ok ? saved.data.energy : 0}
+      problem={problem}
+      grow={grow}
+      save={problem ? () => undefined : write}
+      probe={probe}
+    />,
+    root,
+  );
   return probe;
 }

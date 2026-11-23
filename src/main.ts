@@ -5,6 +5,8 @@ import type { SoundState } from './scene/audio/soundscape';
 import type { SceneDescription } from './scene/description';
 import { mountDebugPanel } from './scene/debug';
 import { parseQuality } from './scene/render/quality';
+import { parseSave } from './save/save';
+import { persistStorage, readSave, writeSave } from './save/store';
 import { mountGame, type GameProbe } from './ui/game';
 
 declare global {
@@ -27,19 +29,31 @@ const params = new URLSearchParams(window.location.search);
 const app = new SceneApp(canvas, params, import.meta.env.BASE_URL);
 
 // `?scene` (captures) and `?debug` show the landscape alone.
-const game =
+let game: GameProbe | null = null;
+const gameReady =
   params.has('scene') || params.has('debug')
-    ? null
-    : mountGame(
-        document.querySelector<HTMLElement>('#ui')!,
-        // Every notion, in the order of the curriculum: the trail chooses among them.
-        DOMAINS.flatMap((domain) => domain.skills),
-        Date.now() >>> 0,
-        () => app.grow(),
-      );
+    ? Promise.resolve()
+    : readSave()
+        .catch((error: unknown) => {
+          console.warn('sauvegarde illisible', error);
+          return undefined;
+        })
+        .then((json) => {
+          // Every notion, in the order of the curriculum: the trail chooses among them.
+          const skills = DOMAINS.flatMap((domain) => domain.skills);
+          persistStorage();
+          game = mountGame(
+            document.querySelector<HTMLElement>('#ui')!,
+            skills,
+            Date.now() >>> 0,
+            () => app.grow(),
+            json === undefined ? null : parseSave(json, skills),
+            (data) => void writeSave(data).catch((error: unknown) => console.warn(error)),
+          );
+        });
 
 window.__numebois = {
-  ready: app.start(),
+  ready: Promise.all([app.start(), gameReady]).then(() => undefined),
   counters: () => app.counters(),
   describe: () => app.description,
   trees: () => app.painting?.treeInfos() ?? [],

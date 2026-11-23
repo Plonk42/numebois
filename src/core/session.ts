@@ -105,4 +105,28 @@ export class Session {
   get stone(): number {
     return Math.min(this.index, this.stones - 1);
   }
+
+  /** What a save keeps: the trail in progress starts again. */
+  snapshot(): SessionSnapshot {
+    return {
+      progress: [...this.progress.values()],
+      facts: [...this.facts.values()],
+      history: [...this.history],
+    };
+  }
+
+  restore(snapshot: SessionSnapshot): void {
+    this.progress.clear();
+    for (const p of snapshot.progress) this.progress.set(p.skill, p);
+    this.facts.clear();
+    for (const f of snapshot.facts) this.facts.set(f.fact, f);
+    this.history = snapshot.history.slice(-HISTORY);
+  }
+}
+
+export interface SessionSnapshot {
+  progress: SkillProgress[];
+  facts: FactProgress[];
+  /** Right first answers of the last trails. */
+  history: boolean[];
 }
