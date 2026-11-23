@@ -12,9 +12,9 @@ function watchErrors(page: Page): string[] {
   return errors;
 }
 
-/** Open a scene with a frozen time (fixed camera, reproducible frame) and wait for it. */
+/** Open the landscape alone with a frozen time (fixed camera, reproducible frame) and wait. */
 async function openScene(page: Page, query: string): Promise<void> {
-  await page.goto(`./?${query}`);
+  await page.goto(`./?scene&${query}`);
   await page.evaluate(() => window.__numebois!.ready);
   await page.evaluate(
     () => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))),
@@ -122,8 +122,9 @@ test('mode débogage : réglages, compteurs et pousse', async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
-test('sans ?debug, rien d’autre que la scène', async ({ page }) => {
+test('avec ?scene, rien d’autre que la scène', async ({ page }) => {
   await openScene(page, 'time=1');
   await expect(page.locator('#debug-panel')).toHaveCount(0);
+  await expect(page.locator('#question')).toHaveCount(0);
   await expect(page.locator('canvas#scene')).toBeVisible();
 });

@@ -29,6 +29,7 @@ applyTo: "src/ui/**, src/scene/**, src/domains/**/lessons/**, src/domains/**/pro
 - Zones à faire glisser (aiguilles, règle, repère) : `touch-action: none`, tolérance généreuse, aimantation aux valeurs utiles.
 - Pavé numérique intégré : ne jamais ouvrir le clavier Android (pas d'`<input>` focalisable pour les réponses).
 - Paysage seulement (1280×800) : la tablette n'est jamais utilisée en portrait, pas de mise en page portrait.
+- Surimpression (`src/ui/`, Preact) : jauge en haut à gauche, bouton du son en haut à droite, carte question à droite, ancrée en bas. Rien ne doit bouger sous le doigt (un indice pousse la carte vers le haut, pas les touches). Vérification : `tests/e2e/game.spec.ts` (cibles, chevauchements, débordement), puis quelques captures relues à l'œil.
 
 ## Concentration
 
