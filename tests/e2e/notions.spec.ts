@@ -1,5 +1,9 @@
 import { expect, test } from '@playwright/test';
-import { MAX_BUBBLE_SENTENCES, MAX_STATEMENT_WORDS } from '../../src/core/content';
+import {
+  MAX_BUBBLE_CHARS,
+  MAX_BUBBLE_SENTENCES,
+  MAX_STATEMENT_WORDS,
+} from '../../src/core/content';
 import { curriculum } from '../../src/core/registry';
 import { DOMAINS } from '../../src/domains';
 import { current, driver, expectSlateLayout, game, wrong } from './helpers';
@@ -15,14 +19,16 @@ test('l’ardoise tient l’énoncé le plus long permis avec la bulle la plus h
   }
   const card = page.locator('#question');
   await expect(card.locator('.hint .next')).toBeVisible();
-  // A word problem as long as the content tests allow, and a bubble with as many sentences.
+  // A word problem as long as the content tests allow, and a bubble as long, in as many lines.
   const words =
     'Plume ramasse 245 glands près du ruisseau puis encore 178 sous les grands chênes'.split(' ');
   const statement = Array.from({ length: MAX_STATEMENT_WORDS }, (_, i) => words[i % words.length]);
-  const bubble = Array.from(
-    { length: MAX_BUBBLE_SENTENCES },
-    () => 'Ajoute les centaines, puis les dizaines et enfin les unités du nombre.',
+  const line = 'Ajoute les centaines, puis les dizaines et enfin les unités.'.slice(
+    0,
+    Math.floor(MAX_BUBBLE_CHARS / MAX_BUBBLE_SENTENCES) - 1,
   );
+  const bubble = Array.from({ length: MAX_BUBBLE_SENTENCES }, () => line).join('\n');
+  expect(bubble.length).toBeGreaterThan(MAX_BUBBLE_CHARS - MAX_BUBBLE_SENTENCES);
   await card.evaluate(
     (element, [text, hint]) => {
       const node = element.querySelector('.statement')!;
@@ -30,7 +36,7 @@ test('l’ardoise tient l’énoncé le plus long permis avec la bulle la plus h
       node.textContent = text;
       element.querySelector('.hint span')!.textContent = hint;
     },
-    [`${statement.join(' ')} ?`, bubble.join('\n')],
+    [`${statement.join(' ')} ?`, bubble],
   );
   await expectSlateLayout(page);
   await test

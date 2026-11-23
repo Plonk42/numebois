@@ -7,7 +7,7 @@ applyTo: "src/ui/**, src/scene/**, src/domains/**/lessons/**, src/domains/**/pro
 
 ## Textes
 
-- Phrases courtes : 12 mots au maximum par phrase, deux phrases et une ligne de calcul au maximum par bulle (3 lignes), énoncés de problème de 25 mots au maximum (vérifié par les tests de contenu, `exerciseErrors`).
+- Phrases courtes : 12 mots au maximum par phrase, deux phrases et une ligne de calcul au maximum par bulle (3 lignes, 120 caractères), énoncés de problème de 25 mots au maximum (vérifié par les tests de contenu, `exerciseErrors`).
 - Vocabulaire de CE2, sans jargon. Tutoiement. Chiffres en chiffres (« 24 glands »), sans abréviation inhabituelle.
 - Pas de synthèse vocale : le texte doit se lire d'un coup d'œil, en gros caractères.
 - Les énoncés parlent du décor en cours (glands, cabane, ruisseau, moulin…) et de ses habitants.

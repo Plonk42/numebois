@@ -4,6 +4,8 @@ import type { Exercise, ExerciseInput, Skill } from './types';
 export const MAX_SENTENCE_WORDS = 12;
 /** Sentences or lines of one of Plume's bubbles: two sentences and a line of calculation. */
 export const MAX_BUBBLE_SENTENCES = 3;
+/** A bubble this long still leaves room for the longest statement (measured with DejaVu Sans). */
+export const MAX_BUBBLE_CHARS = 120;
 /** A word problem is read at a glance. */
 export const MAX_STATEMENT_WORDS = 25;
 /** Choices fit in the answer zone and on the keys 1 to 4. */
@@ -78,6 +80,9 @@ export function exerciseErrors(skill: Skill, exercise: Exercise, level: number):
   for (const attempt of [1, 2] as const) {
     const hint = skill.hint(exercise, attempt);
     errors.push(...textErrors(`indice ${attempt}`, hint, MAX_BUBBLE_SENTENCES));
+    if (hint.length > MAX_BUBBLE_CHARS) {
+      errors.push(`indice ${attempt} : ${hint.length} caractères : ${hint}`);
+    }
   }
   const fact = skill.facts?.of(exercise);
   if (fact != null && !skill.facts!.all.includes(fact)) errors.push(`fait non déclaré : ${fact}`);
