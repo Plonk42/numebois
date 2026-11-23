@@ -110,14 +110,18 @@ interface Props {
   /** In the reserve, the leaves of the trail in progress still in Plume's basket aside. */
   leaves: number;
   seeds: number;
+  /** Something can be bought: the reserve glows. */
+  ready: boolean;
+  onTap(): void;
   onLongPress(): void;
 }
 
 /**
  * The reserve, top left: leaves and golden seeds, never lost. The leaves come from Plume's
  * basket, the golden seeds from where they were won, and the counter pops when they land.
+ * At the end of the trail, a touch opens the shop.
  */
-export function Reserve({ leaves, seeds, onLongPress }: Props) {
+export function Reserve({ leaves, seeds, ready, onTap, onLongPress }: Props) {
   const timer = useRef(0);
   const pressedAt = useRef<number | null>(null);
   const leafCounter = useRef<HTMLSpanElement>(null);
@@ -137,12 +141,14 @@ export function Reserve({ leaves, seeds, onLongPress }: Props) {
     <>
       <div
         id="reserve"
+        class={ready ? 'ready' : ''}
         role="img"
         aria-label={`Réserve : ${plural(leaves, 'feuille', 'feuilles')}, ${plural(seeds, 'graine dorée', 'graines dorées')}`}
         onPointerDown={(event) => {
           cancel();
           pressedAt.current = event.timeStamp;
           timer.current = window.setTimeout(open, LONG_PRESS_MS);
+          onTap();
         }}
         // A busy page can fire the timer late: the hold time decides, measured on the events.
         onPointerUp={(event) => {

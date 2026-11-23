@@ -94,7 +94,7 @@ const ready = sceneOnly
             'welcome',
             'walking',
             'seed',
-            'summary',
+            'shop',
             'choosing',
             'planting',
             'adopting',

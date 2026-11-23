@@ -1,4 +1,4 @@
-import { render, type ComponentChildren } from 'preact';
+import { render } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import {
   LEAVES_PER_ELEMENT,
@@ -35,6 +35,8 @@ const SEED_FLY_MS = 1000;
 /** At the end of the trail, Plume pours her basket into the reserve, leaf after leaf. */
 const POUR_START_MS = 700;
 const POUR_STEP_MS = 150;
+/** Then « Sentier terminé ! » stays a moment before the forest is all the child's. */
+const DONE_MS = 2000;
 const PRAISES = ['Bravo !', 'Super !', 'Oui !', 'Bien vu !', 'Génial !'];
 const DAY_MS = 86_400_000;
 
@@ -45,14 +47,14 @@ type Phase =
   | 'right'
   | 'reveal'
   | 'seed'
-  | 'summary'
+  | 'shop'
   | 'choosing'
   | 'planting'
   | 'adopting'
   | 'turning';
 
-/** Phases of the end of the trail, when the forest has the stage. */
-const SUMMARY_PHASES: readonly Phase[] = ['summary', 'choosing', 'planting', 'adopting', 'turning'];
+/** Phases of the end of the trail besides the walk, when the reserve is spent. */
+const SHOP_PHASES = new Set<Phase>(['shop', 'choosing', 'planting', 'adopting', 'turning']);
 
 /** The painting in progress, as the game sees it. */
 export interface GameForest extends SpotsForest {
@@ -137,14 +139,13 @@ function giftReason(achievement: Achievement, skill: Skill): string {
 
 /**
  * The trail: question after question along a path of stones; each right answer brings a
- * leaf to the reserve, each notion acquired or fact automated a golden seed, and a kind
- * summary closes the trail, with the shop of the forest where the reserve is spent. Mistakes
- * cost nothing: a hint, then the answer.
+ * leaf to the reserve, each notion acquired or fact automated a golden seed. At the end, the
+ * forest is the child's to walk in: a touch on the reserve opens the shop where it is spent,
+ * the sign by the path starts another trail. Mistakes cost nothing: a hint, then the answer.
  */
 function Game(props: Props) {
   const { session, rng, forest, probe } = props;
   const [grown, setGrown] = useState(0);
-  const [grownHere, setGrownHere] = useState(0);
   const [leaves, setLeaves] = useState(props.leaves);
   const [seeds, setSeeds] = useState(props.seeds);
   const [leavesHere, setLeavesHere] = useState(0);
@@ -161,16 +162,20 @@ function Game(props: Props) {
   const [length, setLength] = useState<TrailLength>(session.length);
   const [spots, setSpots] = useState<readonly number[]>([]);
   const [arrival, setArrival] = useState<string | null>(null);
-  /** The card the walk started from, and whether the view has left the framing. */
-  const [walkFrom, setWalkFrom] = useState<'welcome' | 'summary'>('welcome');
+  /** Whether the walk started from the welcome card or the end of the trail. */
+  const [walkFrom, setWalkFrom] = useState<'welcome' | 'end'>('welcome');
   const [viewAway, setViewAway] = useState(false);
+  /** « Sentier terminé ! » shows while Plume pours her basket, then goes. */
+  const [done, setDone] = useState(false);
   const timer = useRef(0);
   const shownAt = useRef(performance.now());
   const firstAnswerMs = useRef<number | null>(null);
 
   const walking = phase === 'walking';
-  const summary = SUMMARY_PHASES.includes(phase) || (walking && walkFrom === 'summary');
+  const ended = SHOP_PHASES.has(phase) || (walking && walkFrom === 'end');
   const welcome = phase === 'welcome' || (walking && walkFrom === 'welcome');
+  /** The forest is the child's: the reserve opens the shop, the seasons answer, the sign waits. */
+  const free = ended && !done && (walking || phase === 'shop');
   useEffect(() => {
     Object.assign(probe, {
       exercise,
@@ -179,9 +184,9 @@ function Game(props: Props) {
       basket,
       grown,
       phase,
-      stone: summary ? session.stones : session.stone,
+      stone: ended ? session.stones : session.stone,
       stones: session.stones,
-      role: summary ? null : session.step.role,
+      role: ended ? null : session.step.role,
     });
   });
   useEffect(() => () => clearTimeout(timer.current), []);
@@ -204,15 +209,19 @@ function Game(props: Props) {
     );
   // Every answer changes the phase or the reserve, every element the phase: the save follows.
   useEffect(() => props.save(saveData()), [leaves, seeds, phase, length]);
-  // The end of the trail: the basket empties into the reserve, then the shop opens.
+  // The end of the trail: the basket empties into the reserve, then the forest is the child's.
   useEffect(() => {
-    if (phase !== 'summary' || basket === 0) return;
+    if (!done) return;
+    if (basket === 0) {
+      const id = window.setTimeout(() => setDone(false), DONE_MS);
+      return () => clearTimeout(id);
+    }
     const id = window.setTimeout(
       () => setBasket((b) => b - 1),
       basket === leavesHere ? POUR_START_MS : POUR_STEP_MS,
     );
     return () => clearTimeout(id);
-  }, [phase, basket]);
+  }, [done, basket]);
   /** What can be spent: the basket is not poured yet. */
   const reserve = leaves - basket;
 
@@ -238,19 +247,24 @@ function Game(props: Props) {
   };
 
   const walk = () => {
-    if (phase !== 'welcome' && phase !== 'summary') return;
-    setWalkFrom(phase);
+    if (phase !== 'welcome') return;
+    setWalkFrom('welcome');
     setPhase('walking');
   };
 
   const proceed = () => {
-    if (session.advance()) ask();
-    else setPhase('summary');
+    if (session.advance()) {
+      ask();
+      return;
+    }
+    setWalkFrom('end');
+    setDone(true);
+    setPhase('walking');
   };
 
   const restart = () => {
+    if (!free) return;
     session.startTrail();
-    setGrownHere(0);
     setLeavesHere(0);
     setSeedsHere(0);
     setBasket(0);
@@ -259,7 +273,7 @@ function Game(props: Props) {
 
   /** One touch in the shop: an element waits for its place, an animal or a season comes at once. */
   const buy = (item: ShopItem) => {
-    if (phase !== 'summary' || basket > 0 || !canBuy(item, leaves, seeds)) return;
+    if (phase !== 'shop' || !canBuy(item, leaves, seeds)) return;
     const { article } = item;
     if (article.kind === 'element') {
       const slots = forest.candidates();
@@ -278,18 +292,18 @@ function Game(props: Props) {
     setArrival(`${ANIMAL_LABELS[article.animal]} arrive !`);
     setPhase('adopting');
     void forest.adopt(article.animal).then(() => {
-      setGrownHere((g) => g + 1);
       setArrival(null);
-      setPhase('summary');
+      setPhase('shop');
     });
   };
 
-  /** The painting passes to another of its seasons. */
+  /** The painting passes to another of its seasons, then back to the walk or the shop. */
   const turn = (season: Season) => {
+    const back = phase;
     setPhase('turning');
     void forest.changeSeason(season).then(() => {
       setArrival(null);
-      setPhase('summary');
+      setPhase(back);
     });
   };
 
@@ -300,8 +314,7 @@ function Game(props: Props) {
     setPhase('planting');
     void forest.plant(slot, today()).then(() => {
       setGrown((g) => g + 1);
-      setGrownHere((g) => g + 1);
-      setPhase('summary');
+      setPhase('shop');
     });
   };
 
@@ -379,6 +392,7 @@ function Game(props: Props) {
   }
   const placed = forest.description().elements.length;
   const { season, seasons } = forest.description();
+  const items = shopItems(forest.description());
   // A golden seed: the slate steps aside, the forest lights up.
   const away = phase === 'seed';
   let plume: PlumeMood = 'calm';
@@ -386,26 +400,38 @@ function Game(props: Props) {
   else if (hint) plume = 'talk';
   return (
     <>
-      <Reserve leaves={reserve} seeds={seeds} onLongPress={() => setMenu(true)} />
+      <Reserve
+        leaves={reserve}
+        seeds={seeds}
+        // Glows when something is within reach, once the forest is the child's.
+        ready={free && walking && items.some((item) => canBuy(item, leaves, seeds))}
+        onTap={() => {
+          if (free && walking) setPhase('shop');
+        }}
+        onLongPress={() => setMenu(true)}
+      />
       <SeasonPicker
         seasons={seasons}
         season={season}
-        active={phase === 'summary'}
+        active={free}
         onPick={(s) => {
-          if (phase === 'summary') turn(s);
+          if (free) turn(s);
         }}
       />
-      <TrailPath stones={session.stones} current={summary ? session.stones : session.stone} />
+      <TrailPath
+        stones={session.stones}
+        current={ended ? session.stones : session.stone}
+        onNewTrail={free ? restart : undefined}
+      />
       {/* During a question, the forest dims: one thing at a time. */}
-      <div id="dim" class={summary || welcome || away ? '' : 'on'} />
+      <div id="dim" class={ended || welcome || away ? '' : 'on'} />
       {gift && phase === 'seed' && <SeedGift {...gift} />}
       {phase === 'choosing' && <Spots forest={forest} slots={spots} onPick={plant} />}
-      {walking && (
+      {walking && !done && (
         <Walk
           away={viewAway}
-          from={walkFrom}
           onRecenter={() => forest.recenter()}
-          onDone={walkFrom === 'welcome' ? begin : () => setPhase('summary')}
+          onStart={walkFrom === 'welcome' ? begin : undefined}
         />
       )}
       {arrival && (
@@ -430,27 +456,27 @@ function Game(props: Props) {
       )}
       {welcome ? (
         <Welcome away={walking} onStart={begin} onWalk={walk} />
-      ) : summary ? (
-        <Summary
-          stones={session.stones}
-          leaves={leavesHere}
-          seeds={seedsHere}
-          grown={grownHere}
-          complete={placed >= MAX_ELEMENTS}
-          away={phase !== 'summary'}
-          basket={basket}
-          onAgain={restart}
-          onWalk={walk}
-        >
-          <Shop
-            items={shopItems(forest.description())}
-            leaves={reserve}
-            seeds={seeds}
-            open={basket === 0}
-            portrait={(animal) => forest.portrait(animal)}
-            onBuy={buy}
-          />
-        </Summary>
+      ) : ended ? (
+        <>
+          {done && <TrailDone leaves={leavesHere} seeds={seedsHere} basket={basket} />}
+          {SHOP_PHASES.has(phase) && (
+            <section id="shop" class={`card${phase === 'shop' ? '' : ' away'}`}>
+              <Shop
+                items={items}
+                leaves={leaves}
+                seeds={seeds}
+                portrait={(animal) => forest.portrait(animal)}
+                onBuy={buy}
+              />
+              {placed >= MAX_ELEMENTS && <p class="instruction">Ton tableau est complet !</p>}
+              <div class="actions">
+                <button type="button" onPointerDown={() => setPhase('walking')}>
+                  Fermer
+                </button>
+              </div>
+            </section>
+          )}
+        </>
       ) : (
         <Slate
           away={away}
@@ -520,17 +546,16 @@ function Welcome({ away, onStart, onWalk }: WelcomeProps) {
 interface WalkProps {
   /** The view has left the framing. */
   away: boolean;
-  /** The card the walk started from. */
-  from: 'welcome' | 'summary';
   onRecenter(): void;
-  onDone(): void;
+  /** From the welcome card: the way on to the trail (at the end, the sign by the path). */
+  onStart?: () => void;
 }
 
 /**
  * During a walk in the forest: how to move until the child has moved, the whole forest again
- * once the view has left it, and the way on (the trail, or back to the shop).
+ * once the view has left it, and from the welcome card the way on to the trail.
  */
-function Walk({ away, from, onRecenter, onDone }: WalkProps) {
+function Walk({ away, onRecenter, onStart }: WalkProps) {
   const [moved, setMoved] = useState(false);
   useEffect(() => {
     if (away) setMoved(true);
@@ -553,63 +578,35 @@ function Walk({ away, from, onRecenter, onDone }: WalkProps) {
           deux doigts pour t’approcher et tourner.
         </p>
       )}
-      <button type="button" class="next" onPointerDown={onDone}>
-        {from === 'welcome' ? 'Commencer le sentier' : 'Retour à la boutique'}
-      </button>
+      {onStart && (
+        <button type="button" class="next" onPointerDown={onStart}>
+          Commencer le sentier
+        </button>
+      )}
     </section>
   );
 }
 
-interface SummaryProps {
-  stones: number;
+interface TrailDoneProps {
   /** Earned on this trail. */
   leaves: number;
   seeds: number;
-  /** Elements grown and animals come since the end of this trail. */
-  grown: number;
-  /** Every slot of the painting holds an element. */
-  complete: boolean;
-  /** The forest has the stage: the card steps aside. */
-  away: boolean;
   /** Leaves still in Plume's basket: she pours them into the reserve. */
   basket: number;
-  onAgain(): void;
-  /** A walk in the forest, the card aside. */
-  onWalk(): void;
-  /** The shop of the forest. */
-  children: ComponentChildren;
 }
 
-/**
- * The end of a trail, over the whole forest: what was done, never what was missed, then the
- * shop of the forest; another trail stays one touch away.
- */
-function Summary(props: SummaryProps) {
-  const { stones, leaves, seeds, grown } = props;
+/** The end of a trail, a moment over the whole forest: what was done, never what was missed. */
+function TrailDone({ leaves, seeds, basket }: TrailDoneProps) {
   let earned = '';
   if (leaves > 0 && seeds > 0) {
     earned = `Tu as gagné ${plural(leaves, 'feuille', 'feuilles')} et ${plural(seeds, 'graine dorée', 'graines dorées')}.`;
   } else if (leaves > 0) earned = `Tu as gagné ${plural(leaves, 'feuille', 'feuilles')}.`;
-  let forest = '';
-  if (props.complete) forest = 'Ton tableau est complet !';
-  else if (grown > 0) forest = 'Ta forêt a grandi !';
   return (
-    <section id="trail-end" class={`card${props.away ? ' away' : ''}`} aria-live="polite">
+    <section id="trail-end" class="card" aria-live="polite">
       <Plume mood="cheer" />
-      <Basket leaves={props.basket} pouring={props.basket > 0} />
+      <Basket leaves={basket} pouring={basket > 0} />
       <p class="praise">Sentier terminé !</p>
-      <p class="statement text">Tu as franchi {stones} pierres.</p>
       {earned && <p class="instruction earned">{earned}</p>}
-      {forest && <p class="instruction">{forest}</p>}
-      {props.children}
-      <div class="actions">
-        <button type="button" class="walk" onPointerDown={props.onWalk}>
-          Se promener
-        </button>
-        <button type="button" class="next" onPointerDown={props.onAgain}>
-          Encore un sentier
-        </button>
-      </div>
     </section>
   );
 }

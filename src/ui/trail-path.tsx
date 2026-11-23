@@ -2,6 +2,8 @@ interface Props {
   stones: number;
   /** The stone in progress; all stones are crossed when it equals `stones`. */
   current: number;
+  /** At the end of the trail, a wooden sign at the start of the path begins another one. */
+  onNewTrail?: () => void;
 }
 
 const HEIGHT = 56;
@@ -11,40 +13,65 @@ const GAP = 46;
 const TO_TREE = 42;
 /** The path winds gently through the grass. */
 const wind = (x: number) => 31 + 5 * Math.sin(x / 34);
+const SIGN_GAP = 10;
 
 /** The trail as a dirt path through the grass, a stone per question, to a tree: the end is always in sight. */
-export function TrailPath({ stones, current }: Props) {
+export function TrailPath({ stones, current, onNewTrail }: Props) {
   const tree = FIRST + (stones - 1) * GAP + TO_TREE;
   const width = tree + 28;
   let path = `M 0 ${wind(0).toFixed(1)}`;
   for (let x = 6; x <= tree; x += 6) path += ` L ${x} ${wind(x).toFixed(1)}`;
   return (
-    <div id="trail" role="img" aria-label={`Pierre ${Math.min(current + 1, stones)} sur ${stones}`}>
-      <svg width={width} height={HEIGHT} viewBox={`0 0 ${width} ${HEIGHT}`} aria-hidden="true">
-        <path class="verge" d={path} />
-        <path class="dirt" d={path} />
-        {Array.from({ length: stones }, (_, i) => {
-          let state = 'ahead';
-          if (i < current) state = 'crossed';
-          else if (i === current) state = 'here';
-          const x = FIRST + i * GAP;
-          return (
-            <g key={`${i}-${state}`} transform={`translate(${x} ${wind(x).toFixed(1)})`}>
-              <g class={`stone ${state}`}>
-                <ellipse class="halo" rx="19" ry="13" />
-                <ellipse class="rock" rx="14" ry="9" />
-                <ellipse class="shine" cx="-4" cy="-3" rx="5" ry="2.4" />
+    <>
+      {onNewTrail && (
+        <button
+          type="button"
+          id="new-trail"
+          style={{ right: `calc(50% + ${width / 2 + SIGN_GAP}px)` }}
+          onPointerDown={onNewTrail}
+        >
+          <svg viewBox="0 0 140 76" aria-hidden="true">
+            <rect class="post" x="60" y="48" width="12" height="28" rx="3" />
+            <path class="plank" d="M4 3h112l20 25-20 25H4z" />
+          </svg>
+          <span>
+            Nouveau
+            <br />
+            sentier
+          </span>
+        </button>
+      )}
+      <div
+        id="trail"
+        role="img"
+        aria-label={`Pierre ${Math.min(current + 1, stones)} sur ${stones}`}
+      >
+        <svg width={width} height={HEIGHT} viewBox={`0 0 ${width} ${HEIGHT}`} aria-hidden="true">
+          <path class="verge" d={path} />
+          <path class="dirt" d={path} />
+          {Array.from({ length: stones }, (_, i) => {
+            let state = 'ahead';
+            if (i < current) state = 'crossed';
+            else if (i === current) state = 'here';
+            const x = FIRST + i * GAP;
+            return (
+              <g key={`${i}-${state}`} transform={`translate(${x} ${wind(x).toFixed(1)})`}>
+                <g class={`stone ${state}`}>
+                  <ellipse class="halo" rx="19" ry="13" />
+                  <ellipse class="rock" rx="14" ry="9" />
+                  <ellipse class="shine" cx="-4" cy="-3" rx="5" ry="2.4" />
+                </g>
               </g>
-            </g>
-          );
-        })}
-        <g class="tree" transform={`translate(${tree} ${wind(tree).toFixed(1)})`}>
-          <rect class="trunk" x="-3" y="-6" width="6" height="14" rx="2" />
-          <circle class="crown" cx="0" cy="-14" r="11" />
-          <circle class="crown" cx="-7" cy="-8" r="7" />
-          <circle class="crown" cx="7" cy="-8" r="7" />
-        </g>
-      </svg>
-    </div>
+            );
+          })}
+          <g class="tree" transform={`translate(${tree} ${wind(tree).toFixed(1)})`}>
+            <rect class="trunk" x="-3" y="-6" width="6" height="14" rx="2" />
+            <circle class="crown" cx="0" cy="-14" r="11" />
+            <circle class="crown" cx="-7" cy="-8" r="7" />
+            <circle class="crown" cx="7" cy="-8" r="7" />
+          </g>
+        </svg>
+      </div>
+    </>
   );
 }

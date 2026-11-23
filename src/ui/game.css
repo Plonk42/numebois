@@ -21,6 +21,20 @@
   border-radius: 28px;
   background: rgba(255, 255, 255, 0.72);
   box-shadow: 0 2px 8px rgba(0, 40, 80, 0.18);
+  touch-action: manipulation;
+}
+/* At the end of the trail, something within reach: the reserve glows, a touch opens the shop. */
+#reserve.ready {
+  background: rgba(255, 251, 230, 0.92);
+  animation: reserve-glow 2.4s ease-in-out infinite;
+}
+@keyframes reserve-glow {
+  50% {
+    box-shadow:
+      0 2px 8px rgba(0, 40, 80, 0.18),
+      0 0 0 4px #ffe27a,
+      0 0 22px 6px rgba(255, 226, 122, 0.8);
+  }
 }
 #reserve .counter {
   position: relative;
@@ -438,6 +452,51 @@
   fill: #4e9a35;
   stroke: #3a7527;
   stroke-width: 1.5px;
+}
+
+/* At the end of the trail, a wooden sign at the start of the path: another trail. */
+#new-trail {
+  position: fixed;
+  top: 6px;
+  z-index: 5;
+  width: 140px;
+  height: 76px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  touch-action: manipulation;
+  filter: drop-shadow(0 3px 4px rgba(0, 30, 20, 0.3));
+  animation: leaf-pop 0.5s cubic-bezier(0.3, 1.7, 0.5, 1);
+}
+#new-trail:active {
+  transform: translateY(3px);
+}
+#new-trail svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+#new-trail .post {
+  fill: #8a5a32;
+}
+#new-trail .plank {
+  fill: #c79a6b;
+  stroke: #8a5a32;
+  stroke-width: 3;
+  stroke-linejoin: round;
+}
+#new-trail span {
+  position: absolute;
+  left: 6px;
+  top: 8px;
+  width: 110px;
+  font-size: 18px;
+  line-height: 20px;
+  font-weight: 700;
+  color: #fffaf0;
+  text-shadow: 0 1px 0 #6b4424;
 }
 
 /* Hidden parent menu, over everything. */
