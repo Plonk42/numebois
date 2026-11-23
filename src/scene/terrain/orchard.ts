@@ -47,8 +47,8 @@ const COTTAGE_SCALE = 3;
 
 // One value per stage. The diorama grows like the clearing; the hills rise terrace by
 // terrace out of the meadow (main hill first, the east one at 5, the west one at 9), the
-// strips are planted from the middle outwards, the windmill turns on the summit at 6, the
-// whole orchard blossoms at 8 and bears fruit at 10.
+// strips are planted from the middle outwards, the whole orchard blossoms at 6, the
+// windmill takes the place of the little house on the summit at 8, fruits come at 10.
 const ORCHARD_BY_STAGE = {
   hx: [13.5, 15.5, 17.5, 19, 21, 22.5, 24, 25.5, 27, 28.5, 29.3, 30],
   hz: [10.5, 12, 14.5, 18.5, 20, 21.25, 22.25, 23.5, 24.5, 25.5, 26.3, 27],
@@ -64,9 +64,9 @@ const ORCHARD_BY_STAGE = {
   brook: [0, 0, 0, 0.42, 0.46, 0.5, 0.54, 0.58, 0.62, 0.66, 0.7, 0.74],
   cover: [0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.08, 1.15, 1.22, 1.3, 1.35, 1.4],
   /** A little house on the summit first; the windmill takes its place. */
-  cottage: [false, false, false, false, true, true, false, false, false, false, false, false],
-  windmill: [false, false, false, false, false, false, true, true, true, true, true, true],
-  blossom: [false, false, false, false, false, false, false, false, true, true, true, true],
+  cottage: [false, false, false, false, true, true, true, true, false, false, false, false],
+  windmill: [false, false, false, false, false, false, false, false, true, true, true, true],
+  blossom: [false, false, false, false, false, false, true, true, true, true, true, true],
   fruit: [false, false, false, false, false, false, false, false, false, false, true, true],
 } satisfies Record<string, PerStage<number> | PerStage<boolean>>;
 

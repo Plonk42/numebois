@@ -136,24 +136,24 @@ describe('orchard: stages and grand moments', () => {
     for (const seed of [0, 7, 19]) {
       const at = (stage: Stage) => createOrchard(seed, stage);
       const labels = (stage: Stage) => at(stage).announcements.map((a) => a.label);
-      expect(labels(5)).toEqual(['windmill']);
-      expect(at(5).spinners).toEqual([]);
+      expect(labels(5)).toEqual(['blossom']);
+      expect(labels(7)).toEqual(['windmill']);
+      expect(at(7).spinners).toEqual([]);
       // A little house on the summit first, which the windmill replaces.
       expect(at(3).staticModels.map((m) => m.model)).not.toContain('Cottage');
       expect(at(4).staticModels.map((m) => m.model)).toContain('Cottage');
-      expect(at(5).staticModels.map((m) => m.model)).toContain('Cottage');
-      expect(at(6).staticModels.map((m) => m.model)).not.toContain('Cottage');
-      for (const stage of [6, 9, LAST_STAGE] as Stage[]) {
+      expect(at(7).staticModels.map((m) => m.model)).toContain('Cottage');
+      expect(at(8).staticModels.map((m) => m.model)).not.toContain('Cottage');
+      for (const stage of [8, 9, LAST_STAGE] as Stage[]) {
         expect(at(stage).spinners.map((s) => s.model)).toEqual(['Windmill_Sails']);
         expect(at(stage).staticModels.map((m) => m.model)).toContain('Windmill');
       }
-      expect(labels(7)).toEqual(['blossom']);
       const pink = (stage: Stage) =>
         compose(scene(seed, stage, 'spring', { fill: 1 })).planting.trees.filter((t) =>
           t.foliage?.includes('Blossom'),
         ).length;
-      expect(pink(7)).toBe(0);
-      expect(pink(8)).toBeGreaterThan(12);
+      expect(pink(5)).toBe(0);
+      expect(pink(6)).toBeGreaterThan(12);
       // Fruits from stage 10, the rest of the orchard still in blossom.
       const trees = compose(scene(seed, LAST_STAGE, 'spring', { fill: 1 })).planting.trees;
       expect(trees.some((t) => t.fruit !== undefined)).toBe(true);
