@@ -1,12 +1,22 @@
 /**
- * Models taken from the local KayKit packs by `npm run assets`.
+ * Models taken from the local packs by `npm run assets`: KayKit, and a few Quaternius models
+ * (CC0, plain colours mapped onto the KayKit atlas by the pipeline).
  * The game only refers to them through the generated manifest (`assets.gen.ts`).
  */
 
-export type Pack = 'forest' | 'hex';
+export type Pack = 'forest' | 'hex' | 'nature';
 
 export type ModelKind =
-  'tuft' | 'bush' | 'grass' | 'rock' | 'mountain' | 'lily' | 'waterplant' | 'cloud';
+  | 'tuft'
+  | 'bush'
+  | 'grass'
+  | 'rock'
+  | 'mountain'
+  | 'lily'
+  | 'waterplant'
+  | 'cloud'
+  | 'log'
+  | 'stump';
 
 export interface ModelSource {
   pack: Pack;
@@ -29,6 +39,7 @@ const tuft = (tree: string, leafPart: number): ModelSource => ({
   leafPart,
 });
 const hex = (file: string, kind: ModelKind): ModelSource => ({ pack: 'hex', file, kind });
+const nature = (file: string, kind: ModelKind): ModelSource => ({ pack: 'nature', file, kind });
 
 export const CATALOG = {
   // Leaf tufts cut out of the KayKit trees, recentred on their bounding box.
@@ -48,7 +59,6 @@ export const CATALOG = {
   Bush_4_D: forest('Bush_4_D', 'bush'),
 
   Grass_1_A: forest('Grass_1_A', 'grass'),
-  Grass_1_B: forest('Grass_1_B', 'grass'),
   Grass_2_A: forest('Grass_2_A', 'grass'),
   Grass_2_B: forest('Grass_2_B', 'grass'),
 
@@ -76,16 +86,26 @@ export const CATALOG = {
   waterplant_A: hex('waterplant_A', 'waterplant'),
   cloud_big: hex('cloud_big', 'cloud'),
   cloud_small: hex('cloud_small', 'cloud'),
+
+  // Quaternius Ultimate Nature: fallen logs and stumps, mossy, or snowy in winter.
+  Log: nature('WoodLog', 'log'),
+  Log_Moss: nature('WoodLog_Moss', 'log'),
+  Log_Snow: nature('WoodLog_Snow', 'log'),
+  Stump: nature('TreeStump', 'stump'),
+  Stump_Moss: nature('TreeStump_Moss', 'stump'),
+  Stump_Snow: nature('TreeStump_Snow', 'stump'),
 } as const satisfies Record<string, ModelSource>;
 
 export type ModelName = keyof typeof CATALOG;
 
+/** Zip of each pack in `assets/`, by the start of its name (downloads add a suffix). */
 export const PACK_ZIPS: Record<Pack, string> = {
   forest: 'KayKit_Forest_Nature_Pack_1.0_FREE.zip',
   hex: 'KayKit_Medieval_Hexagon_Pack_1.0_FREE.zip',
+  nature: 'Ultimate Nature Pack - Jun 2019',
 };
 
-export const PACK_TEXTURES: Record<Pack, string> = {
+export const PACK_TEXTURES: Record<'forest' | 'hex', string> = {
   forest: 'forest_texture.png',
   hex: 'hexagons_medieval.png',
 };

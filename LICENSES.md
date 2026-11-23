@@ -11,6 +11,12 @@ Modèles extraits et optimisés par `npm run assets` (`scripts/build-assets.ts`)
 | KayKit : Forest Nature Pack 1.0 (FREE)    | Kay Lousberg ([kaylousberg.com](https://www.kaylousberg.com)) | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | [itch.io](https://kaylousberg.itch.io/kaykit-forest)           |
 | KayKit : Medieval Hexagon Pack 1.0 (FREE) | Kay Lousberg ([kaylousberg.com](https://www.kaylousberg.com)) | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | [itch.io](https://kaylousberg.itch.io/kaykit-medieval-hexagon) |
 
+Les troncs tombés et les souches viennent d'un pack de Quaternius, leurs couleurs reportées sur l'atlas KayKit :
+
+| Pack                             | Auteur                                                | Licence                                                       | Source                                                             |
+| -------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------ |
+| Ultimate Nature Pack (juin 2019) | Quaternius ([quaternius.com](https://quaternius.com)) | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | [quaternius.com](https://quaternius.com/packs/ultimatenature.html) |
+
 Les fichiers bruts des packs ne sont pas dans le dépôt. Les fleurs, champignons, arbres, terrain et effets sont générés par le code de Numebois.
 
 ## `public/assets/animals.glb`
