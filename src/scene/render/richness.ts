@@ -54,16 +54,28 @@ export interface Ambience extends Light {
   sparkle: number;
   /** Rainbow over the main waterfall. */
   rainbow: number;
-  /** Volume of each layer of the soundscape (0 = silent). */
+  /** Layers of the soundscape: volumes of the loops, rates of the calls. */
   sound: SoundLevels;
 }
 
-/** Layers of the ambient sound, synthesised by `src/scene/audio/`. */
+/** Layers of the ambient sound (`src/scene/audio/`): the wind is synthesised, the rest recorded. */
 export interface SoundLevels {
-  /** Soft wind in the trees. */
+  /** Volumes of the loops (0 = silent). */
   wind: number;
-  /** Water heard from afar: the spring, then the falls. */
-  water: number;
+  pond: number;
+  brook: number;
+  falls: number;
+  birds: number;
+  chorus: number;
+  meadow: number;
+  leaves: number;
+  crickets: number;
+  /** Calls a minute, at random moments: songbirds, woodpecker, cuckoo, tawny owl, chimes. */
+  songs: number;
+  woodpecker: number;
+  cuckoo: number;
+  owl: number;
+  magic: number;
 }
 
 /** What each stage brings, in a word or two. */
@@ -163,8 +175,24 @@ const LIFE = {
   sunRays: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0.7, 0.85, 1],
   sparkle: [0, 0, 0, 0, 0, 0.08, 0.15, 0.2, 0.25, 0.3, 0.6, 1],
   rainbow: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-  windSound: [0.7, 0.7, 0.72, 0.74, 0.76, 0.78, 0.8, 0.8, 0.8, 0.8, 0.75, 0.7],
-  waterSound: [0.35, 0.38, 0.5, 0.58, 0.62, 0.68, 0.72, 0.8, 0.84, 0.9, 0.95, 1],
+  // Sound, one new layer at stages 0, 2, 3, 6, 9 and 11: the spring's pond, the falls, the
+  // stream and the first birds, a livelier chorus and the meadow's insects, woodpecker,
+  // cuckoo and leaves in the gusts, then crickets, tawny owl and chimes. As layers come, the
+  // older ones step back, so the whole stays about as loud (and families take turns, #8).
+  windSound: [0.7, 0.7, 0.68, 0.62, 0.6, 0.58, 0.52, 0.5, 0.48, 0.45, 0.42, 0.4],
+  pondSound: [0.5, 0.5, 0.42, 0.32, 0.3, 0.28, 0.24, 0.22, 0.2, 0.18, 0.18, 0.15],
+  fallsSound: [0, 0, 0.3, 0.32, 0.35, 0.38, 0.38, 0.42, 0.42, 0.42, 0.42, 0.4],
+  brookSound: [0, 0, 0, 0.3, 0.32, 0.34, 0.34, 0.34, 0.36, 0.36, 0.36, 0.34],
+  birdsSound: [0, 0, 0, 0.45, 0.48, 0.5, 0.42, 0.42, 0.45, 0.38, 0.38, 0.32],
+  songs: [0, 0, 0, 1.5, 2, 2.5, 3, 3, 3.5, 3, 2.5, 2],
+  chorusSound: [0, 0, 0, 0, 0, 0, 0.22, 0.25, 0.3, 0.24, 0.22, 0.15],
+  meadowSound: [0, 0, 0, 0, 0, 0, 0.4, 0.4, 0.42, 0.32, 0.32, 0.28],
+  woodpecker: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0.6, 0.5, 0.4],
+  cuckoo: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0.6, 0.5, 0.3],
+  leavesSound: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0.3, 0.3, 0.25],
+  cricketsSound: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.35],
+  owl: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.5],
+  magic: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.5],
 } satisfies Record<string, PerStage<number>>;
 
 function mix(a: number, b: number, t: number): number {
@@ -298,15 +326,38 @@ export function ambienceFor(stage: Stage, season: Season): Ambience {
     sunRays: LIFE.sunRays[stage],
     sparkle: LIFE.sparkle[stage],
     rainbow: LIFE.rainbow[stage],
-    sound: { wind: LIFE.windSound[stage], water: LIFE.waterSound[stage] },
+    sound: {
+      wind: LIFE.windSound[stage],
+      pond: LIFE.pondSound[stage],
+      brook: LIFE.brookSound[stage],
+      falls: LIFE.fallsSound[stage],
+      birds: LIFE.birdsSound[stage],
+      chorus: LIFE.chorusSound[stage],
+      meadow: LIFE.meadowSound[stage],
+      leaves: LIFE.leavesSound[stage],
+      crickets: LIFE.cricketsSound[stage],
+      songs: LIFE.songs[stage],
+      woodpecker: LIFE.woodpecker[stage],
+      cuckoo: LIFE.cuckoo[stage],
+      owl: LIFE.owl[stage],
+      magic: LIFE.magic[stage],
+    },
   };
+  const sound = a.sound;
   if (season === 'spring') {
     a.flowers *= 1.3;
+    sound.songs *= 1.3;
+    sound.cuckoo *= 1.5;
   } else if (season === 'autumn') {
     a.flowers *= 0.25;
     a.butterflies *= 0.3;
     a.fallingLeaves = Math.min(1.6, a.fallingLeaves * 3 + 0.5);
     a.mushrooms = Math.max(a.mushrooms, 0.6) * 1.3;
+    // The cuckoo has flown south; fewer songs and insects.
+    sound.cuckoo = 0;
+    sound.songs *= 0.6;
+    sound.chorus *= 0.6;
+    sound.meadow *= 0.4;
   } else if (season === 'winter') {
     a.grass *= 0.3;
     a.flowers = 0;
@@ -316,6 +367,14 @@ export function ambienceFor(stage: Stage, season: Season): Ambience {
     a.lilies = 0;
     // Snowflakes replace the pollen.
     a.pollen = 0.5 + 0.5 * a.pollen;
+    // No insects, no cuckoo; a few birds stay.
+    sound.meadow = 0;
+    sound.crickets = 0;
+    sound.cuckoo = 0;
+    sound.songs *= 0.3;
+    sound.chorus *= 0.3;
+    sound.birds *= 0.5;
+    sound.leaves *= 0.6;
   }
   return a;
 }

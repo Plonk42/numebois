@@ -34,8 +34,8 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,glb}'],
-        // Only Vite's hashed bundles skip revisioning: the models keep a fixed name.
+        globPatterns: ['**/*.{js,css,html,svg,png,glb,ogg}'],
+        // Only Vite's hashed bundles skip revisioning: the models and sounds keep a fixed name.
         dontCacheBustURLsMatching: /-[\w-]{8}\.(js|css)$/,
       },
     }),

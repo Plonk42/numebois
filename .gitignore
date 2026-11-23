@@ -3,6 +3,7 @@ assets-private/
 /public/assets/*
 !/public/assets/kaykit.glb
 !/public/assets/animals.glb
+!/public/assets/sounds/
 node_modules/
 dist/
 test-results/
