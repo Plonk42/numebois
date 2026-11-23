@@ -1,5 +1,6 @@
 import { render } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
+import { isoDate, today } from '../core/day';
 import {
   LEAVES_PER_ELEMENT,
   LEAVES_PER_RIGHT_ANSWER,
@@ -9,14 +10,31 @@ import { Rng } from '../core/rng';
 import { Session, type Achievement } from '../core/session';
 import type { StepRole, TrailLength } from '../core/trail';
 import type { Exercise, Skill } from '../core/types';
-import { serializeSave, type ParsedSave } from '../save/save';
+import { QUESTS } from '../quests';
+import {
+  exportFile,
+  isFramed,
+  serializeAlbum,
+  type AlbumEntry,
+  type ParsedAlbum,
+} from '../save/album';
+import { serializeSave, type PaintingJournal, type ParsedSave } from '../save/save';
 import type { AnimalName } from '../scene/animal-catalog';
-import { MAX_ELEMENTS, type SceneDescription } from '../scene/description';
+import { nextBiomes } from '../scene/biomes';
+import {
+  completed,
+  DEFAULT_DESCRIPTION,
+  isComplete,
+  newPainting,
+  type SceneDescription,
+} from '../scene/description';
 import { canBuy, shopItems, type ShopItem } from '../scene/shop';
 import type { Quality } from '../scene/render/quality';
 import type { TrailArt } from '../scene/render/trail-art';
 import type { Season } from '../scene/trees/builder';
+import { AlbumButton, AlbumGrid, AlbumPage } from './album';
 import { Basket } from './basket';
+import { FinaleBanner, Frame, NextPainting, type NextChoice } from './finale';
 import { ParentMenu } from './parent-menu';
 import { Plume, type PlumeMood } from './plume';
 import { plural, Reserve, SeedIcon } from './reserve';
@@ -26,6 +44,7 @@ import { Slate, type SlateHint } from './slate';
 import { Spots, type SpotsForest } from './spots';
 import { TrailPath } from './trail-path';
 import { Widget } from './widgets';
+import './album.css';
 import './game.css';
 
 /** Time to enjoy the praise before the next question, in milliseconds. */
@@ -38,8 +57,11 @@ const POUR_START_MS = 700;
 const POUR_STEP_MS = 150;
 /** Then « Sentier terminé ! » stays a moment before the forest is all the child's. */
 const DONE_MS = 2000;
+/** The finished painting stays framed a moment, then the light comes over it. */
+const FRAMED_MS = 3500;
+/** Time for the light to cover the scene before a painting is built under it (#veil). */
+const COVER_MS = 750;
 const PRAISES = ['Bravo !', 'Super !', 'Oui !', 'Bien vu !', 'Génial !'];
-const DAY_MS = 86_400_000;
 
 type Phase =
   | 'welcome'
@@ -52,10 +74,19 @@ type Phase =
   | 'choosing'
   | 'planting'
   | 'adopting'
-  | 'turning';
+  | 'turning'
+  | 'finale'
+  | 'framing'
+  | 'next'
+  | 'album'
+  | 'visiting';
 
 /** Phases of the end of the trail besides the walk, when the reserve is spent. */
 const SHOP_PHASES = new Set<Phase>(['shop', 'choosing', 'planting', 'adopting', 'turning']);
+/** A complete painting: the grand finale, its frame, then the choice of the next one (#33). */
+const FINALE_PHASES = new Set<Phase>(['finale', 'framing', 'next']);
+/** The Album, then one of its paintings alive again (#34). */
+const ALBUM_PHASES = new Set<Phase>(['album', 'visiting']);
 
 /** The painting in progress, as the game sees it. */
 export interface GameForest extends SpotsForest {
@@ -72,8 +103,18 @@ export interface GameForest extends SpotsForest {
   portrait(animal: AnimalName): string | null;
   /** The trail and its sign drawn with the models of the forest, null while they load. */
   trailArt(stones: number): TrailArt | null;
-  /** The models are loaded. */
+  /** The models are loaded and the painting built. */
   ready: Promise<unknown>;
+  /** The grand finale of the complete painting; resolves once it is over. */
+  finale(): Promise<unknown>;
+  /** The painting shown, at its framing, as a small image. */
+  picture(): string;
+  /** Shows another painting (Album, next one; null: the one in progress), built at once. */
+  show(description: SceneDescription | null): void;
+  /** A new painting in progress, built at once. */
+  start(description: SceneDescription): void;
+  /** The light over the whole scene, to build another painting under it. */
+  cover(on: boolean): void;
   /** Short sound of a reward of the trail. */
   reward(kind: 'right' | 'seed'): void;
   /**
@@ -115,22 +156,19 @@ interface Step {
   start(): void;
 }
 
-/** Local day number: a new day starts at midnight on the tablet. */
-function today(): number {
-  const now = new Date();
-  return Math.floor((now.getTime() - now.getTimezoneOffset() * 60_000) / DAY_MS);
-}
-
 interface Props {
   session: Session;
   skills: readonly Skill[];
   rng: Rng;
   leaves: number;
   seeds: number;
+  journal: PaintingJournal;
+  album: readonly AlbumEntry[];
   /** Why the save could not be read, if it could not. */
   problem: string | null;
   forest: GameForest;
   save(json: string): void;
+  saveAlbum(entries: readonly AlbumEntry[]): void;
   probe: GameProbe;
   /** Opens on the welcome card rather than on the first question. */
   welcome: boolean;
@@ -161,7 +199,10 @@ function Game(props: Props) {
   const [round, setRound] = useState(0);
   const [{ skill, exercise }, setQuestion] = useState(() => session.ask());
   const [mistakes, setMistakes] = useState(0);
-  const [phase, setPhase] = useState<Phase>(props.welcome ? 'welcome' : 'asking');
+  const [phase, setPhase] = useState<Phase>(() => {
+    if (isComplete(forest.description())) return 'finale';
+    return props.welcome ? 'welcome' : 'asking';
+  });
   const [praise, setPraise] = useState(PRAISES[0]);
   const [menu, setMenu] = useState(false);
   const [length, setLength] = useState<TrailLength>(session.length);
@@ -173,15 +214,31 @@ function Game(props: Props) {
   const [viewAway, setViewAway] = useState(false);
   /** « Sentier terminé ! » shows while Plume pours her basket, then goes. */
   const [done, setDone] = useState(false);
+  const [journal, setJournal] = useState(props.journal);
+  const [album, setAlbum] = useState(props.album);
+  const [choices, setChoices] = useState<readonly NextChoice[]>([]);
+  const [page, setPage] = useState<AlbumEntry | null>(null);
+  /** Where the Album was opened from, to come back there. */
+  const albumFrom = useRef<Phase>('welcome');
+  /** After the grand finale, the walk; the welcome card when it resumed at start. */
+  const finaleTo = useRef<'walking' | 'welcome'>('walking');
   const timer = useRef(0);
   const shownAt = useRef(performance.now());
   const firstAnswerMs = useRef<number | null>(null);
 
   const walking = phase === 'walking';
-  const ended = SHOP_PHASES.has(phase) || (walking && walkFrom === 'end');
-  const welcome = phase === 'welcome' || (walking && walkFrom === 'welcome');
+  const browsing = ALBUM_PHASES.has(phase);
+  const ended =
+    SHOP_PHASES.has(phase) ||
+    FINALE_PHASES.has(phase) ||
+    ((walking || browsing) && walkFrom === 'end');
+  const welcome = phase === 'welcome' || ((walking || browsing) && walkFrom === 'welcome');
   /** The forest is the child's: the reserve opens the shop, the seasons answer, the sign waits. */
   const free = ended && !done && (walking || phase === 'shop');
+  /** Nothing else on the screen: the Album can open. */
+  const idle = !done && (phase === 'welcome' || walking);
+  /** Gestures move the view during a walk, in the forest or in a painting of the Album. */
+  const roaming = walking || phase === 'visiting';
   useEffect(() => {
     Object.assign(probe, {
       exercise,
@@ -203,11 +260,20 @@ function Game(props: Props) {
       live = false;
     };
   }, [session.stones]);
-  // Gestures move the view only during a walk; after it, the view glides back to the framing.
+  // After the walk, the view glides back to the framing.
   useEffect(() => {
-    forest.explore(walking ? setViewAway : null);
-    if (!walking) setViewAway(false);
-  }, [walking]);
+    forest.explore(roaming ? setViewAway : null);
+    if (!roaming) setViewAway(false);
+  }, [roaming]);
+  // A painting completed before the game stopped: its grand finale, or the next one to choose.
+  useEffect(() => {
+    if (!isComplete(forest.description())) return;
+    finaleTo.current = 'welcome';
+    void forest.ready.then(() => {
+      if (isFramed(album, forest.description())) chooseNext(album);
+      else finish();
+    });
+  }, []);
 
   const saveData = () =>
     serializeSave(
@@ -217,11 +283,12 @@ function Game(props: Props) {
         seeds,
         trailLength: session.length,
         painting: forest.description(),
+        journal,
       },
       new Date(),
     );
   // Every answer changes the phase or the reserve, every element the phase: the save follows.
-  useEffect(() => props.save(saveData()), [leaves, seeds, phase, length]);
+  useEffect(() => props.save(saveData()), [leaves, seeds, phase, length, journal]);
   // The end of the trail: the basket empties into the reserve, then the forest is the child's.
   useEffect(() => {
     if (!done) return;
@@ -327,8 +394,90 @@ function Game(props: Props) {
     setPhase('planting');
     void forest.plant(slot, today()).then(() => {
       setGrown((g) => g + 1);
-      setPhase('shop');
+      if (isComplete(forest.description())) finish();
+      else setPhase('shop');
     });
+  };
+
+  /** The painting is complete: the grand finale, then its frame, and it joins the Album. */
+  const finish = () => {
+    setPhase('finale');
+    void forest.finale().then(frame);
+  };
+
+  const frame = () => {
+    const description = forest.description();
+    let entries = album;
+    if (!isFramed(album, description)) {
+      const picture = forest.picture();
+      entries = [...album, { description, ...journal, finished: today(), picture }];
+      setAlbum(entries);
+      props.saveAlbum(entries);
+    }
+    setPhase('framing');
+    later(FRAMED_MS, () => chooseNext(entries));
+  };
+
+  /** Under the light, the décors of the next painting, each shown as it will be once complete. */
+  const chooseNext = (entries: readonly AlbumEntry[]) => {
+    const painted = entries.map((entry) => entry.description.biome);
+    const options = nextBiomes(QUESTS, isoDate(today()), painted).map((biome) =>
+      newPainting(rng.int(0, 999_999), DEFAULT_DESCRIPTION.season, biome),
+    );
+    forest.cover(true);
+    setPhase('next');
+    setChoices(options.map((description) => ({ description, picture: null })));
+    later(COVER_MS, () => {
+      // The décor of the quest: no choice, the painting starts at once.
+      if (options.length === 1) {
+        startPainting(options[0]);
+        return;
+      }
+      setChoices(
+        options.map((description) => {
+          forest.show(completed(description));
+          return { description, picture: forest.picture() };
+        }),
+      );
+    });
+  };
+
+  const startPainting = (description: SceneDescription) => {
+    forest.start(description);
+    setJournal({ started: today(), acquired: [], automated: [] });
+    setChoices([]);
+    forest.cover(false);
+    setPhase(finaleTo.current);
+  };
+
+  const openAlbum = () => {
+    if (!idle) return;
+    albumFrom.current = phase;
+    forest.cover(true);
+    setPhase('album');
+  };
+
+  /** A painting of the Album, alive again: built under the light, which then goes. */
+  const visit = (entry: AlbumEntry) => {
+    if (phase !== 'album') return;
+    forest.show(entry.description);
+    forest.cover(false);
+    setPage(entry);
+    setPhase('visiting');
+  };
+
+  const backToAlbum = () => {
+    if (phase !== 'visiting') return;
+    forest.cover(true);
+    setPhase('album');
+  };
+
+  const closeAlbum = () => {
+    if (phase !== 'album') return;
+    forest.show(null);
+    forest.cover(false);
+    setPage(null);
+    setPhase(albumFrom.current);
   };
 
   /** Plays the moments of a reward one after the other, then the next question. */
@@ -361,6 +510,19 @@ function Game(props: Props) {
       firstAnswerMs.current,
       false,
     );
+    if (achievements.length > 0) {
+      setJournal((j) => ({
+        ...j,
+        acquired: [
+          ...j.acquired,
+          ...achievements.flatMap((a) => (a.kind === 'acquired' ? [a.skill] : [])),
+        ],
+        automated: [
+          ...j.automated,
+          ...achievements.flatMap((a) => (a.kind === 'automated' ? [a.fact] : [])),
+        ],
+      }));
+    }
     setPraise(rng.pick(PRAISES));
     setPhase('right');
     forest.reward('right');
@@ -403,7 +565,6 @@ function Game(props: Props) {
       onNext: phase === 'reveal' ? proceed : undefined,
     };
   }
-  const placed = forest.description().elements.length;
   const { season, seasons } = forest.description();
   const items = shopItems(forest.description());
   // A golden seed: the slate steps aside, the forest lights up.
@@ -411,6 +572,8 @@ function Game(props: Props) {
   let plume: PlumeMood = 'calm';
   if (phase === 'right' || away) plume = 'cheer';
   else if (hint) plume = 'talk';
+  /** The painting just framed, the last one of the Album. */
+  const framed = phase === 'framing' || phase === 'next' ? album.at(-1) : undefined;
   return (
     <>
       <Reserve
@@ -441,11 +604,35 @@ function Game(props: Props) {
       <div id="dim" class={ended || welcome || away ? '' : 'on'} />
       {gift && phase === 'seed' && <SeedGift {...gift} />}
       {phase === 'choosing' && <Spots forest={forest} slots={spots} onPick={plant} />}
-      {walking && !done && (
+      {roaming && !done && (
         <Walk
           away={viewAway}
           onRecenter={() => forest.recenter()}
-          onStart={walkFrom === 'welcome' ? begin : undefined}
+          onStart={walking && walkFrom === 'welcome' ? begin : undefined}
+        />
+      )}
+      {idle && album.length > 0 && <AlbumButton onOpen={openAlbum} />}
+      {phase === 'album' && <AlbumGrid entries={album} onVisit={visit} onClose={closeAlbum} />}
+      {phase === 'visiting' && page && (
+        <AlbumPage entry={page} skills={props.skills} onBack={backToAlbum} />
+      )}
+      {(phase === 'finale' || phase === 'framing') && <FinaleBanner framed={phase === 'framing'} />}
+      {framed && (
+        <Frame
+          description={framed.description}
+          started={framed.started}
+          finished={framed.finished}
+          away={phase === 'next'}
+        />
+      )}
+      {phase === 'next' && (
+        <NextPainting
+          choices={choices}
+          onPick={(description) => {
+            if (phase === 'next' && choices.every((choice) => choice.picture)) {
+              startPainting(description);
+            }
+          }}
         />
       )}
       {arrival && (
@@ -458,7 +645,7 @@ function Game(props: Props) {
           skills={props.skills}
           length={length}
           problem={props.problem}
-          exportSave={saveData}
+          exportSave={() => exportFile(saveData(), album)}
           quality={forest.quality}
           onQuality={(value) => forest.setQuality(value)}
           onLength={(value) => {
@@ -468,7 +655,7 @@ function Game(props: Props) {
           onClose={() => setMenu(false)}
         />
       )}
-      {welcome ? (
+      {FINALE_PHASES.has(phase) || browsing ? null : welcome ? (
         <Welcome away={walking} onStart={begin} onWalk={walk} />
       ) : ended ? (
         <>
@@ -482,7 +669,6 @@ function Game(props: Props) {
                 portrait={(animal) => forest.portrait(animal)}
                 onBuy={buy}
               />
-              {placed >= MAX_ELEMENTS && <p class="instruction">Ton tableau est complet !</p>}
               <div class="actions">
                 <button type="button" onPointerDown={() => setPhase('walking')}>
                   Fermer
@@ -544,7 +730,7 @@ function Welcome({ away, onStart, onWalk }: WelcomeProps) {
     <section id="welcome" class={`card${away ? ' away' : ''}`} aria-live="polite">
       <Plume mood="cheer" />
       <p class="praise">Bonjour !</p>
-      <p class="instruction">Ta forêt t’attend.</p>
+      <p class="instruction">Ton paysage t’attend.</p>
       <div class="actions">
         <button type="button" class="walk" onPointerDown={onWalk}>
           Se promener
@@ -575,14 +761,14 @@ function Walk({ away, onRecenter, onStart }: WalkProps) {
     if (away) setMoved(true);
   }, [away]);
   return (
-    <section id="walk" aria-label="Promenade dans la forêt">
+    <section id="walk" aria-label="Promenade dans le paysage">
       {away && (
         <button type="button" class="whole" onPointerDown={onRecenter}>
           <svg viewBox="0 0 32 32" aria-hidden="true">
             <path d="M4 11V5h6M22 5h6v6M28 21v6h-6M10 27H4v-6" />
             <path class="hill" d="M8 22l5-7 4 5 3-3 4 5z" />
           </svg>
-          Toute la forêt
+          Tout le paysage
         </button>
       )}
       {!moved && (
@@ -626,9 +812,9 @@ function TrailDone({ leaves, seeds, basket }: TrailDoneProps) {
 }
 
 /**
- * Mounts the game over the scene, which shows `forest`, the painting in progress. A save that
- * could not be read is never overwritten: the game is played without saving, and the parent
- * menu says why.
+ * Mounts the game over the scene, which shows `forest`, the painting in progress. A save or an
+ * Album that could not be read is never overwritten: the game is played without saving, and
+ * the parent menu says why.
  */
 export function mountGame(
   root: HTMLElement,
@@ -636,7 +822,9 @@ export function mountGame(
   seed: number,
   forest: GameForest,
   saved: ParsedSave | null,
+  album: ParsedAlbum,
   write: (json: string) => void,
+  writeAlbum: (json: string) => void,
   welcome = true,
 ) {
   const rng = new Rng(seed);
@@ -657,10 +845,12 @@ export function mountGame(
     stones: session.stones,
     role: null,
   };
-  const problem =
-    saved && !saved.ok
-      ? `La sauvegarde n’a pas pu être lue : ${saved.reason} Elle est gardée intacte.`
-      : null;
+  let problem: string | null = null;
+  if (saved && !saved.ok) {
+    problem = `La sauvegarde n’a pas pu être lue : ${saved.reason} Elle est gardée intacte.`;
+  } else if (!album.ok) {
+    problem = `L’Album n’a pas pu être lu : ${album.reason} Il est gardé intact.`;
+  }
   render(
     <Game
       session={session}
@@ -668,9 +858,12 @@ export function mountGame(
       rng={rng}
       leaves={saved?.ok ? saved.data.leaves : 0}
       seeds={saved?.ok ? saved.data.seeds : 0}
+      journal={saved?.ok ? saved.data.journal : { started: today(), acquired: [], automated: [] }}
+      album={album.ok ? album.entries : []}
       problem={problem}
       forest={forest}
       save={problem ? () => undefined : write}
+      saveAlbum={problem ? () => undefined : (entries) => writeAlbum(serializeAlbum(entries))}
       probe={probe}
       welcome={welcome}
     />,

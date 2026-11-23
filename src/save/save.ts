@@ -2,14 +2,23 @@ import type { FactProgress } from '../core/facts';
 import { newProgress, type SkillProgress, type Stage } from '../core/mastery';
 import type { SessionSnapshot } from '../core/session';
 import type { TrailLength } from '../core/trail';
-import type { Skill } from '../core/types';
+import type { FactId, Skill, SkillId } from '../core/types';
 import { readDescription, type SceneDescription } from '../scene/description';
 
 /**
- * Version of the save format. Free to change until the owner declares that the child
- * really plays (doc/GITHUB_WORKFLOW.md, « Compatibilité des sauvegardes »).
+ * Version of the save format, Album included. Free to change until the owner declares that
+ * the child really plays (doc/GITHUB_WORKFLOW.md, « Compatibilité des sauvegardes »).
  */
-export const SAVE_SCHEMA_VERSION = 4;
+export const SAVE_SCHEMA_VERSION = 5;
+
+/** What happened during a painting, for its page of the Album (#34). */
+export interface PaintingJournal {
+  /** Local day number of the start of the painting. */
+  started: number;
+  /** Notions acquired and facts automated during the painting, in order. */
+  acquired: SkillId[];
+  automated: FactId[];
+}
 
 export interface SaveData extends SessionSnapshot {
   version: typeof SAVE_SCHEMA_VERSION;
@@ -21,6 +30,7 @@ export interface SaveData extends SessionSnapshot {
   trailLength: TrailLength;
   /** The painting in progress. */
   painting: SceneDescription;
+  journal: PaintingJournal;
 }
 
 export type ParsedSave = { ok: true; data: SaveData } | { ok: false; reason: string };
@@ -31,8 +41,18 @@ const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 const isCount = (value: unknown): value is number => Number.isInteger(value) && Number(value) >= 0;
 const isDay = (value: unknown): value is number => Number.isInteger(value);
+const isText = (value: unknown): value is string => typeof value === 'string';
 const isList = <T>(value: unknown, item: (v: unknown) => v is T): value is T[] =>
   Array.isArray(value) && value.every(item);
+
+export function isJournal(value: unknown): value is PaintingJournal {
+  return (
+    isObject(value) &&
+    isDay(value.started) &&
+    isList(value.acquired, isText) &&
+    isList(value.automated, isText)
+  );
+}
 
 function isProgress(value: unknown): value is SkillProgress {
   return (
@@ -88,6 +108,7 @@ export function parseSave(json: string, skills: readonly Skill[]): ParsedSave {
     !isCount(value.seeds) ||
     (value.trailLength !== 'short' && value.trailLength !== 'normal') ||
     !painting ||
+    !isJournal(value.journal) ||
     !isList(value.progress, isProgress) ||
     !isList(value.facts, isFact) ||
     !isList(value.history, (h): h is boolean => typeof h === 'boolean')
@@ -105,6 +126,11 @@ export function parseSave(json: string, skills: readonly Skill[]): ParsedSave {
       seeds: value.seeds,
       trailLength: value.trailLength,
       painting,
+      journal: {
+        started: value.journal.started,
+        acquired: [...value.journal.acquired],
+        automated: [...value.journal.automated],
+      },
       progress: value.progress
         .filter((p) => levels.has(p.skill))
         .map((p) => ({ ...p, level: Math.min(p.level, levels.get(p.skill)! - 1) })),
@@ -120,7 +146,12 @@ export function serializeSave(data: Omit<SaveData, 'version' | 'savedAt'>, now: 
 }
 
 /** A save where one notion is in progress at `level` (clamped), with an empty reserve. */
-export function practiceSave(skill: Skill, level: number, painting: SceneDescription): ParsedSave {
+export function practiceSave(
+  skill: Skill,
+  level: number,
+  painting: SceneDescription,
+  day: number,
+): ParsedSave {
   const at = Number.isInteger(level) ? Math.min(Math.max(level, 0), skill.levels - 1) : 0;
   return {
     ok: true,
@@ -131,6 +162,7 @@ export function practiceSave(skill: Skill, level: number, painting: SceneDescrip
       seeds: 0,
       trailLength: 'normal',
       painting,
+      journal: { started: day, acquired: [], automated: [] },
       progress: [{ ...newProgress(skill.id), stage: 'learning', level: at }],
       facts: [],
       history: [],

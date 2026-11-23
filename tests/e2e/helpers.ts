@@ -64,6 +64,7 @@ export async function loadSave(page: Page, save: object) {
     elements: [],
     animals: [],
   };
+  const journal = { started: 0, acquired: [], automated: [] };
   await page.evaluate(
     (json) =>
       new Promise<void>((resolve, reject) => {
@@ -76,7 +77,7 @@ export async function loadSave(page: Page, save: object) {
           transaction.onerror = () => reject(new Error('écriture impossible'));
         };
       }),
-    JSON.stringify({ painting, ...save }),
+    JSON.stringify({ painting, journal, ...save }),
   );
   await page.reload();
   await page.evaluate(() => window.__numebois!.ready);

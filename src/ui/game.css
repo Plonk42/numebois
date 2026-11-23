@@ -231,7 +231,8 @@
   }
 }
 #spots-hint,
-#arrival {
+#arrival,
+#finale {
   position: fixed;
   bottom: 20px;
   left: 50%;
@@ -247,11 +248,13 @@
   pointer-events: none;
 }
 #spots-hint p,
-#arrival p {
+#arrival p,
+#finale p {
   margin: 0;
 }
 #spots-hint .title,
-#arrival .title {
+#arrival .title,
+#finale .title {
   font-size: 28px;
   line-height: 34px;
   font-weight: 700;
