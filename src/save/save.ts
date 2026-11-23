@@ -1,5 +1,5 @@
 import type { FactProgress } from '../core/facts';
-import type { SkillProgress, Stage } from '../core/mastery';
+import { newProgress, type SkillProgress, type Stage } from '../core/mastery';
 import type { SessionSnapshot } from '../core/session';
 import type { TrailLength } from '../core/trail';
 import type { Skill } from '../core/types';
@@ -117,4 +117,23 @@ export function parseSave(json: string, skills: readonly Skill[]): ParsedSave {
 export function serializeSave(data: Omit<SaveData, 'version' | 'savedAt'>, now: Date): string {
   const save: SaveData = { version: SAVE_SCHEMA_VERSION, savedAt: now.toISOString(), ...data };
   return JSON.stringify(save);
+}
+
+/** A save where one notion is in progress at `level` (clamped), with an empty reserve. */
+export function practiceSave(skill: Skill, level: number, painting: SceneDescription): ParsedSave {
+  const at = Number.isInteger(level) ? Math.min(Math.max(level, 0), skill.levels - 1) : 0;
+  return {
+    ok: true,
+    data: {
+      version: SAVE_SCHEMA_VERSION,
+      savedAt: new Date(0).toISOString(),
+      leaves: 0,
+      seeds: 0,
+      trailLength: 'normal',
+      painting,
+      progress: [{ ...newProgress(skill.id), stage: 'learning', level: at }],
+      facts: [],
+      history: [],
+    },
+  };
 }

@@ -1,21 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { exerciseErrors } from '../../src/core/content';
 import { questErrors, registryErrors, skillsById } from '../../src/core/registry';
 import { Rng } from '../../src/core/rng';
 import type { Domain, Quest, Skill } from '../../src/core/types';
 import { DOMAINS } from '../../src/domains';
 import { QUESTS } from '../../src/quests';
-
-/** Never a word of failure (child-ux instructions). */
-const FAILURE_WORDS =
-  /(?<!\p{L})(faux|fausse|erreurs?|rat[ée]e?s?|perdue?s?|échecs?|nulle?)(?!\p{L})/iu;
-
-/** Words of each sentence (lines and . ! ? end a sentence; « · » and « : » are not words). */
-function sentenceLengths(text: string): number[] {
-  return text
-    .split(/[.!?\n]+/)
-    .map((sentence) => sentence.split(/\s+/).filter((word) => /[\p{L}\d]/u.test(word)).length)
-    .filter((length) => length > 0);
-}
 
 function skill(id: string, prerequisites: string[] = []): Skill {
   return {
@@ -106,30 +95,46 @@ describe('registre', () => {
     ]);
   });
 
+  it('detects answers outside the widget, long or unkind texts and undeclared facts', () => {
+    const exercise = {
+      skill: 'a.x',
+      level: 0,
+      instruction: 'Choisis. Puis choisis encore une fois.',
+      statement: Array(26).fill('gland').join(' '),
+      input: { kind: 'choice' as const, options: ['1', '1', '2', '3', '4'] },
+      answer: '5',
+    };
+    const notion: Skill = {
+      ...skill('a.x'),
+      validate: () => true,
+      hint: (_, attempt) =>
+        attempt === 1 ? 'Ce n’est pas faux.' : 'Un. Deux. Trois. Ce sont quatre phrases.',
+      drill: true,
+      facts: { all: ['a.x:1'], of: () => 'a.x:2', seconds: 3 },
+    };
+    expect(exerciseErrors(notion, exercise, 1)).toEqual([
+      'niveau 0 au lieu de 1',
+      'réponse « 5 » hors du widget choice',
+      'choix en double',
+      '5 choix (2 à 4)',
+      'consigne : 2 phrases : Choisis. Puis choisis encore une fois.',
+      `énoncé de 26 mots : ${exercise.statement}`,
+      "indice 1 : mot d'échec : Ce n’est pas faux.",
+      'indice 2 : 4 phrases : Un. Deux. Trois. Ce sont quatre phrases.',
+      'fait non déclaré : a.x:2',
+    ]);
+    const keypad = { ...exercise, input: { kind: 'keypad' as const, maxDigits: 2 }, answer: '123' };
+    expect(exerciseErrors(notion, keypad, 0)).toContain('réponse « 123 » hors du widget keypad');
+  });
+
   for (const [id, notion] of skillsById(DOMAINS)) {
     describe(id, () => {
       for (let level = 0; level < notion.levels; level++) {
-        it(`level ${level}: exact answers and short hints on 1 000 seeds`, () => {
+        it(`level ${level}: exact answers, fitting the widget, short and kind texts, on 1 000 seeds`, () => {
           for (let seed = 0; seed < 1000; seed++) {
             const exercise = notion.generate(new Rng(seed), level);
-            expect(exercise.skill).toBe(id);
-            expect(exercise.level).toBe(level);
-            expect(notion.validate(exercise, exercise.answer)).toBe(true);
-            if (exercise.input.kind === 'keypad') {
-              expect(exercise.answer).toMatch(new RegExp(`^\\d{1,${exercise.input.maxDigits}}$`));
-            } else {
-              expect(exercise.input.options).toContain(exercise.answer);
-            }
-            for (const text of [
-              exercise.instruction,
-              notion.hint(exercise, 1),
-              notion.hint(exercise, 2),
-            ]) {
-              expect(Math.max(...sentenceLengths(text)), text).toBeLessThanOrEqual(12);
-              expect(text).not.toMatch(FAILURE_WORDS);
-            }
-            const fact = notion.facts?.of(exercise);
-            if (fact != null) expect(notion.facts!.all).toContain(fact);
+            const errors = exerciseErrors(notion, exercise, level);
+            if (errors.length > 0) expect(errors, `graine ${seed}`).toEqual([]);
           }
         });
       }

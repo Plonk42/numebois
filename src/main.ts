@@ -6,7 +6,7 @@ import type { SoundState } from './scene/audio/soundscape';
 import { newPainting, parseDescription, type SceneDescription } from './scene/description';
 import { mountDebugPanel } from './scene/debug';
 import { parseQuality } from './scene/render/quality';
-import { parseSave } from './save/save';
+import { parseSave, practiceSave } from './save/save';
 import { persistStorage, readSave, writeSave } from './save/store';
 import { mountGame, type GameProbe } from './ui/game';
 
@@ -42,8 +42,12 @@ const ready = sceneOnly
       })
       .then((json) => {
         // Every notion, in the order of the curriculum: the trail chooses among them.
-        const skills = curriculum(DOMAINS);
-        const saved = json === undefined ? null : parseSave(json, skills);
+        const all = curriculum(DOMAINS);
+        // `?practice=<notion>&level=<n>`: that notion alone from that level, on a new painting,
+        // without reading or writing the save (tests, trying a new notion).
+        const practice = all.find((skill) => skill.id === params.get('practice'));
+        const skills = practice ? [practice] : all;
+        const saved = json === undefined || practice ? null : parseSave(json, skills);
         // The painting in progress, or a new one (`?seed=` and `?season=` choose it).
         const asked = parseDescription(params);
         app.description = saved?.ok
@@ -64,8 +68,10 @@ const ready = sceneOnly
             adopt: (animal) => app.adopt(animal),
             portrait: (animal) => app.portrait(animal),
           },
-          saved,
-          (data) => void writeSave(data).catch((error: unknown) => console.warn(error)),
+          practice ? practiceSave(practice, Number(params.get('level')), app.description) : saved,
+          practice
+            ? () => undefined
+            : (data) => void writeSave(data).catch((error: unknown) => console.warn(error)),
         );
         // During a question, the soundscape stays low and plays no calls.
         app.sound.quiet = () =>

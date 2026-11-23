@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Rng } from '../../src/core/rng';
 import { Session } from '../../src/core/session';
 import { DOMAINS } from '../../src/domains';
-import { SAVE_SCHEMA_VERSION, parseSave, serializeSave } from '../../src/save/save';
+import { SAVE_SCHEMA_VERSION, parseSave, practiceSave, serializeSave } from '../../src/save/save';
 import { newPainting, stageFor } from '../../src/scene/description';
 
 const SKILLS = DOMAINS.flatMap((domain) => domain.skills);
@@ -108,5 +108,24 @@ describe('sauvegarde', () => {
     const twice = { ...PAINTING, elements: [...PAINTING.elements, { slot: 0, day: 201 }] };
     expect(parseSave(save([], twice), SKILLS).ok).toBe(false);
     expect(parseSave(save([], { ...PAINTING, stage: 12 }), SKILLS).ok).toBe(false);
+  });
+
+  it('practises one notion from a level: the trail asks only it, at that level', () => {
+    const compare = SKILLS.find((skill) => skill.id === 'numbers.compare')!;
+    const practice = practiceSave(compare, 2, PAINTING);
+    expect(practice.ok && practice.data.progress).toEqual([
+      { skill: compare.id, stage: 'learning', level: 2, recent: [], box: 0, due: null },
+    ]);
+    const session = new Session([compare], new Rng(1), () => 200);
+    if (practice.ok) session.restore(practice.data);
+    session.startTrail();
+    expect(new Set(session.trail.map((step) => step.skill))).toEqual(new Set([compare.id]));
+    expect(session.trail.find((step) => step.role === 'core')).toBeDefined();
+    for (const level of [Number.NaN, -1, 99]) {
+      const clamped = practiceSave(compare, level, PAINTING);
+      expect(clamped.ok && clamped.data.progress[0].level).toBe(
+        level === 99 ? compare.levels - 1 : 0,
+      );
+    }
   });
 });

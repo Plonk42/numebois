@@ -66,8 +66,11 @@ export class Session {
   ask(previous?: Exercise): { skill: Skill; exercise: Exercise } {
     const skill = this.byId.get(this.step.skill)!;
     const level = stepLevel(this.step, this.progress.get(skill.id));
+    // The statement alone may not change (« Quelle heure est-il ? » under a clock).
+    const same = (exercise: Exercise) =>
+      exercise.statement === previous?.statement && exercise.answer === previous.answer;
     let exercise = skill.generate(this.rng, level);
-    for (let i = 0; i < 20 && exercise.statement === previous?.statement; i++) {
+    for (let i = 0; i < 20 && same(exercise); i++) {
       exercise = skill.generate(this.rng, level);
     }
     return { skill, exercise };
