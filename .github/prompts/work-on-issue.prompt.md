@@ -49,11 +49,12 @@ Pour chaque ticket choisi, dans l'ordre du classement :
 5. Commiter des étapes cohérentes avec uniquement ses propres fichiers (résumé à l'impératif avec `(#N)`).
    - Courant : `Closes #N` dans le dernier commit, puis `git push origin main`.
    - Risqué : pousser la branche, ouvrir une PR avec le [modèle](../pull_request_template.md) et `Closes #N`, puis `gh pr merge --auto --squash`. Ne pas attendre la CI ; revenir sur `main`.
+   - Ticket seulement avancé (sans `Closes`) : commenter le ticket (commit ou PR, ce qui est fait, ce qui reste).
 6. Si le ticket ne peut pas être terminé (décision manquante, validation qui échoue et que l'on ne sait pas corriger, périmètre plus grand que prévu), arrêter ce ticket et ne rien commiter d'incomplet sur `main`.
    - Travail risqué : pousser ce qui est utile en PR brouillon sans `Closes`, puis passer au suivant.
    - Travail courant : laisser les modifications partielles non commitées et terminer la session, pour qu'elles ne se mélangent pas avec le ticket suivant.
 
-   Ne commenter le ticket qu'avec une information qui mérite d'être gardée.
+   Commenter le ticket avec ce qui mérite d'être gardé (cause de l'arrêt, travail partiel poussé).
 
 ## 3. Compte rendu
 

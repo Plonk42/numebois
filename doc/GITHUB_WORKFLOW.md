@@ -35,6 +35,7 @@ Un échec qui n'arrive que sur les runners hébergés est un signal réel, pas u
 ### Commits, fermeture des tickets et accords
 
 - Résumé à l'impératif, par exemple `Ajoute la rafale des tables (#12)`. Référencer les tickets liés avec `(#N)`. Mettre `Closes #N` dans le message de commit (push direct) ou dans la description de la PR quand le travail termine le ticket.
+- Un ticket avancé sans être fermé reçoit un commentaire court une fois le travail livré : commit ou PR, ce qui est fait, ce qui reste. Le suivant reprend ainsi sans tout relire.
 - Ne jamais faire de force-push sur `main`, affaiblir ou sauter des tests pour obtenir du vert, ni commiter des chemins privés, des fichiers bruts des packs, des identifiants, des caches ou des rapports générés.
 - Les actions suivantes demandent l'accord explicite du propriétaire :
   - la fermeture d'un jalon ;
