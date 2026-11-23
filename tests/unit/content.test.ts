@@ -5,6 +5,10 @@ import type { Domain, Quest, Skill } from '../../src/core/types';
 import { DOMAINS } from '../../src/domains';
 import { QUESTS } from '../../src/quests';
 
+/** Never a word of failure (child-ux instructions). */
+const FAILURE_WORDS =
+  /(?<!\p{L})(faux|fausse|erreurs?|rat[ée]e?s?|perdue?s?|échecs?|nulle?)(?!\p{L})/iu;
+
 /** Words of each sentence (lines and . ! ? end a sentence; « · » and « : » are not words). */
 function sentenceLengths(text: string): number[] {
   return text
@@ -122,6 +126,7 @@ describe('registre', () => {
               notion.hint(exercise, 2),
             ]) {
               expect(Math.max(...sentenceLengths(text)), text).toBeLessThanOrEqual(12);
+              expect(text).not.toMatch(FAILURE_WORDS);
             }
             const fact = notion.facts?.of(exercise);
             if (fact != null) expect(notion.facts!.all).toContain(fact);
