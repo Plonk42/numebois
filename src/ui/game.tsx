@@ -2,8 +2,11 @@ import { render } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { ENERGY_PER_ELEMENT } from '../core/energy';
 import { Rng } from '../core/rng';
+import { Session } from '../core/session';
+import type { StepRole } from '../core/trail';
 import type { Exercise, Skill } from '../core/types';
 import { EnergyGauge } from './energy-gauge';
+import { TrailPath } from './trail-path';
 import { Keypad, grouped } from './widgets/keypad';
 import './game.css';
 
@@ -12,43 +15,63 @@ const PRAISE_MS = 1100;
 /** The card steps aside while the new element grows. */
 const REWARD_MS = 3600;
 const PRAISES = ['Bravo !', 'Super !', 'Oui !', 'Bien vu !', 'Génial !'];
+const DAY_MS = 86_400_000;
 
-type Phase = 'asking' | 'right' | 'reveal' | 'reward';
+type Phase = 'asking' | 'right' | 'reveal' | 'reward' | 'summary';
 
 /** Read by the end-to-end tests. */
 export interface GameProbe {
   exercise: Exercise | null;
   energy: number;
   grown: number;
+  phase: Phase;
+  stone: number;
+  stones: number;
+  role: StepRole | null;
+}
+
+/** Local day number: a new day starts at midnight on the tablet. */
+function today(): number {
+  const now = new Date();
+  return Math.floor((now.getTime() - now.getTimezoneOffset() * 60_000) / DAY_MS);
 }
 
 interface Props {
-  /** The first one asks the first question. */
-  skills: readonly Skill[];
+  session: Session;
   rng: Rng;
   grow(): void;
   probe: GameProbe;
 }
 
 /**
- * First playable loop: question after question; each right answer adds a leaf to the gauge,
- * a full gauge grows a tree. Mistakes cost nothing: a hint, then the answer.
+ * The trail: question after question along a path of stones; each right answer adds a leaf
+ * to the gauge, a full gauge grows a tree, and a kind summary closes the trail. Mistakes
+ * cost nothing: a hint, then the answer.
  */
-function Game({ skills, rng, grow, probe }: Props) {
+function Game({ session, rng, grow, probe }: Props) {
   const [grown, setGrown] = useState(0);
+  const [grownHere, setGrownHere] = useState(0);
   const [energy, setEnergy] = useState(0);
   const [round, setRound] = useState(0);
-  const [skill, setSkill] = useState(skills[0]);
-  const [exercise, setExercise] = useState(() => skills[0].generate(rng, 0));
+  const [{ skill, exercise }, setQuestion] = useState(() => session.ask());
   const [mistakes, setMistakes] = useState(0);
   const [phase, setPhase] = useState<Phase>('asking');
   const [praise, setPraise] = useState(PRAISES[0]);
   const timer = useRef(0);
+  const shownAt = useRef(performance.now());
+  const firstAnswerMs = useRef<number | null>(null);
 
+  const summary = phase === 'summary';
   useEffect(() => {
-    probe.exercise = exercise;
-    probe.energy = energy;
-    probe.grown = grown;
+    Object.assign(probe, {
+      exercise,
+      energy,
+      grown,
+      phase,
+      stone: summary ? session.stones : session.stone,
+      stones: session.stones,
+      role: summary ? null : session.step.role,
+    });
   });
   useEffect(() => () => clearTimeout(timer.current), []);
 
@@ -57,34 +80,44 @@ function Game({ skills, rng, grow, probe }: Props) {
     timer.current = window.setTimeout(action, ms);
   };
 
-  // Until the trail chooses (#15): another notion each time, each tree grown opens a level.
-  const next = (unlocked: number) => {
-    const others = skills.filter((s) => s !== skill);
-    const chosen = others.length > 0 ? rng.pick(others) : skill;
-    let candidate = exercise;
-    while (candidate.statement === exercise.statement) {
-      candidate = chosen.generate(rng, rng.int(0, Math.min(chosen.levels - 1, unlocked)));
-    }
-    setSkill(chosen);
-    setExercise(candidate);
+  const ask = () => {
+    setQuestion(session.ask(exercise));
     setMistakes(0);
     setRound((r) => r + 1);
     setPhase('asking');
+    shownAt.current = performance.now();
+    firstAnswerMs.current = null;
+  };
+
+  const proceed = () => {
+    if (session.advance()) ask();
+    else setPhase('summary');
+  };
+
+  const restart = () => {
+    session.startTrail();
+    setGrownHere(0);
+    ask();
   };
 
   const answer = (value: string) => {
     if (phase !== 'asking') return;
+    firstAnswerMs.current ??= performance.now() - shownAt.current;
     if (!skill.validate(exercise, value)) {
       setMistakes(mistakes + 1);
-      if (mistakes + 1 >= 2) setPhase('reveal');
+      if (mistakes + 1 >= 2) {
+        session.conclude(skill, exercise, false, firstAnswerMs.current, true);
+        setPhase('reveal');
+      }
       return;
     }
+    session.conclude(skill, exercise, mistakes === 0, firstAnswerMs.current, false);
     setPraise(rng.pick(PRAISES));
     setPhase('right');
     const filled = energy + 1;
     setEnergy(filled);
     if (filled < ENERGY_PER_ELEMENT) {
-      later(PRAISE_MS, () => next(grown));
+      later(PRAISE_MS, proceed);
       return;
     }
     later(PRAISE_MS, () => {
@@ -92,50 +125,80 @@ function Game({ skills, rng, grow, probe }: Props) {
       setPhase('reward');
       setEnergy(0);
       setGrown(grown + 1);
-      later(REWARD_MS, () => next(grown + 1));
+      setGrownHere(grownHere + 1);
+      later(REWARD_MS, proceed);
     });
   };
 
   const revealed = mistakes >= 2;
-  const hint = mistakes > 0 ? skill.hint(exercise, revealed ? 2 : 1) : null;
+  let hint: string | null = null;
+  if (mistakes > 0) hint = skill.hint(exercise, revealed ? 2 : 1);
   return (
     <>
       <EnergyGauge energy={energy} />
-      <section id="question" class={phase === 'reward' ? 'away' : ''} aria-live="polite">
-        {phase === 'right' ? (
-          <p class="praise">{praise}</p>
-        ) : (
-          <p class="instruction">{exercise.instruction}</p>
-        )}
-        <p class="statement">{exercise.statement}</p>
-        {hint && (
-          <div class="hint">
-            <strong>{revealed ? 'On regarde ensemble.' : 'Presque !'}</strong>
-            <span>{hint}</span>
-          </div>
-        )}
-        {phase === 'reveal' ? (
-          <>
-            <output class="answer shown" aria-label="La réponse">
-              {grouped(exercise.answer)}
-            </output>
-            <button type="button" class="next" onPointerDown={() => next(grown)}>
-              Suivant
-            </button>
-          </>
-        ) : (
-          exercise.input.kind === 'keypad' && (
-            <Keypad
-              key={round}
-              maxDigits={exercise.input.maxDigits}
-              locked={phase !== 'asking'}
-              right={phase === 'right'}
-              onSubmit={answer}
-            />
-          )
-        )}
-      </section>
+      <TrailPath stones={session.stones} current={summary ? session.stones : session.stone} />
+      {summary ? (
+        <Summary stones={session.stones} grown={grownHere} onAgain={restart} />
+      ) : (
+        <section id="question" class={phase === 'reward' ? 'away' : ''} aria-live="polite">
+          {phase === 'right' ? (
+            <p class="praise">{praise}</p>
+          ) : (
+            <p class="instruction">{exercise.instruction}</p>
+          )}
+          <p class="statement">{exercise.statement}</p>
+          {hint && (
+            <div class="hint">
+              <strong>{revealed ? 'On regarde ensemble.' : 'Presque !'}</strong>
+              <span>{hint}</span>
+            </div>
+          )}
+          {phase === 'reveal' ? (
+            <>
+              <output class="answer shown" aria-label="La réponse">
+                {grouped(exercise.answer)}
+              </output>
+              <button type="button" class="next" onPointerDown={proceed}>
+                Suivant
+              </button>
+            </>
+          ) : (
+            exercise.input.kind === 'keypad' && (
+              <Keypad
+                key={round}
+                maxDigits={exercise.input.maxDigits}
+                locked={phase !== 'asking'}
+                right={phase === 'right'}
+                onSubmit={answer}
+              />
+            )
+          )}
+        </section>
+      )}
     </>
+  );
+}
+
+interface SummaryProps {
+  stones: number;
+  grown: number;
+  onAgain(): void;
+}
+
+/** The end of a trail: what was done, never what was missed. */
+function Summary({ stones, grown, onAgain }: SummaryProps) {
+  let forest = 'Ta forêt a gagné des feuilles.';
+  if (grown === 1) forest = 'Ta forêt a un nouvel arbre.';
+  else if (grown > 1) forest = `Ta forêt a ${grown} nouveaux arbres.`;
+  return (
+    <section id="question" class="summary" aria-live="polite">
+      <p class="praise">Sentier terminé !</p>
+      <p class="statement">Tu as franchi {stones} pierres.</p>
+      <p class="instruction">{forest}</p>
+      <button type="button" class="next" onPointerDown={onAgain}>
+        Encore un sentier
+      </button>
+    </section>
   );
 }
 
@@ -146,7 +209,18 @@ export function mountGame(
   seed: number,
   grow: () => void,
 ) {
-  const probe: GameProbe = { exercise: null, energy: 0, grown: 0 };
-  render(<Game skills={skills} rng={new Rng(seed)} grow={grow} probe={probe} />, root);
+  const rng = new Rng(seed);
+  const session = new Session(skills, rng.fork('trail'), today);
+  session.startTrail();
+  const probe: GameProbe = {
+    exercise: null,
+    energy: 0,
+    grown: 0,
+    phase: 'asking',
+    stone: 0,
+    stones: session.stones,
+    role: null,
+  };
+  render(<Game session={session} rng={rng} grow={grow} probe={probe} />, root);
   return probe;
 }

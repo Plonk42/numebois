@@ -190,3 +190,48 @@
 #question .next {
   font-size: 28px;
 }
+#question.summary {
+  gap: 14px;
+}
+#question.summary .praise {
+  font-size: 30px;
+  line-height: 36px;
+}
+
+/* The path of stones, top centre: the end of the trail is always in sight. */
+#trail {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  z-index: 5;
+  transform: translateX(-50%);
+  height: 56px;
+  margin: 0;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  list-style: none;
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 2px 8px rgba(0, 40, 80, 0.18);
+}
+#trail .stone {
+  width: 30px;
+  height: 22px;
+  border-radius: 50% 50% 46% 46%;
+  background: #d8d0bf;
+  box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.12);
+}
+#trail .stone.crossed {
+  background: #8cc56c;
+  animation: leaf-pop 0.5s cubic-bezier(0.3, 1.7, 0.5, 1);
+}
+#trail .stone.here {
+  width: 36px;
+  height: 26px;
+  background: #ffe27a;
+  box-shadow:
+    inset 0 -4px 0 rgba(0, 0, 0, 0.1),
+    0 0 0 3px rgba(255, 226, 122, 0.45);
+}

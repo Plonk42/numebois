@@ -97,6 +97,50 @@ test('une boucle jouable : questions, indices, énergie et pousse', async ({ pag
   expect(errors).toEqual([]);
 });
 
+test('un sentier complet : 10 pierres, deux arbres et un résumé bienveillant', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto('./?stage=0');
+  await page.evaluate(() => window.__numebois!.ready);
+  const card = page.locator('#question');
+  const path = page.locator('#trail');
+  await expect(path.locator('.stone')).toHaveCount(10);
+  await expect(path).toHaveAttribute('aria-label', 'Pierre 1 sur 10');
+
+  // The path stays clear of the gauge, the sound button and the card.
+  const pathBox = (await path.boundingBox())!;
+  for (const other of ['#energy', '#sound-toggle', '#question']) {
+    const box = (await page.locator(other).boundingBox())!;
+    const apart =
+      box.x >= pathBox.x + pathBox.width ||
+      box.x + box.width <= pathBox.x ||
+      box.y >= pathBox.y + pathBox.height;
+    expect(apart, other).toBe(true);
+  }
+
+  for (let stone = 0; stone < 10; stone++) {
+    await expect(path.locator('.stone.crossed')).toHaveCount(stone);
+    const exercise = await current(page);
+    await page.keyboard.type(exercise.answer);
+    await page.keyboard.press('Enter');
+    await expect(card.locator('.praise')).toBeVisible();
+    await expect.poll(async () => (await game(page)).stone, { timeout: 8000 }).toBe(stone + 1);
+  }
+  await expect(card.locator('.praise')).toHaveText('Sentier terminé !');
+  await expect(card).toContainText('Tu as franchi 10 pierres.');
+  await expect(card).toContainText('Ta forêt a 2 nouveaux arbres.');
+  await expect(path.locator('.stone.crossed')).toHaveCount(10);
+  expect((await game(page)).grown).toBe(2);
+  await test.info().attach('résumé', { body: await page.screenshot(), contentType: 'image/png' });
+
+  await page.getByRole('button', { name: 'Encore un sentier' }).click();
+  await expect(card.locator('.instruction')).toBeVisible();
+  await expect(path.locator('.stone.crossed')).toHaveCount(0);
+  await expect(path.locator('.stone.here')).toHaveCount(1);
+  expect((await game(page)).role).toBe('warmup');
+  expect(errors).toEqual([]);
+});
+
 test('la carte tient sous le bouton du son avec le plus long énoncé et son indice', async ({
   page,
 }) => {

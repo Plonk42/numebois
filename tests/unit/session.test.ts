@@ -1,0 +1,54 @@
+import { describe, expect, it } from 'vitest';
+import { Rng } from '../../src/core/rng';
+import { Session } from '../../src/core/session';
+import { TRAIL_QUESTIONS } from '../../src/core/trail';
+import { DOMAINS } from '../../src/domains';
+
+const SKILLS = DOMAINS.flatMap((domain) => domain.skills);
+
+/** Plays the trail in progress; `right(i)` tells whether question i is right first time. */
+function play(session: Session, right: (i: number) => boolean = () => true): string[] {
+  const asked: string[] = [];
+  let previous;
+  do {
+    const { skill, exercise } = session.ask(previous);
+    expect(skill.validate(exercise, exercise.answer)).toBe(true);
+    const ok = right(asked.length);
+    asked.push(skill.id);
+    session.conclude(skill, exercise, ok, 2000, !ok);
+    previous = exercise;
+  } while (session.advance());
+  return asked;
+}
+
+describe('session', () => {
+  it('plays whole trails and opens a new notion once the first is under way', () => {
+    const session = new Session(SKILLS, new Rng(3), () => 100);
+    session.startTrail();
+    expect(new Set(play(session))).toEqual(new Set(['numbers.write-digits']));
+    expect(session.progress.get('numbers.write-digits')?.level).toBe(3);
+    session.startTrail();
+    expect(session.trail.find((step) => step.role === 'new')?.skill).toBe('mental-math.add');
+    expect(play(session)).toHaveLength(TRAIL_QUESTIONS.normal);
+  });
+
+  it('ends on a success: one more easy question after a missed last one, on the last stone', () => {
+    const session = new Session(SKILLS, new Rng(5), () => 100);
+    session.startTrail();
+    const last = TRAIL_QUESTIONS.normal - 1;
+    const asked = play(session, (i) => i !== last);
+    expect(asked).toHaveLength(TRAIL_QUESTIONS.normal + 1);
+    expect(session.stones).toBe(TRAIL_QUESTIONS.normal);
+    expect(session.stone).toBe(TRAIL_QUESTIONS.normal - 1);
+    expect(session.trail.at(-1)).toMatchObject({ role: 'finish', easy: true });
+  });
+
+  it('records the facts of fact notions', () => {
+    const session = new Session(SKILLS, new Rng(1), () => 100);
+    const complements = SKILLS.find((skill) => skill.id === 'mental-math.complements')!;
+    const exercise = complements.generate(new Rng(1), 0);
+    session.conclude(complements, exercise, true, 1500, false);
+    const fact = complements.facts!.of(exercise)!;
+    expect(session.facts.get(fact)).toMatchObject({ tries: 1, right: 1, fastDays: [100] });
+  });
+});

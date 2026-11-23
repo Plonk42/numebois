@@ -32,7 +32,7 @@ const game =
     ? null
     : mountGame(
         document.querySelector<HTMLElement>('#ui')!,
-        // Until the trail chooses the notions (#15), all of them.
+        // Every notion, in the order of the curriculum: the trail chooses among them.
         DOMAINS.flatMap((domain) => domain.skills),
         Date.now() >>> 0,
         () => app.grow(),
