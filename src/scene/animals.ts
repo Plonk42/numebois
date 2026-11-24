@@ -63,12 +63,14 @@ class SkinnedBody implements AnimalBody {
   }
 }
 
-/** Stand-in without the pack: a rounded body on four legs, bobbing as it walks. */
+/** Stand-in without the pack: a rounded body on four legs, bobbing as it walks, hopping. */
 class PlaceholderBody implements AnimalBody {
   readonly object: THREE.Mesh;
   readonly triangles: number;
   private walk = 0;
   private walkTime = 0;
+  private jump = 0;
+  private jumpTime = 0;
 
   constructor(geometry: THREE.BufferGeometry, material: THREE.Material) {
     this.object = new THREE.Mesh(geometry, material);
@@ -77,14 +79,21 @@ class PlaceholderBody implements AnimalBody {
   }
 
   pose(clip: AnimalClip, time: number, weight: number): void {
-    if (clip !== 'walk') return;
+    if (clip === 'jump') {
+      this.jump = weight;
+      this.jumpTime = time;
+    }
+    if (clip !== 'walk' && clip !== 'gallop') return;
     this.walk = weight;
     this.walkTime = time;
   }
 
   apply(): void {
-    this.object.position.y = this.walk * 0.04 * Math.abs(Math.sin(this.walkTime * Math.PI * 2));
+    this.object.position.y +=
+      this.walk * 0.04 * Math.abs(Math.sin(this.walkTime * Math.PI * 2)) +
+      this.jump * 0.5 * Math.sin(Math.min(1, this.jumpTime) * Math.PI);
     this.walk = 0;
+    this.jump = 0;
   }
 
   dispose(): void {

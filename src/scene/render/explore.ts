@@ -76,14 +76,18 @@ const WHEEL = 0.0015;
 /** Time constants of the glide: following a gesture, coming back to the framing (seconds). */
 const FOLLOW_S = 0.08;
 const HOME_S = 0.4;
+/** A touch that hardly moves is a tap, however long it lasts (CSS pixels). */
+const TAP_PX = 12;
 
 /**
  * Gestures over the forest: one finger moves the view, two fingers pinch to zoom, twist to
- * turn and slide up or down to tilt (mouse: drag, right drag, wheel). Off, the view glides
- * back to the framing and gestures do nothing.
+ * turn and slide up or down to tilt (mouse: drag, right drag, wheel); a tap goes to `onTap`.
+ * Off, the view glides back to the framing and gestures do nothing.
  */
 export class Explorer {
   readonly view: View = { ...HOME_VIEW };
+  /** A tap while gestures are on, in CSS pixels from the top left of the element. */
+  onTap: ((x: number, y: number) => void) | null = null;
   private goal: View = { ...HOME_VIEW };
   private half: [number, number] = [0, 0];
   private enabled = false;
@@ -92,6 +96,8 @@ export class Explorer {
   private last = performance.now();
   private onAway: ((away: boolean) => void) | null = null;
   private readonly pointers = new Map<number, { x: number; y: number; button: number }>();
+  /** The pointer that may still be a tap, and where it went down. */
+  private tap: { id: number; x: number; y: number } | null = null;
 
   constructor(
     private readonly element: HTMLElement,
@@ -125,6 +131,7 @@ export class Explorer {
     this.enabled = false;
     this.onAway = null;
     this.pointers.clear();
+    this.tap = null;
     this.recenter();
   }
 
@@ -202,6 +209,10 @@ export class Explorer {
     if (!this.enabled || this.pointers.size >= 2) return;
     event.preventDefault();
     this.element.setPointerCapture?.(event.pointerId);
+    this.tap =
+      this.pointers.size === 0 && event.button === 0
+        ? { id: event.pointerId, x: event.clientX, y: event.clientY }
+        : null;
     this.pointers.set(event.pointerId, {
       x: event.clientX,
       y: event.clientY,
@@ -214,6 +225,8 @@ export class Explorer {
     if (!this.enabled || !before) return;
     event.preventDefault();
     const after = { x: event.clientX, y: event.clientY, button: before.button };
+    const tap = this.tap;
+    if (tap && Math.hypot(after.x - tap.x, after.y - tap.y) > TAP_PX) this.tap = null;
     if (this.pointers.size === 1) {
       const dx = after.x - before.x;
       const dy = after.y - before.y;
@@ -246,7 +259,14 @@ export class Explorer {
   };
 
   private readonly up = (event: PointerEvent) => {
-    this.pointers.delete(event.pointerId);
+    const known = this.pointers.delete(event.pointerId);
+    const tap = this.tap;
+    if (!known || tap?.id !== event.pointerId) return;
+    this.tap = null;
+    if (event.type === 'pointerup' && this.enabled) {
+      const box = this.element.getBoundingClientRect();
+      this.onTap?.(tap.x - box.left, tap.y - box.top);
+    }
   };
 
   private readonly wheel = (event: WheelEvent) => {
