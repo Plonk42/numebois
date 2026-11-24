@@ -2,6 +2,7 @@ import {
   LEAVES_PER_ELEMENT,
   SEEDS_PER_ANIMAL,
   SEEDS_PER_NIGHT,
+  SEEDS_PER_RARE,
   SEEDS_PER_SEASON,
 } from '../core/economy';
 import type { AnimalName } from './animal-catalog';
@@ -10,18 +11,24 @@ import {
   ELEMENTS_AT_STAGE,
   MAX_ELEMENTS,
   NIGHT_STAGE,
+  RARE_OFFERS,
   SEASON_STAGES,
   nextSeason,
+  type RareName,
   type SceneDescription,
 } from './description';
 import type { Season } from './trees/builder';
 
-/** What the shop of a décor sells (#83): an element to place, an animal, a season, the night. */
+/**
+ * What the shop of a décor sells (#83): an element to place, an animal, a season, the night,
+ * a rare element.
+ */
 export type Article =
   | { kind: 'element' }
   | { kind: 'animal'; animal: AnimalName }
   | { kind: 'season'; season: Season }
-  | { kind: 'night' };
+  | { kind: 'night' }
+  | { kind: 'rare'; rare: RareName };
 
 export interface ShopItem {
   article: Article;
@@ -32,12 +39,13 @@ export interface ShopItem {
 }
 
 /** A few articles at a time: a short shop, where the child never gets lost. */
-export const SHOP_SIZE = 4;
+export const SHOP_SIZE = 5;
 
 /**
  * The shop at the end of a trail: an element while the painting has free slots, the next
- * season of the year for this painting, the night from the stage before its own, then the
- * animals open at this stage (one of each kind), and the next one to come.
+ * season of the year for this painting, the night from the stage before its own, a rare
+ * element open at this stage (a surprise: it shows only once open), then the animals open at
+ * this stage (one of each kind), and the next one to come.
  */
 export function shopItems(description: SceneDescription): ShopItem[] {
   const items: ShopItem[] = [];
@@ -67,6 +75,17 @@ export function shopItems(description: SceneDescription): ShopItem[] {
       leaves: 0,
       seeds: SEEDS_PER_NIGHT,
       elementsToGo: Math.max(0, ELEMENTS_AT_STAGE[NIGHT_STAGE] - placed),
+    });
+  }
+  const rare = RARE_OFFERS[description.biome].find(
+    (offer) => offer.stage <= description.stage && !description.rares.includes(offer.rare),
+  );
+  if (rare) {
+    items.push({
+      article: { kind: 'rare', rare: rare.rare },
+      leaves: 0,
+      seeds: SEEDS_PER_RARE,
+      elementsToGo: 0,
     });
   }
   const bought = [...description.animals];

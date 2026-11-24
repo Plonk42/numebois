@@ -1,5 +1,5 @@
 import type { Vocabulary } from '../../core/types';
-import type { BiomeId, PerStage, Stage } from '../description';
+import type { BiomeId, PerStage, RareName, Stage } from '../description';
 import type { BiomeLook } from '../render/richness';
 import type { Terrain } from '../terrain/types';
 
@@ -11,7 +11,8 @@ export interface Biome extends BiomeLook {
   id: BiomeId;
   /** Name shown to the child. */
   name: string;
-  terrain(seed: number, stage: Stage): Terrain;
+  /** The terrain of a stage, with the rare elements bought that change it (beavers). */
+  terrain(seed: number, stage: Stage, rares: readonly RareName[]): Terrain;
   /** Effects seen in no earlier décor, in French: the test checks that each one shows. */
   effects: readonly string[];
   stageNames: PerStage<string>;

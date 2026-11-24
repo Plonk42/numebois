@@ -76,7 +76,12 @@ const ready = sceneOnly
         const asked = parseDescription(params);
         if (sandbox) {
           // The elements of `?fill=`, at their stage, nothing bought yet.
-          app.description = { ...asked, stage: stageFor(asked.elements.length), animals: [] };
+          app.description = {
+            ...asked,
+            stage: stageFor(asked.elements.length),
+            animals: [],
+            rares: [],
+          };
         } else {
           app.description = saved?.ok
             ? saved.data.painting
@@ -108,6 +113,7 @@ const ready = sceneOnly
             plant: (slot, day) => app.plant(slot, day),
             adopt: (animal) => app.adopt(animal),
             changeSeason: (season) => app.changeSeason(season),
+            addRare: (rare) => app.addRare(rare),
             portrait: (animal) => app.portrait(animal),
             trailArt: (stones) => app.trailArt(stones),
             ready: started,

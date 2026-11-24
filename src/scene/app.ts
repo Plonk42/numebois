@@ -8,6 +8,7 @@ import {
   isBought,
   parseDescription,
   stageFor,
+  type RareName,
   type SceneDescription,
   type SeasonChoice,
 } from './description';
@@ -355,6 +356,20 @@ export class SceneApp {
     const before = this.description;
     const next = choose(before, choice);
     if (!isBought(before, choice)) this.sound.reward('element');
+    await this.veiled(next);
+    return next;
+  }
+
+  /** A bought rare element comes into the painting, under the veil (#46). */
+  async addRare(rare: RareName): Promise<SceneDescription> {
+    const next = { ...this.description, rares: [...this.description.rares, rare] };
+    this.sound.reward('element');
+    await this.veiled(next);
+    return next;
+  }
+
+  /** The painting becomes `next` under the veil; resolves once the veil is gone. */
+  private async veiled(next: SceneDescription): Promise<void> {
     this.veil.classList.add('on', 'quiet');
     await wait(VEIL_IN_MS);
     this.description = next;
@@ -362,7 +377,6 @@ export class SceneApp {
     this.veil.classList.remove('on');
     await wait(VEIL_OUT_MS);
     this.veil.classList.remove('quiet');
-    return next;
   }
 
   /** Portrait of an animal for the shop, made once; null before the animals are loaded. */

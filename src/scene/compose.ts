@@ -29,7 +29,8 @@ export function composeScene(
   ambience: Ambience,
   quality: QualitySettings,
 ): Composition {
-  const terrain = BIOMES[description.biome].terrain(description.seed, description.stage);
+  const { biome, seed, stage, rares } = description;
+  const terrain = BIOMES[biome].terrain(seed, stage, rares);
   const ground = new MeshWriter(24000, 24000);
   terrain.buildGround(ground, description.season);
   for (const m of terrain.staticModels) {

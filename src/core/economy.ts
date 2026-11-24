@@ -16,3 +16,5 @@ export const SEEDS_PER_ANIMAL = 2;
 export const SEEDS_PER_SEASON = 3;
 /** Golden seeds of the night for the painting in progress (#85). */
 export const SEEDS_PER_NIGHT = 3;
+/** Golden seeds of a rare element for the painting in progress: fireflies, rainbow, beavers (#46). */
+export const SEEDS_PER_RARE = 4;

@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { hashSeed, Rng, valueNoise2 } from '../../src/core/rng';
 import { createPlaceholderLibrary } from '../../src/scene/assets';
+import { BIOMES } from '../../src/scene/biomes';
 import { composeScene, compositionTriangles } from '../../src/scene/compose';
 import {
+  BIOME_IDS,
   DEMO_FILL,
   LAST_STAGE,
   MAX_ELEMENTS,
@@ -11,8 +13,11 @@ import {
   choose,
   demoAnimals,
   demoElements,
+  demoRares,
   isBought,
   parseDescription,
+  RARE_OFFERS,
+  rareStage,
   readDescription,
   shownChoice,
   stageFor,
@@ -68,12 +73,13 @@ function scene(
     night: 'none',
     elements: demoElements(seed, fill),
     animals: demoAnimals('clearing', stage),
+    rares: demoRares('clearing', stage),
     ...more,
   };
 }
 
-/** First stage where the beavers have filled their lake. */
-const lakeStage = () => STAGES.find((stage) => createClearing(0, stage).dam !== null)!;
+/** Stage from which the shop sells the beavers, who fill their lake. */
+const lakeStage = () => rareStage('clearing', 'beavers')!;
 
 function sceneTriangles(description: SceneDescription, quality = QUALITY.high): number {
   const season = description.season;
@@ -131,6 +137,7 @@ describe('scene description', () => {
       seed: 12,
       elements: demoElements(12, 0.5),
       animals: ['Donkey'],
+      rares: ['fireflies'],
     });
     const fallback = parseDescription(
       new URLSearchParams('biome=jungle&stage=12&season=monsoon&seed=x'),
@@ -145,6 +152,10 @@ describe('scene description', () => {
     const night = { ...d, night: 'shown' } as const;
     writeDescription(params, night);
     expect(parseDescription(params)).toEqual(night);
+    expect(parseDescription(new URLSearchParams('stage=11&rares=beavers,unicorn')).rares).toEqual([
+      'beavers',
+    ]);
+    expect(parseDescription(new URLSearchParams('stage=11&rares=')).rares).toEqual([]);
     expect(STAGES).toHaveLength(12);
     expect(LAST_STAGE).toBe(STAGES[STAGES.length - 1]);
   });
@@ -457,12 +468,13 @@ describe('clearing terrain', () => {
     for (let seed = 0; seed < 6; seed++) {
       const terrains = STAGES.map((stage) => createClearing(seed, stage));
       const tops = terrains.map(highest);
-      // One new thing at a time: a fall, the stream out of the lake (3), a stream with its pool,
-      // the beavers' lake (8).
+      // One new thing at a time: a fall, the stream out of the lake (3), a stream with its pool;
+      // the beavers' lake comes with the beavers, bought.
       expect(terrains.map((t) => t.waterfalls.length)).toEqual([
         0, 0, 1, 2, 3, 4, 4, 5, 6, 7, 7, 7,
       ]);
-      expect(terrains.map((t) => t.ponds.length)).toEqual([1, 1, 1, 1, 1, 2, 2, 2, 3, 4, 4, 4]);
+      expect(terrains.map((t) => t.ponds.length)).toEqual([1, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3]);
+      expect(createClearing(seed, LAST_STAGE, ['beavers']).ponds).toHaveLength(4);
       for (let stage = 1; stage < terrains.length; stage++) {
         const label = `seed ${seed}, stage ${stage}`;
         expect(terrains[stage].extent.x, label).toBeGreaterThan(terrains[stage - 1].extent.x);
@@ -625,6 +637,10 @@ describe('slots and grand moments', () => {
       { ...valid, seasons: ['autumn', 'winter', 'autumn'] },
       { ...valid, night: undefined },
       { ...valid, night: 'dusk' },
+      { ...valid, rares: ['unicorn'] },
+      { ...valid, rares: ['rainbow', 'rainbow'] },
+      { ...valid, rares: 'rainbow' },
+      { ...valid, biome: 'sky', rares: ['beavers'] },
     ]) {
       expect(readDescription(broken), JSON.stringify(broken)).toBeNull();
     }
@@ -634,6 +650,35 @@ describe('slots and grand moments', () => {
     expect(readDescription(JSON.parse(JSON.stringify(bought)))).toEqual(bought);
     const night = { ...valid, night: 'shown' };
     expect(readDescription(JSON.parse(JSON.stringify(night)))).toEqual(night);
+    const rares = { ...valid, rares: ['beavers', 'fireflies'] };
+    expect(readDescription(JSON.parse(JSON.stringify(rares)))).toEqual(rares);
+    // Paintings kept before the rare elements (#46) have none.
+    const before = { ...valid, rares: undefined };
+    expect(readDescription(JSON.parse(JSON.stringify(before)))).toEqual({ ...valid, rares: [] });
+  });
+
+  it('shows each rare element only once bought, from the stage it is sold (#46)', () => {
+    for (const biome of BIOME_IDS) {
+      for (const { rare, stage } of RARE_OFFERS[biome]) {
+        const label = `${biome} ${rare}`;
+        const without = ambienceFor(stage, 'summer', BIOMES[biome]);
+        const bought = ambienceFor(stage, 'summer', BIOMES[biome], false, [rare]);
+        const terrain = BIOMES[biome].terrain(3, stage, [rare]);
+        if (rare === 'fireflies') {
+          expect([without.fireflies, bought.fireflies], label).toEqual([0, 1]);
+        } else if (rare === 'rainbow') {
+          expect([without.rainbow, bought.rainbow], label).toEqual([0, 1]);
+          // Over the widest fall landing in water: there must be one.
+          expect(
+            terrain.waterfalls.some((fall) => fall.splash),
+            label,
+          ).toBe(true);
+        } else {
+          expect(BIOMES[biome].terrain(3, stage, []).dam, label).toBeNull();
+          expect(terrain.dam, label).not.toBeNull();
+        }
+      }
+    }
   });
 
   it('shows the night as a fifth choice, over the plants of the season (#85)', () => {
@@ -793,7 +838,7 @@ describe('slots and grand moments', () => {
     expect(ages(8)).toBe(1);
   });
 
-  it("fills the beavers' lake at its stage, with sparkles over the hollow the stage before", () => {
+  it("fills the beavers' lake once bought, with sparkles over the hollow while sold", () => {
     const lake = lakeStage();
     for (let seed = 0; seed < 12; seed++) {
       const label = `seed ${seed}`;
@@ -804,13 +849,17 @@ describe('slots and grand moments', () => {
       const hollow = basinAt(layout.basin, 0);
       expect(first.surfaceAt(hollow.x * m, hollow.z)?.kind, label).toBe('sand');
       expect(first.announcements, label).toEqual([]);
+      expect(createClearing(seed, (lake - 1) as Stage).announcements, label).toEqual([]);
 
-      const before = createClearing(seed, (lake - 1) as Stage);
-      expect(
-        before.announcements.map((a) => a.label),
-        label,
-      ).toEqual(['lake']);
-      const filled = createClearing(seed, lake);
+      for (const stage of [lake, LAST_STAGE]) {
+        const sold = createClearing(seed, stage);
+        expect(
+          sold.announcements.map((a) => a.label),
+          label,
+        ).toEqual(['lake']);
+        expect(sold.dam, label).toBeNull();
+      }
+      const filled = createClearing(seed, lake, ['beavers']);
       expect(filled.announcements, label).toEqual([]);
       const center = basinAt(layout.basin, lake / LAST_STAGE);
       const islet = filled.treeSpots.find((s) => s.role === 'islet')!;
@@ -843,13 +892,13 @@ describe('slots and grand moments', () => {
       expect(Math.hypot(inlet[0] - basin.x, inlet[1] - basin.z), label).toBeLessThan(1e-6);
       const mouth = eastPath[eastPath.length - 1];
       expect(distanceToPath(mainPath, mouth[0], mouth[1]).distance, label).toBeLessThan(0.01);
-      // The stage before, the stream already crosses the dry hollow; nothing holds it back.
-      const before = createClearing(seed, (lakeAt - 1) as Stage);
+      // Before the beavers, the stream already crosses the dry hollow; nothing holds it back.
+      const before = createClearing(seed, lakeAt);
       expect(before.surfaceAt(basin.x * m, basin.z)?.kind, label).toBe('water');
       expect(before.dam, label).toBeNull();
       // Then the dam stands on the outlet, at the bank of the lake.
       const lake = basinAt(basin, lakeAt / LAST_STAGE);
-      const dam = createClearing(seed, lakeAt).dam!;
+      const dam = createClearing(seed, lakeAt, ['beavers']).dam!;
       expect(dam, label).not.toBeNull();
       expect(Math.hypot(dam.x * m - lake.x, dam.z - lake.z) - lake.radius, label).toBeLessThan(1);
       expect(distanceToPath(eastPath, dam.x * m, dam.z).distance, label).toBeLessThan(0.01);

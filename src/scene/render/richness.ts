@@ -1,4 +1,4 @@
-import type { PerStage, Stage } from '../description';
+import type { PerStage, RareName, Stage } from '../description';
 import type { Season } from '../trees/builder';
 
 /** Light and sky of a painting. */
@@ -151,9 +151,10 @@ const MOOD_AT: PerStage<number> = [0, 0.35, 0.7, 1, 1.35, 1.7, 2, 2.35, 2.7, 3, 
 
 // One value per stage, so each line reads as a progression. Most stages bring one new kind
 // of life: flowers (1), water lilies (2), butterflies and mushrooms (5), birds (8), sun rays
-// and sparkling falls (9), fireflies (10), rainbow and fairy ring (11). The animals come from
-// the shop, from the stages of `ANIMAL_OFFERS` (doe 3, fox 5, stag 7, wolf 10). These are the
-// clearing's; another décor replaces the columns it needs (`BiomeLook`).
+// and sparkling falls (9), fairy ring (11). The animals come from the shop, from the stages
+// of `ANIMAL_OFFERS` (doe 3, fox 5, stag 7, wolf 10), and so do fireflies and the rainbow
+// (`RARE_OFFERS`). These are the clearing's; another décor replaces the columns it needs
+// (`BiomeLook`).
 const LIFE_TABLE = {
   grass: [0.22, 0.3, 0.38, 0.5, 0.58, 0.67, 0.75, 0.8, 0.86, 0.92, 0.96, 1],
   flowers: [0, 0.1, 0.18, 0.25, 0.45, 0.7, 0.9, 0.95, 1, 1, 1.1, 1.2],
@@ -167,11 +168,9 @@ const LIFE_TABLE = {
   pollen: [0.15, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6, 0.67, 0.74, 0.8, 0.9, 1],
   butterflies: [0, 0, 0, 0, 0, 0.35, 0.7, 0.8, 0.9, 1, 0.9, 0.8],
   fallingLeaves: [0.1, 0.13, 0.17, 0.2, 0.23, 0.27, 0.3, 0.33, 0.37, 0.4, 0.45, 0.5],
-  fireflies: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.3, 1],
   birds: [0, 0, 0, 0, 0, 0, 0, 0, 0.5, 1, 0.8, 0.6],
   sunRays: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0.7, 0.85, 1],
   sparkle: [0, 0, 0, 0, 0, 0.08, 0.15, 0.2, 0.25, 0.3, 0.6, 1],
-  rainbow: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
   // Sound, one new layer at stages 0, 2, 3, 6, 9 and 11: the spring's pond, the falls, the
   // stream and the first birds, a livelier chorus and the meadow's insects, woodpecker,
   // cuckoo and leaves in the gusts, then crickets, tawny owl and chimes. As layers come, the
@@ -327,12 +326,13 @@ const NIGHT_FIREFLIES = 0.7;
 const NIGHT_VEIL = 0.45;
 const NIGHT_SHADOW = { strength: 0.45, blur: 7 };
 
-/** Ambience of a stage, adjusted for the décor, the season and the night. */
+/** Ambience of a stage, adjusted for the décor, the season, the night and the rare elements bought. */
 export function ambienceFor(
   stage: Stage,
   season: Season,
   look: BiomeLook = CLEARING_LOOK,
   night = false,
+  rares: readonly RareName[] = [],
 ): Ambience {
   const light = lightOf(stage);
   const pulls = [look.light, SEASON_LIGHT[season], night ? NIGHT_LIGHT : undefined];
@@ -365,11 +365,11 @@ export function ambienceFor(
     pollen: LIFE.pollen[stage],
     butterflies: LIFE.butterflies[stage],
     fallingLeaves: LIFE.fallingLeaves[stage],
-    fireflies: LIFE.fireflies[stage],
+    fireflies: rares.includes('fireflies') ? 1 : 0,
     birds: LIFE.birds[stage],
     sunRays: LIFE.sunRays[stage],
     sparkle: LIFE.sparkle[stage],
-    rainbow: LIFE.rainbow[stage],
+    rainbow: rares.includes('rainbow') ? 1 : 0,
     sound: {
       wind: LIFE.windSound[stage],
       pond: LIFE.pondSound[stage],

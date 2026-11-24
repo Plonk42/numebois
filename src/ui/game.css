@@ -362,6 +362,34 @@
   stroke: #5a6fb8;
   stroke-width: 1.5;
 }
+.rare-icon {
+  width: 100%;
+  height: 100%;
+}
+.rare-icon .night {
+  fill: #2f4a6b;
+}
+.rare-icon .halo {
+  fill: rgba(243, 255, 142, 0.35);
+}
+.rare-icon .glow {
+  fill: #f3ff8e;
+}
+.rare-icon .band {
+  fill: none;
+  stroke-width: 4.5;
+}
+.rare-icon .water {
+  fill: #6fb4e0;
+}
+.rare-icon .log {
+  fill: #9a6a3e;
+  stroke: #6e4826;
+  stroke-width: 2;
+}
+.rare-icon .cut {
+  fill: #e0b67e;
+}
 
 /* A walk in the forest: the forest everywhere; at the top centre, once the view has left it,
    the whole forest again. */
