@@ -5,7 +5,7 @@ description: "Ajouter une notion, un domaine ou un type de saisie à Numebois. U
 
 # Ajouter une notion ou un domaine
 
-Recette de fond : [plan, « Recette : ajouter une notion ou un domaine »](../../../doc/PLAN_ACTION.md). Règles : [domain-modules.instructions.md](../../instructions/domain-modules.instructions.md) et [child-ux.instructions.md](../../instructions/child-ux.instructions.md). Modèle : `src/domains/mental-math/` (à remplacer par `times-tables`, #18).
+Recette de fond : [plan, « Recette : ajouter une notion ou un domaine »](../../../doc/PLAN_ACTION.md). Règles : [domain-modules.instructions.md](../../instructions/domain-modules.instructions.md) et [child-ux.instructions.md](../../instructions/child-ux.instructions.md). Modèle : `src/domains/times-tables/` (niveaux partagés par deux notions, faits dans `facts.ts`, indices tirés d'une table de méthodes, tests sur 1 000 graines).
 
 ## Écrire
 
