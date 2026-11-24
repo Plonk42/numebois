@@ -1,7 +1,14 @@
 import { Rng, hashSeed, valueNoise2 } from '../../core/rng';
 import type { ModelName } from '../asset-catalog';
 import { swatchUV, type SwatchName } from '../atlas';
-import { LAST_STAGE, STAGES, type PerStage, type Stage } from '../description';
+import {
+  LAST_STAGE,
+  STAGES,
+  rareStage,
+  type PerStage,
+  type RareName,
+  type Stage,
+} from '../description';
 import type { MeshWriter } from '../mesh-data';
 import {
   WATER_FALL,
@@ -91,9 +98,9 @@ interface Relief {
 // One value per stage, so each line reads as a progression. Every stage is a little larger
 // than the one before, and most bring one new thing: ledge and first fall (2), the lake
 // overflows into a stream (3), mountain and second fall (4), east stream and confluence (5),
-// snow and the far chain in colour (6), third fall (7), second east fall and the beavers'
-// lake (8), west brook (9), the wolf's ledge (10). A grand moment (far chain, beavers' lake)
-// shows its shape before, and sparkles the stage before it comes.
+// snow and the far chain in colour (6), third fall (7), second east fall (8), west brook (9),
+// the wolf's ledge (10). A grand moment (far chain) shows its shape before, and sparkles the
+// stage before it comes; the beavers' lake comes when the child buys the beavers.
 const RELIEF_BY_STAGE = {
   hx: [13.5, 15.5, 17.5, 19, 21, 22.5, 24, 25.5, 27, 28.5, 29.3, 30],
   hz: [10.5, 12, 14.5, 18.5, 20, 21.25, 22.25, 23.5, 24.5, 25.5, 26.3, 27],
@@ -113,9 +120,10 @@ const RELIEF_BY_STAGE = {
   perch: [false, false, false, false, false, false, false, false, false, false, true, true],
   /** The far chain comes out of the haze, in colour and snowy. */
   chain: [false, false, false, false, false, false, true, true, true, true, true, true],
-  /** The beavers' dam fills the dry hollow crossed by the east stream. */
-  beavers: [false, false, false, false, false, false, false, false, true, true, true, true],
 } satisfies Record<string, PerStage<number> | PerStage<boolean>>;
+
+/** Stage from which the shop sells the beavers, who fill the dry hollow with their lake. */
+const BEAVERS_STAGE = rareStage('clearing', 'beavers')!;
 
 /** A grand moment at a stage: there, announced by sparkles the stage before, or waiting. */
 function revealAt(column: PerStage<boolean>, stage: Stage): Reveal {
@@ -276,6 +284,8 @@ class Clearing implements Terrain {
   constructor(
     private readonly seed: number,
     private readonly stage: Stage,
+    /** The child bought the beavers (#46). */
+    beavers: boolean,
     /** Without its scenery, a terrain only answers questions about its ground. */
     scenery = true,
   ) {
@@ -283,7 +293,9 @@ class Clearing implements Terrain {
     this.layout = layout;
     this.mirror = layout.mirror;
     this.chain = revealAt(RELIEF_BY_STAGE.chain, stage);
-    this.beavers = revealAt(RELIEF_BY_STAGE.beavers, stage);
+    // Once sold, the dry hollow sparkles until the child brings the beavers.
+    if (beavers) this.beavers = 'shown';
+    else this.beavers = stage >= BEAVERS_STAGE ? 'announced' : 'waiting';
     this.perchDef = this.choosePerch();
     const relief = reliefOf(stage);
     this.relief = relief;
@@ -901,7 +913,11 @@ class Clearing implements Terrain {
     const rng = new Rng(this.seed).fork('forest');
     const m = this.mirror;
     const l = this.layout;
-    const final = this.stage === LAST_STAGE ? this : new Clearing(this.seed, LAST_STAGE, false);
+    // The final diorama with its lake, so that no tree stands where the beavers may flood.
+    const final =
+      this.stage === LAST_STAGE && this.beavers === 'shown'
+        ? this
+        : new Clearing(this.seed, LAST_STAGE, true, false);
     const placed = [...l.hero, ...l.slots.map((s) => [s.x, s.z])].map(([x, z]) => ({
       x,
       z,
@@ -1254,6 +1270,10 @@ class Clearing implements Terrain {
   }
 }
 
-export function createClearing(seed: number, stage: Stage): Terrain {
-  return new Clearing(seed, stage);
+export function createClearing(
+  seed: number,
+  stage: Stage,
+  rares: readonly RareName[] = [],
+): Terrain {
+  return new Clearing(seed, stage, rares.includes('beavers'));
 }

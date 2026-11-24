@@ -74,6 +74,38 @@ export type Night = (typeof NIGHTS)[number];
 /** What the child picks in the bar of the seasons: a season, or the night, a fifth choice. */
 export type SeasonChoice = Season | 'night';
 
+/**
+ * Rare elements, bought in golden seeds for the whole painting (#46): fireflies, a rainbow
+ * over the widest fall, and in the clearing the beavers, who fill their lake.
+ */
+export const RARE_NAMES = ['fireflies', 'rainbow', 'beavers'] as const;
+export type RareName = (typeof RARE_NAMES)[number];
+
+/**
+ * The rare elements of each décor, each open from a stage: the rainbow needs a fall landing
+ * in water, the beavers their dry hollow, dug at 7.
+ */
+export const RARE_OFFERS: Record<BiomeId, readonly { rare: RareName; stage: Stage }[]> = {
+  clearing: [
+    { rare: 'fireflies', stage: 4 },
+    { rare: 'rainbow', stage: 6 },
+    { rare: 'beavers', stage: 7 },
+  ],
+  orchard: [
+    { rare: 'fireflies', stage: 4 },
+    { rare: 'rainbow', stage: 6 },
+  ],
+  sky: [
+    { rare: 'fireflies', stage: 4 },
+    { rare: 'rainbow', stage: 8 },
+  ],
+};
+
+/** Stage from which a rare element is sold in a décor, null when it has none. */
+export function rareStage(biome: BiomeId, rare: RareName): Stage | null {
+  return RARE_OFFERS[biome].find((offer) => offer.rare === rare)?.stage ?? null;
+}
+
 /** The season after this one, in the order of the year. */
 export function nextSeason(season: Season): Season {
   return SEASONS[(SEASONS.indexOf(season) + 1) % SEASONS.length];
@@ -104,6 +136,8 @@ export interface SceneDescription {
   elements: readonly PlacedElement[];
   /** Animals the child brought from the shop, in buying order. */
   animals: readonly AnimalName[];
+  /** Rare elements bought for the painting, in buying order. */
+  rares: readonly RareName[];
 }
 
 /** Share of the slots filled by default at each stage, as if the child had played. */
@@ -127,6 +161,11 @@ export function demoAnimals(biome: BiomeId, stage: Stage): AnimalName[] {
   return ANIMAL_OFFERS[biome].filter((offer) => offer.stage <= stage).map((offer) => offer.animal);
 }
 
+/** Rare elements of a demonstration scene: every one open at its stage. */
+export function demoRares(biome: BiomeId, stage: Stage): RareName[] {
+  return RARE_OFFERS[biome].filter((offer) => offer.stage <= stage).map((offer) => offer.rare);
+}
+
 /** Share of the slots filled. */
 export function fillOf(description: SceneDescription): number {
   return description.elements.length / SLOT_COUNT;
@@ -137,13 +176,14 @@ export function isComplete(description: SceneDescription): boolean {
   return description.elements.length >= MAX_ELEMENTS;
 }
 
-/** What a new painting will look like once complete, with every animal (choice of the next one). */
+/** What a new painting will look like once complete, with every animal and rare element. */
 export function completed(description: SceneDescription): SceneDescription {
   return {
     ...description,
     stage: LAST_STAGE,
     elements: demoElements(description.seed, 1),
     animals: demoAnimals(description.biome, LAST_STAGE),
+    rares: demoRares(description.biome, LAST_STAGE),
   };
 }
 
@@ -158,6 +198,7 @@ export function newPainting(seed: number, season: Season, biome: BiomeId): Scene
     night: 'none',
     elements: [],
     animals: [],
+    rares: [],
   };
 }
 
@@ -202,6 +243,7 @@ export const DEFAULT_DESCRIPTION: SceneDescription = {
   night: 'none',
   elements: demoElements(7, DEMO_FILL[6]),
   animals: demoAnimals('clearing', 6),
+  rares: demoRares('clearing', 6),
 };
 
 export function parseDescription(params: URLSearchParams): SceneDescription {
@@ -229,7 +271,16 @@ export function parseDescription(params: URLSearchParams): SceneDescription {
       Number.isFinite(fill) ? Math.min(1, Math.max(0, fill / 100)) : DEMO_FILL[knownStage],
     ),
     animals: demoAnimals(knownBiome, knownStage),
+    rares: params.has('rares')
+      ? askedRares(knownBiome, params.get('rares')!)
+      : demoRares(knownBiome, knownStage),
   };
+}
+
+/** `?rares=beavers,rainbow` (captures): those of the décor, each once; empty for none. */
+function askedRares(biome: BiomeId, asked: string): RareName[] {
+  const names = new Set(asked.split(','));
+  return RARE_OFFERS[biome].map((offer) => offer.rare).filter((rare) => names.has(rare));
 }
 
 export function writeDescription(params: URLSearchParams, description: SceneDescription): void {
@@ -290,6 +341,9 @@ export function readDescription(value: unknown): SceneDescription | null {
   if (!Number.isInteger(seed) || (seed as number) < 0 || !STAGES.includes(stage as Stage)) {
     return null;
   }
+  // Paintings described before the rare elements (#46) have none.
+  const rares = readRares(biome as BiomeId, value.rares ?? []);
+  if (!rares) return null;
   return {
     biome: biome as BiomeId,
     seed: seed as number,
@@ -299,5 +353,13 @@ export function readDescription(value: unknown): SceneDescription | null {
     night: night as Night,
     elements,
     animals: animals as AnimalName[],
+    rares,
   };
+}
+
+/** Rare elements of a décor, each bought once; null when anything is out of place. */
+function readRares(biome: BiomeId, value: unknown): RareName[] | null {
+  if (!Array.isArray(value) || new Set(value).size !== value.length) return null;
+  const rares = value as RareName[];
+  return rares.every((rare) => rareStage(biome, rare) !== null) ? rares : null;
 }

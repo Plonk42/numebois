@@ -3,15 +3,18 @@ import {
   LEAVES_PER_ELEMENT,
   SEEDS_PER_ANIMAL,
   SEEDS_PER_NIGHT,
+  SEEDS_PER_RARE,
   SEEDS_PER_SEASON,
 } from '../../src/core/economy';
 import {
   ELEMENTS_AT_STAGE,
+  LAST_STAGE,
   MAX_ELEMENTS,
   NIGHT_STAGE,
   SEASON_STAGES,
   STAGES,
   demoAnimals,
+  demoRares,
   newPainting,
   stageFor,
   type SceneDescription,
@@ -19,12 +22,13 @@ import {
 import { SHOP_SIZE, canBuy, shopItems, type Article } from '../../src/scene/shop';
 import { SEASONS } from '../../src/scene/trees/builder';
 
-/** A painting of the game with this many elements placed and these animals bought (night too). */
+/** A painting of the game with this many elements placed and these animals bought (night and rare elements too). */
 function painting(
   placed: number,
   animals: SceneDescription['animals'] = [],
   seasons: SceneDescription['seasons'] = SEASONS,
   night: SceneDescription['night'] = 'owned',
+  rares: SceneDescription['rares'] = demoRares('clearing', LAST_STAGE),
 ): SceneDescription {
   return {
     ...newPainting(4, 'summer', 'clearing'),
@@ -33,12 +37,22 @@ function painting(
     night,
     elements: Array.from({ length: placed }, (_, slot) => ({ slot, day: 1 })),
     animals,
+    rares,
   };
 }
 
 const nameOf = (article: Article) => {
-  if (article.kind === 'element' || article.kind === 'night') return article.kind;
-  return article.kind === 'animal' ? article.animal : article.season;
+  switch (article.kind) {
+    case 'element':
+    case 'night':
+      return article.kind;
+    case 'animal':
+      return article.animal;
+    case 'season':
+      return article.season;
+    case 'rare':
+      return article.rare;
+  }
 };
 const names = (description: SceneDescription) =>
   shopItems(description).map((item) => nameOf(item.article));
@@ -71,7 +85,13 @@ describe('boutique de la forêt', () => {
     expect(names(painting(3, ['Deer']))).toEqual(['element', 'Fox']);
     expect(shopItems(painting(3, ['Deer']))[1].elementsToGo).toBe(ELEMENTS_AT_STAGE[5] - 3);
     // The second doe waits for the first one to be bought.
-    expect(names(painting(ELEMENTS_AT_STAGE[8]))).toEqual(['element', 'Deer', 'Fox', 'Stag']);
+    expect(names(painting(ELEMENTS_AT_STAGE[8]))).toEqual([
+      'element',
+      'Deer',
+      'Fox',
+      'Stag',
+      'Wolf',
+    ]);
     expect(names(painting(ELEMENTS_AT_STAGE[8], ['Deer', 'Fox', 'Stag']))).toEqual([
       'element',
       'Deer',
@@ -111,6 +131,7 @@ describe('boutique de la forêt', () => {
       'autumn',
       'night',
       'Deer',
+      'Fox',
     ]);
     expect(before[2]).toEqual({
       article: { kind: 'night' },
@@ -160,5 +181,35 @@ describe('boutique de la forêt', () => {
     expect(
       shopItems(fresh(ELEMENTS_AT_STAGE[11], SEASONS)).every((i) => i.article.kind !== 'season'),
     ).toBe(true);
+  });
+
+  it('sells the rare elements once open, one at a time, in golden seeds (#46)', () => {
+    const rares = (placed: number, bought: SceneDescription['rares']) =>
+      names(painting(placed, demoAnimals('clearing', LAST_STAGE), SEASONS, 'owned', bought));
+    // A surprise: nothing shows before the fireflies open at stage 4.
+    expect(rares(ELEMENTS_AT_STAGE[3], [])).toEqual(['element']);
+    expect(rares(ELEMENTS_AT_STAGE[4], [])).toEqual(['element', 'fireflies']);
+    expect(rares(ELEMENTS_AT_STAGE[6], [])).toEqual(['element', 'fireflies']);
+    expect(rares(ELEMENTS_AT_STAGE[6], ['fireflies'])).toEqual(['element', 'rainbow']);
+    expect(rares(ELEMENTS_AT_STAGE[7], ['fireflies', 'rainbow'])).toEqual(['element', 'beavers']);
+    // In any order, each once.
+    expect(rares(ELEMENTS_AT_STAGE[7], ['beavers', 'fireflies'])).toEqual(['element', 'rainbow']);
+    const [, beavers] = shopItems(
+      painting(ELEMENTS_AT_STAGE[7], ['Deer', 'Fox', 'Stag'], SEASONS, 'owned', [
+        'fireflies',
+        'rainbow',
+      ]),
+    );
+    expect(beavers).toEqual({
+      article: { kind: 'rare', rare: 'beavers' },
+      leaves: 0,
+      seeds: SEEDS_PER_RARE,
+      elementsToGo: 0,
+    });
+    // The orchard and the sky have no beavers.
+    for (const biome of ['orchard', 'sky'] as const) {
+      const all = { ...painting(MAX_ELEMENTS, demoAnimals(biome, LAST_STAGE)), biome };
+      expect(names({ ...all, rares: ['fireflies', 'rainbow'] })).toEqual([]);
+    }
   });
 });

@@ -1,5 +1,6 @@
 import type { AnimalName } from '../scene/animal-catalog';
 import { canBuy, type Article, type ShopItem } from '../scene/shop';
+import { RARE_LABELS, RareIcon } from './rares';
 import { LeafIcon, plural, SeedIcon, SproutIcon } from './reserve';
 import { SEASON_LABELS, SeasonIcon } from './seasons';
 
@@ -15,14 +16,32 @@ export const ANIMAL_LABELS: Record<AnimalName, string> = {
 };
 
 const labelOf = (article: Article) => {
-  if (article.kind === 'element') return 'Une pousse';
-  if (article.kind === 'night') return SEASON_LABELS.night;
-  return article.kind === 'animal' ? ANIMAL_LABELS[article.animal] : SEASON_LABELS[article.season];
+  switch (article.kind) {
+    case 'element':
+      return 'Une pousse';
+    case 'night':
+      return SEASON_LABELS.night;
+    case 'animal':
+      return ANIMAL_LABELS[article.animal];
+    case 'season':
+      return SEASON_LABELS[article.season];
+    case 'rare':
+      return RARE_LABELS[article.rare];
+  }
 };
 
 const keyOf = (article: Article) => {
-  if (article.kind === 'element' || article.kind === 'night') return article.kind;
-  return article.kind === 'animal' ? article.animal : article.season;
+  switch (article.kind) {
+    case 'element':
+    case 'night':
+      return article.kind;
+    case 'animal':
+      return article.animal;
+    case 'season':
+      return article.season;
+    case 'rare':
+      return article.rare;
+  }
 };
 
 /** What is still to earn, never what is missing. */
@@ -77,6 +96,7 @@ export function Shop({ items, leaves, seeds, portrait, onBuy }: Props) {
                 {article.kind === 'element' && <SproutIcon />}
                 {article.kind === 'season' && <SeasonIcon season={article.season} />}
                 {article.kind === 'night' && <SeasonIcon season="night" />}
+                {article.kind === 'rare' && <RareIcon rare={article.rare} />}
                 {image && <img src={image} alt="" draggable={false} />}
               </span>
               <span class="name">{label}</span>

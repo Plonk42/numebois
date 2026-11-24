@@ -41,6 +41,7 @@ import {
   isComplete,
   newPainting,
   shownChoice,
+  type RareName,
   type SceneDescription,
   type SeasonChoice,
 } from '../scene/description';
@@ -71,6 +72,7 @@ import {
 import { FinaleBanner, Frame, NextPainting, type NextChoice } from './finale';
 import { ParentMenu } from './parent-menu';
 import { Plume, type PlumeMood } from './plume';
+import { RARE_ARRIVALS } from './rares';
 import { plural, Reserve, SeedIcon } from './reserve';
 import { SEASON_LABELS, SeasonPicker } from './seasons';
 import { ANIMAL_LABELS, Shop } from './shop';
@@ -168,6 +170,8 @@ export interface GameForest extends SpotsForest {
   adopt(animal: AnimalName): Promise<unknown>;
   /** Shows the painting in another season or at night (a bought one joins); resolves once shown. */
   changeSeason(choice: SeasonChoice): Promise<unknown>;
+  /** Brings a bought rare element into the painting; resolves once shown. */
+  addRare(rare: RareName): Promise<unknown>;
   /** Picture of an animal for the shop, null while the animals load. */
   portrait(animal: AnimalName): string | null;
   /** The trail and its sign drawn with the models of the forest, null while they load. */
@@ -657,6 +661,15 @@ function Game(props: Props) {
       const choice = article.kind === 'night' ? 'night' : article.season;
       setArrival(`${SEASON_LABELS[choice]} arrive !`);
       turn(choice);
+      return;
+    }
+    if (article.kind === 'rare') {
+      setArrival(RARE_ARRIVALS[article.rare]);
+      setPhase('adopting');
+      void forest.addRare(article.rare).then(() => {
+        setArrival(null);
+        setPhase('shop');
+      });
       return;
     }
     setArrival(`${ANIMAL_LABELS[article.animal]} arrive !`);

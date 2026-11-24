@@ -202,6 +202,7 @@ export class Painting {
       season,
       BIOMES[description.biome],
       description.night === 'shown',
+      description.rares,
     );
     this.ambience = ambience;
     const composition = composeScene(description, assets, ambience, quality);

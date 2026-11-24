@@ -7,6 +7,7 @@ import {
   MAX_ELEMENTS,
   STAGES,
   demoAnimals,
+  demoRares,
   demoElements,
   readDescription,
   stageFor,
@@ -49,6 +50,7 @@ function scene(
     night: 'none',
     elements: demoElements(seed, fill),
     animals: demoAnimals('orchard', stage),
+    rares: demoRares('orchard', stage),
     ...more,
   };
 }

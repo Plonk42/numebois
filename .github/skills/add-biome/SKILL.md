@@ -32,6 +32,7 @@ Recette de fond : [plan, « Ajouter un décor » et « Escalade d'un tableau à 
 - `name`, `terrain`, `stageNames`, `effects` (ceux d'aucun décor précédent), `vocabulary` : les mots des problèmes (`Vocabulary` de `src/core/types.ts` : qui ramasse et qui reçoit, avec `to` et le pronom, objets à compter au singulier et au pluriel, lieux, groupes « 6 paniers de 8 … »). Les tests de contenu jouent chaque problème dans chaque décor (énoncé de 25 mots au plus : des noms et des lieux courts).
 - `life` : les colonnes de `LIFE` de `richness.ts` à remplacer (densités, vie, sons) ; `light` : une teinte du ciel et de la lumière.
 - Animaux de la boutique : `ANIMAL_OFFERS[<id>]` (`description.ts`). Un nouvel animal Quaternius : `animal-catalog.ts`, `ANIMAL_HEIGHT` (`ambient-life.ts`), `ANIMAL_LABELS` (`src/ui/shop.tsx`), puis `npm run assets`.
+- Éléments rares de la boutique (#46) : `RARE_OFFERS[<id>]` (`description.ts`), chacun à partir d'un palier où il se voit (l'arc-en-ciel demande une chute qui tombe dans l'eau, `splash`) ; un rare qui change le terrain (les castors de la clairière) se lit dans `terrain(seed, stage, rares)`. Un nouveau rare : `RARE_NAMES`, `RARE_LABELS`, `RARE_ARRIVALS` et `RareIcon` (`src/ui/rares.tsx`).
 - Un bâtiment du pack hexagonal : `asset-catalog.ts` (filtre `nodes` pour une partie mobile), ses cases d'atlas absentes peintes par `HEX_ALIASES` (`atlas.ts`) plutôt qu'en élargissant l'atlas, une forme de remplacement par `kind`.
 
 ## 4. Vérifier
