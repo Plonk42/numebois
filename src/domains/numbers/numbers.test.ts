@@ -191,8 +191,9 @@ describe('lire, décomposer, comparer, ranger', () => {
     const signs = new Set<string>();
     for (let level = 0; level < COMPARE_LEVELS; level++) {
       seeds((rng) => {
-        const { a, b, answer } = generateCompare(rng, level);
+        const { a, b, answer, input } = generateCompare(rng, level);
         expect(answer).toBe(a < b ? '<' : a > b ? '>' : '=');
+        expect(input).toEqual({ kind: 'compare', left: formatNumber(a), right: formatNumber(b) });
         if (level === 0) expect(Math.floor(a / 100)).not.toBe(Math.floor(b / 100));
         if (level === 1) expect(Math.floor(a / 1000)).toBe(Math.floor(b / 1000));
         if (level === 2) signs.add(answer);

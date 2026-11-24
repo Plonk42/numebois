@@ -242,7 +242,7 @@ export function generateCompare(rng: Rng, level: number): CompareExercise {
     level,
     instruction: 'Choisis le bon signe.',
     statement: `${formatNumber(a)}\u00a0?\u00a0${formatNumber(b)}`,
-    input: { kind: 'choice', options: ['<', '=', '>'] },
+    input: { kind: 'compare', left: formatNumber(a), right: formatNumber(b) },
     answer: signOf(a, b),
     a,
     b,

@@ -575,7 +575,9 @@ test('les saisons : l’automne acheté, l’enfant choisit la saison de son tab
   expect(errors).toEqual([]);
 });
 
-test('le choix : comparer avec <, = ou >, d’une touche, sans rouge', async ({ page }) => {
+test('comparer : le signe posé entre les deux nombres, changé, puis validé, sans rouge', async ({
+  page,
+}) => {
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('./?stage=0');
@@ -596,18 +598,39 @@ test('le choix : comparer avec <, = ou >, d’une touche, sans rouge', async ({ 
   await startTrail(page);
   const exercise = await current(page);
   expect(exercise.skill).toBe('numbers.compare');
+  if (exercise.input.kind !== 'compare') throw new Error(exercise.input.kind);
   const card = page.locator('#question');
   const signs = card.locator('.choice button');
+  const between = card.locator('.comparison .between');
+  const submit = card.locator('.submit');
   await expect(signs).toHaveText(['<', '=', '>']);
+  // The two numbers apart, an empty place between them, nothing to confirm yet.
+  await expect(card.locator('.comparison .number')).toHaveText([
+    exercise.input.left,
+    exercise.input.right,
+  ]);
+  await expect(between).toHaveText('');
+  await expect(submit).toBeDisabled();
   await expectSlateLayout(page);
-  const wrongSign = ['<', '=', '>'].find((sign) => sign !== exercise.answer)!;
+  const [wrongSign, otherSign] = ['<', '=', '>'].filter((sign) => sign !== exercise.answer);
+  // A touch sets the sign between the numbers without checking it; another one replaces it.
+  await card.getByRole('button', { name: otherSign, exact: true }).click();
+  await expect(between).toHaveText(otherSign);
   await card.getByRole('button', { name: wrongSign, exact: true }).click();
+  await expect(between).toHaveText(wrongSign);
+  await expect(card.locator('.hint')).toHaveCount(0);
+  await submit.click();
   await expect(card.locator('.hint')).toContainText('Presque !');
   await expect(card.getByRole('button', { name: wrongSign, exact: true })).toHaveClass(/tried/);
+  await expect(between).toHaveText('');
   await expectSlateLayout(page);
-  await test.info().attach('choix', { body: await page.screenshot(), contentType: 'image/png' });
-  await card.getByRole('button', { name: exercise.answer, exact: true }).click();
+  await test.info().attach('comparer', { body: await page.screenshot(), contentType: 'image/png' });
+  // The keyboard too: the sign itself, then Enter.
+  await page.keyboard.press(exercise.answer);
+  await expect(between).toHaveText(exercise.answer);
+  await page.keyboard.press('Enter');
   // Within the praise, before the next question.
+  await expect(card.locator('.comparison .between.right')).toHaveText(exercise.answer);
   await expect(card.locator('.choice button.right')).toHaveText(exercise.answer);
   await expect(card.locator('.praise')).toBeVisible();
   expect(errors).toEqual([]);

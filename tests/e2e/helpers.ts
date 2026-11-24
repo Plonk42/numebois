@@ -15,7 +15,9 @@ export async function startTrail(page: Page) {
 export async function current(page: Page) {
   // The stone counts as soon as the answer is right: the praised question stays a moment, locked.
   await expect.poll(async () => (await game(page)).phase).toBe('asking');
-  const statement = await page.locator('#question .statement').textContent();
+  const statement = await page
+    .locator('#question .statement')
+    .evaluate((node) => node.getAttribute('aria-label') ?? node.textContent);
   await expect.poll(async () => (await game(page)).exercise?.statement).toBe(statement);
   return (await game(page)).exercise!;
 }
@@ -48,6 +50,14 @@ const DRIVERS: { [K in ExerciseInput['kind']]: Driver<Extract<ExerciseInput, { k
     answer: (page, _, value) =>
       page.locator('#question .choice').getByRole('button', { name: value, exact: true }).click(),
     wrongs: (input, expected) => input.options.filter((option) => option !== expected).slice(0, 2),
+  },
+  compare: {
+    async answer(page, _, value) {
+      const card = page.locator('#question');
+      await card.locator('.choice').getByRole('button', { name: value, exact: true }).click();
+      await card.locator('.submit').click();
+    },
+    wrongs: (_, expected) => ['<', '=', '>'].filter((sign) => sign !== expected),
   },
   'number-line': {
     async answer(page, _, value) {

@@ -15,6 +15,8 @@ export interface NumberLine {
 export type ExerciseInput =
   | { kind: 'keypad'; maxDigits: number }
   | { kind: 'choice'; options: readonly string[] }
+  /** `<`, `=` or `>` set between two numbers, changed at will, then confirmed. */
+  | { kind: 'compare'; left: string; right: string }
   /** A number placed with the finger on a tick of the line. */
   | { kind: 'number-line'; line: NumberLine };
 

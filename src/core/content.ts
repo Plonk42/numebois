@@ -32,6 +32,7 @@ const ANSWER_FITS: {
 } = {
   keypad: (input, answer) => new RegExp(String.raw`^\d{1,${input.maxDigits}}$`).test(answer),
   choice: (input, answer) => input.options.includes(answer),
+  compare: (_, answer) => ['<', '=', '>'].includes(answer),
   'number-line': ({ line }, answer) => {
     const value = Number(answer);
     return (

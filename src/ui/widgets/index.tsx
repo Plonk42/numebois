@@ -2,6 +2,7 @@ import type { ComponentType } from 'preact';
 import type { Exercise, ExerciseInput, Figure } from '../../core/types';
 import { AnswerZone, Statement, Work } from '../slate';
 import { Choice } from './choice';
+import { CompareSigns } from './compare';
 import { Keypad } from './keypad';
 import { NumberLineFigure, NumberLinePlace } from './number-line';
 
@@ -72,6 +73,7 @@ const WIDGETS: Widgets = {
       </AnswerZone>
     </>
   ),
+  compare: CompareSigns,
   'number-line': NumberLinePlace,
 };
 

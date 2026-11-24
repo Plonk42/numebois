@@ -367,6 +367,53 @@
   opacity: 0.4;
 }
 
+/* Compare (#106): the two numbers apart, the sign set between them before it is confirmed. */
+.statement.comparison {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  font-variant-numeric: tabular-nums;
+}
+.comparison .number {
+  padding: 8px 24px;
+  border-radius: 18px;
+  background: #f3ecdb;
+  white-space: nowrap;
+}
+.comparison .between {
+  width: 96px;
+  height: 96px;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  border-radius: 20px;
+  font-size: 64px;
+  color: #2f4a3a;
+}
+.comparison .between.empty {
+  border: 4px dashed #c9b48f;
+}
+.comparison .between.placed {
+  border: 4px solid #8fb7d9;
+  background: #eef6fd;
+  animation: leaf-pop 0.3s cubic-bezier(0.3, 1.7, 0.5, 1);
+}
+.comparison .between.right {
+  border: 4px solid #8fcf6b;
+  background: #e6f6da;
+}
+.comparison .between.shown {
+  border: 4px solid #f2d46b;
+  background: #fffbe6;
+}
+#question .choice button.placed {
+  background: #eef6fd;
+  box-shadow:
+    0 0 0 3px #8fb7d9,
+    0 4px 0 #8fb7d9;
+}
+
 /* Number line (#21): to read beside the keypad, or to place a number on the whole width. */
 .bench > .work:has(.number-line) {
   align-content: center;
