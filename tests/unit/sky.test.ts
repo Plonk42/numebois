@@ -26,7 +26,7 @@ import { BACKDROP_TRIANGLES } from '../../src/scene/render/backdrop';
 import { CLOUD_SEA_TRIANGLES } from '../../src/scene/render/cloud-sea';
 import { QUALITY } from '../../src/scene/render/quality';
 import { ambienceFor } from '../../src/scene/render/richness';
-import { CLOUD_SEA, createSkyIslands, slotsOf } from '../../src/scene/terrain/sky';
+import { archipelagoOf, CLOUD_SEA, createSkyIslands, slotsOf } from '../../src/scene/terrain/sky';
 import type { Terrain } from '../../src/scene/terrain/types';
 import { SEASONS, type Season } from '../../src/scene/trees/builder';
 import { buildForestBuffers } from '../../src/scene/trees/forest';
@@ -96,11 +96,11 @@ function summit(terrain: Terrain): number {
   return top;
 }
 
-/** Area of ground out of the clouds, sampled on a grid. */
+/** Area of ground out of the clouds, sampled on a fixed grid. */
 function groundArea(terrain: Terrain): number {
   let area = 0;
-  for (let x = -terrain.extent.x; x <= terrain.extent.x; x += 1) {
-    for (let z = -terrain.extent.z; z <= terrain.extent.z; z += 1) {
+  for (let x = -40; x <= 40; x += 1) {
+    for (let z = -40; z <= 30; z += 1) {
       if (terrain.surfaceAt(x, z)) area++;
     }
   }
@@ -179,6 +179,44 @@ describe('sky islands: stages and grand moments', () => {
   });
 });
 
+describe('sky islands: archipelago', () => {
+  it('chains isles through others, differently for each seed, with gentle bridges', () => {
+    const shapes = new Set<string>();
+    let chained = 0;
+    const seeds = 60;
+    for (let seed = 0; seed < seeds; seed++) {
+      const { islands, links } = archipelagoOf(seed);
+      const isles = islands.filter((i) => i.role === 'isle');
+      expect(isles.length, `seed ${seed}`).toBeGreaterThanOrEqual(4);
+      expect(isles.length, `seed ${seed}`).toBeLessThanOrEqual(6);
+      // Every isle hangs by an island out of the clouds before it, by one bridge.
+      for (const isle of isles) {
+        const parent = islands[isle.parent!];
+        expect(parent.rises, `seed ${seed}`).toBeLessThanOrEqual(isle.rises);
+        expect(links.filter((l) => l.to === isle.index)).toHaveLength(1);
+      }
+      if (isles.some((i) => islands[i.parent!].role === 'isle')) chained++;
+      shapes.add(
+        isles.map((i) => `${i.kind}<${islands[i.parent!].kind ?? islands[i.parent!].role}`).join(),
+      );
+      expect(
+        links.filter((l) => l.kind === 'suspension'),
+        `seed ${seed}`,
+      ).toHaveLength(1);
+      for (const link of links) {
+        for (const stage of STAGES.filter((s) => s >= link.stage)) {
+          const climb = Math.abs(
+            islands[link.from].levels[stage]! - islands[link.to].levels[stage]!,
+          );
+          expect(climb / link.span, `seed ${seed}, stage ${stage}`).toBeLessThan(0.65);
+        }
+      }
+    }
+    expect(chained).toBeGreaterThan(seeds * 0.4);
+    expect(shapes.size).toBeGreaterThan(seeds * 0.3);
+  });
+});
+
 describe('sky islands: slots', () => {
   it('composes 22 slots that open with the islands, apart and never hiding the water', () => {
     for (let seed = 0; seed < 120; seed++) {
@@ -186,7 +224,7 @@ describe('sky islands: slots', () => {
       expect(slots, `seed ${seed}`).toHaveLength(MAX_ELEMENTS);
       const groves = slots.filter((s) => s.kind === 'grove').length;
       expect(groves, `seed ${seed}`).toBeGreaterThanOrEqual(3);
-      expect(groves, `seed ${seed}`).toBeLessThanOrEqual(11);
+      expect(groves, `seed ${seed}`).toBeLessThanOrEqual(14);
       slots.forEach((slot, i) => {
         for (const other of slots.slice(i + 1)) {
           expect(Math.hypot(slot.x - other.x, slot.z - other.z), `seed ${seed}`).toBeGreaterThan(

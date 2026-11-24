@@ -40,86 +40,56 @@ const CELL = 0.72;
 const CAMERA_PITCH = 24;
 /** Level of the sea of clouds the islands float on. */
 export const CLOUD_SEA = -9;
-const MAX_EDGE_TREES = 34;
+const MAX_EDGE_TREES = 38;
 
-export type IslandName = 'main' | 'front' | 'east' | 'ledge' | 'high' | 'south' | 'peak';
+/** The main island, the ledge and the high island of the cascade, and the isles around them. */
+type Role = 'main' | 'ledge' | 'high' | 'isle';
 
-// One value per stage. The archipelago rises: the main island first, a small one in front of
-// it (1), the neighbour on the side (3), the high island far behind (5), which climbs to carry
-// the great cascade (8) over the ledge (7); a small island in front (9), a perched one (10).
-// null: still under the clouds.
-const LEVEL_BY_STAGE: Record<IslandName, PerStage<number | null>> = {
-  main: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  front: [null, -3.5, -3.2, -3, -2.6, -2.5, -2.4, -2.3, -2.2, -2.1, -2, -2],
-  east: [null, null, null, 1, 2, 2.5, 3.5, 3.6, 3.8, 4, 4.2, 4.4],
-  ledge: [null, null, null, null, null, null, null, 4.5, 5, 5.2, 5.4, 5.6],
-  high: [null, null, null, null, null, 6, 7, 8.5, 11, 11.4, 11.8, 12.2],
-  south: [null, null, null, null, null, null, null, null, null, -2.5, -2, -1.8],
-  peak: [null, null, null, null, null, null, null, null, null, null, 9.6, 10.2],
-};
+// One value per stage. The main island grows until stage 6; the high island rises far behind
+// it (5) and climbs to carry the great cascade (8) over the ledge (7). null: still under the
+// clouds.
+const BACKBONE = {
+  main: {
+    levels: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    sizes: [0.84, 0.87, 0.9, 0.93, 0.96, 0.98, 1, 1, 1, 1, 1, 1],
+  },
+  ledge: {
+    levels: [null, null, null, null, null, null, null, 4.5, 5, 5.2, 5.4, 5.6],
+    sizes: [0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 1, 1, 1, 1],
+  },
+  high: {
+    levels: [null, null, null, null, null, 6, 7, 8.5, 11, 11.4, 11.8, 12.2],
+    sizes: [0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.85, 0.9, 1, 1, 1, 1],
+  },
+} satisfies Record<
+  Exclude<Role, 'isle'>,
+  { levels: PerStage<number | null>; sizes: PerStage<number> }
+>;
 
-/** Share of its final size each island has reached. */
-const SIZE_BY_STAGE: Record<IslandName, PerStage<number>> = {
-  main: [0.84, 0.87, 0.9, 0.93, 0.96, 0.98, 1, 1, 1, 1, 1, 1],
-  front: [0.8, 0.8, 0.85, 0.9, 0.95, 1, 1, 1, 1, 1, 1, 1],
-  east: [0.7, 0.7, 0.7, 0.7, 0.8, 0.9, 1, 1, 1, 1, 1, 1],
-  ledge: [0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 1, 1, 1, 1],
-  high: [0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.85, 0.9, 1, 1, 1, 1],
-  south: [0.85, 0.85, 0.85, 0.85, 0.85, 0.85, 0.85, 0.85, 0.85, 0.85, 1, 1],
-  peak: [0.85, 0.85, 0.85, 0.85, 0.85, 0.85, 0.85, 0.85, 0.85, 0.85, 0.85, 1],
-};
-
-// The spring of the main island and its fall into the clouds (2), the rope bridge to the
-// front island (4), the great suspension bridge (6), the cascade over three tiers (8), rope
-// bridges to the small islands (9, 10), the balloon (11).
+// The spring of the main island and its fall into the clouds (2), the great suspension bridge
+// (6), the cascade over three tiers (8), the balloon (11).
 const SKY_BY_STAGE = {
   pond: [0, 0, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3, 3.1],
   stream: [0, 0, 0.36, 0.38, 0.4, 0.42, 0.44, 0.46, 0.5, 0.52, 0.54, 0.56],
   cover: [0.55, 0.62, 0.7, 0.8, 0.88, 0.95, 1.02, 1.08, 1.14, 1.2, 1.26, 1.3],
-  ropeFront: [false, false, false, false, true, true, true, true, true, true, true, true],
   suspension: [false, false, false, false, false, false, true, true, true, true, true, true],
   cascade: [false, false, false, false, false, false, false, false, true, true, true, true],
-  ropeSouth: [false, false, false, false, false, false, false, false, false, true, true, true],
-  ropePeak: [false, false, false, false, false, false, false, false, false, false, true, true],
   balloon: [false, false, false, false, false, false, false, false, false, false, false, true],
 } satisfies Record<string, PerStage<number> | PerStage<boolean>>;
 
-type BridgeColumn = 'ropeFront' | 'suspension' | 'ropeSouth' | 'ropePeak';
-
-const BRIDGES: readonly {
-  from: IslandName;
-  to: IslandName;
-  kind: Bridge['kind'];
-  column: BridgeColumn;
-}[] = [
-  { from: 'main', to: 'front', kind: 'rope', column: 'ropeFront' },
-  { from: 'main', to: 'east', kind: 'suspension', column: 'suspension' },
-  { from: 'main', to: 'south', kind: 'rope', column: 'ropeSouth' },
-  { from: 'high', to: 'peak', kind: 'rope', column: 'ropePeak' },
-];
-
 /**
- * Where each island floats, from the one it hangs by: direction (degrees, x to the right, z
- * towards the camera) and how much it varies, gap between their rims, final half extents and
- * the height of its dome.
+ * The isles, in the order they come out of the clouds, each hanging by an island already
+ * there: the first one (1) and its rope bridge (4), the neighbour (3) and the great suspension
+ * bridge to it (6), a chain of one or two isles (9), one or two perched ones (10). `drop`: how
+ * far below its final level it comes out, climbing over three stages; `start`: its first size.
  */
-const ARCHIPELAGO: readonly {
-  name: Exclude<IslandName, 'main'>;
-  parent: IslandName;
-  angle: number;
-  spread: number;
-  gap: number;
-  hx: number;
-  hz: number;
-  dome: number;
-}[] = [
-  { name: 'front', parent: 'main', angle: 94, spread: 10, gap: 2.8, hx: 3.6, hz: 3, dome: 0.6 },
-  { name: 'east', parent: 'main', angle: -22, spread: 14, gap: 4.8, hx: 6.6, hz: 5, dome: 1.4 },
-  { name: 'ledge', parent: 'main', angle: -97, spread: 14, gap: 2.4, hx: 3.4, hz: 2.6, dome: 0.4 },
-  { name: 'high', parent: 'ledge', angle: -90, spread: 12, gap: 2.4, hx: 6, hz: 4.4, dome: 2.4 },
-  { name: 'south', parent: 'main', angle: 34, spread: 12, gap: 3, hx: 3.6, hz: 3, dome: 0.6 },
-  { name: 'peak', parent: 'high', angle: 178, spread: 10, gap: 3.6, hx: 3.4, hz: 2.8, dome: 1.2 },
-];
+const ISLES = {
+  first: { rises: 1, bridge: 4, drop: 1.5, start: 0.8 },
+  neighbour: { rises: 3, bridge: 6, drop: 2.5, start: 0.65 },
+  chain: { rises: 9, bridge: 9, drop: 0.8, start: 0.85 },
+  perched: { rises: 10, bridge: 10, drop: 0.6, start: 0.85 },
+} as const satisfies Record<string, { rises: Stage; bridge: Stage; drop: number; start: number }>;
+type IsleKind = keyof typeof ISLES;
 
 function revealAt(column: PerStage<boolean>, stage: Stage): Reveal {
   if (column[stage]) return 'shown';
@@ -128,8 +98,12 @@ function revealAt(column: PerStage<boolean>, stage: Stage): Reveal {
 
 /** An island, in the unmirrored frame: centre, final half extents, shape of its rim. */
 interface Island {
-  name: IslandName;
   index: number;
+  role: Role;
+  kind?: IsleKind;
+  /** Index of the island it hangs by, and the gap between their rims on the line between them. */
+  parent: number | null;
+  gap: number;
   x: number;
   z: number;
   hx: number;
@@ -137,11 +111,34 @@ interface Island {
   power: number;
   wobble: readonly [number, number, number, number];
   dome: number;
+  /** Ground level at each stage, null while under the clouds, and share of its final size. */
+  levels: PerStage<number | null>;
+  sizes: PerStage<number>;
+  rises: Stage;
+  /** The child's places: none, trees and groves, or groves only (low, in front of the rest). */
+  places: 'none' | 'trees' | 'groves';
+  /** Trees around its rim, conifers on the high ones. */
+  trees: number;
+  alpine: boolean;
+}
+
+/** A bridge between two islands, from its stage on. */
+interface Link {
+  from: number;
+  to: number;
+  kind: Bridge['kind'];
+  stage: Stage;
+  /** Gap between the two rims, which the bridge spans. */
+  span: number;
 }
 
 interface Layout {
   mirror: number;
-  islands: Record<IslandName, Island>;
+  islands: Island[];
+  main: Island;
+  ledge: Island;
+  high: Island;
+  links: Link[];
   pond: { x: number; z: number };
   /** Where the stream of the main island leaves it, beyond its final rim. */
   exit: { x: number; z: number };
@@ -213,13 +210,66 @@ function towards(
   return at(lo);
 }
 
+/** Distance from the centre of an island to its final rim, along a direction. */
+function reach(island: Island, ux: number, uz: number): number {
+  // The rim value grows linearly along a ray from the centre.
+  return 1 / rimOf(island, 1, island.x + ux, island.z + uz);
+}
+
+/** Places an island along a direction from its parent, their rims `gap` apart on that line. */
+function hang(island: Island, parent: Island, angle: number, gap: number): void {
+  const ux = Math.cos(angle);
+  const uz = Math.sin(angle);
+  island.x = 0;
+  island.z = 0;
+  const d = reach(parent, ux, uz) + gap + reach(island, -ux, -uz);
+  island.x = parent.x + ux * d;
+  island.z = parent.z + uz * d;
+}
+
+function finalLevel(island: Island): number {
+  return island.levels[LAST_STAGE] ?? 0;
+}
+
+/** Level of an isle at each stage: out of the clouds `drop` below, then up in three stages. */
+function isleColumns(
+  kind: IsleKind,
+  level: number,
+): { levels: PerStage<number | null>; sizes: PerStage<number> } {
+  const { rises, drop, start } = ISLES[kind];
+  const climb = (stage: Stage) => Math.min(1, (stage - rises) / 3);
+  return {
+    levels: STAGES.map((s) =>
+      s < rises ? null : level - drop * (1 - climb(s)),
+    ) as unknown as PerStage<number | null>,
+    sizes: STAGES.map((s) =>
+      s < rises ? start : start + (1 - start) * climb(s),
+    ) as unknown as PerStage<number>,
+  };
+}
+
 function drawLayout(seed: number): Layout {
-  for (let attempt = 0; attempt < 60; attempt++) {
-    const layout = tryLayout(new Rng(seed).fork(`sky:${attempt}`), attempt < 59);
+  for (let attempt = 0; attempt < 80; attempt++) {
+    const layout = tryLayout(new Rng(seed).fork(`sky:${attempt}`), attempt < 79);
     if (layout) return layout;
   }
-  throw new Error('unreachable: the last attempt has no jitter');
+  throw new Error('unreachable: the last attempt is the plain archipelago');
 }
+
+/** What the last, plain attempt uses: four isles hanging by the main and the high islands. */
+const PLAIN_ISLES: readonly {
+  kind: IsleKind;
+  parent: 'main' | 'high';
+  angle: number;
+  gap: number;
+  hx: number;
+  level: number;
+}[] = [
+  { kind: 'first', parent: 'main', angle: 94, gap: 2.8, hx: 3.6, level: -2 },
+  { kind: 'neighbour', parent: 'main', angle: -22, gap: 4.8, hx: 6.6, level: 4.4 },
+  { kind: 'chain', parent: 'main', angle: 34, gap: 3, hx: 3.6, level: -1.8 },
+  { kind: 'perched', parent: 'high', angle: 178, gap: 3.6, hx: 3.4, level: 10.2 },
+];
 
 function tryLayout(rng: Rng, jitter: boolean): Layout | null {
   const vary = (spread: number) => (jitter ? rng.range(-spread, spread) : 0);
@@ -232,60 +282,74 @@ function tryLayout(rng: Rng, jitter: boolean): Layout | null {
       rng.range(0, TAU),
     ] as const,
   });
-  const islands = {
-    main: {
-      name: 'main',
-      index: 0,
-      x: 0,
-      z: 0,
-      hx: 17.5 + vary(1.5),
-      hz: 11.5 + vary(1),
-      dome: 0,
-      ...shape(),
-    },
-  } as Record<IslandName, Island>;
-  ARCHIPELAGO.forEach((def, i) => {
-    const parent = islands[def.parent];
-    const size = 1 + vary(0.14);
-    const island: Island = {
-      name: def.name,
-      index: i + 1,
-      x: 0,
-      z: 0,
-      hx: def.hx * size,
-      hz: def.hz * size,
-      dome: def.dome * (1 + vary(0.15)),
-      ...shape(),
-    };
-    const angle = (def.angle + vary(def.spread)) * DEG;
-    const gap = def.gap + vary(0.35);
-    const ux = Math.cos(angle);
-    const uz = Math.sin(angle);
-    let lo = 0;
-    let hi = 80;
-    for (let k = 0; k < 28; k++) {
-      const d = (lo + hi) / 2;
-      island.x = parent.x + ux * d;
-      island.z = parent.z + uz * d;
-      if (gapBetween(parent, island) < gap) lo = d;
-      else hi = d;
-    }
-    island.x = parent.x + ux * hi;
-    island.z = parent.z + uz * hi;
-    islands[def.name] = island;
+  const backbone = (
+    role: Exclude<Role, 'isle'>,
+    index: number,
+    parent: number | null,
+    hx: number,
+    hz: number,
+    dome: number,
+  ): Island => ({
+    index,
+    role,
+    parent,
+    gap: 0,
+    x: 0,
+    z: 0,
+    hx,
+    hz,
+    dome,
+    ...shape(),
+    ...BACKBONE[role],
+    rises: STAGES.find((s) => BACKBONE[role].levels[s] !== null)!,
+    places: role === 'main' ? 'trees' : 'none',
+    trees: role === 'main' ? 15 : role === 'high' ? 6 : 0,
+    alpine: role === 'high',
   });
-  const all = Object.values(islands);
-  for (let i = 0; i < all.length; i++) {
-    for (let j = i + 1; j < all.length; j++) {
-      if (gapBetween(all[i], all[j]) < 1.8) return null;
-    }
-  }
-  const main = islands.main;
-  const ledge = islands.ledge;
-  // The pond waits under the ledge, so the cascade lands near it.
-  const pond = towards(main, 1, [main.x, main.z], [ledge.x, ledge.z], 0.42 + vary(0.04));
+  const main = backbone('main', 0, null, 17.5 + vary(1.5), 11.5 + vary(1), 0);
+  const size = () => 1 + vary(0.14);
+  const ledgeSize = size();
+  const ledge = backbone('ledge', 1, 0, 3.4 * ledgeSize, 2.6 * ledgeSize, 0.4);
+  hang(ledge, main, (-97 + vary(14)) * DEG, 2.4 + vary(0.35));
+  const highSize = size();
+  const high = backbone('high', 2, 1, 6 * highSize, 4.4 * highSize, 2.4 * (1 + vary(0.15)));
+  hang(high, ledge, (-90 + vary(12)) * DEG, 2.4 + vary(0.35));
+  const islands = [main, ledge, high];
+  if (gapBetween(main, high) < 1.8 || gapBetween(main, ledge) < 1.6) return null;
+
   const exitAngle = (146 + vary(12)) * DEG;
   const exit = outlinePoint(main, exitAngle, 1.08);
+  const links: Link[] = [];
+  const kinds: IsleKind[] = jitter
+    ? [
+        'first',
+        'neighbour',
+        ...Array<IsleKind>(rng.int(1, 2)).fill('chain'),
+        ...Array<IsleKind>(rng.int(1, 2)).fill('perched'),
+      ]
+    : PLAIN_ISLES.map((p) => p.kind);
+  for (const [k, kind] of kinds.entries()) {
+    let placed: Island | null = null;
+    for (let tries = 0; tries < (jitter ? 40 : 1) && !placed; tries++) {
+      placed = jitter
+        ? drawIsle(rng, kind, islands, exit, exitAngle)
+        : plainIsle(PLAIN_ISLES[k], islands, shape);
+    }
+    if (!placed) return null;
+    placed.index = islands.length;
+    islands.push(placed);
+    const kindOf = kind === 'neighbour' ? 'suspension' : 'rope';
+    links.push({
+      from: placed.parent!,
+      to: placed.index,
+      kind: kindOf,
+      stage: ISLES[kind].bridge,
+      span: placed.gap,
+    });
+  }
+
+  // The pond waits under the ledge, so the cascade lands near it.
+  const pond = towards(main, 1, [main.x, main.z], [ledge.x, ledge.z], 0.42 + vary(0.04));
   // Away from the pond under the ledge.
   const hillAngle = (-30 + vary(14)) * DEG;
   const hill = outlinePoint(main, hillAngle, 0.58 + vary(0.06));
@@ -297,6 +361,10 @@ function tryLayout(rng: Rng, jitter: boolean): Layout | null {
   return {
     mirror: rng.chance(0.5) ? 1 : -1,
     islands,
+    main,
+    ledge,
+    high,
+    links,
     pond: { x: pond[0], z: pond[1] },
     exit: { x: exit[0], z: exit[1] },
     hill: { x: hill[0], z: hill[1], radius: 5 + vary(0.8), height: 1.8 + vary(0.4) },
@@ -305,7 +373,155 @@ function tryLayout(rng: Rng, jitter: boolean): Layout | null {
   };
 }
 
+/** The trees and places of an isle, from its size and where it floats. */
+function dress(isle: Island, main: Island): void {
+  // In front of the main island, low isles keep the foreground open: groves only, a tree on
+  // the sides at most.
+  const front = isle.z > main.hz * 0.5;
+  const level = finalLevel(isle);
+  isle.alpine = level > 6;
+  isle.places =
+    isle.kind === 'perched' || isle.hx < 2.8 ? 'none' : front || isle.hx < 3.4 ? 'groves' : 'trees';
+  isle.trees = front
+    ? Math.abs(isle.x) < 10
+      ? 0
+      : 1
+    : Math.min(7, Math.round((isle.hx * isle.hz) / 5));
+}
+
+function plainIsle(
+  plan: (typeof PLAIN_ISLES)[number],
+  islands: readonly Island[],
+  shape: () => Pick<Island, 'power' | 'wobble'>,
+): Island {
+  const parent = plan.parent === 'main' ? islands[0] : islands[2];
+  const isle: Island = {
+    index: 0,
+    role: 'isle',
+    kind: plan.kind,
+    parent: parent.index,
+    gap: plan.gap,
+    x: 0,
+    z: 0,
+    hx: plan.hx,
+    hz: plan.hx * 0.8,
+    dome: plan.hx * 0.2,
+    ...shape(),
+    ...isleColumns(plan.kind, plan.level),
+    rises: ISLES[plan.kind].rises,
+    places: 'none',
+    trees: 0,
+    alpine: false,
+  };
+  hang(isle, parent, plan.angle * DEG, plan.gap);
+  dress(isle, islands[0]);
+  return isle;
+}
+
+/**
+ * An isle drawn from the seed: which island it hangs by, in which direction, how far, how
+ * large and how high; null when it breaks a rule of the archipelago.
+ */
+function drawIsle(
+  rng: Rng,
+  kind: IsleKind,
+  islands: readonly Island[],
+  exit: readonly [number, number],
+  exitAngle: number,
+): Island | null {
+  const [main, ledge, high] = islands;
+  const isles = islands.filter((i) => i.role === 'isle');
+  // Which island it hangs by: chains grow from the isles more than from the main island.
+  let parent: Island;
+  if (kind === 'first') parent = main;
+  else if (kind === 'neighbour') parent = rng.chance(0.5) ? isles[0] : main;
+  else if (kind === 'perched') {
+    const others = isles.filter((i) => i.kind !== 'first' && i.kind !== 'perched');
+    parent = others.length === 0 || rng.chance(0.55) ? high : rng.pick(others);
+  } else {
+    const hosts = isles.filter((i) => i.kind !== 'perched');
+    parent = rng.chance(0.25) ? main : rng.pick(hosts);
+  }
+  // Away from the main island; from the main island itself, anywhere but behind it, where the
+  // cascade falls, and the fall of its stream.
+  let angle: number;
+  if (parent === main) {
+    angle = kind === 'first' ? rng.range(55, 135) : rng.range(-40, 220);
+    if (Math.abs(angle * DEG - exitAngle) < 22 * DEG) return null;
+  } else if (parent === high) {
+    angle = (rng.chance(0.5) ? 0 : 180) + rng.range(-30, 30);
+  } else {
+    const away = Math.atan2(parent.z - main.z, parent.x - main.x) / DEG;
+    angle = away + rng.range(-70, 70);
+  }
+  const hx =
+    kind === 'neighbour'
+      ? rng.range(5.6, 7.2)
+      : kind === 'first'
+        ? rng.range(3, 4.2)
+        : kind === 'perched'
+          ? rng.range(2.6, 3.6)
+          : rng.chance(0.5)
+            ? rng.range(2.6, 3.4)
+            : rng.range(3.6, 5);
+  const gap = kind === 'neighbour' ? rng.range(4.6, 5.6) : rng.range(2.6, 3.6);
+  const isle: Island = {
+    index: 0,
+    role: 'isle',
+    kind,
+    parent: parent.index,
+    gap,
+    x: 0,
+    z: 0,
+    hx,
+    hz: hx * rng.range(0.72, 0.88),
+    dome: hx * rng.range(0.12, 0.24),
+    power: 2.2 + rng.range(0, 0.6),
+    wobble: [rng.range(0.03, 0.07), rng.range(0, TAU), rng.range(0.01, 0.04), rng.range(0, TAU)],
+    levels: BACKBONE.main.levels,
+    sizes: BACKBONE.main.sizes,
+    rises: ISLES[kind].rises,
+    places: 'none',
+    trees: 0,
+    alpine: false,
+  };
+  hang(isle, parent, angle * DEG, gap);
+
+  // In the frame, apart from the others, clear of the cascade and of the fall into the clouds.
+  const { x, z } = isle;
+  if (Math.abs(x) + isle.hx > 36 || z - isle.hz < -38 || z + isle.hz > 24) return null;
+  if (islands.some((other) => gapBetween(other, isle) < (other === parent ? 0.7 * gap : 1.8))) {
+    return null;
+  }
+  if (parent !== high && z < main.z && Math.abs(x - ledge.x) < ledge.hx + isle.hx + 4) return null;
+  if (Math.hypot(x - exit[0], z - exit[1]) < isle.hx + 6) return null;
+  if (z > exit[1] && Math.abs(x - exit[0]) < isle.hx + 3) return null;
+  // The neighbour floats beside or behind: a large island in front would hide the main one.
+  if (kind === 'neighbour' && z > main.hz * 0.6) return null;
+
+  // Lower in front, higher behind: the main island never hides an isle, nor an isle the main
+  // island; a bridge never climbs more than about 30°.
+  const from = finalLevel(parent);
+  const toward = Math.sin(angle * DEG);
+  let level =
+    kind === 'perched' ? from - rng.range(0.8, 1.8) : from - 1.4 * toward + rng.range(-0.4, 0.9);
+  if (z > main.hz + 1) level = Math.min(level, -1.2);
+  if (z < -main.hz) level = Math.max(level, 0.42 * (-z - main.hz) - 0.5);
+  const climbing = ISLES[kind].bridge - ISLES[kind].rises < 3 ? ISLES[kind].drop : 0;
+  if (Math.abs(level - from) + climbing > 0.55 * gap) return null;
+  if (level < CLOUD_SEA + 4) return null;
+  Object.assign(isle, isleColumns(kind, level));
+  dress(isle, main);
+  return isle;
+}
+
 const layouts = new Map<number, Layout>();
+
+/** The islands of a painting and the bridges between them (tests, scratch measures). */
+export function archipelagoOf(seed: number): Pick<Layout, 'islands' | 'links'> {
+  return layoutOf(seed);
+}
+
 function layoutOf(seed: number): Layout {
   let layout = layouts.get(seed);
   if (!layout) {
@@ -317,7 +533,8 @@ function layoutOf(seed: number): Layout {
 
 /** Water running on an island: points (unmirrored) with their water level. */
 interface Run {
-  island: IslandName;
+  /** Index of its island. */
+  island: number;
   points: readonly (readonly [number, number])[];
   levels: readonly number[];
   along: readonly number[];
@@ -335,7 +552,7 @@ interface Drop {
 }
 
 function makeRun(
-  island: IslandName,
+  island: number,
   points: [number, number][],
   levels: number[],
   halfWidth: number,
@@ -432,16 +649,11 @@ function sightsAt(seed: number, x: number, z: number): 'clear' | 'low' | null {
   return hidden ? 'low' : 'clear';
 }
 
-/** First stage an island is out of the clouds. */
-function riseOf(name: IslandName): Stage {
-  return STAGES.find((stage) => LEVEL_BY_STAGE[name][stage] !== null) ?? LAST_STAGE;
-}
-
 /** A place of the child, on an island near the camera (unmirrored). */
 interface SlotDef {
   x: number;
   z: number;
-  island: IslandName;
+  island: Island;
   kind: 'tree' | 'grove';
   opens: Stage;
   /** In front of something to keep in view: a grove only, never a tree. */
@@ -452,8 +664,6 @@ const GROVES = 8;
 const SLOT_SPACING = 2.6;
 /** Places open at most at each stage: a few more than the elements to place. */
 const OPEN_AT_MOST: PerStage<number> = [6, 6, 7, 9, 11, 13, 15, 17, 19, 21, 22, 22];
-/** Islands holding the child's places: the near ones, where a tree reads well. */
-const SLOT_ISLANDS: readonly IslandName[] = ['main', 'front', 'east', 'south'];
 
 const slotCache = new Map<number, SlotDef[]>();
 
@@ -469,11 +679,11 @@ export function slotsOf(seed: number): readonly SlotDef[] {
   const rng = new Rng(seed).fork('slots');
   const final = new SkyIslands(seed, LAST_STAGE, false);
   const candidates: SlotDef[] = [];
-  for (const name of SLOT_ISLANDS) {
-    const island = layout.islands[name];
+  for (const island of layout.islands) {
+    if (island.places === 'none') continue;
     const opensAt = (x: number, z: number) =>
       STAGES.find(
-        (stage) => stage >= riseOf(name) && rimOf(island, SIZE_BY_STAGE[name][stage], x, z) < 0.84,
+        (stage) => stage >= island.rises && rimOf(island, island.sizes[stage], x, z) < 0.84,
       ) ?? LAST_STAGE;
     const step = 2.2;
     for (let gx = island.x - island.hx; gx <= island.x + island.hx; gx += step) {
@@ -487,9 +697,9 @@ export function slotsOf(seed: number): readonly SlotDef[] {
         if (!sights) continue;
         const surface = final.surfaceAt(x * layout.mirror, z);
         if (surface?.kind !== 'grass' || surface.slope > 0.42) continue;
-        // Nothing tall in the middle of the foreground: groves only on the island in front.
-        const low = sights === 'low' || name === 'front';
-        candidates.push({ x, z, island: name, kind: 'grove', opens: opensAt(x, z), low });
+        // Nothing tall in the middle of the foreground: groves only on the isles in front.
+        const low = sights === 'low' || island.places === 'groves';
+        candidates.push({ x, z, island, kind: 'grove', opens: opensAt(x, z), low });
       }
     }
   }
@@ -504,7 +714,7 @@ export function slotsOf(seed: number): readonly SlotDef[] {
       if (slots.includes(c) || !room(c)) continue;
       // A grove now and then, about one in four, where a tree would hide nothing.
       const groves = slots.filter((s) => s.kind === 'grove').length;
-      if (c.low && groves >= GROVES + (spread ? 0 : 3)) continue;
+      if (c.low && spread && groves >= GROVES) continue;
       c.kind = c.low || (groves < GROVES && slots.length % 4 === 2) ? 'grove' : 'tree';
       slots.push(c);
     }
@@ -544,8 +754,6 @@ class SkyIslands implements Terrain {
   private readonly mirror: number;
   /** Islands out of the clouds at this stage. */
   private readonly visible: Island[];
-  private readonly levels: Record<IslandName, number | null>;
-  private readonly sizes: Record<IslandName, number>;
   private readonly pond: { x: number; z: number; radius: number; level: number } | null;
   private readonly runs: Run[] = [];
   private readonly drops: Drop[] = [];
@@ -560,20 +768,11 @@ class SkyIslands implements Terrain {
     const r = SKY_BY_STAGE;
     this.layout = layoutOf(seed);
     this.mirror = this.layout.mirror;
-    const names = Object.keys(LEVEL_BY_STAGE) as IslandName[];
-    this.levels = Object.fromEntries(names.map((n) => [n, LEVEL_BY_STAGE[n][stage]])) as Record<
-      IslandName,
-      number | null
-    >;
-    this.sizes = Object.fromEntries(names.map((n) => [n, SIZE_BY_STAGE[n][stage]])) as Record<
-      IslandName,
-      number
-    >;
-    this.visible = names.filter((n) => this.levels[n] !== null).map((n) => this.layout.islands[n]);
+    this.visible = this.layout.islands.filter((island) => island.levels[stage] !== null);
     const radius = r.pond[stage];
     if (radius > 0) {
       const { x, z } = this.layout.pond;
-      this.pond = { x, z, radius, level: this.groundOn(this.layout.islands.main, x, z) - 0.3 };
+      this.pond = { x, z, radius, level: this.groundOn(this.layout.main, x, z) - 0.3 };
     } else {
       this.pond = null;
     }
@@ -605,7 +804,7 @@ class SkyIslands implements Terrain {
   /** Outline point of a visible island at this stage, unmirrored. */
   private outline(island: Island, theta: number, rim = 1): [number, number] {
     const [x, z] = outlinePoint(island, theta, rim);
-    const size = this.sizes[island.name];
+    const size = island.sizes[this.stage];
     return [island.x + (x - island.x) * size, island.z + (z - island.z) * size];
   }
 
@@ -634,20 +833,20 @@ class SkyIslands implements Terrain {
   /** Visible island under a point (unmirrored), if any: the islands never overlap. */
   private islandAt(x: number, z: number): Island | null {
     for (const island of this.visible) {
-      if (rimOf(island, this.sizes[island.name], x, z) <= 0.985) return island;
+      if (rimOf(island, island.sizes[this.stage], x, z) <= 0.985) return island;
     }
     return null;
   }
 
   /** Ground of an island before any water: its dome, a gentle roll, a rounded rim. */
   private groundOn(island: Island, x: number, z: number): number {
-    const level = this.levels[island.name] ?? 0;
+    const level = island.levels[this.stage] ?? 0;
     const final = rimOf(island, 1, x, z);
-    const current = rimOf(island, this.sizes[island.name], x, z);
+    const current = rimOf(island, island.sizes[this.stage], x, z);
     const n1 = valueNoise2(this.seed + island.index * 13, x / 5 + 40, z / 5 + 40) - 0.5;
     const n2 = valueNoise2(this.seed + island.index * 13 + 1, x / 2.3 + 40, z / 2.3 + 40) - 0.5;
     let h = level + island.dome * Math.max(0, 1 - final * final) + 0.6 * n1 + 0.2 * n2;
-    if (island.name === 'main') {
+    if (island.role === 'main') {
       const { hill } = this.layout;
       const d = Math.hypot(x - hill.x, z - hill.z);
       h += hill.height * (1 - smoothstep(0, hill.radius, d));
@@ -659,7 +858,7 @@ class SkyIslands implements Terrain {
   private heightOn(island: Island, x: number, z: number): number {
     let h = this.groundOn(island, x, z);
     for (const run of this.runs) {
-      if (run.island !== island.name) continue;
+      if (run.island !== island.index) continue;
       const [x0, z0, x1, z1] = run.box;
       if (x < x0 || z < z0 || x > x1 || z > z1) continue;
       const q = distanceToPath(run.points, x, z);
@@ -669,7 +868,7 @@ class SkyIslands implements Terrain {
       h = Math.min(h, lerp(bed, h, smoothstep(run.halfWidth * 0.7, outer, q.distance)));
     }
     const p = this.pond;
-    if (p && island.name === 'main') {
+    if (p && island.role === 'main') {
       const d = Math.hypot(x - p.x, z - p.z);
       if (d < p.radius + 1) {
         h = Math.min(h, lerp(p.level - 0.8, h, smoothstep(p.radius - 1.3, p.radius + 1, d)));
@@ -682,7 +881,7 @@ class SkyIslands implements Terrain {
   private runAt(island: Island, x: number, z: number): { level: number; distance: number } | null {
     let best: { level: number; distance: number } | null = null;
     for (const run of this.runs) {
-      if (run.island !== island.name) continue;
+      if (run.island !== island.index) continue;
       const [x0, z0, x1, z1] = run.box;
       if (x < x0 || z < z0 || x > x1 || z > z1) continue;
       const q = distanceToPath(run.points, x, z);
@@ -701,7 +900,7 @@ class SkyIslands implements Terrain {
     from: number,
     to: number,
   ): Run {
-    const size = this.sizes[island.name];
+    const size = island.sizes[this.stage];
     const path = spline(control, 6) as [number, number][];
     const points: [number, number][] = [];
     for (let i = 0; i < path.length; i++) {
@@ -718,7 +917,7 @@ class SkyIslands implements Terrain {
       const level = Math.min(lerp(from, to, t), this.groundOn(island, x, z) - 0.12);
       levels.push(i === 0 ? level : Math.min(levels[i - 1], level));
     });
-    return makeRun(island.name, points, levels, halfWidth);
+    return makeRun(island.index, points, levels, halfWidth);
   }
 
   /** The spring of the main island and its fall into the clouds; the great cascade. */
@@ -726,8 +925,7 @@ class SkyIslands implements Terrain {
     const half = SKY_BY_STAGE.stream[this.stage];
     const p = this.pond;
     if (!p || half === 0) return;
-    const { islands, exit } = this.layout;
-    const main = islands.main;
+    const { main, exit } = this.layout;
     const dx = exit.x - p.x;
     const dz = exit.z - p.z;
     const length = Math.hypot(dx, dz);
@@ -764,9 +962,15 @@ class SkyIslands implements Terrain {
     if (!SKY_BY_STAGE.cascade[this.stage]) return;
     // The great cascade: from a spring on the high island down to the ledge, then onto the
     // main island beside its pond.
-    const { high, ledge } = islands;
+    const { high, ledge } = this.layout;
     const spring = outlinePoint(high, -Math.PI / 2, 0.3);
-    const ledgeFoot = towards(ledge, this.sizes.ledge, [ledge.x, ledge.z], [high.x, high.z], 0.5);
+    const ledgeFoot = towards(
+      ledge,
+      ledge.sizes[this.stage],
+      [ledge.x, ledge.z],
+      [high.x, high.z],
+      0.5,
+    );
     const highTop = this.groundOn(high, ...spring) - 0.15;
     const highRun = this.flow(
       high,
@@ -807,21 +1011,22 @@ class SkyIslands implements Terrain {
   }
 
   private placeBridges(): void {
-    for (const def of BRIDGES) {
-      if (!SKY_BY_STAGE[def.column][this.stage]) continue;
-      const a = this.layout.islands[def.from];
-      const b = this.layout.islands[def.to];
+    const { islands } = this.layout;
+    for (const link of this.layout.links) {
+      if (link.stage > this.stage) continue;
+      const a = islands[link.from];
+      const b = islands[link.to];
       const end = (island: Island, other: Island): [number, number, number] => {
         const [x, z] = towards(
           island,
-          this.sizes[island.name],
+          island.sizes[this.stage],
           [island.x, island.z],
           [other.x, other.z],
           0.93,
         );
         return [x * this.mirror, this.groundOn(island, x, z) + 0.02, z];
       };
-      this.bridges.push({ from: end(a, b), to: end(b, a), kind: def.kind });
+      this.bridges.push({ from: end(a, b), to: end(b, a), kind: link.kind });
     }
   }
 
@@ -835,7 +1040,7 @@ class SkyIslands implements Terrain {
     const dz = this.heightOn(island, x, z + e) - this.heightOn(island, x, z - e);
     const slope = Math.min(1, Math.hypot(dx, dz) / (2 * e) / 1.6);
     const p = this.pond;
-    const nearPond = !!p && island.name === 'main' && Math.hypot(x - p.x, z - p.z) < p.radius + 1.2;
+    const nearPond = !!p && island.role === 'main' && Math.hypot(x - p.x, z - p.z) < p.radius + 1.2;
     const run = this.runAt(island, x, z);
     let kind: Surface['kind'] = 'grass';
     if (nearPond && y < p!.level + 0.03) kind = 'water';
@@ -860,8 +1065,8 @@ class SkyIslands implements Terrain {
         x: slot.x * m,
         z: slot.z,
         kind: slot.kind,
-        size: slot.island === 'main' ? 0.95 : 0.85,
-        detail: slot.island === 'east' ? 'far' : 'light',
+        size: slot.island.role === 'main' ? 0.95 : 0.85,
+        detail: slot.island.z < -8 ? 'far' : 'light',
       });
     }
 
@@ -898,17 +1103,20 @@ class SkyIslands implements Terrain {
     }
 
     // Grand moments, announced by sparkles the stage before.
-    const { islands } = this.layout;
-    if (revealAt(SKY_BY_STAGE.suspension, this.stage) === 'announced') {
-      const a = towards(islands.main, this.sizes.main, [0, 0], [islands.east.x, islands.east.z], 1);
-      const b = towards(islands.east, this.sizes.east, [islands.east.x, islands.east.z], [0, 0], 1);
+    const { islands, links } = this.layout;
+    const grand = links.find((link) => link.kind === 'suspension');
+    if (grand && revealAt(SKY_BY_STAGE.suspension, this.stage) === 'announced') {
+      const from = islands[grand.from];
+      const to = islands[grand.to];
+      const a = towards(from, from.sizes[this.stage], [from.x, from.z], [to.x, to.z], 1);
+      const b = towards(to, to.sizes[this.stage], [to.x, to.z], [from.x, from.z], 1);
       const x = (a[0] + b[0]) / 2;
       const z = (a[1] + b[1]) / 2;
-      const y = this.groundOn(islands.east, ...b) / 2 + 1;
+      const y = (this.groundOn(from, ...a) + this.groundOn(to, ...b)) / 2 + 1;
       this.announcements.push({ label: 'bridge', x: x * m, y, z, radius: 2.2 });
     }
     if (revealAt(SKY_BY_STAGE.cascade, this.stage) === 'announced') {
-      const { high } = islands;
+      const { high } = this.layout;
       this.announcements.push({
         label: 'cascade',
         x: high.x * m,
@@ -955,33 +1163,25 @@ class SkyIslands implements Terrain {
     const slots = slotsOf(this.seed);
     // Drawn in the final painting, so a tree stays from one stage to the next.
     const last = this.stage === LAST_STAGE ? this : new SkyIslands(this.seed, LAST_STAGE, false);
-    const quota: Record<IslandName, number> = {
-      main: 11,
-      front: 0,
-      east: 7,
-      ledge: 0,
-      high: 6,
-      south: 2,
-      peak: 3,
-    };
     const placed: { x: number; z: number }[] = [hero];
     const { pastures } = this.layout;
     const spots: TreeSpot[] = [];
     for (const island of Object.values(islands)) {
       let count = 0;
-      const alpine = island.name === 'high' || island.name === 'peak';
-      for (let attempt = 0; attempt < 300 && count < quota[island.name]; attempt++) {
+      for (let attempt = 0; attempt < 300 && count < island.trees; attempt++) {
         const theta = rng.range(0, TAU);
-        // Mostly towards the back and the rim, where they frame without hiding.
-        const back = Math.sin(theta) < 0.2 || island.name !== 'main';
+        // Towards the back and the sides, where they frame without hiding, and inside the
+        // first island so it is not bare.
+        const back =
+          Math.sin(theta) < 0.2 || Math.abs(Math.cos(theta)) > 0.75 || island.role !== 'main';
         // Small islands keep their trees whole on their ground.
-        const outer = island.name === 'main' ? 0.88 : 0.72;
-        const rim = back ? rng.range(0.3, outer) : rng.range(0.72, outer);
+        const outer = island.role === 'main' ? 0.8 : 0.72;
+        const rim = rng.range(island.role === 'main' ? 0.35 : 0.3, outer);
         const [x, z] = outlinePoint(island, theta, rim);
         const rank = rng.next();
         const size = rng.next();
-        const conifer = alpine ? rng.chance(0.75) : rng.chance(0.25);
-        if (!back && island.name === 'main') continue;
+        const conifer = island.alpine ? rng.chance(0.75) : rng.chance(0.25);
+        if (!back) continue;
         if (placed.some((q) => Math.hypot(q.x - x, q.z - z) < 2.8)) continue;
         if (pastures.some((p) => Math.hypot(x - p.x, z - p.z) < PASTURE_RADIUS + 1)) continue;
         if (slots.some((s) => Math.hypot(s.x - x, s.z - z) < 2)) continue;
@@ -995,9 +1195,9 @@ class SkyIslands implements Terrain {
           z,
           role: 'edge',
           rank,
-          size: (island.name === 'main' ? 0.95 : 0.85) + 0.3 * size,
+          size: (island.role === 'main' ? 0.95 : 0.85) + 0.3 * size,
           conifer,
-          detail: island.name === 'main' || island.name === 'front' ? 'light' : 'far',
+          detail: island.z > -8 ? 'light' : 'far',
         });
       }
     }
@@ -1014,15 +1214,15 @@ class SkyIslands implements Terrain {
     const m = this.mirror;
     const points: [number, number, number][] = [];
     for (const island of this.visible) {
-      const level = this.levels[island.name]!;
-      const n = island.name === 'main' ? 28 : 12;
+      const level = island.levels[this.stage]!;
+      const n = island.role === 'main' ? 28 : 12;
       for (let i = 0; i < n; i++) {
         const theta = (i / n) * TAU;
         const [x, z] = this.outline(island, theta, 0.97);
-        const top = island.name === 'main' ? Math.max(0, this.groundOn(island, x, z)) : level;
+        const top = island.role === 'main' ? Math.max(0, this.groundOn(island, x, z)) : level;
         // Trees stand at the back; the underside shows below the front.
         points.push([x * m, top + (Math.sin(theta) < 0.3 ? 4 : 1.5), z]);
-        if (island.name === 'main') points.push([x * m, (-2.6 * island.hx) / 20, z]);
+        if (island.role === 'main') points.push([x * m, (-2.6 * island.hx) / 20, z]);
         else points.push([x * m, level - 1.5, z]);
       }
       points.push([island.x * m, level + island.dome + 5, island.z]);
@@ -1031,7 +1231,7 @@ class SkyIslands implements Terrain {
       points.push([d.x - d.rx, d.y + 3, d.z], [d.x + d.rx, d.y + 3, d.z]);
     }
     const { hero } = this.layout;
-    const y = this.groundOn(this.layout.islands.main, hero.x, hero.z) + 5.5 * 1.1;
+    const y = this.groundOn(this.layout.main, hero.x, hero.z) + 5.5 * 1.1;
     points.push([hero.x * m - 3.4, y, hero.z], [hero.x * m + 3.4, y, hero.z]);
     const xs = points.map((p) => p[0]);
     const zs = points.map((p) => p[2]);
@@ -1058,7 +1258,7 @@ class SkyIslands implements Terrain {
     const p = this.pond;
     if (slope > 0.8) return swatchUV('Stone', 0.2 + slope * 0.4 + jitter * 2);
     if (slope > 0.32) return swatchUV(grass.swatch, lerp(grass.from, grass.to, 0.75 + jitter));
-    if (p && island.name === 'main' && Math.hypot(x - p.x, z - p.z) < p.radius + 1.2) {
+    if (p && island.role === 'main' && Math.hypot(x - p.x, z - p.z) < p.radius + 1.2) {
       if (y < p.level + 0.25)
         return swatchUV('HexSand', 0.3 + Math.min(0.5, (p.level - y) * 0.7) + jitter);
     }
@@ -1072,9 +1272,9 @@ class SkyIslands implements Terrain {
   buildGround(out: MeshWriter, season: Season): void {
     const m = this.mirror;
     for (const island of this.visible) {
-      const rng = new Rng(this.seed).fork(`ground:${island.name}`);
-      const size = this.sizes[island.name];
-      const level = this.levels[island.name]!;
+      const rng = new Rng(this.seed).fork(`ground:${island.index}`);
+      const size = island.sizes[this.stage];
+      const level = island.levels[this.stage]!;
       const hx = island.hx * size;
       const outline = {
         hx,
@@ -1100,7 +1300,7 @@ class SkyIslands implements Terrain {
         hx,
         (cx, cy, cz, slope, jitter) =>
           this.colour(season, island, island.x + cx * m, cy + level, cz, slope, jitter),
-        Math.max(0.32, hx * (island.name === 'main' ? 0.06 : 0.075)),
+        Math.max(0.32, hx * (island.role === 'main' ? 0.06 : 0.075)),
       );
       out.append(local.toMeshData(), island.x * m, level, 0);
     }
@@ -1157,7 +1357,7 @@ class SkyIslands implements Terrain {
     }
     const p = this.pond;
     if (!p) return;
-    const main = this.layout.islands.main;
+    const main = this.layout.main;
     const rings = [0.34, 0.68, 1];
     const segments = Math.max(14, Math.round(p.radius * 5));
     const reach = p.radius + 1.1;

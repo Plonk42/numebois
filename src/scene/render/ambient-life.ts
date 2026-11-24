@@ -172,7 +172,7 @@ function planMember(
 ): HerdMember | null {
   const { scale, length } = sizeOf(terrain, name);
   const room = length * 0.6;
-  for (let attempt = 0; attempt < 160; attempt++) {
+  for (let attempt = 0; attempt < 280; attempt++) {
     const home = openGround(
       terrain,
       rng.range(-0.75, 0.75) * terrain.extent.x,

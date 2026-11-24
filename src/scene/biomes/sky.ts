@@ -27,7 +27,7 @@ export const SKY: Biome = {
     'pont suspendu',
     'îlot suspendu',
     'grande cascade',
-    'île du sud',
+    'chapelet d’îles',
     'île perchée',
     'montgolfière',
   ],
