@@ -13,7 +13,7 @@ test('le panier de glands : 30 s sous le soleil, une erreur sans perte de temps,
   await page.evaluate(() => window.__numebois!.ready);
   // The tables acquired: they have a challenge.
   await loadSave(page, {
-    version: 5,
+    version: 6,
     savedAt: '2026-11-23T10:00:00.000Z',
     leaves: 0,
     seeds: 0,
