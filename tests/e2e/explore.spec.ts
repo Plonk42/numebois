@@ -51,7 +51,7 @@ test('se promener dans la forêt : gestes dans leurs limites, retour au cadrage,
   await expect(page.locator('#dim')).not.toHaveClass(/on/);
   const viewport = page.viewportSize()!;
   const walk = page.locator('#walk');
-  const back = walk.getByRole('button', { name: 'Tout le paysage' });
+  const back = walk.getByRole('button', { name: 'Revenir' });
   const hint = walk.locator('.hint');
   await expect(walk).toBeVisible();
   await expect(hint).toBeVisible();
@@ -87,6 +87,9 @@ test('se promener dans la forêt : gestes dans leurs limites, retour au cadrage,
   );
   expect((await view(page)).goal.zoom).toBe(2.5);
   await expect(back).toBeVisible();
+  // Away from the framing, the landscape alone: the trail steps aside.
+  await expect(page.locator('#trail')).toHaveClass(/aside/);
+  await expect(trail).toHaveCount(0);
   // Once the child has moved, the hint has done its work: the whole painting takes its place.
   await expect(hint).toHaveCount(0);
   const [backBox] = await boxes(page, '#walk .whole');
@@ -134,14 +137,17 @@ test('se promener dans la forêt : gestes dans leurs limites, retour au cadrage,
   await back.click();
   expect((await view(page)).goal).toEqual(home);
   await expect(back).toBeHidden();
+  await expect(trail).toBeVisible();
   await expect.poll(async () => (await view(page)).now).toEqual(home);
 
   // The mouse too: the wheel zooms.
   await page.mouse.move(640, 330);
   await page.mouse.wheel(0, -400);
   await expect.poll(async () => (await view(page)).goal.zoom).toBeGreaterThan(1.5);
+  await expect(trail).toHaveCount(0);
+  await back.click();
 
-  // A touch on the trail starts it; the view glides home.
+  // A touch on the trail starts it.
   await trail.click();
   await expect(walk).toHaveCount(0);
   await expect(page.locator('#question')).toBeVisible();

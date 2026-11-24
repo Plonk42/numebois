@@ -592,7 +592,9 @@ function Game(props: Props) {
   // Between two trails, the next one waits with its sign, a touch on it starts it; it stays
   // while the season turns, out of sight in the shop, the finale and the Album.
   const waiting = shown === 'walking' && !done;
-  const aside = !waiting && !onTrail && !done;
+  // Away from the framing, the landscape alone: the trail comes back with it.
+  const exploring = waiting && viewAway;
+  const aside = (!waiting && !onTrail && !done) || exploring;
   // A golden seed: the slate steps aside, the forest lights up.
   const away = phase === 'seed';
   let plume: PlumeMood = 'calm';
@@ -635,7 +637,7 @@ function Game(props: Props) {
         art={art}
         stones={session.stones}
         current={waiting ? 0 : finished ? session.stones : session.stone}
-        onStart={waiting ? start : undefined}
+        onStart={waiting && !exploring ? start : undefined}
         aside={aside}
       />
       {/* During a question, the forest dims: one thing at a time. */}
@@ -770,7 +772,7 @@ function Walk({ away, moved, onRecenter }: WalkProps) {
             <path d="M4 11V5h6M22 5h6v6M28 21v6h-6M10 27H4v-6" />
             <path class="hill" d="M8 22l5-7 4 5 3-3 4 5z" />
           </svg>
-          Tout le paysage
+          Revenir
         </button>
       )}
       {!moved && (
