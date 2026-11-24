@@ -5,6 +5,13 @@ import { Rng } from '../../src/core/rng';
 import type { Domain, Quest, Skill } from '../../src/core/types';
 import { DOMAINS } from '../../src/domains';
 import { QUESTS } from '../../src/quests';
+import { BIOMES } from '../../src/scene/biomes';
+import { BIOME_IDS } from '../../src/scene/description';
+
+/** Each decor in turn: word problems tell of it. */
+const contextOf = (seed: number) => ({
+  vocabulary: BIOMES[BIOME_IDS[seed % BIOME_IDS.length]].vocabulary,
+});
 
 function skill(id: string, prerequisites: string[] = []): Skill {
   return {
@@ -136,7 +143,7 @@ describe('registre', () => {
       for (let level = 0; level < notion.levels; level++) {
         it(`level ${level}: exact answers, fitting the widget, short and kind texts, on 1 000 seeds`, () => {
           for (let seed = 0; seed < 1000; seed++) {
-            const exercise = notion.generate(new Rng(seed), level);
+            const exercise = notion.generate(new Rng(seed), level, contextOf(seed));
             const errors = exerciseErrors(notion, exercise, level);
             if (errors.length > 0) expect(errors, `graine ${seed}`).toEqual([]);
           }
@@ -147,7 +154,7 @@ describe('registre', () => {
           const reached = new Set<string | null>();
           for (let level = 0; level < notion.levels; level++) {
             for (let seed = 0; seed < 1000; seed++) {
-              reached.add(notion.facts!.of(notion.generate(new Rng(seed), level)));
+              reached.add(notion.facts!.of(notion.generate(new Rng(seed), level, contextOf(seed))));
             }
           }
           for (const fact of notion.facts!.all) expect(reached).toContain(fact);

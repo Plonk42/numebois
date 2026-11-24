@@ -1,8 +1,13 @@
 import * as THREE from 'three';
+import type { ExerciseContext } from '../../src/core/types';
 import { CATALOG, type ModelName } from '../../src/scene/asset-catalog';
 import { AssetLibrary } from '../../src/scene/assets';
 import { MODELS } from '../../src/scene/assets.gen';
+import { BIOMES } from '../../src/scene/biomes';
 import type { MeshData } from '../../src/scene/mesh-data';
+
+/** Questions asked in the clearing. */
+export const CLEARING: ExerciseContext = { vocabulary: BIOMES.clearing.vocabulary };
 
 /**
  * Library whose models have the bounding box and the triangle count of the real KayKit

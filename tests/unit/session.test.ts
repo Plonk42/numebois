@@ -1,3 +1,4 @@
+import { CLEARING } from './helpers';
 import { describe, expect, it } from 'vitest';
 import { curriculum } from '../../src/core/registry';
 import { Rng } from '../../src/core/rng';
@@ -24,7 +25,12 @@ function play(session: Session, right: (i: number) => boolean = () => true): str
 
 describe('session', () => {
   it('plays whole trails and opens a new notion once the first is under way', () => {
-    const session = new Session(SKILLS, new Rng(3), () => 100);
+    const session = new Session(
+      SKILLS,
+      new Rng(3),
+      () => 100,
+      () => CLEARING,
+    );
     session.startTrail();
     expect(new Set(play(session))).toEqual(new Set(['numbers.write-digits']));
     expect(session.progress.get('numbers.write-digits')?.level).toBe(3);
@@ -34,7 +40,12 @@ describe('session', () => {
   });
 
   it('ends on a success: one more easy question after a missed last one, on the last stone', () => {
-    const session = new Session(SKILLS, new Rng(5), () => 100);
+    const session = new Session(
+      SKILLS,
+      new Rng(5),
+      () => 100,
+      () => CLEARING,
+    );
     session.startTrail();
     const last = TRAIL_QUESTIONS.normal - 1;
     const asked = play(session, (i) => i !== last);
@@ -45,20 +56,30 @@ describe('session', () => {
   });
 
   it('records the facts of fact notions', () => {
-    const session = new Session(SKILLS, new Rng(1), () => 100);
+    const session = new Session(
+      SKILLS,
+      new Rng(1),
+      () => 100,
+      () => CLEARING,
+    );
     const complements = SKILLS.find((skill) => skill.id === 'mental-math.complements')!;
-    const exercise = complements.generate(new Rng(1), 0);
+    const exercise = complements.generate(new Rng(1), 0, CLEARING);
     session.conclude(complements, exercise, true, 1500, false);
     const fact = complements.facts!.of(exercise)!;
     expect(session.facts.get(fact)).toMatchObject({ tries: 1, right: 1, fastDays: [100] });
   });
 
   it('reports a notion acquired and a fact automated, once', () => {
-    const session = new Session(SKILLS, new Rng(1), () => 100);
+    const session = new Session(
+      SKILLS,
+      new Rng(1),
+      () => 100,
+      () => CLEARING,
+    );
     const complements = SKILLS.find((skill) => skill.id === 'mental-math.complements')!;
     const top = complements.levels - 1;
     // A fact of the first level; the answer counts at the notion's level all the same.
-    const exercise = complements.generate(new Rng(1), 0);
+    const exercise = complements.generate(new Rng(1), 0, CLEARING);
     const fact = complements.facts!.of(exercise)!;
     session.restore({
       progress: [

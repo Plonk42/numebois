@@ -1,3 +1,4 @@
+import { CLEARING } from './helpers';
 import { describe, expect, it } from 'vitest';
 import { Rng } from '../../src/core/rng';
 import { Session } from '../../src/core/session';
@@ -18,7 +19,12 @@ const JOURNAL = { started: 198, acquired: ['numbers.write-digits'], automated: [
 
 /** A session that has played two trails. */
 function played(): Session {
-  const session = new Session(SKILLS, new Rng(2), () => 200);
+  const session = new Session(
+    SKILLS,
+    new Rng(2),
+    () => 200,
+    () => CLEARING,
+  );
   for (let trail = 0; trail < 2; trail++) {
     session.startTrail();
     let i = 0;
@@ -57,7 +63,12 @@ describe('sauvegarde', () => {
       painting: PAINTING,
       journal: JOURNAL,
     });
-    const restored = new Session(SKILLS, new Rng(9), () => 200);
+    const restored = new Session(
+      SKILLS,
+      new Rng(9),
+      () => 200,
+      () => CLEARING,
+    );
     restored.restore(parsed.data);
     expect(restored.snapshot()).toEqual(session.snapshot());
     expect(restored.progress.size).toBeGreaterThan(0);
@@ -129,7 +140,12 @@ describe('sauvegarde', () => {
     expect(practice.ok && practice.data.progress).toEqual([
       { skill: compare.id, stage: 'learning', level: 2, recent: [], box: 0, due: null },
     ]);
-    const session = new Session([compare], new Rng(1), () => 200);
+    const session = new Session(
+      [compare],
+      new Rng(1),
+      () => 200,
+      () => CLEARING,
+    );
     if (practice.ok) session.restore(practice.data);
     session.startTrail();
     expect(new Set(session.trail.map((step) => step.skill))).toEqual(new Set([compare.id]));

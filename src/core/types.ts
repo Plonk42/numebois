@@ -34,6 +34,38 @@ export interface Exercise {
   answer: string;
 }
 
+/** A noun of the statements, in the singular and the plural. */
+export interface Noun {
+  one: string;
+  many: string;
+}
+
+/** Someone of a decor: `name` as written inside a sentence, `to` after « donner ». */
+export interface Character {
+  name: string;
+  to: string;
+  pronoun: 'il' | 'elle';
+}
+
+/** The words of a decor, so word problems tell of the painting in progress. */
+export interface Vocabulary {
+  /** Who gathers, has and gives things. */
+  gatherers: readonly Character[];
+  /** Who receives them. */
+  friends: readonly Character[];
+  /** Things to count, picked up one by one. */
+  items: readonly Noun[];
+  /** Where they are, after the verb: « près du ruisseau ». */
+  places: readonly string[];
+  /** Things packed by groups: « 6 paniers de 8 champignons ». */
+  groups: readonly { group: Noun; item: Noun }[];
+}
+
+/** What a generator knows of the game: the words of the decor of the painting. */
+export interface ExerciseContext {
+  vocabulary: Vocabulary;
+}
+
 /** A notion: pure functions only, the random generator is injected. */
 export interface Skill<E extends Exercise = Exercise> {
   id: SkillId;
@@ -42,7 +74,7 @@ export interface Skill<E extends Exercise = Exercise> {
   prerequisites: readonly SkillId[];
   /** Number of internal difficulty levels, from 0 to `levels - 1`. */
   levels: number;
-  generate(rng: Rng, level: number): E;
+  generate(rng: Rng, level: number, context: ExerciseContext): E;
   validate(exercise: E, answer: string): boolean;
   /** 1: a method hint; 2: the answer with its method. */
   hint(exercise: E, attempt: 1 | 2): string;

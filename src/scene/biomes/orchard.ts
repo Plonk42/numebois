@@ -44,9 +44,30 @@ export const ORCHARD: Biome = {
   // A softer, blossomy sky.
   light: { horizon: [0xffeaf2, 0.2], hemisphereGround: [0xb8d878, 0.2] },
   vocabulary: {
-    place: 'dans le verger',
-    things: ['pommes', 'poires', 'cerises', 'tulipes', 'brins de lavande', 'épis de blé'],
-    containers: ['paniers', 'caisses', 'sacs de farine', 'rangées', 'ruches'],
-    animals: ['ânes', 'alpagas', 'chevaux', 'vaches', 'abeilles', 'papillons'],
+    gatherers: [
+      { name: 'Plume', to: 'à Plume', pronoun: 'elle' },
+      { name: 'le meunier', to: 'au meunier', pronoun: 'il' },
+      { name: 'la fermière', to: 'à la fermière', pronoun: 'elle' },
+    ],
+    friends: [
+      { name: 'Plume', to: 'à Plume', pronoun: 'elle' },
+      { name: 'l’âne', to: 'à l’âne', pronoun: 'il' },
+      { name: 'le cheval', to: 'au cheval', pronoun: 'il' },
+      { name: 'la vache', to: 'à la vache', pronoun: 'elle' },
+    ],
+    items: [
+      { one: 'pomme', many: 'pommes' },
+      { one: 'poire', many: 'poires' },
+      { one: 'cerise', many: 'cerises' },
+      { one: 'tulipe', many: 'tulipes' },
+      { one: 'noix', many: 'noix' },
+    ],
+    places: ['sous les pommiers', 'près du moulin', 'dans le verger', 'au bord de l’étang'],
+    groups: [
+      { group: { one: 'cageot', many: 'cageots' }, item: { one: 'pomme', many: 'pommes' } },
+      { group: { one: 'panier', many: 'paniers' }, item: { one: 'cerise', many: 'cerises' } },
+      { group: { one: 'caisse', many: 'caisses' }, item: { one: 'poire', many: 'poires' } },
+      { group: { one: 'bouquet', many: 'bouquets' }, item: { one: 'tulipe', many: 'tulipes' } },
+    ],
   },
 };

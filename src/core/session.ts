@@ -2,7 +2,7 @@ import { isAutomated, recordFact, newFact, type FactProgress } from './facts';
 import { isAcquired, newProgress, record, type SkillProgress } from './mastery';
 import type { Rng } from './rng';
 import { composeTrail, revisit, stepLevel, type TrailLength, type TrailStep } from './trail';
-import type { Exercise, FactId, Skill, SkillId } from './types';
+import type { Exercise, ExerciseContext, FactId, Skill, SkillId } from './types';
 
 /** Answers of the last trails used for the success rate. */
 const HISTORY = 30;
@@ -34,6 +34,8 @@ export class Session {
     private readonly skills: readonly Skill[],
     private readonly rng: Rng,
     private readonly today: () => number,
+    /** The decor of the painting in progress, when a question is asked. */
+    private readonly context: () => ExerciseContext,
     public length: TrailLength = 'normal',
   ) {
     this.byId = new Map(skills.map((skill) => [skill.id, skill]));
@@ -69,9 +71,9 @@ export class Session {
     // The statement alone may not change (« Quelle heure est-il ? » under a clock).
     const same = (exercise: Exercise) =>
       exercise.statement === previous?.statement && exercise.answer === previous.answer;
-    let exercise = skill.generate(this.rng, level);
+    let exercise = skill.generate(this.rng, level, this.context());
     for (let i = 0; i < 20 && same(exercise); i++) {
-      exercise = skill.generate(this.rng, level);
+      exercise = skill.generate(this.rng, level, this.context());
     }
     return { skill, exercise };
   }

@@ -20,7 +20,7 @@ import {
 } from '../save/album';
 import { serializeSave, type PaintingJournal, type ParsedSave } from '../save/save';
 import type { AnimalName } from '../scene/animal-catalog';
-import { nextBiomes } from '../scene/biomes';
+import { BIOMES, nextBiomes } from '../scene/biomes';
 import {
   completed,
   DEFAULT_DESCRIPTION,
@@ -799,7 +799,9 @@ export function mountGame(
   home = true,
 ) {
   const rng = new Rng(seed);
-  const session = new Session(skills, rng.fork('trail'), today);
+  const session = new Session(skills, rng.fork('trail'), today, () => ({
+    vocabulary: BIOMES[forest.description().biome].vocabulary,
+  }));
   if (saved?.ok) {
     session.restore(saved.data);
     session.length = saved.data.trailLength;

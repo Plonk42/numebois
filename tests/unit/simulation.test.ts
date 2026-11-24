@@ -1,3 +1,4 @@
+import { CLEARING } from './helpers';
 import { describe, expect, it } from 'vitest';
 import { isAcquired, REVIEW_DAYS } from '../../src/core/mastery';
 import { curriculum } from '../../src/core/registry';
@@ -46,7 +47,12 @@ function sixMonths(domains: readonly Domain[]) {
   const rng = new Rng(7);
   const child = rng.fork('child');
   let day = 0;
-  const session = new Session(skills, rng.fork('trail'), () => day);
+  const session = new Session(
+    skills,
+    rng.fork('trail'),
+    () => day,
+    () => CLEARING,
+  );
   const lastSeen = new Map<string, number>();
   const trails: { stones: number; inProgress: number; reviews: number }[] = [];
   let forgotten = 0;

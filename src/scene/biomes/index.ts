@@ -31,4 +31,4 @@ export function nextBiomes(
   return [...BIOME_IDS].sort((a, b) => count(a) - count(b)).slice(0, NEXT_CHOICES);
 }
 
-export type { Biome, Vocabulary } from './types';
+export type { Biome } from './types';

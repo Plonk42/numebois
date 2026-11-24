@@ -10,7 +10,7 @@ Recette de fond : [plan, « Recette : ajouter une notion ou un domaine »](../..
 ## Écrire
 
 1. **Domaine :** existant, ou `src/domains/<domain>/index.ts` (`defineDomain`) ajouté à `src/domains/index.ts`. L'ordre des domaines y règle l'ordre d'ouverture (`curriculum` les alterne).
-2. **Générateur** (`generators.ts`) : l'id `<domain>.<notion>` en constante, un type d'exercice qui étend `Exercise` avec les valeurs tirées, les niveaux décrits en commentaire, `generate(rng, level)` pur qui refuse et retire les tirages hors contraintes.
+2. **Générateur** (`generators.ts`) : l'id `<domain>.<notion>` en constante, un type d'exercice qui étend `Exercise` avec les valeurs tirées, les niveaux décrits en commentaire, `generate(rng, level, context)` pur qui refuse et retire les tirages hors contraintes (`context.vocabulary` : les mots du décor, pour un énoncé de problème ; modèle `src/domains/word-problems/problems.ts`).
 3. **Indices** (`hints.ts`) : 1 = la méthode, 2 = la réponse avec la méthode. Phrases de 12 mots au plus, 3 phrases ou lignes et 120 caractères par bulle, aucun mot d'échec.
 4. **Validation :** `validateNumber` ou `validateChoice` (`src/core/validate.ts`), sinon une nouvelle fonction au même endroit.
 5. **Notion** (`skills.ts`, `defineSkill`) : prérequis (y compris d'autres domaines), `levels`, `drill`/`challenge`, `facts` (`facts.ts`, ids `<notion>:<clé>`) pour une notion à faits.

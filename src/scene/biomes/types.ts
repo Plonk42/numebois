@@ -1,18 +1,7 @@
+import type { Vocabulary } from '../../core/types';
 import type { BiomeId, PerStage, Stage } from '../description';
 import type { BiomeLook } from '../render/richness';
 import type { Terrain } from '../terrain/types';
-
-/** Words of a décor for the word problems (#19): what lives and what is counted there. */
-export interface Vocabulary {
-  /** Where the problem takes place, with its article: « dans la clairière ». */
-  place: string;
-  /** Things to count, in the plural. */
-  things: readonly string[];
-  /** Containers to fill or share, in the plural. */
-  containers: readonly string[];
-  /** Animals, in the plural. */
-  animals: readonly string[];
-}
 
 /**
  * A décor of the paintings: its terrain, its ambience (stage names, life, sound, light), its
