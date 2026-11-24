@@ -100,7 +100,7 @@ describe('Album', () => {
 
 describe('next painting', () => {
   it('shows each décor complete, with every slot filled', () => {
-    for (const biome of ['clearing', 'orchard'] as const) {
+    for (const biome of ['clearing', 'orchard', 'sky'] as const) {
       const full = completed(newPainting(5, 'winter', biome));
       expect(readDescription(full)).toEqual(full);
       expect(isComplete(full)).toBe(true);
@@ -111,14 +111,19 @@ describe('next painting', () => {
   });
 
   it('offers the décors painted least, or the one of the quest of the week', () => {
-    expect(nextBiomes([], '2026-11-23', [])).toEqual(['clearing', 'orchard']);
-    expect(nextBiomes([], '2026-11-23', ['clearing'])).toEqual(['orchard', 'clearing']);
-    expect(nextBiomes([], '2026-11-23', [])).toHaveLength(Math.min(NEXT_CHOICES, 2));
+    expect(nextBiomes([], '2026-11-23', [])).toEqual(['clearing', 'orchard', 'sky']);
+    expect(nextBiomes([], '2026-11-23', ['clearing'])).toEqual(['orchard', 'sky', 'clearing']);
+    expect(nextBiomes([], '2026-11-23', ['sky', 'clearing'])).toEqual([
+      'orchard',
+      'clearing',
+      'sky',
+    ]);
+    expect(nextBiomes([], '2026-11-23', [])).toHaveLength(Math.min(NEXT_CHOICES, 3));
     expect(nextBiomes([quest('orchard')], '2026-11-25', [])).toEqual(['orchard']);
     // Before or after the quest, or a décor that does not exist: the choice again.
-    expect(nextBiomes([quest('orchard')], '2026-11-30', [])).toHaveLength(2);
-    expect(nextBiomes([quest('orchard')], '2026-11-22', [])).toHaveLength(2);
-    expect(nextBiomes([quest('moon')], '2026-11-25', [])).toHaveLength(2);
+    expect(nextBiomes([quest('orchard')], '2026-11-30', [])).toHaveLength(3);
+    expect(nextBiomes([quest('orchard')], '2026-11-22', [])).toHaveLength(3);
+    expect(nextBiomes([quest('moon')], '2026-11-25', [])).toHaveLength(3);
   });
 
   it('writes the days for the quests and for the child', () => {

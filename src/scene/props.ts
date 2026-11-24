@@ -400,3 +400,116 @@ export const GENERATED_PROPS = {
   'gen:toadstool': toadstool,
   'gen:mushrooms': mushroomClump,
 } as const;
+
+type Vec = readonly [number, number, number];
+
+/** Square beam from a to b: four flat sides, `w` wide across horizontally and `h` high. */
+export function beam(
+  out: MeshWriter,
+  a: Vec,
+  b: Vec,
+  w: number,
+  h: number,
+  swatch: SwatchName,
+): void {
+  const dx = b[0] - a[0];
+  const dy = b[1] - a[1];
+  const dz = b[2] - a[2];
+  const len = Math.hypot(dx, dy, dz) || 1;
+  const t = [dx / len, dy / len, dz / len];
+  // Across: horizontal and perpendicular to the beam, or x for a vertical one.
+  const hl = Math.hypot(t[0], t[2]);
+  const s = hl > 1e-3 ? [-t[2] / hl, 0, t[0] / hl] : [1, 0, 0];
+  const u = [t[1] * s[2] - t[2] * s[1], t[2] * s[0] - t[0] * s[2], t[0] * s[1] - t[1] * s[0]];
+  const corner = (p: Vec, i: number, j: number): Vec => [
+    p[0] + s[0] * w * i + u[0] * h * j,
+    p[1] + s[1] * w * i + u[1] * h * j,
+    p[2] + s[2] * w * i + u[2] * h * j,
+  ];
+  const ring = [
+    [-0.5, -0.5],
+    [0.5, -0.5],
+    [0.5, 0.5],
+    [-0.5, 0.5],
+  ];
+  for (let k = 0; k < 4; k++) {
+    const [i0, j0] = ring[k];
+    const [i1, j1] = ring[(k + 1) % 4];
+    const n = [0, 1, 2].map((c) => s[c] * (i0 + i1) + u[c] * (j0 + j1));
+    const uv = swatchUV(swatch, shadeOf(n[1] / (Math.hypot(n[0], n[1], n[2]) || 1)));
+    outward(
+      out,
+      [corner(a, i0, j0), corner(a, i1, j1), corner(b, i1, j1), corner(b, i0, j0)],
+      n,
+      uv,
+    );
+  }
+}
+
+/** A flat quad as two facets, wound so they face along `n`. */
+function outward(
+  out: MeshWriter,
+  [p0, p1, p2, p3]: readonly Vec[],
+  n: readonly number[],
+  uv: [number, number],
+): void {
+  const e1 = [p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]];
+  const e2 = [p2[0] - p0[0], p2[1] - p0[1], p2[2] - p0[2]];
+  const c = [
+    e1[1] * e2[2] - e1[2] * e2[1],
+    e1[2] * e2[0] - e1[0] * e2[2],
+    e1[0] * e2[1] - e1[1] * e2[0],
+  ];
+  if (c[0] * n[0] + c[1] * n[1] + c[2] * n[2] >= 0) {
+    out.facet(p0, p1, p2, uv);
+    out.facet(p0, p2, p3, uv);
+  } else {
+    out.facet(p0, p2, p1, uv);
+    out.facet(p0, p3, p2, uv);
+  }
+}
+
+/** Profile of the balloon's envelope, [radius, height], from its mouth to its crown. */
+const ENVELOPE: readonly (readonly [number, number])[] = [
+  [0.16, 0],
+  [0.42, 0.3],
+  [0.86, 0.95],
+  [1.02, 1.45],
+  [0.95, 1.95],
+  [0.62, 2.35],
+  [0, 2.5],
+];
+const ENVELOPE_SIDES = 12;
+
+/** Hot-air balloon, 1 wide: a striped envelope, ropes and a wicker basket under it. */
+export function balloon(): MeshData {
+  const out = new MeshWriter(512, 1024);
+  const stripes: readonly SwatchName[] = ['PetalRed', 'PetalYellow'];
+  for (let k = 0; k + 1 < ENVELOPE.length; k++) {
+    const [r0, y0] = ENVELOPE[k];
+    const [r1, y1] = ENVELOPE[k + 1];
+    for (let s = 0; s < ENVELOPE_SIDES; s++) {
+      const a0 = (s / ENVELOPE_SIDES) * TAU;
+      const a1 = ((s + 1) / ENVELOPE_SIDES) * TAU;
+      const p = (r: number, y: number, a: number): Vec => [Math.cos(a) * r, y, Math.sin(a) * r];
+      const am = (a0 + a1) / 2;
+      // Outward: radial, tilted by the slope of the profile.
+      const n = [Math.cos(am) * (y1 - y0), r0 - r1, Math.sin(am) * (y1 - y0)];
+      const uv = swatchUV(stripes[s % 2], 0.15 + 0.5 * shadeOf(n[1] / Math.hypot(...n)));
+      outward(out, [p(r0, y0, a0), p(r0, y0, a1), p(r1, y1, a1), p(r1, y1, a0)], n, uv);
+    }
+  }
+  const basket: Vec = [0, -0.62, 0];
+  beam(out, [0, -0.78, 0], [0, -0.46, 0], 0.4, 0.4, 'Earth');
+  for (const [x, z] of [
+    [-0.16, -0.16],
+    [0.16, -0.16],
+    [0.16, 0.16],
+    [-0.16, 0.16],
+  ]) {
+    beam(out, [x, basket[1] + 0.16, z], [x * 0.9, 0.02, z * 0.9], 0.03, 0.03, 'DarkBark');
+  }
+  return out.toMeshData();
+}
+
+export const GENERATED_DRIFTERS = { balloon } as const;

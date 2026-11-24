@@ -474,6 +474,8 @@ class Orchard implements Terrain {
   readonly chain: Reveal = 'waiting';
   readonly staticModels: StaticModel[] = [];
   readonly spinners: Spinner[] = [];
+  readonly drifters = [];
+  readonly cloudSea = null;
   readonly waterfalls: Waterfall[] = [];
   readonly banks: BankPath[] = [];
   readonly ponds: Pond[] = [];
