@@ -70,7 +70,7 @@ export type Reveal = 'waiting' | 'announced' | 'shown';
 /** Grand moment coming at the next stage: sparkles float over it. */
 export interface Announcement {
   /** Names its own random draws. */
-  label: 'lake' | 'windmill' | 'blossom';
+  label: 'lake' | 'windmill' | 'blossom' | 'bridge' | 'cascade' | 'balloon';
   x: number;
   y: number;
   z: number;
@@ -97,6 +97,20 @@ export interface Spinner {
   scale: number;
   /** Turns per second. */
   speed: number;
+}
+
+/** Generated model drifting along a loop in the air, bobbing gently (the sky islands' balloon). */
+export interface Drifter {
+  model: 'balloon';
+  /** Centre of the loop and its half axes. */
+  x: number;
+  y: number;
+  z: number;
+  rx: number;
+  rz: number;
+  /** Turns per second. */
+  speed: number;
+  scale: number;
 }
 
 export interface Waterfall {
@@ -151,6 +165,9 @@ export interface Terrain {
   /** Large rocks and scenery merged in the static mesh. */
   readonly staticModels: readonly StaticModel[];
   readonly spinners: readonly Spinner[];
+  readonly drifters: readonly Drifter[];
+  /** Level of a sea of clouds under the diorama, or null for the plain sky. */
+  readonly cloudSea: number | null;
   readonly waterfalls: readonly Waterfall[];
   /** Banks to dress with rocks and tall grass. */
   readonly banks: readonly BankPath[];

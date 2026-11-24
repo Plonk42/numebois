@@ -249,6 +249,8 @@ class Clearing implements Terrain {
   readonly ponds: Pond[] = [];
   readonly crops = [];
   readonly spinners = [];
+  readonly drifters = [];
+  readonly cloudSea = null;
   readonly extent: { x: number; z: number };
   readonly cover: number;
   readonly frame: Terrain['frame'];

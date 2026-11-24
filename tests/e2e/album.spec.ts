@@ -89,7 +89,7 @@ test('un tableau complet : grand final, cadre, nouveau décor ; il reste vivant 
   // The next painting: the décor painted least first, each one shown complete.
   const next = page.locator('#next-painting');
   const choices = next.getByRole('button');
-  await expect(choices).toHaveText(['Le verger des collines', 'La clairière'], {
+  await expect(choices).toHaveText(['Le verger des collines', 'Les îles du ciel', 'La clairière'], {
     timeout: 15_000,
   });
   await expect(choices.first()).toBeEnabled({ timeout: 15_000 });

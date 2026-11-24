@@ -26,6 +26,8 @@ export interface QualitySettings {
   rainbow: boolean;
   /** Factor on the number of drifting clouds. */
   clouds: number;
+  /** Billows of the sea of clouds drift (still otherwise; the sea itself is always there). */
+  cloudSea: boolean;
   /** Factor on grass and flower density. */
   groundCover: number;
   /** Growth and reward effects are never cut: always 1. */
@@ -44,6 +46,7 @@ export const QUALITY: Record<Quality, QualitySettings> = {
     sunRays: true,
     rainbow: true,
     clouds: 1,
+    cloudSea: true,
     groundCover: 1,
     growthFx: 1,
   },
@@ -58,6 +61,7 @@ export const QUALITY: Record<Quality, QualitySettings> = {
     sunRays: true,
     rainbow: true,
     clouds: 1,
+    cloudSea: true,
     groundCover: 0.8,
     growthFx: 1,
   },
@@ -72,6 +76,7 @@ export const QUALITY: Record<Quality, QualitySettings> = {
     sunRays: false,
     rainbow: true,
     clouds: 0.5,
+    cloudSea: false,
     groundCover: 0.55,
     growthFx: 1,
   },

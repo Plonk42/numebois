@@ -7,8 +7,11 @@ import { BIOMES } from './biomes';
 import { swatchColor, type SwatchName } from './atlas';
 import { composeScene, compositionTriangles } from './compose';
 import { LAST_STAGE, type SceneDescription } from './description';
+import { bufferGeometryOf, triangleCount } from './mesh-data';
 import { candidateSlots, childTreeAge } from './populate';
+import { GENERATED_DRIFTERS } from './props';
 import { Backdrop, BACKDROP_TRIANGLES } from './render/backdrop';
+import { CloudSea, CLOUD_SEA_TRIANGLES } from './render/cloud-sea';
 import type { InstanceBatch } from './render/instancing';
 import { animalState, Herd, planHerd, type AnimalState } from './render/ambient-life';
 import { Lighting, sunDirection } from './render/lighting';
@@ -35,7 +38,7 @@ import type { QualitySettings } from './render/quality';
 import { ambienceFor, type Ambience } from './render/richness';
 import { Clouds, Sky } from './render/sky';
 import type { Stage } from './render/stage';
-import type { Terrain } from './terrain/types';
+import type { Drifter, Terrain } from './terrain/types';
 import type { Season } from './trees/builder';
 import { Forest } from './trees/forest';
 
@@ -136,6 +139,8 @@ export class Painting {
   >();
   private readonly sprouting: { slot: number; start: number }[] = [];
   private readonly spinners: { pivot: THREE.Group; speed: number }[] = [];
+  private readonly drifters: { mesh: THREE.Mesh; drifter: Drifter }[] = [];
+  private readonly cloudSea: CloudSea | null = null;
   /** Bursts of the grand finale still to come, the first one last. */
   private readonly finaleBursts: { point: THREE.Vector3; at: number }[] = [];
   private readonly burstOrigin = new THREE.Vector3();
@@ -197,6 +202,18 @@ export class Painting {
       this.root.add(holder);
       this.spinners.push({ pivot, speed: s.speed * TAU });
     }
+    let drifterTriangles = 0;
+    for (const drifter of terrain.drifters) {
+      const data = GENERATED_DRIFTERS[drifter.model]();
+      drifterTriangles += triangleCount(data);
+      const mesh = new THREE.Mesh(bufferGeometryOf(data), materials.solid);
+      mesh.castShadow = true;
+      mesh.scale.setScalar(drifter.scale);
+      mesh.name = drifter.model;
+      this.root.add(mesh);
+      this.drifters.push({ mesh, drifter });
+      this.disposables.push({ dispose: () => mesh.geometry.dispose() });
+    }
 
     this.demo = planting.demo;
     this.slotTrees = planting.slotTrees;
@@ -245,6 +262,10 @@ export class Painting {
     const radius = Math.max(terrain.extent.x, terrain.extent.z);
     this.clouds = new Clouds(assets, materials.solid, seed, composition.clouds, radius);
     this.root.add(...this.clouds.meshes);
+    if (terrain.cloudSea !== null) {
+      this.cloudSea = new CloudSea(terrain.cloudSea, ambience, materials.shared, quality.cloudSea);
+      this.root.add(this.cloudSea.mesh);
+    }
 
     const center = new THREE.Vector3(...terrain.shadow.center);
     this.lighting = new Lighting(ambience, center, terrain.shadow.radius, quality);
@@ -460,7 +481,7 @@ export class Painting {
       rainbowTriangles = RAINBOW_TRIANGLES;
     }
     this.root.add(...effects);
-    this.fogged = [...effects, this.glow.points];
+    this.fogged = [...effects, this.glow.points, ...(this.cloudSea ? [this.cloudSea.mesh] : [])];
 
     stage.scene.add(this.root);
 
@@ -476,6 +497,8 @@ export class Painting {
         this.herd.triangles +
         effectTriangles(flappers.length, leaves.length, puffs.length) +
         rainbowTriangles +
+        drifterTriangles +
+        (this.cloudSea ? CLOUD_SEA_TRIANGLES : 0) +
         BACKDROP_TRIANGLES,
       treeTriangles: this.forest.triangles,
       groundTriangles: parts.ground,
@@ -625,6 +648,15 @@ export class Painting {
     this.clouds.update(time);
     this.herd.update(time);
     for (const s of this.spinners) s.pivot.rotation.z = time * s.speed;
+    for (const { mesh, drifter: d } of this.drifters) {
+      const a = time * d.speed * TAU;
+      mesh.position.set(
+        d.x + Math.cos(a) * d.rx,
+        d.y + Math.sin(time * 0.6) * 0.35,
+        d.z + Math.sin(a) * d.rz,
+      );
+      mesh.rotation.y = a * 0.5;
+    }
     const burst = this.finaleBursts.at(-1);
     if (burst && time >= burst.at) {
       this.finaleBursts.pop();
@@ -670,6 +702,7 @@ export class Painting {
     this.sky.dispose();
     this.backdrop.dispose();
     this.clouds.dispose();
+    this.cloudSea?.dispose();
     this.lighting.dispose();
     this.glow.dispose();
     this.leaves.dispose();

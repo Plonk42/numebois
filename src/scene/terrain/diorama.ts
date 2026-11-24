@@ -78,6 +78,8 @@ export function buildDiorama(
   cz: number,
   hx: number,
   colour: (cx: number, cy: number, cz: number, slope: number, jitter: number) => [number, number],
+  /** Scale of the underside: its point is 11.5 times this below the rim; as deep as it is large. */
+  depth = hx / 20,
 ): void {
   const facet = (a: number[], b: number[], c: number[]) => {
     const ny = (b[2] - a[2]) * (c[0] - a[0]) - (b[0] - a[0]) * (c[2] - a[2]);
@@ -114,14 +116,12 @@ export function buildDiorama(
       }
     }
   }
-  buildSkirt(out, grid, rng, cz, hx);
+  buildSkirt(out, grid, rng, cz, depth);
 }
 
 /** Underside of the floating diorama: an earth band, then rock tapering to a point. */
-function buildSkirt(out: MeshWriter, grid: GroundGrid, rng: Rng, cz: number, hx: number): void {
+function buildSkirt(out: MeshWriter, grid: GroundGrid, rng: Rng, cz: number, deep: number): void {
   const { points, cols, rows } = grid;
-  // The underside is as deep as the diorama is large.
-  const deep = hx / 20;
   const loop: number[][] = [];
   for (let i = 0; i < cols - 1; i++) loop.push(points[i]);
   for (let j = 0; j < rows - 1; j++) loop.push(points[j * cols + cols - 1]);

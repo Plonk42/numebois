@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { Rng } from '../../core/rng';
 
 /** Fog and output for the unlit effect shaders, matching the scene fog. */
-const FOG_PARS = /* glsl */ `
+export const FOG_PARS = /* glsl */ `
 uniform vec3 uFogColor;
 uniform float uFogNear;
 uniform float uFogFar;
@@ -241,7 +241,7 @@ export interface Flapper {
   bird: boolean;
 }
 
-function fogUniforms(): FogUniforms {
+export function fogUniforms(): FogUniforms {
   return {
     uFogColor: { value: new THREE.Color() },
     uFogNear: { value: 1 },

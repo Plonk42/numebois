@@ -9,8 +9,8 @@ export const LAST_STAGE: Stage = 11;
 /** One value per stage. */
 export type PerStage<T> = readonly [T, T, T, T, T, T, T, T, T, T, T, T];
 
-/** Décors of a painting: the clearing, then the orchard on its hills (#31). */
-export const BIOME_IDS = ['clearing', 'orchard'] as const;
+/** Décors of a painting: the clearing, the orchard on its hills (#31), the sky islands (#32). */
+export const BIOME_IDS = ['clearing', 'orchard', 'sky'] as const;
 export type BiomeId = (typeof BIOME_IDS)[number];
 
 /** An element the child placed in a slot of the painting; its kind is the slot's. */
@@ -47,6 +47,14 @@ export const ANIMAL_OFFERS: Record<BiomeId, readonly { animal: AnimalName; stage
     { animal: 'Horse', stage: 7 },
     { animal: 'Cow', stage: 9 },
     { animal: 'Alpaca', stage: 10 },
+  ],
+  // Mountain animals, at home on the islands of the sky.
+  sky: [
+    { animal: 'Alpaca', stage: 3 },
+    { animal: 'Fox', stage: 5 },
+    { animal: 'Stag', stage: 7 },
+    { animal: 'Alpaca', stage: 9 },
+    { animal: 'Deer', stage: 10 },
   ],
 };
 

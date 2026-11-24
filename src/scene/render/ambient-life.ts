@@ -172,7 +172,7 @@ function planMember(
 ): HerdMember | null {
   const { scale, length } = sizeOf(terrain, name);
   const room = length * 0.6;
-  for (let attempt = 0; attempt < 120; attempt++) {
+  for (let attempt = 0; attempt < 160; attempt++) {
     const home = openGround(
       terrain,
       rng.range(-0.75, 0.75) * terrain.extent.x,
@@ -182,8 +182,8 @@ function planMember(
     );
     if (!home || homes.some((h) => Math.hypot(h.x - home.x, h.z - home.z) < 3.5)) continue;
     const stops = [home];
-    // In a crowded meadow, a back-and-forth between two places will do.
-    const count = attempt < 60 ? STOPS : 2;
+    // In a crowded meadow, a back-and-forth between two places will do, or grazing in one.
+    const count = attempt < 60 ? STOPS : attempt < 120 ? 2 : 1;
     for (let s = 1; s < count && stops.length === s; s++) {
       for (let tries = 0; tries < 16; tries++) {
         const angle = rng.range(0, Math.PI * 2);
@@ -205,7 +205,9 @@ function planMember(
     const paths = stops.map((stop, s) => walkable(terrain, stop, stops[(s + 1) % count], room)!);
     const still = () =>
       rng.chance(0.6) ? (['eat', 'idle', 'look'] as const) : (['idle', 'eat'] as const);
-    return { name, scale, ...schedule(rng, name, stops, paths, length, still) };
+    // Grazing in one place, three-quarters towards the camera.
+    const gaze = count === 1 ? rng.range(-1, 1) : undefined;
+    return { name, scale, ...schedule(rng, name, stops, paths, length, still, gaze) };
   }
   return null;
 }
@@ -243,7 +245,7 @@ function schedule(
       add(clip, loops * clips[clip], [here], gaze ?? yaw);
     }
     const distance = Math.hypot(next.x - here.x, next.z - here.z);
-    add('walk', distance / speed, paths[s], heading(here, next));
+    if (distance > 0) add('walk', distance / speed, paths[s], heading(here, next));
   }
   return { legs, period: time, phase: rng.range(0, time) };
 }
