@@ -3,6 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      // Smaller than the tablet (a phone): its 1280×800 layout, scaled down whole by the browser.
+      if (innerWidth < 1280 || innerHeight < 720)
+        document.querySelector('meta[name=viewport]').content =
+          'width=' + Math.ceil(Math.max(1280, (800 * innerWidth) / innerHeight));
+    </script>
     <meta name="theme-color" content="#9ed0ee" />
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <title>Numebois</title>
