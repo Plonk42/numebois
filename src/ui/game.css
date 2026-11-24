@@ -513,21 +513,14 @@
     opacity: 1;
   }
 }
-/* The words painted on the plank. */
+/* The words painted on the planks, a line on each (its height comes with the art). */
 #trail .sign span {
   position: absolute;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
   text-align: center;
   font-size: 21px;
-  line-height: 23px;
   font-weight: 800;
-  color: #fff3dc;
-  text-shadow:
-    0 1px 0 #5b3620,
-    0 0 3px rgba(60, 30, 10, 0.6);
+  color: #4f2c14;
+  text-shadow: 0 1px 0 rgba(255, 236, 200, 0.7);
 }
 
 /* Hidden parent menu, over everything. */

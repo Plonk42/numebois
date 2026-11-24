@@ -43,8 +43,8 @@ const FIRST = 30;
 const GAP = 46;
 const TO_TREE = 42;
 /** Grass left of the start of the path, for the sign, and where its post stands there (x, z). */
-const SIGN_ROOM = 124;
-const POST_AT = [60, 7] as const;
+const SIGN_ROOM = 127;
+const POST_AT = [63, 8] as const;
 /** Seen from the front and above, like the painting. */
 const PITCH = (56 * Math.PI) / 180;
 const DEPTH = 40;
@@ -327,68 +327,139 @@ function stoneSprites(stage: Stage, kit: Kit): Record<StoneState, Sprite> {
   return sprites;
 }
 
-// The sign, in world units: an arrow-shaped plank pointing along the path, low on its post.
-const PLANK_W = 112;
-const PLANK_TIP = 18;
-const PLANK_H = 40;
-const POST_X = PLANK_W / 2;
-const POST_H = 12;
+// The sign, in world units: two light planks nailed on two posts, cut together as an arrow
+// pointing along the path, a line of its name on each.
+const BOARD_W = 108;
+const BOARD_TIP = 16;
+const BOARD_H = 42;
+/** Half the gap between the planks, their bevel included. */
+const PLANK_GAP = 1.8;
+const LEGS = 11;
+const FOOT_X = BOARD_W / 2;
+const POSTS = [14, BOARD_W - 12] as const;
 const SIGN_PITCH = (14 * Math.PI) / 180;
-const SIGN_BOX: [number, number, number, number] = [-70, 70, 30, 30];
+const SIGN_BOX: [number, number, number, number] = [-70, 70, 33, 29];
+
+/** A plank of the board between two heights, its right end cut along the point of the arrow. */
+function plankShape(from: number, to: number, slant: number): THREE.Shape {
+  const end = (y: number) => BOARD_W + BOARD_TIP * (1 - Math.abs((2 * y) / BOARD_H - 1));
+  const shape = new THREE.Shape();
+  shape.moveTo(slant, from);
+  shape.lineTo(end(from), from);
+  shape.lineTo(end(to), to);
+  shape.lineTo(-slant, to);
+  shape.closePath();
+  return shape;
+}
 
 /** The sign, its foot at `stand` on the strip. */
 function signSprite(stage: Stage, kit: Kit, stand: readonly [number, number]): TrailArt['sign'] {
   const scene = new THREE.Scene();
   lights(scene);
-  const arrow = new THREE.Shape();
-  arrow.moveTo(0, 0);
-  arrow.lineTo(PLANK_W, 0);
-  arrow.lineTo(PLANK_W + PLANK_TIP, PLANK_H / 2);
-  arrow.lineTo(PLANK_W, PLANK_H);
-  arrow.lineTo(0, PLANK_H);
-  arrow.lineTo(0, 0);
-  const plankGeometry = new THREE.ExtrudeGeometry(arrow, {
-    depth: 5,
-    bevelEnabled: true,
-    bevelThickness: 1.5,
-    bevelSize: 1.8,
-    bevelSegments: 2,
-  });
-  const plank = kit.mesh(plankGeometry, [
-    kit.flat(paletteColor('DarkBark', 0.02)),
-    kit.flat(paletteColor('DarkBark', 0.35)),
-  ]);
-  plank.position.set(0, POST_H, 0);
-  const post = kit.mesh(
-    new THREE.BoxGeometry(8, POST_H + PLANK_H - 4, 7),
-    kit.flat(paletteColor('DarkBark', 0.5)),
-  );
-  post.position.set(POST_X, (POST_H + PLANK_H - 4) / 2, -4);
+  // Pale wood, a little brighter than the light makes it: the words must read at a glance.
+  const pale = paletteColor('Brown', 0).lerp(paletteColor('Birch', 0), 0.2);
+  const wood = [
+    kit.material({ color: pale, emissive: pale, emissiveIntensity: 0.45, flatShading: true }),
+    kit.flat(paletteColor('Brown', 0.62)),
+  ];
+  const grain = kit.flat(paletteColor('Brown', 0.3));
+  const dark = kit.flat(paletteColor('DarkBark', 0.42));
+  const nail = kit.flat(paletteColor('DarkBark', 0.9));
+  const half = BOARD_H / 2;
+  // Each plank a little askew, with its own cut on the left and a few lines of grain clear
+  // of the words (from its centre: x, y, length).
+  const planks = [
+    { from: 0, to: half - PLANK_GAP, slant: 2.5, shift: 2, turn: -0.005, lines: [[60, 3, 9]] },
+    {
+      from: half + PLANK_GAP,
+      to: BOARD_H,
+      slant: -2,
+      shift: -2,
+      turn: 0.013,
+      lines: [
+        [-45, 3, 8],
+        [-41, -3, 5],
+        [47, -2, 10],
+      ],
+    },
+  ];
+  for (const { from, to, slant, shift, turn, lines } of planks) {
+    const middle = (from + to) / 2;
+    const geometry = new THREE.ExtrudeGeometry(plankShape(from, to, slant), {
+      depth: 3,
+      bevelEnabled: true,
+      bevelThickness: 1,
+      bevelSize: 1,
+      bevelSegments: 1,
+    });
+    geometry.translate(-FOOT_X, -middle, 0);
+    const plank = new THREE.Group();
+    plank.position.set(FOOT_X + shift, LEGS + middle, 0);
+    plank.rotation.z = turn;
+    plank.add(kit.mesh(geometry, wood));
+    for (const [x, y, length] of lines) {
+      const line = kit.mesh(new THREE.BoxGeometry(length, 0.7, 0.4), grain);
+      line.position.set(x, y, 4);
+      plank.add(line);
+    }
+    // A nail into each post, at the outer edge of the board.
+    for (const x of POSTS) {
+      const head = kit.mesh(new THREE.CylinderGeometry(1.3, 1.3, 0.8, 6), nail);
+      head.rotation.x = Math.PI / 2;
+      head.position.set(x - FOOT_X - shift, Math.sign(middle - half) * (to - middle - 3.2), 4.2);
+      plank.add(head);
+    }
+    scene.add(plank);
+  }
+  // The posts stand behind the board, their pointed tops just over it.
+  const height = LEGS + BOARD_H + 1;
+  for (const x of POSTS) {
+    const post = kit.mesh(new THREE.CylinderGeometry(3.4, 4, height, 6), dark);
+    post.position.set(x, height / 2, -4);
+    const top = kit.mesh(new THREE.ConeGeometry(4, 3.5, 6), dark);
+    top.position.set(x, height + 1.75, -4);
+    scene.add(post, top);
+  }
+  // Grass and flowers at its feet, leaves over a corner: it has stood there for a while.
+  const flowers = [
+    ['PetalPink', POSTS[0] + 13, 4],
+    ['PetalYellow', POSTS[1] - 11, 3],
+    ['PetalWhite', POSTS[0] + 19, 1],
+  ] as const;
+  for (const [petal, x, z] of flowers) {
+    const bloom = kit.mesh(
+      new THREE.IcosahedronGeometry(2.2, 0),
+      kit.flat(paletteColor(petal, 0.25)),
+    );
+    bloom.position.set(x, 2, z);
+    scene.add(bloom);
+  }
   scene.add(
-    plank,
-    post,
-    kit.model('Grass_2_B', 16, POST_X - 9, 0, 3, 0.4),
-    kit.model('Grass_1_A', 18, POST_X + 8, 0, 4, 2.1),
-    kit.model('Rock_1_A', 7, POST_X + 12, 0, -2, 1.2),
+    kit.model('Grass_2_B', 15, POSTS[0] - 6, 0, 2, 0.4),
+    kit.model('Grass_1_A', 17, POSTS[0] + 6, 0, 3, 2.1),
+    kit.model('Grass_1_A', 15, POSTS[1] + 6, 0, 2, 1.1),
+    kit.model('Rock_1_A', 7, POSTS[1] - 5, 0, 0, 1.2),
+    kit.model('Tuft_RoundSmall', 17, POSTS[0] - 10, LEGS + BOARD_H - 3, 5, 0.8),
+    kit.model('Tuft_RoundSmall', 12, POSTS[0] - 15, LEGS + BOARD_H - 9, 5, 2.3),
   );
-  // Faces the camera: the words written over the plank stay square with it.
-  const center = new THREE.Vector3((PLANK_W + PLANK_TIP) / 2, (POST_H + PLANK_H) / 2, 0);
+  // Faces the camera: the words written over the planks stay square with them.
+  const center = new THREE.Vector3((BOARD_W + BOARD_TIP) / 2, (LEGS + BOARD_H) / 2, 0);
   const view = camera(center, SIGN_PITCH, 0, SIGN_BOX);
   const width = (SIGN_BOX[1] - SIGN_BOX[0]) * TRAIL_ZOOM;
-  const height = (SIGN_BOX[2] + SIGN_BOX[3]) * TRAIL_ZOOM;
-  const url = stage.cutout(scene, view, width, height);
+  const tall = (SIGN_BOX[2] + SIGN_BOX[3]) * TRAIL_ZOOM;
+  const url = stage.cutout(scene, view, width, tall);
   const place = (x: number, y: number, z: number) => {
     const p = new THREE.Vector3(x, y, z).project(view);
-    return [((p.x + 1) / 2) * width, ((1 - p.y) / 2) * height] as const;
+    return [((p.x + 1) / 2) * width, ((1 - p.y) / 2) * tall] as const;
   };
-  // The front of the plank, short of the tip.
-  const [left, top] = place(4, POST_H + PLANK_H - 2, 6.5);
-  const [right, bottom] = place(PLANK_W - 2, POST_H + 2, 6.5);
-  const foot = place(POST_X, 0, -4);
+  // The front of the board, short of the tip: a line of the name on each plank.
+  const [left, top] = place(2, LEGS + BOARD_H, 4);
+  const [right, bottom] = place(BOARD_W + 4, LEGS, 4);
+  const foot = place(FOOT_X, 0, -4);
   return {
     url,
     width,
-    height,
+    height: tall,
     left: stand[0] - foot[0],
     top: stand[1] - foot[1],
     foot,

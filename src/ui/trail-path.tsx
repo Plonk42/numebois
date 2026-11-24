@@ -56,6 +56,7 @@ export function TrailPath({ art, stones, current, onStart, aside }: Props) {
             top: `${sign.label.y}px`,
             width: `${sign.label.width}px`,
             height: `${sign.label.height}px`,
+            lineHeight: `${sign.label.height / 2}px`,
           }}
         >
           {first}
