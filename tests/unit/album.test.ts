@@ -13,6 +13,7 @@ import {
 import { serializeSave } from '../../src/save/save';
 import { nextBiomes, NEXT_CHOICES } from '../../src/scene/biomes';
 import {
+  BIOME_IDS,
   completed,
   isComplete,
   MAX_ELEMENTS,
@@ -100,7 +101,7 @@ describe('Album', () => {
 
 describe('next painting', () => {
   it('shows each décor complete, with every slot filled', () => {
-    for (const biome of ['clearing', 'orchard', 'sky'] as const) {
+    for (const biome of BIOME_IDS) {
       const full = completed(newPainting(5, 'winter', biome));
       expect(readDescription(full)).toEqual(full);
       expect(isComplete(full)).toBe(true);
@@ -112,11 +113,11 @@ describe('next painting', () => {
 
   it('offers the décors painted least, or the one of the quest of the week', () => {
     expect(nextBiomes([], '2026-11-23', [])).toEqual(['clearing', 'orchard', 'sky']);
-    expect(nextBiomes([], '2026-11-23', ['clearing'])).toEqual(['orchard', 'sky', 'clearing']);
-    expect(nextBiomes([], '2026-11-23', ['sky', 'clearing'])).toEqual([
-      'orchard',
+    expect(nextBiomes([], '2026-11-23', ['clearing'])).toEqual(['orchard', 'sky', 'giant']);
+    expect(nextBiomes([], '2026-11-23', ['sky', 'clearing', 'orchard', 'sky'])).toEqual([
+      'giant',
       'clearing',
-      'sky',
+      'orchard',
     ]);
     expect(nextBiomes([], '2026-11-23', [])).toHaveLength(Math.min(NEXT_CHOICES, 3));
     expect(nextBiomes([quest('orchard')], '2026-11-25', [])).toEqual(['orchard']);

@@ -248,6 +248,8 @@ class Clearing implements Terrain {
   readonly banks: BankPath[] = [];
   readonly ponds: Pond[] = [];
   readonly crops = [];
+  readonly lanterns = [];
+  readonly canopy = null;
   readonly spinners = [];
   readonly drifters = [];
   readonly cloudSea = null;

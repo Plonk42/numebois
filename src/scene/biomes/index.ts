@@ -1,6 +1,7 @@
 import type { Quest } from '../../core/types';
 import { BIOME_IDS, type BiomeId } from '../description';
 import { CLEARING } from './clearing';
+import { GIANT } from './giant';
 import { ORCHARD } from './orchard';
 import { SKY } from './sky';
 import type { Biome } from './types';
@@ -10,6 +11,7 @@ export const BIOMES: Record<BiomeId, Biome> = {
   clearing: CLEARING,
   orchard: ORCHARD,
   sky: SKY,
+  giant: GIANT,
 };
 
 /** Décors offered at most for the next painting. */

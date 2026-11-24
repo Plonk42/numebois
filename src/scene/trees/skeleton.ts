@@ -65,9 +65,9 @@ export class Skeleton {
   }
 }
 
-type Vec = [number, number, number];
+export type Vec = [number, number, number];
 
-function normalize(v: Vec): Vec {
+export function normalize(v: Vec): Vec {
   const l = Math.hypot(v[0], v[1], v[2]) || 1;
   return [v[0] / l, v[1] / l, v[2] / l];
 }
@@ -82,7 +82,7 @@ export function perpendicular(d: Vec): Vec {
 }
 
 /** Rotate v around the unit axis by the angle (Rodrigues). */
-function rotate(v: Vec, axis: Vec, angle: number): Vec {
+export function rotate(v: Vec, axis: Vec, angle: number): Vec {
   const c = Math.cos(angle);
   const s = Math.sin(angle);
   const k = cross(axis, v);

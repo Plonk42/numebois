@@ -123,7 +123,7 @@ export function sizeForAge(age: number): number {
   return (0.5 + 0.5 * age) * Math.min(1, age * 20);
 }
 
-interface TreeContext {
+export interface TreeContext {
   out: TreeWriter;
   rng: Rng;
   family: Family;
@@ -137,7 +137,7 @@ interface TreeContext {
 }
 
 /** Smooth low-poly tube with a pointed end, coloured with the bark gradient. */
-function tube(ctx: TreeContext, sk: Skeleton, ages: number[], chain: number[]): void {
+export function tube(ctx: TreeContext, sk: Skeleton, ages: number[], chain: number[]): void {
   const { out, rng, family } = ctx;
   // Thin twigs need fewer sides.
   const sides = sk.radius[chain[1]] < 0.075 ? Math.min(ctx.sides, 4) : ctx.sides;
@@ -250,7 +250,7 @@ function tube(ctx: TreeContext, sk: Skeleton, ages: number[], chain: number[]): 
   }
 }
 
-interface BlobPlacement {
+export interface BlobPlacement {
   model: MeshData;
   /** Width of the model along X, to scale it to the wanted width. */
   modelWidth: number;
@@ -270,7 +270,7 @@ interface BlobPlacement {
   snowAbove?: number;
 }
 
-function blob(ctx: TreeContext, b: BlobPlacement): void {
+export function blob(ctx: TreeContext, b: BlobPlacement): void {
   const { out, rng } = ctx;
   const s = b.width / b.modelWidth;
   const first = out.append(
@@ -350,7 +350,7 @@ function fruits(
 }
 
 /** Foliage colour of a tree for the season: one atlas column per tuft. */
-function foliagePicker(
+export function foliagePicker(
   rng: Rng,
   family: Family,
   season: Season,
@@ -526,6 +526,30 @@ function coniferBlobs(
   });
 }
 
+/** Local space to world for the vertices of a tree from `first`: scale, yaw, translation. */
+export function placeTree(
+  out: TreeWriter,
+  first: number,
+  spec: Pick<TreeSpec, 'x' | 'y' | 'z' | 'yaw' | 'scale'>,
+): void {
+  const cos = Math.cos(spec.yaw);
+  const sin = Math.sin(spec.yaw);
+  const place = (array: Float32Array, i: number, direction: boolean) => {
+    const k = direction ? 1 : spec.scale;
+    const x = array[i] * k;
+    const y = array[i + 1] * k;
+    const z = array[i + 2] * k;
+    array[i] = x * cos + z * sin + (direction ? 0 : spec.x);
+    array[i + 1] = y + (direction ? 0 : spec.y);
+    array[i + 2] = -x * sin + z * cos + (direction ? 0 : spec.z);
+  };
+  for (let i = first * 3; i < out.vertexCount * 3; i += 3) {
+    place(out.positions, i, false);
+    place(out.pivots, i, false);
+    place(out.normals, i, true);
+  }
+}
+
 /**
  * Append a tree to the forest buffers. The same seed always gives the same tree.
  * The tree is built at its full age; the shader cuts it for younger ages.
@@ -577,23 +601,7 @@ export function buildTree(
   if (conifer) coniferBlobs(ctx, assets, sk, total, far ? 3 : light ? 4 : 5, column);
   else broadleafBlobs(ctx, assets, sk, ages, clump, light, column);
 
-  // Local space to world: scale, yaw, translation (pivots too).
-  const cos = Math.cos(spec.yaw);
-  const sin = Math.sin(spec.yaw);
-  const place = (array: Float32Array, i: number, direction: boolean) => {
-    const k = direction ? 1 : spec.scale;
-    const x = array[i] * k;
-    const y = array[i + 1] * k;
-    const z = array[i + 2] * k;
-    array[i] = x * cos + z * sin + (direction ? 0 : spec.x);
-    array[i + 1] = y + (direction ? 0 : spec.y);
-    array[i + 2] = -x * sin + z * cos + (direction ? 0 : spec.z);
-  };
-  for (let i = firstVertex * 3; i < out.vertexCount * 3; i += 3) {
-    place(out.positions, i, false);
-    place(out.pivots, i, false);
-    place(out.normals, i, true);
-  }
+  placeTree(out, firstVertex, spec);
   return {
     triangles: (out.indexCount - firstIndex) / 3,
     vertices: out.vertexCount - firstVertex,

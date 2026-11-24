@@ -4,6 +4,7 @@ import type { MeshWriter } from '../mesh-data';
 import type { WaterBuilder } from '../render/water';
 import type { Season, TreeSpec } from '../trees/builder';
 import type { FamilyName } from '../trees/families';
+import type { GiantSpec } from '../trees/giant';
 
 /** `field`: cultivated strip, left to its crop (no wild grass, bushes or flowers). */
 export type SurfaceKind = 'grass' | 'field' | 'sand' | 'rock' | 'water';
@@ -38,6 +39,8 @@ export interface TreeSpot {
   family?: FamilyName;
   foliage?: TreeSpec['foliage'];
   fruit?: TreeSpec['fruit'];
+  /** The great tree of the décor (a `hero`), built by its own generator at its foot. */
+  giant?: GiantSpec;
 }
 
 /** Slot of the painting on the diorama, where the child places an element. */
@@ -70,7 +73,7 @@ export type Reveal = 'waiting' | 'announced' | 'shown';
 /** Grand moment coming at the next stage: sparkles float over it. */
 export interface Announcement {
   /** Names its own random draws. */
-  label: 'lake' | 'windmill' | 'blossom' | 'bridge' | 'cascade' | 'balloon';
+  label: 'lake' | 'windmill' | 'blossom' | 'bridge' | 'cascade' | 'balloon' | 'cabin' | 'lanterns';
   x: number;
   y: number;
   z: number;
@@ -173,6 +176,13 @@ export interface Terrain {
   readonly banks: readonly BankPath[];
   readonly ponds: readonly Pond[];
   readonly crops: readonly CropRow[];
+  /** Lit lanterns: a warm glow at each one (the bodies are in the ground mesh). */
+  readonly lanterns: readonly { x: number; y: number; z: number }[];
+  /**
+   * Crown of a great tree over the diorama: sun rays fall through it and leaves spiral down
+   * around its trunk. `y` is the underside of the crown, `radius` its reach from the trunk.
+   */
+  readonly canopy: { x: number; y: number; z: number; radius: number; trunk: number } | null;
   /** Half extents of the area to scatter vegetation on. */
   readonly extent: { x: number; z: number };
   /** Factor on the amounts of vegetation and ambient life, for the size of the diorama. */

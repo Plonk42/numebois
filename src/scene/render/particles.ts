@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { Rng } from '../../core/rng';
 
+const TAU = Math.PI * 2;
+
 /** Fog and output for the unlit effect shaders, matching the scene fog. */
 export const FOG_PARS = /* glsl */ `
 uniform vec3 uFogColor;
@@ -23,6 +25,7 @@ export const GLOW_FIREFLY = 1;
 export const GLOW_SPARKLE = 2;
 export const GLOW_SNOW = 3;
 export const GLOW_BURST = 4;
+export const GLOW_LANTERN = 5;
 
 const GLOW_VERTEX = /* glsl */ `
 attribute vec4 aSeed;
@@ -69,7 +72,7 @@ void main() {
     alpha = smoothstep(0.0, 0.1, loop) * (1.0 - smoothstep(0.92, 1.0, loop));
     size = 0.1 + 0.07 * aSeed.x;
     solid = 1.0;
-  } else {
+  } else if (aKind < 4.5) {
     // Growth burst: sparks thrown up and out from the new plant.
     float age = t - uBurstTime - aSeed.w * 0.35;
     float life = 1.3 + aSeed.y * 0.9;
@@ -78,6 +81,11 @@ void main() {
     p = uBurstOrigin + dir * age * (1.6 + aSeed.y * 1.8) * (1.0 - 0.28 * age) + vec3(0.0, -1.1 * age * age, 0.0);
     alpha = (age > 0.0 && age < life) ? (1.0 - smoothstep(life * 0.5, life, age)) : 0.0;
     size = 0.22 + 0.2 * aSeed.z;
+  } else {
+    // Lantern: a warm halo that flickers a little and sways on its string.
+    p.x += sin(t * 0.9 + aSeed.x * 6.28) * 0.03;
+    alpha = 0.8 + 0.2 * sin(t * 3.1 + aSeed.y * 40.0) * sin(t * 1.7 + aSeed.z * 20.0);
+    size = 0.75 + 0.2 * aSeed.w;
   }
   vec4 mv = modelViewMatrix * vec4(p, 1.0);
   vDepth = -mv.z;
@@ -303,6 +311,7 @@ attribute vec3 aHome;
 attribute vec4 aSeed;
 attribute vec3 aColor;
 attribute float aFall;
+attribute vec4 aSpiral;
 uniform float uTime;
 uniform vec2 uWindDir;
 uniform vec3 uBurstOrigin;
@@ -314,7 +323,15 @@ void main() {
   vec3 center;
   float scale;
   float spin;
-  if (aFall >= 0.0) {
+  if (aSpiral.z > 0.0) {
+    // Leaf of a great tree: spirals down around its trunk, closing in as it falls.
+    float loop = fract(uTime * 0.05 * (0.7 + 0.6 * aSeed.y) + aSeed.z);
+    float angle = aSeed.x * 6.283 + loop * aSpiral.w * 6.283;
+    float r = aSpiral.z * (1.0 - 0.35 * loop);
+    center = vec3(aSpiral.x + cos(angle) * r, aHome.y - loop * aFall, aSpiral.y + sin(angle) * r);
+    scale = smoothstep(0.0, 0.06, loop) * (1.0 - smoothstep(0.94, 1.0, loop));
+    spin = uTime * (1.5 + aSeed.x * 1.5) + aSeed.w * 6.28;
+  } else if (aFall >= 0.0) {
     // Ambient leaf: falls from the canopy with the wind, looping.
     float loop = fract(uTime * 0.07 * (0.7 + 0.6 * aSeed.y) + aSeed.z);
     center = vec3(aHome.x, aHome.y - loop * loop * aFall, aHome.z);
@@ -355,6 +372,8 @@ export interface Leaf {
   color: THREE.Color;
   /** Leaf of the growth burst instead of an ambient falling leaf. */
   burst: boolean;
+  /** Spirals down around this axis instead (a great tree's trunk), `turns` times. */
+  spiral?: { x: number; z: number; radius: number; turns: number };
 }
 
 /** Falling leaves and the leaves of the growth burst: small opaque tumbling shapes. */
@@ -382,16 +401,22 @@ export class Leaves {
     const seeds = new Float32Array(n * 4);
     const color = new Float32Array(n * 3);
     const fall = new Float32Array(n);
+    const spiral = new Float32Array(n * 4);
     items.forEach((leaf, i) => {
       home.set([leaf.x, leaf.y, leaf.z], i * 3);
       seeds.set([rng.next(), rng.next(), rng.next(), rng.next()], i * 4);
       color.set([leaf.color.r, leaf.color.g, leaf.color.b], i * 3);
       fall[i] = leaf.burst ? -1 : leaf.fall;
+      if (leaf.spiral) {
+        const { x, z, radius, turns } = leaf.spiral;
+        spiral.set([x, z, radius, turns], i * 4);
+      }
     });
     geometry.setAttribute('aHome', new THREE.InstancedBufferAttribute(home, 3));
     geometry.setAttribute('aSeed', new THREE.InstancedBufferAttribute(seeds, 4));
     geometry.setAttribute('aColor', new THREE.InstancedBufferAttribute(color, 3));
     geometry.setAttribute('aFall', new THREE.InstancedBufferAttribute(fall, 1));
+    geometry.setAttribute('aSpiral', new THREE.InstancedBufferAttribute(spiral, 4));
     geometry.instanceCount = n;
     this.material = new THREE.ShaderMaterial({
       vertexShader: LEAF_VERTEX,
@@ -570,25 +595,108 @@ export class SunRays {
     geometry.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(uv), 2));
     geometry.setAttribute('aPhase', new THREE.BufferAttribute(new Float32Array(phase), 1));
     geometry.setIndex(index);
-    this.material = new THREE.ShaderMaterial({
-      vertexShader: RAY_VERTEX,
-      fragmentShader: RAY_FRAGMENT,
-      transparent: true,
-      depthWrite: false,
-      side: THREE.DoubleSide,
-      blending: THREE.CustomBlending,
-      blendSrc: THREE.OneFactor,
-      blendDst: THREE.OneFactor,
-      uniforms: {
-        uTime: shared.uTime,
-        uColor: { value: color },
-        uStrength: { value: strength },
-      },
-    });
+    this.material = rayMaterial(color, strength, shared);
     this.mesh = new THREE.Mesh(geometry, this.material);
     this.mesh.frustumCulled = false;
     this.mesh.renderOrder = 9;
     this.mesh.name = 'sun-rays';
+  }
+
+  dispose(): void {
+    this.mesh.geometry.dispose();
+    this.material.dispose();
+  }
+}
+
+function rayMaterial(
+  color: THREE.Color,
+  strength: number,
+  shared: { uTime: { value: number } },
+): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    vertexShader: RAY_VERTEX,
+    fragmentShader: RAY_FRAGMENT,
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    blending: THREE.CustomBlending,
+    blendSrc: THREE.OneFactor,
+    blendDst: THREE.OneFactor,
+    uniforms: {
+      uTime: shared.uTime,
+      uColor: { value: color },
+      uStrength: { value: strength },
+    },
+  });
+}
+
+/** Shafts of sun under the crown of a great tree. */
+export const CANOPY_RAYS = 7;
+
+/**
+ * Sun falling through the crown of a great tree (#92): additive quads from under the crown
+ * down to the meadow along the light, turned to the camera, brightest under the leaves.
+ */
+export class CanopyRays {
+  readonly mesh: THREE.Mesh;
+  private readonly material: THREE.ShaderMaterial;
+
+  constructor(
+    seed: number,
+    sunDir: THREE.Vector3,
+    viewDir: THREE.Vector3,
+    canopy: { x: number; y: number; z: number; radius: number; trunk: number },
+    ground: number,
+    color: THREE.Color,
+    strength: number,
+    shared: { uTime: { value: number } },
+  ) {
+    const rng = new Rng(seed).fork('canopy-rays');
+    const position: number[] = [];
+    const uv: number[] = [];
+    const phase: number[] = [];
+    const index: number[] = [];
+    // Steeper than the light, so a low sun does not stretch them across the meadow.
+    const ray = new THREE.Vector3(sunDir.x, sunDir.y + 1.2, sunDir.z).normalize();
+    const side = new THREE.Vector3().crossVectors(ray, viewDir).normalize();
+    for (let i = 0; i < CANOPY_RAYS; i++) {
+      const angle = (i / CANOPY_RAYS) * TAU + rng.range(-0.3, 0.3);
+      const d = rng.range(canopy.trunk + 1.5, Math.max(canopy.trunk + 2, canopy.radius * 0.7));
+      const tx = canopy.x + Math.cos(angle) * d;
+      const ty = canopy.y - rng.range(0, 1.5);
+      const tz = canopy.z + Math.sin(angle) * d;
+      // Down to the meadow, against the light.
+      const length = Math.max(1, ty - ground) / ray.y;
+      const width = rng.range(0.7, 1.5) * Math.max(1, canopy.radius / 12);
+      const ph = rng.next();
+      const base = position.length / 3;
+      for (const [u, v] of [
+        [0, 0],
+        [1, 0],
+        [1, 1],
+        [0, 1],
+      ]) {
+        const w = (u - 0.5) * width * (0.6 + 0.8 * v);
+        position.push(
+          tx - ray.x * length * v + side.x * w,
+          ty - ray.y * length * v + side.y * w,
+          tz - ray.z * length * v + side.z * w,
+        );
+        uv.push(u, v);
+        phase.push(ph);
+      }
+      index.push(base, base + 1, base + 2, base, base + 2, base + 3);
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(position), 3));
+    geometry.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(uv), 2));
+    geometry.setAttribute('aPhase', new THREE.BufferAttribute(new Float32Array(phase), 1));
+    geometry.setIndex(index);
+    this.material = rayMaterial(color, strength, shared);
+    this.mesh = new THREE.Mesh(geometry, this.material);
+    this.mesh.frustumCulled = false;
+    this.mesh.renderOrder = 9;
+    this.mesh.name = 'canopy-rays';
   }
 
   dispose(): void {

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { AssetLibrary } from '../assets';
 import type { SceneMaterials } from '../render/materials';
 import { buildTree, TreeWriter, type Season, type TreeInfo, type TreeSpec } from './builder';
+import { buildGiant, type GiantSpec } from './giant';
 
 export interface PlantedTree extends TreeSpec {
   /** Age at creation, 0 (not sprouted) to 1 (adult). */
@@ -10,16 +11,22 @@ export interface PlantedTree extends TreeSpec {
   islet?: boolean;
   /** Slot of the child holding it. */
   slot?: number;
+  /** The great tree of its décor, built by its own generator. */
+  giant?: GiantSpec;
 }
 
 /** Build the merged buffers of a forest (no GPU objects: usable in tests). */
 export function buildForestBuffers(
-  trees: readonly TreeSpec[],
+  trees: readonly (TreeSpec & { giant?: GiantSpec })[],
   assets: AssetLibrary,
   season: Season,
 ): { writer: TreeWriter; infos: TreeInfo[] } {
   const writer = new TreeWriter(trees.length * 1800, trees.length * 7000);
-  const infos = trees.map((tree, index) => buildTree(writer, tree, assets, season, index));
+  const infos = trees.map((tree, index) =>
+    tree.giant
+      ? buildGiant(writer, tree, tree.giant, assets, season, index)
+      : buildTree(writer, tree, assets, season, index),
+  );
   return { writer, infos };
 }
 

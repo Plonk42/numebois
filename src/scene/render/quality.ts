@@ -22,6 +22,8 @@ export interface QualitySettings {
   particles: number;
   /** Sun ray sprites. */
   sunRays: boolean;
+  /** Rays under the crown of a great tree (a few additive quads). */
+  canopyRays: boolean;
   /** Rainbow of the last stage (one small translucent arc: kept at every tier). */
   rainbow: boolean;
   /** Factor on the number of drifting clouds. */
@@ -44,6 +46,7 @@ export const QUALITY: Record<Quality, QualitySettings> = {
     waterWaves: true,
     particles: 1,
     sunRays: true,
+    canopyRays: true,
     rainbow: true,
     clouds: 1,
     cloudSea: true,
@@ -59,6 +62,7 @@ export const QUALITY: Record<Quality, QualitySettings> = {
     waterWaves: true,
     particles: 0.6,
     sunRays: true,
+    canopyRays: true,
     rainbow: true,
     clouds: 1,
     cloudSea: true,
@@ -74,6 +78,7 @@ export const QUALITY: Record<Quality, QualitySettings> = {
     waterWaves: false,
     particles: 0.3,
     sunRays: false,
+    canopyRays: false,
     rainbow: true,
     clouds: 0.5,
     cloudSea: false,

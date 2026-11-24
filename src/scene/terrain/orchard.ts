@@ -480,6 +480,8 @@ class Orchard implements Terrain {
   readonly banks: BankPath[] = [];
   readonly ponds: Pond[] = [];
   readonly crops: CropRow[] = [];
+  readonly lanterns = [];
+  readonly canopy = null;
   readonly extent: { x: number; z: number };
   readonly cover: number;
   readonly frame: Terrain['frame'];

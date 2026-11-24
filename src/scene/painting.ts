@@ -19,10 +19,13 @@ import { Lighting, sunDirection } from './render/lighting';
 import { createMaterials, paletteColor, type SceneMaterials } from './render/materials';
 import {
   applyFog,
+  CANOPY_RAYS,
+  CanopyRays,
   Flappers,
   Foam,
   GLOW_BURST,
   GLOW_FIREFLY,
+  GLOW_LANTERN,
   GLOW_POLLEN,
   GLOW_SNOW,
   GLOW_SPARKLE,
@@ -107,6 +110,9 @@ export function effectTriangles(flappers: number, leaves: number, puffs: number)
 
 /** Upper bound of `effectTriangles` at full quality, for the budget tests. */
 export const MAX_EFFECT_TRIANGLES = effectTriangles(30, 150, 80) + RAINBOW_TRIANGLES;
+
+/** Leaves spiralling down around a great tree, at most. */
+export const MAX_SPIRAL_LEAVES = 60;
 
 /**
  * A painting: the whole diorama built from its compact description. Building it twice from
@@ -360,6 +366,17 @@ export class Painting {
         });
       }
     }
+    // Lanterns lit at dusk: a warm halo each, just in front of the paper (the camera is on +z),
+    // kept at every quality.
+    for (const l of terrain.lanterns) {
+      particles.push({
+        x: l.x,
+        y: l.y,
+        z: l.z + 0.3,
+        kind: GLOW_LANTERN,
+        color: new THREE.Color(0xffb35c),
+      });
+    }
     // Sparks of the growth burst: always there, growth effects are never cut.
     rng = drawn('burst');
     for (let i = 0; i < 48; i++) {
@@ -421,7 +438,9 @@ export class Painting {
     const leaves: Leaf[] = [];
     const grown = planting.trees
       .map((tree, i) => ({ tree, info: this.forest.infos[i] }))
-      .filter((t) => t.tree.age > 0.6 && t.tree.family !== 'Pine' && !t.tree.islet);
+      .filter(
+        (t) => t.tree.age > 0.6 && t.tree.family !== 'Pine' && !t.tree.islet && !t.tree.giant,
+      );
     const falling = Math.round(46 * ambience.fallingLeaves * life);
     for (let i = 0; i < falling && grown.length > 0; i++) {
       const { tree, info } = rng.pick(grown);
@@ -449,6 +468,32 @@ export class Painting {
         color: leafColor(['Blossom', 'PetalPink', 'PetalWhite']),
         burst: false,
       });
+    }
+    // Leaves of a great tree spiral down around its trunk.
+    const canopy = terrain.canopy;
+    if (canopy) {
+      const ground = terrain.surfaceAt(canopy.x, canopy.z)?.y ?? 0;
+      const spiralling = Math.min(
+        MAX_SPIRAL_LEAVES,
+        Math.round(40 * life * Math.min(1, ambience.fallingLeaves * 1.6)),
+      );
+      for (let i = 0; i < spiralling; i++) {
+        const y = canopy.y + rng.range(-1, 1.5);
+        leaves.push({
+          x: canopy.x,
+          y,
+          z: canopy.z,
+          fall: y - ground,
+          color: leafColor(),
+          burst: false,
+          spiral: {
+            x: canopy.x,
+            z: canopy.z,
+            radius: rng.range(canopy.trunk + 1.2, Math.max(canopy.trunk + 2, canopy.radius * 0.55)),
+            turns: rng.range(1.2, 2.2) * (rng.chance(0.5) ? 1 : -1),
+          },
+        });
+      }
     }
     for (let i = 0; i < 28; i++) {
       leaves.push({ x: 0, y: -100, z: 0, fall: 0, color: leafColor(), burst: true });
@@ -485,6 +530,22 @@ export class Painting {
       this.disposables.push(rays);
       this.root.add(rays.mesh);
     }
+    let canopyRayTriangles = 0;
+    if (canopy && ambience.canopyRays > 0 && quality.canopyRays) {
+      const rays = new CanopyRays(
+        seed,
+        sunDirection(ambience),
+        stage.viewOffset,
+        canopy,
+        terrain.surfaceAt(canopy.x, canopy.z)?.y ?? 0,
+        new THREE.Color(ambience.sun.color),
+        0.11 * ambience.canopyRays,
+        shared,
+      );
+      this.disposables.push(rays);
+      this.root.add(rays.mesh);
+      canopyRayTriangles = CANOPY_RAYS * 2;
+    }
     // Rainbow over the widest fall landing in water.
     const cascade = terrain.waterfalls
       .filter((fall) => fall.splash)
@@ -518,6 +579,7 @@ export class Painting {
         this.herd.triangles +
         effectTriangles(flappers.length, leaves.length, puffs.length) +
         rainbowTriangles +
+        canopyRayTriangles +
         drifterTriangles +
         (this.cloudSea ? CLOUD_SEA_TRIANGLES : 0) +
         BACKDROP_TRIANGLES,
@@ -800,7 +862,8 @@ export class Painting {
       const t = time - s.start;
       const stretch = t >= SWAY_SECONDS ? 1 : 1 + sway(t);
       if (s.tree >= 0) {
-        this.forest.setStretch(s.tree, stretch);
+        // A great tree only throws its leaves: its decks do not stretch.
+        if (!this.forest.trees[s.tree].giant) this.forest.setStretch(s.tree, stretch);
       } else {
         for (const piece of this.groves.get(s.slot)!) {
           this.scratch.makeScale(2 - stretch, stretch, 2 - stretch).premultiply(piece.matrix);

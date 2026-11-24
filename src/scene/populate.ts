@@ -122,7 +122,7 @@ export function plantTrees(
     at: NonNullable<ReturnType<typeof place>>,
     family: FamilyName,
     size: number,
-    rest: Pick<PlantedTree, 'detail' | 'age' | 'islet' | 'slot' | 'foliage' | 'fruit'>,
+    rest: Pick<PlantedTree, 'detail' | 'age' | 'islet' | 'slot' | 'foliage' | 'fruit' | 'giant'>,
   ) => {
     const { seed, x, y, z, yaw } = at;
     trees.push({
@@ -164,6 +164,7 @@ export function plantTrees(
         age: Math.max(ambience.edgeAge[0], 0.85),
         foliage: spot.foliage,
         fruit: spot.fruit,
+        giant: spot.giant,
       });
     } else {
       plant(at, flora.favourite, spot.size, {

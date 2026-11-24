@@ -12,7 +12,7 @@ import { MeshWriter, type MeshData } from './mesh-data';
 const TAU = Math.PI * 2;
 
 /** Surface of revolution around Y. Profile points are [radius, height], bottom to top. */
-function lathe(
+export function lathe(
   out: MeshWriter,
   profile: readonly (readonly [number, number])[],
   sides: number,
@@ -447,7 +447,7 @@ export function beam(
 }
 
 /** A flat quad as two facets, wound so they face along `n`. */
-function outward(
+export function outward(
   out: MeshWriter,
   [p0, p1, p2, p3]: readonly Vec[],
   n: readonly number[],

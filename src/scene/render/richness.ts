@@ -46,6 +46,8 @@ export interface Ambience extends Light {
   fireflies: number;
   birds: number;
   sunRays: number;
+  /** Rays falling through the crown of a great tree (`Terrain.canopy`). */
+  canopyRays: number;
   /** Glints on the water and sparkles around the waterfall. */
   sparkle: number;
   /** Rainbow over the main waterfall. */
@@ -164,6 +166,9 @@ const LIFE_TABLE = {
   fireflies: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.3, 1],
   birds: [0, 0, 0, 0, 0, 0, 0, 0, 0.5, 1, 0.8, 0.6],
   sunRays: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0.7, 0.85, 1],
+  canopyRays: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  /** Pull of the light towards dusk (`DUSK`), 0 to 1. */
+  dusk: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
   sparkle: [0, 0, 0, 0, 0, 0.08, 0.15, 0.2, 0.25, 0.3, 0.6, 1],
   rainbow: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
   // Sound, one new layer at stages 0, 2, 3, 6, 9 and 11: the spring's pond, the falls, the
@@ -300,6 +305,20 @@ function tint(color: number, pull: Tint | undefined): number {
   return pull ? mixColor(color, pull[0], pull[1]) : color;
 }
 
+/** Dusk: a violet sky glowing orange low down, a low red sun (the lanterns of #92). */
+function dusk(amount: number): SeasonLight {
+  return {
+    zenith: [0x3e4a9c, 0.8 * amount],
+    horizon: [0xff9b6e, 0.75 * amount],
+    nadir: [0xd08aa0, 0.7 * amount],
+    fog: [0xd99a8c, 0.6 * amount],
+    hemisphereSky: [0x8f8fd8, 0.6 * amount],
+    hemisphereGround: [0x7a6a58, 0.5 * amount],
+    sun: [0xff8a4a, 0.6 * amount],
+    sunIntensity: 1 - 0.3 * amount,
+  };
+}
+
 /** Ambience of a stage, adjusted for the décor and the season. */
 export function ambienceFor(
   stage: Stage,
@@ -307,7 +326,9 @@ export function ambienceFor(
   look: BiomeLook = CLEARING_LOOK,
 ): Ambience {
   const light = lightOf(stage);
-  for (const s of look.light ? [look.light, SEASON_LIGHT[season]] : [SEASON_LIGHT[season]]) {
+  const LIFE = { ...LIFE_TABLE, ...look.life };
+  const pulls = [look.light, LIFE.dusk[stage] > 0 ? dusk(LIFE.dusk[stage]) : undefined];
+  for (const s of [...pulls.filter((p) => p !== undefined), SEASON_LIGHT[season]]) {
     light.sky.zenith = tint(light.sky.zenith, s.zenith);
     light.sky.horizon = tint(light.sky.horizon, s.horizon);
     light.sky.nadir = tint(light.sky.nadir, s.nadir);
@@ -317,7 +338,9 @@ export function ambienceFor(
     light.sun.color = tint(light.sun.color, s.sun);
     light.sun.intensity *= s.sunIntensity ?? 1;
   }
-  const LIFE = { ...LIFE_TABLE, ...look.life };
+  // At dusk the sun sinks and glows.
+  light.sun.elevation = mix(light.sun.elevation, 15, 0.6 * LIFE.dusk[stage]);
+  light.sun.glow = Math.min(1, light.sun.glow + 0.3 * LIFE.dusk[stage]);
   const a: Ambience = {
     ...light,
     name: look.stageNames[stage],
@@ -335,6 +358,7 @@ export function ambienceFor(
     fireflies: LIFE.fireflies[stage],
     birds: LIFE.birds[stage],
     sunRays: LIFE.sunRays[stage],
+    canopyRays: LIFE.canopyRays[stage],
     sparkle: LIFE.sparkle[stage],
     rainbow: LIFE.rainbow[stage],
     sound: {
