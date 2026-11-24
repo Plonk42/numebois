@@ -7,10 +7,14 @@ import {
   LAST_STAGE,
   MAX_ELEMENTS,
   STAGES,
+  choicesOf,
+  choose,
   demoAnimals,
   demoElements,
+  isBought,
   parseDescription,
   readDescription,
+  shownChoice,
   stageFor,
   writeDescription,
   type SceneDescription,
@@ -61,6 +65,7 @@ function scene(
     stage,
     season,
     seasons: [season],
+    night: 'none',
     elements: demoElements(seed, fill),
     animals: demoAnimals('clearing', stage),
     ...more,
@@ -122,6 +127,7 @@ describe('scene description', () => {
       stage: 4,
       season: 'winter',
       seasons: ['winter'],
+      night: 'none',
       seed: 12,
       elements: demoElements(12, 0.5),
       animals: ['Donkey'],
@@ -136,6 +142,9 @@ describe('scene description', () => {
     const params = new URLSearchParams();
     writeDescription(params, d);
     expect(parseDescription(params)).toEqual(d);
+    const night = { ...d, night: 'shown' } as const;
+    writeDescription(params, night);
+    expect(parseDescription(params)).toEqual(night);
     expect(STAGES).toHaveLength(12);
     expect(LAST_STAGE).toBe(STAGES[STAGES.length - 1]);
   });
@@ -614,6 +623,8 @@ describe('slots and grand moments', () => {
       { ...valid, seasons: ['summer'] },
       { ...valid, seasons: ['autumn', 'monsoon'] },
       { ...valid, seasons: ['autumn', 'winter', 'autumn'] },
+      { ...valid, night: undefined },
+      { ...valid, night: 'dusk' },
     ]) {
       expect(readDescription(broken), JSON.stringify(broken)).toBeNull();
     }
@@ -621,6 +632,70 @@ describe('slots and grand moments', () => {
     expect(readDescription(JSON.parse(JSON.stringify(twoDeer)))).toEqual(twoDeer);
     const bought = { ...valid, seasons: ['spring', 'summer', 'autumn'] };
     expect(readDescription(JSON.parse(JSON.stringify(bought)))).toEqual(bought);
+    const night = { ...valid, night: 'shown' };
+    expect(readDescription(JSON.parse(JSON.stringify(night)))).toEqual(night);
+  });
+
+  it('shows the night as a fifth choice, over the plants of the season (#85)', () => {
+    const summer = scene(3, 6, 'summer');
+    expect(choicesOf(summer)).toEqual(['summer']);
+    expect(isBought(summer, 'night')).toBe(false);
+    const night = choose(summer, 'night');
+    expect(night).toMatchObject({ season: 'summer', seasons: ['summer'], night: 'shown' });
+    expect(shownChoice(night)).toBe('night');
+    expect(isBought(night, 'night')).toBe(true);
+    // Autumn bought at night: the day comes back with autumn, the night stays to choose.
+    const autumn = choose(night, 'autumn');
+    expect(autumn).toMatchObject({ season: 'autumn', seasons: ['summer', 'autumn'] });
+    expect(autumn.night).toBe('owned');
+    expect(choicesOf(autumn)).toEqual(['summer', 'autumn', 'night']);
+    expect(shownChoice(choose(autumn, 'night'))).toBe('night');
+    expect(choose(autumn, 'night').season).toBe('autumn');
+    expect(choose(summer, 'autumn').night).toBe('none');
+  });
+
+  it('changes only the light, the life and the sound at night (#85)', () => {
+    for (const season of SEASONS) {
+      const day = ambienceFor(6, season);
+      const night = ambienceFor(6, season, undefined, true);
+      expect(night.night).toBe(true);
+      const plants = (a: typeof day) => [
+        a.grass,
+        a.flowers,
+        a.bushes,
+        a.mushrooms,
+        a.lilies,
+        a.deadwood,
+        a.edgeTrees,
+        a.edgeAge,
+      ];
+      expect(plants(night)).toEqual(plants(day));
+      const brightness = (color: number) => (color >> 16) + ((color >> 8) & 255) + (color & 255);
+      expect(brightness(night.sky.zenith)).toBeLessThan(brightness(day.sky.zenith) / 2);
+      expect(night.sun.intensity).toBeLessThan(day.sun.intensity);
+      expect([night.butterflies, night.birds, night.sunRays, night.rainbow]).toEqual([0, 0, 0, 0]);
+      if (season !== 'winter') expect(night.fireflies).toBeGreaterThan(0);
+      expect(night.sound.songs + night.sound.birds + night.sound.cuckoo).toBe(0);
+      expect(night.sound.owl).toBeGreaterThan(0);
+    }
+  });
+
+  it('moves nothing when the night falls (#85)', () => {
+    for (const seed of [2, 9]) {
+      const description = scene(seed, LAST_STAGE, 'summer');
+      const composed = (night: boolean) =>
+        composeScene(
+          { ...description, night: night ? 'shown' : 'none' },
+          placeholders,
+          ambienceFor(LAST_STAGE, 'summer', undefined, night),
+          QUALITY.high,
+        );
+      const [day, night] = [composed(false), composed(true)];
+      const items = (c: typeof day) =>
+        (c.batch as unknown as { items: Map<string, number[]> }).items;
+      expect(items(night)).toEqual(items(day));
+      expect(night.planting.trees).toEqual(day.planting.trees);
+    }
   });
 
   it('moves no tree and no animal when the child changes the season (#82)', () => {

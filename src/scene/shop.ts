@@ -1,18 +1,27 @@
-import { LEAVES_PER_ELEMENT, SEEDS_PER_ANIMAL, SEEDS_PER_SEASON } from '../core/economy';
+import {
+  LEAVES_PER_ELEMENT,
+  SEEDS_PER_ANIMAL,
+  SEEDS_PER_NIGHT,
+  SEEDS_PER_SEASON,
+} from '../core/economy';
 import type { AnimalName } from './animal-catalog';
 import {
   ANIMAL_OFFERS,
   ELEMENTS_AT_STAGE,
   MAX_ELEMENTS,
+  NIGHT_STAGE,
   SEASON_STAGES,
   nextSeason,
   type SceneDescription,
 } from './description';
 import type { Season } from './trees/builder';
 
-/** What the shop of a décor sells (#83): an element to place, an animal, a season. */
+/** What the shop of a décor sells (#83): an element to place, an animal, a season, the night. */
 export type Article =
-  { kind: 'element' } | { kind: 'animal'; animal: AnimalName } | { kind: 'season'; season: Season };
+  | { kind: 'element' }
+  | { kind: 'animal'; animal: AnimalName }
+  | { kind: 'season'; season: Season }
+  | { kind: 'night' };
 
 export interface ShopItem {
   article: Article;
@@ -27,8 +36,8 @@ export const SHOP_SIZE = 4;
 
 /**
  * The shop at the end of a trail: an element while the painting has free slots, the next
- * season of the year for this painting, then the animals open at this stage (one of each
- * kind), and the next one to come.
+ * season of the year for this painting, the night from the stage before its own, then the
+ * animals open at this stage (one of each kind), and the next one to come.
  */
 export function shopItems(description: SceneDescription): ShopItem[] {
   const items: ShopItem[] = [];
@@ -50,6 +59,14 @@ export function shopItems(description: SceneDescription): ShopItem[] {
       leaves: 0,
       seeds: SEEDS_PER_SEASON,
       elementsToGo: Math.max(0, ELEMENTS_AT_STAGE[SEASON_STAGES[seasons.length - 1]] - placed),
+    });
+  }
+  if (description.night === 'none' && description.stage >= NIGHT_STAGE - 1) {
+    items.push({
+      article: { kind: 'night' },
+      leaves: 0,
+      seeds: SEEDS_PER_NIGHT,
+      elementsToGo: Math.max(0, ELEMENTS_AT_STAGE[NIGHT_STAGE] - placed),
     });
   }
   const bought = [...description.animals];

@@ -25,7 +25,7 @@ test('toucher le paysage : animaux et arbres réagissent pendant la promenade, j
   await page.goto('./?seed=3');
   await page.evaluate(() => window.__numebois!.ready);
   await loadSave(page, {
-    version: 5,
+    version: 6,
     savedAt: '2026-11-24T10:00:00.000Z',
     leaves: 0,
     seeds: 0,
@@ -36,6 +36,7 @@ test('toucher le paysage : animaux et arbres réagissent pendant la promenade, j
       stage: 5,
       season: 'summer',
       seasons: ['summer'],
+      night: 'none',
       elements: [0, 1, 2, 3, 4, 5, 6].map((slot) => ({ slot, day: 1 })),
       animals: ['Deer', 'Fox'],
     },

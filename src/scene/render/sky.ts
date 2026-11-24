@@ -3,6 +3,9 @@ import type { AssetLibrary } from '../assets';
 import { Rng } from '../../core/rng';
 import type { Ambience } from './richness';
 
+/** Height of the moon on the screen (0 bottom, 1 top), in its corner. */
+const MOON_HEIGHT = 0.86;
+
 const VERTEX = /* glsl */ `
 varying vec2 vUv;
 void main() {
@@ -12,7 +15,8 @@ void main() {
 `;
 
 // The camera looks down on the diorama, so the backdrop is a screen-space gradient:
-// zenith colour at the top, a glowing horizon band, haze at the bottom.
+// zenith colour at the top, a glowing horizon band, haze at the bottom. At night, the glow
+// is a moon with its disc, and still stars fill the upper sky (one cell in a few has one).
 const FRAGMENT = /* glsl */ `
 uniform vec3 uZenith;
 uniform vec3 uHorizon;
@@ -20,20 +24,36 @@ uniform vec3 uNadir;
 uniform vec3 uSunColor;
 uniform vec3 uSun;
 uniform float uAspect;
+uniform float uNight;
 varying vec2 vUv;
+float hash(vec2 p) {
+  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+}
 void main() {
   vec3 col = mix(uNadir, uHorizon, smoothstep(0.0, 0.6, vUv.y));
   col = mix(col, uZenith, smoothstep(0.55, 1.05, vUv.y));
   vec2 d = (vUv - uSun.xy) * vec2(uAspect, 1.0);
   float r2 = dot(d, d);
   col += uSunColor * uSun.z * (0.55 * exp(-r2 * 5.0) + 0.5 * exp(-r2 * 60.0));
+  if (uNight > 0.5) {
+    vec2 p = vUv * vec2(uAspect, 1.0) * 46.0;
+    vec2 cell = floor(p);
+    float h = hash(cell);
+    if (h > 0.9) {
+      vec2 at = vec2(hash(cell + 7.1), hash(cell + 3.7)) * 0.6 + 0.2;
+      float star = smoothstep(0.13, 0.03, length(p - cell - at));
+      col += vec3(1.0, 0.96, 0.85) * star * (h - 0.9) * 9.0 * smoothstep(0.35, 0.75, vUv.y);
+    }
+    float moon = smoothstep(0.052, 0.047, sqrt(r2));
+    col = mix(col, vec3(1.0, 0.97, 0.86), moon);
+  }
   gl_FragColor = vec4(col, 1.0);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
 }
 `;
 
-/** Gradient sky behind everything, with the glow of the sun (a sprite, no post-processing). */
+/** Gradient sky behind everything, with the glow of the sun or the moon (no post-processing). */
 export class Sky {
   readonly mesh: THREE.Mesh;
   private readonly material: THREE.ShaderMaterial;
@@ -44,8 +64,9 @@ export class Sky {
       'position',
       new THREE.BufferAttribute(new Float32Array([-1, -1, 0, 3, -1, 0, -1, 3, 0]), 3),
     );
-    // The sun glows from the upper corner on its side of the scene.
+    // The sun glows from the upper corner on its side of the scene; the moon shows in it.
     const side = Math.sin((ambience.sun.azimuth * Math.PI) / 180) < 0 ? 0.12 : 0.88;
+    const height = ambience.night ? MOON_HEIGHT : 1.02;
     this.material = new THREE.ShaderMaterial({
       vertexShader: VERTEX,
       fragmentShader: FRAGMENT,
@@ -56,8 +77,9 @@ export class Sky {
         uHorizon: { value: new THREE.Color(ambience.sky.horizon) },
         uNadir: { value: new THREE.Color(ambience.sky.nadir) },
         uSunColor: { value: new THREE.Color(ambience.sun.color) },
-        uSun: { value: new THREE.Vector3(side, 1.02, ambience.sun.glow) },
+        uSun: { value: new THREE.Vector3(side, height, ambience.sun.glow) },
         uAspect: { value: 1 },
+        uNight: { value: ambience.night ? 1 : 0 },
       },
     });
     this.mesh = new THREE.Mesh(geometry, this.material);

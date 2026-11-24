@@ -64,6 +64,16 @@ export const ANIMAL_OFFERS: Record<BiomeId, readonly { animal: AnimalName; stage
  */
 export const SEASON_STAGES: readonly Stage[] = [3, 7, 10];
 
+/** Stage from which the shop sells the night of a painting (#85), announced the stage before. */
+export const NIGHT_STAGE: Stage = 5;
+
+/** The night of a painting: not bought, bought but day shown, or shown (over `season`). */
+export const NIGHTS = ['none', 'owned', 'shown'] as const;
+export type Night = (typeof NIGHTS)[number];
+
+/** What the child picks in the bar of the seasons: a season, or the night, a fifth choice. */
+export type SeasonChoice = Season | 'night';
+
 /** The season after this one, in the order of the year. */
 export function nextSeason(season: Season): Season {
   return SEASONS[(SEASONS.indexOf(season) + 1) % SEASONS.length];
@@ -88,6 +98,8 @@ export interface SceneDescription {
   season: Season;
   /** Seasons of this painting: the one it started with, then those bought, in buying order. */
   seasons: readonly Season[];
+  /** The night keeps the plants of `season` and changes only the light, the life and the sound. */
+  night: Night;
   /** Elements placed by the child, in placing order. */
   elements: readonly PlacedElement[];
   /** Animals the child brought from the shop, in buying order. */
@@ -137,7 +149,48 @@ export function completed(description: SceneDescription): SceneDescription {
 
 /** A painting where the child has placed nothing yet. */
 export function newPainting(seed: number, season: Season, biome: BiomeId): SceneDescription {
-  return { biome, seed, stage: 0, season, seasons: [season], elements: [], animals: [] };
+  return {
+    biome,
+    seed,
+    stage: 0,
+    season,
+    seasons: [season],
+    night: 'none',
+    elements: [],
+    animals: [],
+  };
+}
+
+/** What the bar of the seasons shows ringed. */
+export function shownChoice(description: SceneDescription): SeasonChoice {
+  return description.night === 'shown' ? 'night' : description.season;
+}
+
+/** What the bar of the seasons offers: the seasons of the painting in the order of the year, then the night. */
+export function choicesOf(description: SceneDescription): SeasonChoice[] {
+  const choices: SeasonChoice[] = SEASONS.filter((s) => description.seasons.includes(s));
+  if (description.night !== 'none') choices.push('night');
+  return choices;
+}
+
+/**
+ * The painting with a season or the night shown, bought if it was not yet: leaving the night
+ * shows the season picked, with its plants.
+ */
+export function choose(description: SceneDescription, choice: SeasonChoice): SceneDescription {
+  if (choice === 'night') return { ...description, night: 'shown' };
+  const { seasons } = description;
+  return {
+    ...description,
+    season: choice,
+    seasons: seasons.includes(choice) ? seasons : [...seasons, choice],
+    night: description.night === 'none' ? 'none' : 'owned',
+  };
+}
+
+/** The painting has it already; the shop sells the others. */
+export function isBought(description: SceneDescription, choice: SeasonChoice): boolean {
+  return choice === 'night' ? description.night !== 'none' : description.seasons.includes(choice);
 }
 
 export const DEFAULT_DESCRIPTION: SceneDescription = {
@@ -146,6 +199,7 @@ export const DEFAULT_DESCRIPTION: SceneDescription = {
   stage: 6,
   season: 'summer',
   seasons: ['summer'],
+  night: 'none',
   elements: demoElements(7, DEMO_FILL[6]),
   animals: demoAnimals('clearing', 6),
 };
@@ -168,6 +222,8 @@ export function parseDescription(params: URLSearchParams): SceneDescription {
     stage: knownStage,
     season,
     seasons: [season],
+    // `?night`: the painting at night, for the captures.
+    night: params.has('night') ? 'shown' : 'none',
     elements: demoElements(
       knownSeed,
       Number.isFinite(fill) ? Math.min(1, Math.max(0, fill / 100)) : DEMO_FILL[knownStage],
@@ -180,6 +236,8 @@ export function writeDescription(params: URLSearchParams, description: SceneDesc
   params.set('biome', description.biome);
   params.set('stage', String(description.stage));
   params.set('season', description.season);
+  if (description.night === 'shown') params.set('night', '');
+  else params.delete('night');
   params.set('seed', String(description.seed));
   params.set('fill', String(Math.round(fillOf(description) * 100)));
 }
@@ -189,7 +247,7 @@ const isObject = (value: unknown): value is Record<string, unknown> =>
 
 /**
  * Reads a description kept in a save or the Album; null when anything is out of place
- * (unknown stage, season or animal, slot outside the painting or placed twice, more animals
+ * (unknown stage, season, night or animal, slot outside the painting or placed twice, more animals
  * of a kind than the shop offers, season shown but not owned or owned twice).
  */
 export function readDescription(value: unknown): SceneDescription | null {
@@ -210,8 +268,8 @@ export function readDescription(value: unknown): SceneDescription | null {
     return null;
   }
   const animals = value.animals as unknown[];
-  const { biome, seed, stage, season } = value;
-  if (!BIOME_IDS.includes(biome as BiomeId)) return null;
+  const { biome, seed, stage, season, night } = value;
+  if (!BIOME_IDS.includes(biome as BiomeId) || !NIGHTS.includes(night as Night)) return null;
   for (const animal of animals) {
     const offered = ANIMAL_OFFERS[biome as BiomeId].filter((o) => o.animal === animal).length;
     if (!ANIMAL_NAMES.includes(animal as AnimalName)) return null;
@@ -238,6 +296,7 @@ export function readDescription(value: unknown): SceneDescription | null {
     stage: stage as Stage,
     season: season as Season,
     seasons: seasons as Season[],
+    night: night as Night,
     elements,
     animals: animals as AnimalName[],
   };

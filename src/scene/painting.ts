@@ -185,7 +185,12 @@ export class Painting {
     quality: QualitySettings,
   ) {
     const { seed, season } = description;
-    const ambience = ambienceFor(description.stage, season, BIOMES[description.biome]);
+    const ambience = ambienceFor(
+      description.stage,
+      season,
+      BIOMES[description.biome],
+      description.night === 'shown',
+    );
     this.ambience = ambience;
     const composition = composeScene(description, assets, ambience, quality);
     const { terrain, ground, water, planting, population } = composition;

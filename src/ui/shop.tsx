@@ -16,11 +16,12 @@ export const ANIMAL_LABELS: Record<AnimalName, string> = {
 
 const labelOf = (article: Article) => {
   if (article.kind === 'element') return 'Une pousse';
+  if (article.kind === 'night') return SEASON_LABELS.night;
   return article.kind === 'animal' ? ANIMAL_LABELS[article.animal] : SEASON_LABELS[article.season];
 };
 
 const keyOf = (article: Article) => {
-  if (article.kind === 'element') return 'element';
+  if (article.kind === 'element' || article.kind === 'night') return article.kind;
   return article.kind === 'animal' ? article.animal : article.season;
 };
 
@@ -75,6 +76,7 @@ export function Shop({ items, leaves, seeds, portrait, onBuy }: Props) {
               <span class="picture">
                 {article.kind === 'element' && <SproutIcon />}
                 {article.kind === 'season' && <SeasonIcon season={article.season} />}
+                {article.kind === 'night' && <SeasonIcon season="night" />}
                 {image && <img src={image} alt="" draggable={false} />}
               </span>
               <span class="name">{label}</span>

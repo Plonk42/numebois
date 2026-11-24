@@ -1,8 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { LEAVES_PER_ELEMENT, SEEDS_PER_ANIMAL, SEEDS_PER_SEASON } from '../../src/core/economy';
+import {
+  LEAVES_PER_ELEMENT,
+  SEEDS_PER_ANIMAL,
+  SEEDS_PER_NIGHT,
+  SEEDS_PER_SEASON,
+} from '../../src/core/economy';
 import {
   ELEMENTS_AT_STAGE,
   MAX_ELEMENTS,
+  NIGHT_STAGE,
   SEASON_STAGES,
   STAGES,
   demoAnimals,
@@ -13,23 +19,25 @@ import {
 import { SHOP_SIZE, canBuy, shopItems, type Article } from '../../src/scene/shop';
 import { SEASONS } from '../../src/scene/trees/builder';
 
-/** A painting of the game with this many elements placed and these animals bought. */
+/** A painting of the game with this many elements placed and these animals bought (night too). */
 function painting(
   placed: number,
   animals: SceneDescription['animals'] = [],
   seasons: SceneDescription['seasons'] = SEASONS,
+  night: SceneDescription['night'] = 'owned',
 ): SceneDescription {
   return {
     ...newPainting(4, 'summer', 'clearing'),
     stage: stageFor(placed),
     seasons,
+    night,
     elements: Array.from({ length: placed }, (_, slot) => ({ slot, day: 1 })),
     animals,
   };
 }
 
 const nameOf = (article: Article) => {
-  if (article.kind === 'element') return 'element';
+  if (article.kind === 'element' || article.kind === 'night') return article.kind;
   return article.kind === 'animal' ? article.animal : article.season;
 };
 const names = (description: SceneDescription) =>
@@ -75,18 +83,51 @@ describe('boutique de la forêt', () => {
 
   it('stays short, and never offers more animals than the meadow takes', () => {
     for (const stage of STAGES) {
-      const placed = ELEMENTS_AT_STAGE[stage];
-      let animals: SceneDescription['animals'] = [];
-      // Buys every animal it can, as soon as it can.
-      for (;;) {
-        const items = shopItems(painting(placed, animals));
-        expect(items.length).toBeLessThanOrEqual(SHOP_SIZE);
-        const item = items.find((i) => i.article.kind === 'animal' && canBuy(i, 0, 99));
-        if (!item || item.article.kind !== 'animal') break;
-        animals = [...animals, item.article.animal];
+      for (const night of ['none', 'owned'] as const) {
+        const placed = ELEMENTS_AT_STAGE[stage];
+        let animals: SceneDescription['animals'] = [];
+        // Buys every animal it can, as soon as it can.
+        for (;;) {
+          const items = shopItems(painting(placed, animals, ['summer'], night));
+          expect(items.length).toBeLessThanOrEqual(SHOP_SIZE);
+          const item = items.find((i) => i.article.kind === 'animal' && canBuy(i, 0, 99));
+          if (!item || item.article.kind !== 'animal') break;
+          animals = [...animals, item.article.animal];
+        }
+        expect([...animals].sort(), `stage ${stage}`).toEqual(
+          demoAnimals('clearing', stage).sort(),
+        );
       }
-      expect([...animals].sort(), `stage ${stage}`).toEqual(demoAnimals('clearing', stage).sort());
     }
+  });
+
+  it('sells the night after the season, announced the stage before its own (#85)', () => {
+    const dark = (placed: number, seasons: SceneDescription['seasons'] = ['summer']) =>
+      painting(placed, [], seasons, 'none');
+    expect(names(dark(ELEMENTS_AT_STAGE[NIGHT_STAGE - 2]))).not.toContain('night');
+    const before = shopItems(dark(ELEMENTS_AT_STAGE[NIGHT_STAGE - 1]));
+    expect(before.map((item) => nameOf(item.article))).toEqual([
+      'element',
+      'autumn',
+      'night',
+      'Deer',
+    ]);
+    expect(before[2]).toEqual({
+      article: { kind: 'night' },
+      leaves: 0,
+      seeds: SEEDS_PER_NIGHT,
+      elementsToGo: ELEMENTS_AT_STAGE[NIGHT_STAGE] - ELEMENTS_AT_STAGE[NIGHT_STAGE - 1],
+    });
+    const open = shopItems(dark(ELEMENTS_AT_STAGE[NIGHT_STAGE], SEASONS));
+    expect(open.map((item) => nameOf(item.article)).slice(0, 2)).toEqual(['element', 'night']);
+    expect(canBuy(open[1], 0, SEEDS_PER_NIGHT)).toBe(true);
+    // Bought, never sold again; the animals take its place.
+    expect(names(painting(ELEMENTS_AT_STAGE[NIGHT_STAGE], [], SEASONS))).toEqual([
+      'element',
+      'Deer',
+      'Fox',
+      'Stag',
+    ]);
   });
 
   it('sells the next season of the year, one at a time, as the painting grows (#82)', () => {

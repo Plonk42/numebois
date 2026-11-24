@@ -56,7 +56,7 @@ describe('Album', () => {
 
   it('refuses an Album out of place, with a reason', () => {
     const broken = (change: object) =>
-      parseAlbum(JSON.stringify({ version: 5, entries: [{ ...entry(1), ...change }] }));
+      parseAlbum(JSON.stringify({ version: 6, entries: [{ ...entry(1), ...change }] }));
     expect(parseAlbum('{')).toMatchObject({ ok: false });
     expect(parseAlbum(JSON.stringify({ version: 4, entries: [] }))).toMatchObject({ ok: false });
     const unfinished = newPainting(1, 'summer', 'clearing');

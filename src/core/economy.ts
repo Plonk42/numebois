@@ -12,3 +12,5 @@ export const LEAVES_PER_ELEMENT = 4;
 export const SEEDS_PER_ANIMAL = 2;
 /** Golden seeds of a season for the painting in progress (#82). */
 export const SEEDS_PER_SEASON = 3;
+/** Golden seeds of the night for the painting in progress (#85). */
+export const SEEDS_PER_NIGHT = 3;

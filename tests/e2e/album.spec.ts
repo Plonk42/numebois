@@ -12,7 +12,7 @@ test('un tableau complet : grand final, cadre, nouveau décor ; il reste vivant 
   await page.evaluate(() => window.__numebois!.ready);
   // One element is missing from the painting; the reserve pays for it after a short trail.
   await loadSave(page, {
-    version: 5,
+    version: 6,
     savedAt: '2026-11-23T10:00:00.000Z',
     leaves: 0,
     seeds: 0,
@@ -23,6 +23,7 @@ test('un tableau complet : grand final, cadre, nouveau décor ; il reste vivant 
       stage: 11,
       season: 'summer',
       seasons: ['summer'],
+      night: 'none',
       elements: Array.from({ length: 21 }, (_, slot) => ({ slot, day: 1 })),
       animals: [],
     },

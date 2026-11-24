@@ -57,7 +57,7 @@ export function sandboxForm(
   const seeds = element('input', { id: 'debug-seeds', type: 'number', min: '0', value: '10' });
   const play = element('button', { id: 'debug-play', textContent: 'Jouer dans ce paysage' });
   play.addEventListener('click', () => {
-    const { biome, seed, season, elements } = description();
+    const { biome, seed, season, night, elements } = description();
     const url = new URL(window.location.href);
     const quality = url.searchParams.get('quality');
     url.search = '';
@@ -70,6 +70,7 @@ export function sandboxForm(
     params.set('biome', biome);
     params.set('seed', String(seed));
     params.set('season', season);
+    if (night === 'shown') params.set('night', '');
     params.set('fill', String(Math.round((elements.length / MAX_ELEMENTS) * 100)));
     if (quality) params.set('quality', quality);
     window.location.href = url.href;

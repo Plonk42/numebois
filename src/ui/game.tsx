@@ -34,16 +34,18 @@ import { serializeSave, type PaintingJournal, type ParsedSave } from '../save/sa
 import type { AnimalName } from '../scene/animal-catalog';
 import { BIOMES, nextBiomes } from '../scene/biomes';
 import {
+  choicesOf,
   completed,
   DEFAULT_DESCRIPTION,
   isComplete,
   newPainting,
+  shownChoice,
   type SceneDescription,
+  type SeasonChoice,
 } from '../scene/description';
 import { canBuy, shopItems, type ShopItem } from '../scene/shop';
 import type { Quality } from '../scene/render/quality';
 import type { TrailArt } from '../scene/render/trail-art';
-import type { Season } from '../scene/trees/builder';
 import { AlbumButton, AlbumGrid, AlbumPage } from './album';
 import { Basket } from './basket';
 import { CHALLENGE_NAME, ChallengeBar, ChallengeEnd, ChallengeMenu } from './challenge';
@@ -153,8 +155,8 @@ export interface GameForest extends SpotsForest {
   plant(slot: number, day: number): Promise<unknown>;
   /** Brings a bought animal into the meadow; resolves once it has settled. */
   adopt(animal: AnimalName): Promise<unknown>;
-  /** Shows the painting in another season (a bought one joins its seasons); resolves once shown. */
-  changeSeason(season: Season): Promise<unknown>;
+  /** Shows the painting in another season or at night (a bought one joins); resolves once shown. */
+  changeSeason(choice: SeasonChoice): Promise<unknown>;
   /** Picture of an animal for the shop, null while the animals load. */
   portrait(animal: AnimalName): string | null;
   /** The trail and its sign drawn with the models of the forest, null while they load. */
@@ -593,7 +595,7 @@ function Game(props: Props) {
     setPhase('challenge-end');
   };
 
-  /** One touch in the shop: an element waits for its place, an animal or a season comes at once. */
+  /** One touch in the shop: an element waits for its place, an animal, a season or the night comes at once. */
   const buy = (item: ShopItem) => {
     if (phase !== 'shop' || !canBuy(item, leaves, seeds)) return;
     const { article } = item;
@@ -606,9 +608,10 @@ function Game(props: Props) {
     }
     setLeaves(leaves - item.leaves);
     setSeeds(seeds - item.seeds);
-    if (article.kind === 'season') {
-      setArrival(`${SEASON_LABELS[article.season]} arrive !`);
-      turn(article.season);
+    if (article.kind === 'season' || article.kind === 'night') {
+      const choice = article.kind === 'night' ? 'night' : article.season;
+      setArrival(`${SEASON_LABELS[choice]} arrive !`);
+      turn(choice);
       return;
     }
     setArrival(`${ANIMAL_LABELS[article.animal]} arrive !`);
@@ -619,12 +622,12 @@ function Game(props: Props) {
     });
   };
 
-  /** The painting passes to another of its seasons, then back to where it was. */
-  const turn = (season: Season) => {
+  /** The painting passes to another of its seasons or the night, then back to where it was. */
+  const turn = (choice: SeasonChoice) => {
     const back = phase;
     setTurnFrom(back);
     setPhase('turning');
-    void forest.changeSeason(season).then(() => {
+    void forest.changeSeason(choice).then(() => {
       setArrival(null);
       setPhase(back);
     });
@@ -868,7 +871,7 @@ function Game(props: Props) {
       onNext: phase === 'reveal' ? proceed : undefined,
     };
   }
-  const { season, seasons } = forest.description();
+  const seasonChoices = choicesOf(forest.description());
   const items = shopItems(forest.description());
   // Between two trails, the next one waits with its sign, a touch on it starts it; it stays
   // while the season turns, out of sight in the shop, the finale and the Album.
@@ -917,10 +920,10 @@ function Game(props: Props) {
         }}
       />
       {/* Only when there is a choice: a single season is nothing to touch. */}
-      {seasons.length > 1 && (canTurn || phase === 'turning') && (
+      {seasonChoices.length > 1 && (canTurn || phase === 'turning') && (
         <SeasonPicker
-          seasons={seasons}
-          season={season}
+          choices={seasonChoices}
+          shown={shownChoice(forest.description())}
           active={canTurn}
           onPick={(s) => {
             if (canTurn) turn(s);
