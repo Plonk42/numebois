@@ -266,7 +266,7 @@ export class Painting {
       );
     }
 
-    this.herd = new Herd(animals, planHerd(terrain, description.animals, seed));
+    this.herd = new Herd(animals, planHerd(terrain, description.animals, seed), terrain);
     this.root.add(this.herd.group);
 
     this.sky = new Sky(ambience);

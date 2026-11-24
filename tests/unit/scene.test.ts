@@ -288,9 +288,10 @@ describe('animals', () => {
     }
   });
 
-  it('jump when touched, then go on with their day where they left it (#28)', () => {
-    const members = plan(7, LAST_STAGE);
-    const herd = new Herd(createPlaceholderAnimals(), members);
+  it('jump and gallop a loop when touched, then go on with their day where they left it (#28)', () => {
+    const terrain = createClearing(7, LAST_STAGE);
+    const members = planHerd(terrain, demoAnimals('clearing', LAST_STAGE), 7);
+    const herd = new Herd(createPlaceholderAnimals(), members, terrain);
     const camera = { x: 0, z: 80 };
     const state = {} as AnimalState;
     const where = (i: number) => {
@@ -303,29 +304,61 @@ describe('animals', () => {
     start += 0.2;
     herd.update(start);
     const before = where(0);
-    expect(herd.react(0, start, camera)).toBe(true);
-    expect(herd.react(0, start + 0.5, camera)).toBe(false);
-    const length = 2 * 0.5 + 1.2 + ANIMALS[members[0].name].clips.jump;
-    for (let t = start; t < start + length - 0.05; t += 0.1) {
+    const length = herd.react(0, start, camera);
+    expect(herd.react(0, start + 0.5, camera)).toBe(0);
+    const jump = ANIMALS[members[0].name].clips.jump;
+    // Longer than a jump alone: there is room for its loop.
+    expect(length).toBeGreaterThan(2 * 0.5 + jump + 1.2);
+    // Still while it turns to the child and jumps.
+    for (let t = start; t < start + 0.5 + jump; t += 0.1) {
       herd.update(t);
       expect(where(0).x).toBeCloseTo(before.x, 6);
       expect(where(0).z).toBeCloseTo(before.z, 6);
     }
-    // Turned three-quarters towards the camera in the middle of it.
     herd.update(start + 1);
     const yaw = herd.group.children[0].rotation.y;
     const towards = { x: camera.x - before.x, z: camera.z - before.z };
     const cos =
       (Math.sin(yaw) * towards.x + Math.cos(yaw) * towards.z) / Math.hypot(towards.x, towards.z);
     expect(cos).toBeGreaterThan(0.5);
-    // Then its day goes on, late by the reaction; the others never stopped.
-    herd.update(start + 10);
-    animalState(members[0], start + 10 - length, state);
+    // Then a loop on the grass, back to where it jumped.
+    let furthest = 0;
+    for (let t = start + 0.5 + jump; t < start + length; t += 0.05) {
+      herd.update(t);
+      const { x, z } = where(0);
+      furthest = Math.max(furthest, Math.hypot(x - before.x, z - before.z));
+      expect(terrain.surfaceAt(x, z)?.kind).toBe('grass');
+    }
+    expect(furthest).toBeGreaterThan(1);
+    herd.update(start + length - 0.01);
+    expect(where(0).x).toBeCloseTo(before.x, 4);
+    expect(where(0).z).toBeCloseTo(before.z, 4);
+    // Its day goes on, late by the reaction; the others never stopped.
+    herd.update(start + 20);
+    animalState(members[0], start + 20 - length, state);
     expect(where(0).x).toBeCloseTo(state.x, 5);
     expect(where(0).z).toBeCloseTo(state.z, 5);
-    animalState(members[1], start + 10, state);
+    animalState(members[1], start + 20, state);
     expect(where(1).x).toBeCloseTo(state.x, 5);
-    expect(herd.react(0, start + 10, camera)).toBe(true);
+    expect(herd.react(0, start + 20, camera)).toBeGreaterThan(0);
+  });
+
+  it('mostly find room for their loop (#28)', () => {
+    let runs = 0;
+    let animals = 0;
+    for (let seed = 0; seed < 6; seed++) {
+      const terrain = createClearing(seed, LAST_STAGE);
+      const members = planHerd(terrain, demoAnimals('clearing', LAST_STAGE), seed);
+      const herd = new Herd(createPlaceholderAnimals(), members, terrain);
+      members.forEach((member, i) => {
+        herd.update(3);
+        animals++;
+        if (herd.react(i, 3, { x: 0, z: 80 }) > 2 * 0.5 + ANIMALS[member.name].clips.jump + 1.2) {
+          runs++;
+        }
+      });
+    }
+    expect(runs / animals).toBeGreaterThan(0.6);
   });
 });
 

@@ -4,8 +4,15 @@
  */
 
 /** Gentle clips only: no attack, death or hit reaction in front of the child. */
-export type AnimalClip = 'idle' | 'look' | 'eat' | 'walk' | 'jump';
-export const ANIMAL_CLIPS: readonly AnimalClip[] = ['idle', 'look', 'eat', 'walk', 'jump'];
+export type AnimalClip = 'idle' | 'look' | 'eat' | 'walk' | 'jump' | 'gallop';
+export const ANIMAL_CLIPS: readonly AnimalClip[] = [
+  'idle',
+  'look',
+  'eat',
+  'walk',
+  'jump',
+  'gallop',
+];
 
 export interface AnimalSource {
   /** glTF file name in the pack, without extension. */
@@ -14,13 +21,14 @@ export interface AnimalSource {
   clips: Record<AnimalClip, string>;
 }
 
-// The jump answers a touch of the child (#28).
+// The jump and the gallop answer a touch of the child (#28).
 const hoofed = {
   idle: 'Idle',
   look: 'Idle_Headlow',
   eat: 'Eating',
   walk: 'Walk',
   jump: 'Jump_toIdle',
+  gallop: 'Gallop',
 };
 const canine = {
   idle: 'Idle',
@@ -28,6 +36,7 @@ const canine = {
   eat: 'Eating',
   walk: 'Walk',
   jump: 'Jump_ToIdle',
+  gallop: 'Gallop',
 };
 
 export const ANIMAL_CATALOG = {

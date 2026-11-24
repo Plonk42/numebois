@@ -49,7 +49,7 @@ test('toucher le paysage : animaux et arbres réagissent pendant la promenade, j
     .poll(async () => (await page.evaluate(() => window.__numebois!.view())).active)
     .toBe(true);
 
-  // On the walk: the doe jumps, once at a time; a tree of the child sways.
+  // On the walk: the doe jumps and gallops, once at a time; a tree of the child sways.
   await tapDoe(page, cdp);
   await expect.poll(() => touches(page)).toEqual([{ kind: 'animal', name: 'Deer' }]);
   await tapDoe(page, cdp);
@@ -89,9 +89,11 @@ test('toucher le paysage : animaux et arbres réagissent pendant la promenade, j
   await expect
     .poll(async () => (await page.evaluate(() => window.__numebois!.view())).active)
     .toBe(false);
-  // The doe has long finished her jump.
-  await page.waitForTimeout(5000);
-  await tapDoe(page, cdp);
+  // The fox never reacted, and the tree is long still.
+  const still = (await page.evaluate(() => window.__numebois!.animals())).find(
+    (animal) => animal.name === 'Fox',
+  )!;
+  await tap(cdp, still.x, still.y);
   await tap(cdp, slot.x, slot.y);
   await tap(cdp, 40, 400);
   await page.waitForTimeout(300);

@@ -28,12 +28,21 @@ const TURN = 0.8;
 const STOPS = 3;
 /**
  * A touch of the child (#28): the animal stops, turns towards the camera in TURN_TO seconds
- * (three-quarters, a profile reads better than a face), jumps, looks for LOOK seconds, turns
- * back and goes on with its day where it left it.
+ * (three-quarters, a profile reads better than a face), jumps, gallops a loop around and
+ * back (or looks for LOOK seconds where there is no room), faces the child again for REST
+ * seconds, turns back and goes on with its day where it left it.
  */
 const TURN_TO = 0.5;
 const LOOK = 1.2;
+const REST = 0.6;
 const FACING = 0.75;
+/** Ground covered per gallop cycle, as a share of the body length. */
+const GALLOP_STRIDE = 0.8;
+/** Radii of the loop tried, as shares of the body length, largest first. */
+const RUN_RADII = [1, 0.75, 0.55];
+/** Where the loop may lie, from the side of the camera round to behind the animal. */
+const RUN_SIDES = [0, 1, -1, 2, -2, 3, -3, 4].map((k) => (k * Math.PI) / 4);
+const TAU = Math.PI * 2;
 
 interface Point {
   x: number;
@@ -157,6 +166,29 @@ function openGround(
     if (!near || near.kind === 'water') return null;
   }
   return { x, y: surface.y, z };
+}
+
+/** Ground a touched animal may gallop over (#28): looser than where it lives, never wet or rocky. */
+function runGround(terrain: Terrain, x: number, z: number, room: number): number | null {
+  for (const tree of terrain.treeSpots) {
+    if (Math.hypot(tree.x - x, tree.z - z) < 0.9 + room * 0.5) return null;
+  }
+  for (const slot of terrain.slots) {
+    if (Math.hypot(slot.x - x, slot.z - z) < slot.size + room * 0.5) return null;
+  }
+  for (const moment of terrain.announcements) {
+    if (Math.hypot(moment.x - x, moment.z - z) < moment.radius) return null;
+  }
+  const dam = terrain.dam;
+  if (dam && Math.hypot(dam.x - x, dam.z - z) < dam.width + room * 0.5) return null;
+  for (const rock of terrain.staticModels) {
+    if (Math.hypot(rock.x - x, rock.z - z) < 2 * rock.scale + room * 0.5) return null;
+  }
+  const surface = terrain.surfaceAt(x, z);
+  if (!surface || (surface.kind !== 'grass' && surface.kind !== 'sand') || surface.slope > 0.4) {
+    return null;
+  }
+  return surface.y;
 }
 
 function walkable(terrain: Terrain, a: Point, b: Point, room: number): Point[] | null {
@@ -311,14 +343,64 @@ export function herdTriangles(members: readonly HerdMember[]): number {
   return members.reduce((sum, m) => sum + ANIMALS[m.name].triangles, 0);
 }
 
+/** A loop galloped around a centre, from the animal's place back to it. */
+interface Run {
+  cx: number;
+  cz: number;
+  radius: number;
+  /** Angle of the start around the centre, and 1 or -1 for the way round. */
+  from: number;
+  way: number;
+  /** Ground height at even steps round the loop, the start repeated at the end. */
+  heights: number[];
+  seconds: number;
+}
+
+/** A loop of open grass through `from`, the nearer the camera the better; null without room. */
+function planRun(
+  terrain: Terrain,
+  name: AnimalName,
+  from: Point,
+  facing: number,
+  way: number,
+): Run | null {
+  const { length } = sizeOf(terrain, name);
+  const room = length * 0.6;
+  for (const share of RUN_RADII) {
+    const radius = share * length;
+    const steps = Math.max(12, Math.ceil((TAU * radius) / 0.5));
+    for (const side of RUN_SIDES) {
+      const cx = from.x + Math.sin(facing + side) * radius;
+      const cz = from.z + Math.cos(facing + side) * radius;
+      const start = Math.atan2(from.x - cx, from.z - cz);
+      const heights = [from.y];
+      for (let i = 1; i < steps; i++) {
+        const a = start + (way * TAU * i) / steps;
+        const y = runGround(terrain, cx + Math.sin(a) * radius, cz + Math.cos(a) * radius, room);
+        if (y === null) break;
+        heights.push(y);
+      }
+      if (heights.length < steps) continue;
+      heights.push(from.y);
+      const speed = (GALLOP_STRIDE * length) / ANIMALS[name].clips.gallop;
+      return { cx, cz, radius, from: start, way, heights, seconds: (TAU * radius) / speed };
+    }
+  }
+  return null;
+}
+
 interface Reaction {
   start: number;
   /** Time of the animal's day when it stopped. */
   frozen: number;
   /** Heading towards the camera. */
   yaw: number;
+  jump: number;
+  run: Run | null;
   length: number;
 }
+
+const clamp01 = (t: number) => Math.max(0, Math.min(1, t));
 
 const smooth = (t: number) => t * t * (3 - 2 * t);
 
@@ -348,6 +430,7 @@ export class Herd {
   constructor(
     private readonly library: AnimalLibrary,
     members: readonly HerdMember[],
+    private readonly terrain: Terrain,
   ) {
     this.group.name = 'herd';
     for (const member of members) this.add(member);
@@ -376,23 +459,32 @@ export class Herd {
     }));
   }
 
-  /** The animal `index` reacts to a touch, turning towards `toward`; false while it already does. */
-  react(index: number, time: number, toward: { x: number; z: number }): boolean {
+  /**
+   * The animal `index` reacts to a touch, turning towards `toward`: the length of its
+   * reaction in seconds, 0 while it already reacts.
+   */
+  react(index: number, time: number, toward: { x: number; z: number }): number {
     const entry = this.bodies[index];
     if (!entry || (entry.reaction && time < entry.reaction.start + entry.reaction.length)) {
-      return false;
+      return 0;
     }
     if (entry.reaction) entry.held += entry.reaction.length;
     const frozen = time - entry.held;
     const s = animalState(entry.member, frozen, this.state);
     const face = Math.atan2(toward.x - s.x, toward.z - s.z);
+    const yaw = s.yaw + wraps(face - s.yaw) * FACING;
+    const { name } = entry.member;
+    const run = planRun(this.terrain, name, s, yaw, index % 2 === 0 ? 1 : -1);
+    const jump = ANIMALS[name].clips.jump;
     entry.reaction = {
       start: time,
       frozen,
-      yaw: s.yaw + wraps(face - s.yaw) * FACING,
-      length: 2 * TURN_TO + ANIMALS[entry.member.name].clips.jump + LOOK,
+      yaw,
+      jump,
+      run,
+      length: 2 * TURN_TO + jump + (run ? run.seconds + REST : LOOK),
     };
-    return true;
+    return entry.reaction.length;
   }
 
   update(time: number): void {
@@ -417,18 +509,47 @@ export class Herd {
     }
   }
 
-  /** The clip it was playing fades into a jump between two idles; it turns and turns back. */
+  /**
+   * The clip it was playing fades into a jump, then a gallop round the loop, between idles;
+   * it turns to the child, runs, faces the child again and turns back.
+   */
   private poseReaction(body: AnimalBody, r: Reaction, local: number, s: AnimalState): void {
     const left = r.length - local;
-    const turn = smooth(Math.max(0, Math.min(1, local / TURN_TO, left / TURN_TO)));
-    body.object.rotation.y = s.yaw + wraps(r.yaw - s.yaw) * turn;
-    const own = Math.max(0, Math.min(1, local / BLEND, left / BLEND));
-    const jumpLength = r.length - 2 * TURN_TO - LOOK;
+    const runStart = TURN_TO + r.jump;
+    const runEnd = runStart + (r.run?.seconds ?? 0);
+    let yaw: number;
+    let gallop = 0;
+    const run = r.run;
+    if (!run || local < runStart) {
+      yaw = s.yaw + wraps(r.yaw - s.yaw) * smooth(clamp01(local / TURN_TO));
+    } else {
+      const u = clamp01((local - runStart) / run.seconds);
+      const a = run.from + run.way * TAU * u;
+      const tangent = a + (run.way * Math.PI) / 2;
+      const f = u * (run.heights.length - 1);
+      const k = Math.min(run.heights.length - 2, Math.floor(f));
+      const y = run.heights[k] + (run.heights[k + 1] - run.heights[k]) * (f - k);
+      body.object.position.set(
+        run.cx + Math.sin(a) * run.radius,
+        y,
+        run.cz + Math.cos(a) * run.radius,
+      );
+      yaw =
+        local < runEnd
+          ? r.yaw + wraps(tangent - r.yaw) * smooth(clamp01((local - runStart) / 0.3))
+          : tangent + wraps(r.yaw - tangent) * smooth(clamp01((local - runEnd) / 0.4));
+    }
+    if (run) gallop = clamp01(Math.min((local - runStart + 0.2) / 0.25, (runEnd - local) / 0.35));
+    if (left < TURN_TO) yaw = s.yaw + wraps(yaw - s.yaw) * smooth(clamp01(left / TURN_TO));
+    body.object.rotation.y = yaw;
+    const own = clamp01(Math.min(local / BLEND, left / BLEND));
     const jumpTime = local - TURN_TO;
-    const jump = Math.max(0, Math.min(1, (jumpTime + 0.15) / 0.15, (jumpLength - jumpTime) / 0.3));
+    const jump = clamp01(Math.min((jumpTime + 0.15) / 0.15, (r.jump - jumpTime) / 0.25));
+    gallop = Math.min(gallop, 1 - jump);
     body.pose(s.clip, s.clipTime, 1 - own);
-    body.pose('idle', local, own * (1 - jump));
-    body.pose('jump', Math.max(0, Math.min(jumpTime, jumpLength - 1e-3)), own * jump);
+    body.pose('idle', local, own * (1 - jump - gallop));
+    body.pose('jump', Math.max(0, Math.min(jumpTime, r.jump - 1e-3)), own * jump);
+    body.pose('gallop', Math.max(0, local - runStart + 0.2), own * gallop);
     body.apply();
   }
 

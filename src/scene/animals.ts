@@ -83,7 +83,7 @@ class PlaceholderBody implements AnimalBody {
       this.jump = weight;
       this.jumpTime = time;
     }
-    if (clip !== 'walk') return;
+    if (clip !== 'walk' && clip !== 'gallop') return;
     this.walk = weight;
     this.walkTime = time;
   }
