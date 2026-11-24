@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
+import { grouped } from './keypad';
 
 interface Props {
   options: readonly string[];
@@ -40,8 +41,13 @@ export function Choice({ options, locked, right, shown, onSubmit }: Props) {
   }, [options]);
 
   const short = options.every((option) => option.length <= 2);
+  // A keypad answer offered among choices: big numbers, two by two.
+  const numbers = options.every((option) => /^\d+$/.test(option));
+  let layout = '';
+  if (numbers) layout = options.some((option) => option.length > 4) ? ' numbers long' : ' numbers';
+  else if (short) layout = ' signs';
   return (
-    <div class={`choice${short ? ' signs' : ''}`}>
+    <div class={`choice${layout}`}>
       {options.map((option) => {
         let state = '';
         if (right && option === last) state = 'right';
@@ -55,7 +61,7 @@ export function Choice({ options, locked, right, shown, onSubmit }: Props) {
             disabled={locked && state !== 'right' && state !== 'shown'}
             onPointerDown={() => choose(option)}
           >
-            {option}
+            {numbers ? grouped(option) : option}
           </button>
         );
       })}

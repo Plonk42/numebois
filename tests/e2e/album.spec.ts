@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { apart, boxes, current, game, loadSave, reserveLabel, startTrail } from './helpers';
+import { apart, boxes, current, driver, game, loadSave, reserveLabel, startTrail } from './helpers';
 
 test('un tableau complet : grand final, cadre, nouveau décor ; il reste vivant dans l’Album', async ({
   page,
@@ -38,8 +38,7 @@ test('un tableau complet : grand final, cadre, nouveau décor ; il reste vivant 
   const { stones } = await game(page);
   for (let stone = 0; stone < stones; stone++) {
     const exercise = await current(page);
-    await page.keyboard.type(exercise.answer);
-    await page.keyboard.press('Enter');
+    await driver(exercise.input).answer(page, exercise.input, exercise.answer);
     await expect.poll(async () => (await game(page)).stone, { timeout: 8000 }).toBe(stone + 1);
   }
   await expect(page.locator('#reserve')).toHaveClass(/ready/, { timeout: 20_000 });

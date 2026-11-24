@@ -85,6 +85,11 @@ export interface Skill<E extends Exercise = Exercise> {
   validate(exercise: E, answer: string): boolean;
   /** 1: a method hint; 2: the answer with its method. */
   hint(exercise: E, attempt: 1 | 2): string;
+  /**
+   * Typical wrong answers of a keypad question (a neighbouring table, a forgotten carry…),
+   * when the trail offers it among choices (`offerChoices`).
+   */
+  lures?(exercise: E): readonly number[];
   /** Can be played in a drill (rafale) until automatic. */
   drill?: boolean;
   /** Can be timed in a challenge (défi). */

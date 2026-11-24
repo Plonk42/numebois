@@ -353,6 +353,20 @@
   min-height: 104px;
   font-size: 48px;
 }
+#question .choice.numbers {
+  grid-template-columns: repeat(2, 1fr);
+}
+#question .choice.numbers button {
+  min-height: 112px;
+  padding: 8px 4px;
+  font-size: 40px;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: normal;
+  white-space: nowrap;
+}
+#question .choice.numbers.long button {
+  font-size: 30px;
+}
 #question .choice button.right {
   background: #e6f6da;
   box-shadow: 0 4px 0 #8fcf6b;

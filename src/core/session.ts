@@ -1,3 +1,4 @@
+import { CHOICE_SHARE, offerChoices } from './choices';
 import { isAutomated, recordFact, newFact, type FactProgress } from './facts';
 import { isAcquired, newProgress, record, type SkillProgress } from './mastery';
 import type { Rng } from './rng';
@@ -64,7 +65,11 @@ export class Session {
     return this.trail[this.index];
   }
 
-  /** A question for the current step, different from the previous one. */
+  /**
+   * A question for the current step, different from the previous one. After the first one, a
+   * keypad question is sometimes offered among choices, on a generator of its own: the
+   * questions themselves stay the same.
+   */
   ask(previous?: Exercise): { skill: Skill; exercise: Exercise } {
     const skill = this.byId.get(this.step.skill)!;
     const level = stepLevel(this.step, this.progress.get(skill.id));
@@ -75,6 +80,9 @@ export class Session {
     for (let i = 0; i < 20 && same(exercise); i++) {
       exercise = skill.generate(this.rng, level, this.context());
     }
+    const offer = this.rng.fork('choices');
+    if (this.index > 0 && offer.chance(CHOICE_SHARE))
+      exercise = offerChoices(skill, exercise, offer);
     return { skill, exercise };
   }
 
@@ -98,7 +106,8 @@ export class Session {
     if (!isAcquired(progress) && isAcquired(recorded)) {
       achievements.push({ kind: 'acquired', skill: skill.id });
     }
-    const fact = skill.facts?.of(exercise);
+    // A choice is recognised, not recalled: it never automates a fact.
+    const fact = exercise.input.kind === 'choice' ? null : skill.facts?.of(exercise);
     if (fact) {
       const before = this.facts.get(fact) ?? newFact(fact);
       const after = recordFact(before, { right, ms, day }, skill.facts!.seconds);

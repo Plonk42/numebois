@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { OFFERED_CHOICES, offerChoices } from '../../src/core/choices';
 import { exerciseErrors } from '../../src/core/content';
 import { questErrors, registryErrors, skillsById } from '../../src/core/registry';
 import { Rng } from '../../src/core/rng';
@@ -146,6 +147,17 @@ describe('registre', () => {
             const exercise = notion.generate(new Rng(seed), level, contextOf(seed));
             const errors = exerciseErrors(notion, exercise, level);
             if (errors.length > 0) expect(errors, `graine ${seed}`).toEqual([]);
+            // The same question offered among choices, as the trail sometimes does.
+            if (exercise.input.kind !== 'keypad') continue;
+            const offered = offerChoices(notion, exercise, new Rng(seed));
+            const choices = offered.input.kind === 'choice' ? offered.input.options : [];
+            const wrongs = exerciseErrors(notion, offered, level);
+            if (wrongs.length > 0 || choices.length !== OFFERED_CHOICES) {
+              expect({ wrongs, choices: choices.length }, `graine ${seed}, choix`).toEqual({
+                wrongs: [],
+                choices: OFFERED_CHOICES,
+              });
+            }
           }
         });
       }

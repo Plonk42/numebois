@@ -28,6 +28,11 @@ export function wrong(answer: string): string {
   return answer.slice(0, -1) + String((last + 1) % 10);
 }
 
+/** How a choice is written on its button: a number offered among choices is grouped (3 240). */
+export function shownChoice(option: string): string {
+  return /^\d{4,}$/.test(option) ? `${option.slice(0, -3)}\u202f${option.slice(-3)}` : option;
+}
+
 /** How a test answers through a widget, as the child would. */
 export interface Driver<I extends ExerciseInput> {
   answer(page: Page, input: I, value: string): Promise<void>;
@@ -48,7 +53,10 @@ const DRIVERS: { [K in ExerciseInput['kind']]: Driver<Extract<ExerciseInput, { k
   },
   choice: {
     answer: (page, _, value) =>
-      page.locator('#question .choice').getByRole('button', { name: value, exact: true }).click(),
+      page
+        .locator('#question .choice')
+        .getByRole('button', { name: shownChoice(value), exact: true })
+        .click(),
     wrongs: (input, expected) => input.options.filter((option) => option !== expected).slice(0, 2),
   },
   compare: {

@@ -12,6 +12,7 @@ import {
   type ProductExercise,
 } from './generators';
 import { missingFactorHint, productHint } from './hints';
+import { missingFactorLures, productLures } from './lures';
 
 export const products = defineSkill<ProductExercise>({
   id: PRODUCTS,
@@ -21,6 +22,7 @@ export const products = defineSkill<ProductExercise>({
   generate: generateProduct,
   validate: validateNumber,
   hint: productHint,
+  lures: productLures,
   drill: true,
   challenge: true,
   facts: productFacts,
@@ -34,6 +36,7 @@ export const missingFactor = defineSkill<MissingFactorExercise>({
   generate: generateMissingFactor,
   validate: validateNumber,
   hint: missingFactorHint,
+  lures: missingFactorLures,
   drill: true,
   challenge: true,
 });

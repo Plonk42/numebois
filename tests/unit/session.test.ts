@@ -1,5 +1,6 @@
 import { CLEARING } from './helpers';
 import { describe, expect, it } from 'vitest';
+import { nearNumbers, offerChoices } from '../../src/core/choices';
 import { curriculum } from '../../src/core/registry';
 import { Rng } from '../../src/core/rng';
 import { Session } from '../../src/core/session';
@@ -67,6 +68,50 @@ describe('session', () => {
     session.conclude(complements, exercise, true, 1500, false);
     const fact = complements.facts!.of(exercise)!;
     expect(session.facts.get(fact)).toMatchObject({ tries: 1, right: 1, fastDays: [100] });
+    // Among choices, the answer counts for the notion, never for the fact.
+    const offered = offerChoices(complements, exercise, new Rng(2));
+    expect(offered.input.kind).toBe('choice');
+    session.conclude(complements, offered, true, 900, false);
+    expect(session.facts.get(fact)).toMatchObject({ tries: 1 });
+    expect(session.progress.get(complements.id)?.recent).toHaveLength(2);
+  });
+
+  it('offers about one keypad question in three among choices, never the first one', () => {
+    const counts = { first: 0, offered: 0, keypad: 0 };
+    for (let seed = 0; seed < 60; seed++) {
+      const session = new Session(
+        SKILLS,
+        new Rng(seed),
+        () => 100,
+        () => CLEARING,
+      );
+      session.startTrail();
+      let previous;
+      do {
+        const { skill, exercise } = session.ask(previous);
+        if (session.index === 0) counts.first += exercise.input.kind === 'choice' ? 1 : 0;
+        else if (exercise.input.kind === 'choice') counts.offered++;
+        else counts.keypad++;
+        session.conclude(skill, exercise, true, 2000, false);
+        previous = exercise;
+      } while (session.advance());
+    }
+    expect(counts.first).toBe(0);
+    const share = counts.offered / (counts.offered + counts.keypad);
+    expect(share).toBeGreaterThan(0.25);
+    expect(share).toBeLessThan(0.42);
+  });
+
+  it('offers plausible lures: a neighbouring table, a carry, ten off', () => {
+    const products = SKILLS.find((skill) => skill.id === 'times-tables.products')!;
+    const exercise = { ...products.generate(new Rng(1), 0, CLEARING), a: 7, b: 8, answer: '56' };
+    const offered = offerChoices(products, exercise, new Rng(5));
+    const options = offered.input.kind === 'choice' ? offered.input.options : [];
+    expect(options).toContain('56');
+    expect(new Set(options).size).toBe(4);
+    // Three of 49, 63, 48, 64 and 15.
+    expect(options.filter((o) => ['49', '63', '48', '64', '15'].includes(o))).toHaveLength(3);
+    expect(nearNumbers(305)).toEqual([306, 304, 315, 295, 35, 350, 3050, 30.5, 405, 205]);
   });
 
   it('reports a notion acquired and a fact automated, once', () => {

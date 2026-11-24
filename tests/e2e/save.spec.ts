@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { startTrail } from './helpers';
+import { driver, startTrail } from './helpers';
 
 async function game(page: Page) {
   return (await page.evaluate(() => window.__numebois!.game()))!;
@@ -8,8 +8,8 @@ async function game(page: Page) {
 async function answerRight(page: Page) {
   const statement = await page.locator('#question .statement').textContent();
   await expect.poll(async () => (await game(page)).exercise?.statement).toBe(statement);
-  await page.keyboard.type((await game(page)).exercise!.answer);
-  await page.keyboard.press('Enter');
+  const { exercise } = await game(page);
+  await driver(exercise!.input).answer(page, exercise!.input, exercise!.answer);
 }
 
 async function openParentMenu(page: Page) {

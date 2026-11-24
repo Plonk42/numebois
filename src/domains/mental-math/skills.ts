@@ -33,6 +33,13 @@ import {
   nineElevenHint,
   timesTenHint,
 } from './hints';
+import {
+  addSubtractLures,
+  complementLures,
+  doubleHalfLures,
+  nineElevenLures,
+  timesTenLures,
+} from './lures';
 
 export const add = defineSkill<OperationExercise>({
   id: ADD,
@@ -42,6 +49,7 @@ export const add = defineSkill<OperationExercise>({
   generate: generateAdd,
   validate: validateNumber,
   hint: addSubtractHint,
+  lures: addSubtractLures,
   drill: true,
   challenge: true,
 });
@@ -54,6 +62,7 @@ export const subtract = defineSkill<OperationExercise>({
   generate: generateSubtract,
   validate: validateNumber,
   hint: addSubtractHint,
+  lures: addSubtractLures,
   drill: true,
   challenge: true,
 });
@@ -66,6 +75,7 @@ export const complements = defineSkill<ComplementExercise>({
   generate: generateComplement,
   validate: validateNumber,
   hint: complementHint,
+  lures: complementLures,
   drill: true,
   challenge: true,
   facts: complementFacts,
@@ -79,6 +89,7 @@ export const nineEleven = defineSkill<OperationExercise>({
   generate: generateNineEleven,
   validate: validateNumber,
   hint: nineElevenHint,
+  lures: nineElevenLures,
   drill: true,
   challenge: true,
 });
@@ -91,6 +102,7 @@ export const doublesHalves = defineSkill<DoubleHalfExercise>({
   generate: generateDoubleHalf,
   validate: validateNumber,
   hint: doubleHalfHint,
+  lures: doubleHalfLures,
   drill: true,
   challenge: true,
   facts: doubleHalfFacts,
@@ -104,6 +116,7 @@ export const timesTen = defineSkill<TimesTenExercise>({
   generate: generateTimesTen,
   validate: validateNumber,
   hint: timesTenHint,
+  lures: timesTenLures,
   drill: true,
   challenge: true,
 });

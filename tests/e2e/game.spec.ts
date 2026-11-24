@@ -3,10 +3,12 @@ import {
   apart,
   boxes,
   current,
+  driver,
   expectSlateLayout,
   game,
   loadSave,
   reserveLabel,
+  shownChoice,
   startTrail,
   wrong,
 } from './helpers';
@@ -104,8 +106,7 @@ test('une boucle jouable : questions, indices et feuilles', async ({ page }) => 
   const basket = card.locator('.basket');
   for (let answer = 1; answer <= 4; answer++) {
     exercise = await current(page);
-    await page.keyboard.type(exercise.answer);
-    await page.keyboard.press('Enter');
+    await driver(exercise.input).answer(page, exercise.input, exercise.answer);
     await expect.poll(praises).toBe(answer);
     await expect(basket).toHaveAttribute(
       'aria-label',
@@ -188,8 +189,7 @@ test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt po
   for (let stone = 0; stone < 10; stone++) {
     await expect(path.locator('.stone.crossed')).toHaveCount(stone);
     const exercise = await current(page);
-    await page.keyboard.type(exercise.answer);
-    await page.keyboard.press('Enter');
+    await driver(exercise.input).answer(page, exercise.input, exercise.answer);
     await expect(card.locator('.praise')).toBeVisible();
     await expect.poll(async () => (await game(page)).stone, { timeout: 8000 }).toBe(stone + 1);
   }
@@ -393,8 +393,7 @@ test('la boutique : une biche achetée en graines dorées rejoint la prairie et 
   const { stones } = await game(page);
   for (let stone = 0; stone < stones; stone++) {
     const exercise = await current(page);
-    await page.keyboard.type(exercise.answer);
-    await page.keyboard.press('Enter');
+    await driver(exercise.input).answer(page, exercise.input, exercise.answer);
     await expect.poll(async () => (await game(page)).stone, { timeout: 8000 }).toBe(stone + 1);
   }
   const end = page.locator('#shop');
@@ -488,8 +487,7 @@ test('les saisons : l’automne acheté, l’enfant choisit la saison de son tab
   const { stones } = await game(page);
   for (let stone = 0; stone < stones; stone++) {
     const exercise = await current(page);
-    await page.keyboard.type(exercise.answer);
-    await page.keyboard.press('Enter');
+    await driver(exercise.input).answer(page, exercise.input, exercise.answer);
     await expect.poll(async () => (await game(page)).stone, { timeout: 8000 }).toBe(stone + 1);
   }
   const end = page.locator('#shop');
@@ -633,6 +631,42 @@ test('comparer : le signe posé entre les deux nombres, changé, puis validé, s
   await expect(card.locator('.comparison .between.right')).toHaveText(exercise.answer);
   await expect(card.locator('.choice button.right')).toHaveText(exercise.answer);
   await expect(card.locator('.praise')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('le QCM : une question du pavé parfois proposée parmi 4 nombres', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto('./?practice=times-tables.products&level=1&seed=3&stage=0&quality=low');
+  await page.evaluate(() => window.__numebois!.ready);
+  const card = page.locator('#question');
+  // The first question on the keypad, then right answers until one is offered among choices.
+  let exercise = await current(page);
+  expect(exercise.input.kind).toBe('keypad');
+  await expect(card.locator('.keypad')).toBeVisible();
+  for (let stone = 0; exercise.input.kind === 'keypad'; stone++) {
+    expect(stone).toBeLessThan(9);
+    await driver(exercise.input).answer(page, exercise.input, exercise.answer);
+    await expect.poll(async () => (await game(page)).stone).toBe(stone + 1);
+    exercise = await current(page);
+  }
+  if (exercise.input.kind !== 'choice') throw new Error(exercise.input.kind);
+  const choices = card.locator('.choice.numbers button');
+  await expect(choices).toHaveCount(4);
+  await expect(card.locator('.keypad')).toHaveCount(0);
+  expect(new Set(exercise.input.options).size).toBe(4);
+  expect(exercise.input.options).toContain(exercise.answer);
+  await expectSlateLayout(page);
+  const [wrongChoice] = driver(exercise.input).wrongs(exercise.input, exercise.answer);
+  await driver(exercise.input).answer(page, exercise.input, wrongChoice);
+  await expect(card.locator('.hint')).toContainText('Presque !');
+  await expect(
+    card.locator('.choice').getByRole('button', { name: shownChoice(wrongChoice), exact: true }),
+  ).toHaveClass(/tried/);
+  await expectSlateLayout(page);
+  await test.info().attach('QCM', { body: await page.screenshot(), contentType: 'image/png' });
+  await driver(exercise.input).answer(page, exercise.input, exercise.answer);
+  await expect(card.locator('.choice button.right')).toHaveText(exercise.answer);
   expect(errors).toEqual([]);
 });
 
