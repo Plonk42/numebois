@@ -11,8 +11,10 @@ export async function startTrail(page: Page) {
   await expect(page.locator('#question')).toBeVisible();
 }
 
-/** The exercise on the slate. */
+/** The exercise on the slate, once it waits for an answer. */
 export async function current(page: Page) {
+  // The stone counts as soon as the answer is right: the praised question stays a moment, locked.
+  await expect.poll(async () => (await game(page)).phase).toBe('asking');
   const statement = await page.locator('#question .statement').textContent();
   await expect.poll(async () => (await game(page)).exercise?.statement).toBe(statement);
   return (await game(page)).exercise!;
