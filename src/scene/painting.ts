@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { Rng } from '../core/rng';
+import type { AnimalName } from './animal-catalog';
 import type { AnimalLibrary } from './animals';
 import type { AssetLibrary } from './assets';
 import { MODELS } from './assets.gen';
@@ -47,6 +48,15 @@ const GROWTH_SECONDS = 3.6;
 const FINALE_BURSTS = 8;
 const FINALE_LAST_BURST_S = 1.5;
 const TAU = Math.PI * 2;
+/** Reach of a touch around what it aims at, in CSS pixels at least: a child's finger. */
+const TOUCH_PX = 36;
+/** A touched plant sways (squash and stretch) for this long, in seconds. */
+const SWAY_SECONDS = 1.4;
+
+const sway = (t: number) => 0.14 * Math.sin(t * 15) * Math.exp(-t * 3);
+
+/** What a touch of the child made react (#28). */
+export type Touched = { kind: 'animal'; name: AnimalName } | { kind: 'plant' };
 
 function foliagePalette(season: Season): readonly SwatchName[] {
   switch (season) {
@@ -137,6 +147,13 @@ export class Painting {
     number,
     { mesh: THREE.InstancedMesh; index: number; matrix: THREE.Matrix4 }[]
   >();
+  /** Instances of the groves placed by the child, with their matrix, to sway when touched. */
+  private readonly groves = new Map<
+    number,
+    { mesh: THREE.InstancedMesh; index: number; matrix: THREE.Matrix4 }[]
+  >();
+  private readonly swaying: { tree: number; slot: number; start: number }[] = [];
+  private readonly touchPoint = new THREE.Vector3();
   private readonly sprouting: { slot: number; start: number }[] = [];
   private readonly spinners: { pivot: THREE.Group; speed: number }[] = [];
   private readonly drifters: { mesh: THREE.Mesh; drifter: Drifter }[] = [];
@@ -230,16 +247,20 @@ export class Painting {
     );
     this.root.add(...instanced);
     const hidden = new THREE.Matrix4().makeScale(0, 0, 0);
+    const placed = new Set(description.elements.map((element) => element.slot));
     for (const [slot, pieces] of population.groves) {
-      if (!this.candidates.includes(slot)) continue;
-      this.hiddenGroves.set(
+      const candidate = this.candidates.includes(slot);
+      if (!candidate && !placed.has(slot)) continue;
+      (candidate ? this.hiddenGroves : this.groves).set(
         slot,
         pieces.map(({ model, index }) => {
           const mesh = instanced.find((m) => m.name === model)!;
           const matrix = new THREE.Matrix4();
           mesh.getMatrixAt(index, matrix);
-          mesh.setMatrixAt(index, hidden);
-          mesh.instanceMatrix.needsUpdate = true;
+          if (candidate) {
+            mesh.setMatrixAt(index, hidden);
+            mesh.instanceMatrix.needsUpdate = true;
+          }
           return { mesh, index, matrix };
         }),
       );
@@ -577,6 +598,7 @@ export class Painting {
       this.startGrowth(tree, 0, childTreeAge(next, slot), time, true);
     } else if (this.hiddenGroves.has(slot)) {
       this.sprouting.push({ slot, start: time });
+      this.groves.set(slot, this.hiddenGroves.get(slot)!);
     } else {
       return false;
     }
@@ -624,6 +646,88 @@ export class Painting {
       const point = points[Math.floor(((i + 0.5) * points.length) / count)];
       this.finaleBursts.push({ point, at: time + step * (i + 0.5) });
     }
+  }
+
+  /** Where the animals stand, and how tall they are. */
+  animalSpots(): ReturnType<Herd['spots']> {
+    return this.herd.spots();
+  }
+
+  /**
+   * A touch of the child at (x, y), CSS pixels on the canvas (#28): the animal or the plant
+   * nearest to it reacts. An animal jumps (`Herd.react`); a tree or a grove sways and throws
+   * a few leaves. Null when nothing is in reach or it already reacts.
+   */
+  touch(x: number, y: number, time: number): Touched | null {
+    const camera = this.stage.camera;
+    const width = this.stage.canvas.clientWidth;
+    const height = this.stage.canvas.clientHeight;
+    const p = this.touchPoint;
+    const best = { score: 1, react: null as (() => Touched | null) | null };
+    /**
+     * Distance from the touch to the upright stroke `tall` high at (px, py, pz), in reaches:
+     * `girth` of its length on the screen around it (an animal is as long as it is tall).
+     */
+    const consider = (
+      px: number,
+      py: number,
+      pz: number,
+      tall: number,
+      girth: number,
+      react: () => Touched | null,
+    ) => {
+      p.set(px, py, pz).project(camera);
+      if (p.z > 1) return;
+      const fx = ((p.x + 1) / 2) * width;
+      const fy = ((1 - p.y) / 2) * height;
+      p.set(px, py + tall, pz).project(camera);
+      const tx = ((p.x + 1) / 2) * width;
+      const ty = ((1 - p.y) / 2) * height;
+      const length = Math.hypot(tx - fx, ty - fy);
+      const along =
+        length > 0
+          ? Math.max(0, Math.min(1, ((x - fx) * (tx - fx) + (y - fy) * (ty - fy)) / length ** 2))
+          : 0;
+      const distance = Math.hypot(x - fx - (tx - fx) * along, y - fy - (ty - fy) * along);
+      const score = distance / Math.max(TOUCH_PX, girth * length);
+      if (score < best.score) {
+        best.score = score;
+        best.react = react;
+      }
+    };
+    // Animals first: they win a tie.
+    this.herd
+      .spots()
+      .forEach((spot, i) =>
+        consider(spot.x, spot.y, spot.z, spot.height, 0.8, () =>
+          this.herd.react(i, time, camera.position) ? { kind: 'animal', name: spot.name } : null,
+        ),
+      );
+    this.forest.trees.forEach((tree, i) => {
+      const age = this.forest.age(i);
+      if (age <= 0.05) return;
+      const tall = this.forest.infos[i].height * Math.max(0.3, Math.min(1, age));
+      consider(tree.x, tree.y, tree.z, tall, 0.3, () => this.sway(i, -1, tall, time));
+    });
+    for (const slot of this.groves.keys()) {
+      const point = this.slotPoint(slot);
+      if (point)
+        consider(point.x, point.y, point.z, 1.5, 0.6, () => this.sway(-1, slot, 1.5, time));
+    }
+    return best.react?.() ?? null;
+  }
+
+  /** A tree (or a grove: `slot`) sways and a few leaves fly out of it. */
+  private sway(tree: number, slot: number, tall: number, time: number): Touched | null {
+    if (this.swaying.some((s) => s.tree === tree && s.slot === slot)) return null;
+    if (this.growing.some((g) => g.tree === tree) || this.sprouting.some((s) => s.slot === slot)) {
+      return null;
+    }
+    this.swaying.push({ tree, slot, start: time });
+    const spot = tree >= 0 ? this.forest.trees[tree] : this.slotPoint(slot)!;
+    this.burstOrigin.set(spot.x, spot.y + tall * 0.6, spot.z);
+    this.leaves.burst(this.burstOrigin, time);
+    return { kind: 'plant' };
   }
 
   private startGrowth(tree: number, from: number, to: number, time: number, sprout: boolean) {
@@ -690,6 +794,21 @@ export class Painting {
         piece.mesh.instanceMatrix.needsUpdate = true;
       }
       if (a >= 1) this.sprouting.splice(i, 1);
+    }
+    for (let i = this.swaying.length - 1; i >= 0; i--) {
+      const s = this.swaying[i];
+      const t = time - s.start;
+      const stretch = t >= SWAY_SECONDS ? 1 : 1 + sway(t);
+      if (s.tree >= 0) {
+        this.forest.setStretch(s.tree, stretch);
+      } else {
+        for (const piece of this.groves.get(s.slot)!) {
+          this.scratch.makeScale(2 - stretch, stretch, 2 - stretch).premultiply(piece.matrix);
+          piece.mesh.setMatrixAt(piece.index, this.scratch);
+          piece.mesh.instanceMatrix.needsUpdate = true;
+        }
+      }
+      if (t >= SWAY_SECONDS) this.swaying.splice(i, 1);
     }
     this.lighting.beforeRender(this.stage.renderer);
   }

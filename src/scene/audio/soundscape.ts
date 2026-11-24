@@ -45,6 +45,9 @@ const REWARDS: Record<Reward, { sounds: readonly CallName[]; gain: number }> = {
 };
 /** Never two calls of a kind closer than this, in seconds. */
 const MIN_CALL_GAP = 6;
+/** A touched tree: a bird sings in it, louder than the calls, one song at a time (seconds). */
+const SONG_GAIN = 0.5;
+const SONG_GAP = 2.5;
 
 export type Family = 'air' | 'water' | 'birds' | 'insects';
 const FAMILIES: readonly Family[] = ['air', 'water', 'birds', 'insects'];
@@ -96,6 +99,7 @@ export class Soundscape {
   private readonly loops = new Map<LoopName, GainNode>();
   private readonly buffers = new Map<SoundName, AudioBuffer>();
   private readonly nextCall = new Map<CallLevel, number>();
+  private songUntil = 0;
   private readonly rng = new Rng(29);
   private timer = 0;
   private levels: SoundLevels | null = null;
@@ -165,6 +169,14 @@ export class Soundscape {
     const { sounds, gain } = REWARDS[kind];
     this.play(this.rng.pick(sounds), gain, this.rng.range(-0.3, 0.3), this.rewards);
     this.played.push(kind);
+  }
+
+  /** A bird sings in the plant the child touched (#28), panned from -1 (left) to 1 (right). */
+  song(pan: number): void {
+    const context = this.context;
+    if (this.state !== 'playing' || !context || context.currentTime < this.songUntil) return;
+    this.songUntil = context.currentTime + SONG_GAP;
+    this.play(this.rng.pick(CALLS.songs.sounds), SONG_GAIN, Math.max(-0.8, Math.min(0.8, pan)));
   }
 
   dispose(): void {

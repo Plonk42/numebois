@@ -20,10 +20,13 @@ import { MAX_EFFECT_TRIANGLES } from '../../src/scene/painting';
 import { candidateSlots, childTreeAge, plantTrees } from '../../src/scene/populate';
 import {
   animalState,
+  Herd,
   herdTriangles,
   planHerd,
   type AnimalState,
 } from '../../src/scene/render/ambient-life';
+import { createPlaceholderAnimals } from '../../src/scene/animals';
+import { ANIMALS } from '../../src/scene/animals.gen';
 import { BACKDROP_TRIANGLES } from '../../src/scene/render/backdrop';
 import type { InstanceBatch, InstanceModel } from '../../src/scene/render/instancing';
 import { QUALITIES, QUALITY, QualityGovernor } from '../../src/scene/render/quality';
@@ -283,6 +286,46 @@ describe('animals', () => {
         last = { x: state.x, z: state.z, yaw: state.yaw };
       }
     }
+  });
+
+  it('jump when touched, then go on with their day where they left it (#28)', () => {
+    const members = plan(7, LAST_STAGE);
+    const herd = new Herd(createPlaceholderAnimals(), members);
+    const camera = { x: 0, z: 80 };
+    const state = {} as AnimalState;
+    const where = (i: number) => {
+      const { x, z } = herd.spots()[i];
+      return { x, z };
+    };
+    // Touched while it walks.
+    let start = 0;
+    while (animalState(members[0], start, state).clip !== 'walk') start += 0.1;
+    start += 0.2;
+    herd.update(start);
+    const before = where(0);
+    expect(herd.react(0, start, camera)).toBe(true);
+    expect(herd.react(0, start + 0.5, camera)).toBe(false);
+    const length = 2 * 0.5 + 1.2 + ANIMALS[members[0].name].clips.jump;
+    for (let t = start; t < start + length - 0.05; t += 0.1) {
+      herd.update(t);
+      expect(where(0).x).toBeCloseTo(before.x, 6);
+      expect(where(0).z).toBeCloseTo(before.z, 6);
+    }
+    // Turned three-quarters towards the camera in the middle of it.
+    herd.update(start + 1);
+    const yaw = herd.group.children[0].rotation.y;
+    const towards = { x: camera.x - before.x, z: camera.z - before.z };
+    const cos =
+      (Math.sin(yaw) * towards.x + Math.cos(yaw) * towards.z) / Math.hypot(towards.x, towards.z);
+    expect(cos).toBeGreaterThan(0.5);
+    // Then its day goes on, late by the reaction; the others never stopped.
+    herd.update(start + 10);
+    animalState(members[0], start + 10 - length, state);
+    expect(where(0).x).toBeCloseTo(state.x, 5);
+    expect(where(0).z).toBeCloseTo(state.z, 5);
+    animalState(members[1], start + 10, state);
+    expect(where(1).x).toBeCloseTo(state.x, 5);
+    expect(herd.react(0, start + 10, camera)).toBe(true);
   });
 });
 

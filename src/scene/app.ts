@@ -4,7 +4,7 @@ import { loadAnimals, type AnimalLibrary } from './animals';
 import { loadAssets, type AssetLibrary } from './assets';
 import { Soundscape } from './audio/soundscape';
 import { parseDescription, stageFor, type SceneDescription } from './description';
-import { Painting, type PaintingStats } from './painting';
+import { Painting, type PaintingStats, type Touched } from './painting';
 import { animalPortrait } from './render/portrait';
 import { parseViewShares, type View } from './render/explore';
 import { QUALITY, QualityGovernor, parseQuality, type Quality } from './render/quality';
@@ -62,6 +62,8 @@ export class SceneApp {
   animals: AnimalLibrary | null = null;
   quality: Quality;
   onCounters: ((counters: SceneCounters) => void) | null = null;
+  /** What the child's touches made react, for the tests. */
+  readonly touches: Touched[] = [];
 
   private governor: QualityGovernor | null = null;
   private time = 0;
@@ -86,6 +88,13 @@ export class SceneApp {
     private readonly baseUrl: string,
   ) {
     this.stage = new Stage(canvas);
+    // Only while the child explores: never during a question (#28).
+    this.stage.explorer.onTap = (x, y) => {
+      const touched = this.painting?.touch(x, y, this.time);
+      if (!touched) return;
+      this.touches.push(touched);
+      if (touched.kind === 'plant') this.sound.song((2 * x) / canvas.clientWidth - 1);
+    };
     this.veil = document.createElement('div');
     this.veil.id = 'veil';
     this.veil.append(
@@ -235,6 +244,20 @@ export class SceneApp {
       x: ((point.x + 1) / 2) * canvas.clientWidth,
       y: ((1 - point.y) / 2) * canvas.clientHeight,
     };
+  }
+
+  /** Where each animal shows on the screen, in CSS pixels, at half its height. */
+  animalsOnScreen(): { name: AnimalName; x: number; y: number }[] {
+    const canvas = this.stage.canvas;
+    return (this.painting?.animalSpots() ?? []).map((spot) => {
+      const point = new THREE.Vector3(spot.x, spot.y + spot.height / 2, spot.z);
+      point.project(this.stage.camera);
+      return {
+        name: spot.name,
+        x: ((point.x + 1) / 2) * canvas.clientWidth,
+        y: ((1 - point.y) / 2) * canvas.clientHeight,
+      };
+    });
   }
 
   /**

@@ -26,6 +26,14 @@ const BLEND = 0.4;
 const TURN = 0.8;
 /** Places visited in turn by each animal. */
 const STOPS = 3;
+/**
+ * A touch of the child (#28): the animal stops, turns towards the camera in TURN_TO seconds
+ * (three-quarters, a profile reads better than a face), jumps, looks for LOOK seconds, turns
+ * back and goes on with its day where it left it.
+ */
+const TURN_TO = 0.5;
+const LOOK = 1.2;
+const FACING = 0.75;
 
 interface Point {
   x: number;
@@ -303,11 +311,28 @@ export function herdTriangles(members: readonly HerdMember[]): number {
   return members.reduce((sum, m) => sum + ANIMALS[m.name].triangles, 0);
 }
 
+interface Reaction {
+  start: number;
+  /** Time of the animal's day when it stopped. */
+  frozen: number;
+  /** Heading towards the camera. */
+  yaw: number;
+  length: number;
+}
+
+const smooth = (t: number) => t * t * (3 - 2 * t);
+
 /** The animals of a painting, posed every frame from the time alone. */
 export class Herd {
   readonly group = new THREE.Group();
   triangles = 0;
-  private readonly bodies: { member: HerdMember; body: AnimalBody }[] = [];
+  private readonly bodies: {
+    member: HerdMember;
+    body: AnimalBody;
+    /** Time spent reacting to touches, out of the animal's day. */
+    held: number;
+    reaction: Reaction | null;
+  }[] = [];
   private readonly state: AnimalState = {
     x: 0,
     y: 0,
@@ -336,20 +361,75 @@ export class Herd {
     const body = this.library.create(member.name);
     body.object.scale.setScalar(member.scale);
     this.group.add(body.object);
-    this.bodies.push({ member, body });
+    this.bodies.push({ member, body, held: 0, reaction: null });
     this.triangles += body.triangles;
+  }
+
+  /** Where each animal stands and how tall it is, to find the one the child touches. */
+  spots(): { name: AnimalName; x: number; y: number; z: number; height: number }[] {
+    return this.bodies.map(({ member, body }) => ({
+      name: member.name,
+      x: body.object.position.x,
+      y: body.object.position.y,
+      z: body.object.position.z,
+      height: (ANIMALS[member.name].max[1] - ANIMALS[member.name].min[1]) * member.scale,
+    }));
+  }
+
+  /** The animal `index` reacts to a touch, turning towards `toward`; false while it already does. */
+  react(index: number, time: number, toward: { x: number; z: number }): boolean {
+    const entry = this.bodies[index];
+    if (!entry || (entry.reaction && time < entry.reaction.start + entry.reaction.length)) {
+      return false;
+    }
+    if (entry.reaction) entry.held += entry.reaction.length;
+    const frozen = time - entry.held;
+    const s = animalState(entry.member, frozen, this.state);
+    const face = Math.atan2(toward.x - s.x, toward.z - s.z);
+    entry.reaction = {
+      start: time,
+      frozen,
+      yaw: s.yaw + wraps(face - s.yaw) * FACING,
+      length: 2 * TURN_TO + ANIMALS[entry.member.name].clips.jump + LOOK,
+    };
+    return true;
   }
 
   update(time: number): void {
     const s = this.state;
-    for (const { member, body } of this.bodies) {
-      animalState(member, time, s);
+    for (const entry of this.bodies) {
+      const { member, body, reaction } = entry;
+      if (reaction && time >= reaction.start + reaction.length) {
+        entry.held += reaction.length;
+        entry.reaction = null;
+      }
+      const r = entry.reaction;
+      animalState(member, r ? r.frozen : time - entry.held, s);
       body.object.position.set(s.x, s.y, s.z);
+      if (r) {
+        this.poseReaction(body, r, time - r.start, s);
+        continue;
+      }
       body.object.rotation.y = s.yaw;
       body.pose(s.clip, s.clipTime, s.blend);
       if (s.fading) body.pose(s.fading, s.fadingTime, 1 - s.blend);
       body.apply();
     }
+  }
+
+  /** The clip it was playing fades into a jump between two idles; it turns and turns back. */
+  private poseReaction(body: AnimalBody, r: Reaction, local: number, s: AnimalState): void {
+    const left = r.length - local;
+    const turn = smooth(Math.max(0, Math.min(1, local / TURN_TO, left / TURN_TO)));
+    body.object.rotation.y = s.yaw + wraps(r.yaw - s.yaw) * turn;
+    const own = Math.max(0, Math.min(1, local / BLEND, left / BLEND));
+    const jumpLength = r.length - 2 * TURN_TO - LOOK;
+    const jumpTime = local - TURN_TO;
+    const jump = Math.max(0, Math.min(1, (jumpTime + 0.15) / 0.15, (jumpLength - jumpTime) / 0.3));
+    body.pose(s.clip, s.clipTime, 1 - own);
+    body.pose('idle', local, own * (1 - jump));
+    body.pose('jump', Math.max(0, Math.min(jumpTime, jumpLength - 1e-3)), own * jump);
+    body.apply();
   }
 
   dispose(): void {

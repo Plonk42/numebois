@@ -34,6 +34,9 @@ declare global {
       };
       game(): GameProbe | null;
       view(): ReturnType<SceneApp['view']>;
+      animals(): ReturnType<SceneApp['animalsOnScreen']>;
+      slot(slot: number): ReturnType<SceneApp['slotOnScreen']>;
+      touches(): SceneApp['touches'];
     };
   }
 }
@@ -178,6 +181,9 @@ window.__numebois = {
   }),
   game: () => game && { ...game },
   view: () => app.view(),
+  animals: () => app.animalsOnScreen(),
+  slot: (slot) => app.slotOnScreen(slot),
+  touches: () => [...app.touches],
 };
 mountSoundButton(app.sound);
 
