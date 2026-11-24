@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { PLUME_FILE, type PlumeClip } from './plume-catalog';
+import { screenPixelRatio } from './render/stage';
 
 export type PlumeMood = 'calm' | 'talk' | 'cheer';
 
@@ -95,7 +96,7 @@ export class PlumeView {
         antialias: true,
       });
     }
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    this.renderer.setPixelRatio(Math.min(screenPixelRatio(), 2));
     this.renderer.setSize(width, height, false);
     const camera = this.camera;
     camera.left = -width / 2 / PX_PER_UNIT;

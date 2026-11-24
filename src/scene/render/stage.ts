@@ -17,6 +17,11 @@ const NEAR = 5;
 /** The camera tour of the grand finale (#33), in seconds. */
 export const TOUR_SECONDS = 9;
 
+/** Screen pixels per CSS pixel, the page scale of a phone (index.html) included. */
+export function screenPixelRatio(): number {
+  return (window.devicePixelRatio || 1) * (window.visualViewport?.scale ?? 1);
+}
+
 /**
  * Renderer, camera and frame loop. The camera frames a box and breathes slightly; the child
  * may explore around that framing when the game allows it.
@@ -72,11 +77,11 @@ export class Stage {
     this.resize();
   }
 
-  /** Resolution is capped: min(devicePixelRatio, cap of the quality tier). */
+  /** Resolution is capped: min(screen pixels per CSS pixel, cap of the quality tier). */
   resize(): void {
     const width = this.canvas.clientWidth || window.innerWidth;
     const height = this.canvas.clientHeight || window.innerHeight;
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, this.pixelRatioCap));
+    this.renderer.setPixelRatio(Math.min(screenPixelRatio(), this.pixelRatioCap));
     this.renderer.setSize(width, height, false);
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
