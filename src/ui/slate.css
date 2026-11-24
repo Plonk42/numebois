@@ -708,15 +708,18 @@
 }
 
 /* The drill (#40): where it starts, from the stump, big entries then the notion and its facts. */
-#drill-menu .options {
+#drill-menu .options,
+#challenge-menu .options {
   align-self: stretch;
   display: grid;
   gap: 12px;
 }
-#drill-menu .entries {
+#drill-menu .entries,
+#challenge-menu .baskets {
   grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
 }
-#drill-menu .entry {
+#drill-menu .entry,
+#challenge-menu .entry {
   min-height: 132px;
   display: flex;
   flex-direction: column;
@@ -726,7 +729,8 @@
   font-size: 26px;
   border: 3px solid #cfe3c4;
 }
-#drill-menu .entry svg {
+#drill-menu .entry svg,
+#challenge-menu .entry svg {
   width: 56px;
   height: 56px;
 }
@@ -753,12 +757,14 @@
   stroke-width: 2;
   stroke-linejoin: round;
 }
-#drill-menu .skills {
+#drill-menu .skills,
+#challenge-menu .skills {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   max-height: calc(100vh - 300px);
   overflow-y: auto;
 }
-#drill-menu .skills button {
+#drill-menu .skills button,
+#challenge-menu .skills button {
   padding: 8px 12px;
   font-size: 22px;
   line-height: 28px;
@@ -802,11 +808,15 @@
   width: 560px;
 }
 #drill-menu .actions,
-#drill-break .actions {
+#drill-break .actions,
+#challenge-menu .actions,
+#challenge-end .actions {
   justify-content: center;
 }
 #drill-menu .actions button,
-#drill-break .actions button {
+#drill-break .actions button,
+#challenge-menu .actions button,
+#challenge-end .actions button {
   min-width: 220px;
 }
 #drill-break .facts {
@@ -845,10 +855,106 @@
   fill: #e3e9dc;
   stroke: #cfd8c6;
 }
-#drill-break .legend {
+#drill-break .legend,
+#challenge-end .legend {
   font-size: 18px;
   line-height: 22px;
   color: #5a6e5f;
+}
+
+/* The challenges (#43): the sun crosses the sky over the slate, warmer towards the end, never
+   red; the acorns of the basket only go up. */
+#challenge-menu .record {
+  font-size: 17px;
+  font-weight: 400;
+  color: #5a6e5f;
+}
+.sun-icon .rays {
+  stroke: #f2b33a;
+  stroke-width: 3.5;
+  stroke-linecap: round;
+}
+.sun-icon .disc {
+  fill: #ffd85a;
+  stroke: #e2a42a;
+  stroke-width: 2;
+}
+.acorn-icon {
+  width: 28px;
+  height: 28px;
+  vertical-align: -6px;
+}
+.acorn-icon .nut {
+  fill: #c98a4a;
+  stroke: #8a5a2b;
+  stroke-width: 1.5;
+}
+.acorn-icon .cap {
+  fill: #7a5230;
+  stroke: #5a3a1e;
+  stroke-width: 1.5;
+}
+.acorn-icon .stem {
+  stroke: #5a3a1e;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+.challenge-bar {
+  position: absolute;
+  left: 40px;
+  right: 40px;
+  top: -22px;
+  height: 56px;
+  pointer-events: none;
+}
+.challenge-bar > svg {
+  width: calc(100% - 96px);
+  height: 100%;
+}
+.challenge-bar .sky {
+  fill: none;
+  stroke: #f6e3a8;
+  stroke-width: 4;
+  stroke-dasharray: 2 10;
+  stroke-linecap: round;
+}
+.challenge-bar .sun .glow {
+  fill: rgba(255, 226, 122, 0.45);
+}
+.challenge-bar .sun .disc {
+  fill: #ffd85a;
+  stroke: #e2a42a;
+  stroke-width: 2;
+}
+.challenge-bar .sun.evening .disc {
+  fill: #ffb45a;
+  stroke: #e28a2a;
+}
+.challenge-bar .acorns {
+  position: absolute;
+  right: 0;
+  top: 10px;
+  padding: 2px 12px 2px 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(0, 30, 20, 0.2);
+  font-size: 26px;
+  font-variant-numeric: tabular-nums;
+  color: #6b4a2b;
+}
+.challenge-bar .acorns b {
+  animation: leaf-pop 0.4s cubic-bezier(0.3, 1.7, 0.5, 1);
+}
+#challenge-end {
+  width: 560px;
+}
+#challenge-end .seed-icon {
+  width: 26px;
+  height: 26px;
+  vertical-align: -5px;
 }
 
 /* The end of the round in sight, at the bottom: flat and quiet, like the stones of the trail. */

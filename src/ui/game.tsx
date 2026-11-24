@@ -1,13 +1,24 @@
-import { render } from 'preact';
+import { render, type ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { isoDate, today } from '../core/day';
+import { Challenge, challengeable } from '../core/challenge';
 import { Drill, fragileFacts, type DrillTarget } from '../core/drill';
 import {
   LEAVES_PER_ELEMENT,
   LEAVES_PER_RIGHT_ANSWER,
   SEEDS_PER_ACHIEVEMENT,
+  SEEDS_PER_CHALLENGE,
 } from '../core/economy';
 import { Rng } from '../core/rng';
+import {
+  bestOf,
+  challengeLevel,
+  ending,
+  goal,
+  type Attempt,
+  type ChallengeFormat,
+  type Ending,
+} from '../core/records';
 import { Session, type Achievement, type SessionSnapshot } from '../core/session';
 import { stepLevel, type StepRole, type TrailLength } from '../core/trail';
 import type { Exercise, FactId, Skill, SkillId } from '../core/types';
@@ -35,8 +46,17 @@ import type { TrailArt } from '../scene/render/trail-art';
 import type { Season } from '../scene/trees/builder';
 import { AlbumButton, AlbumGrid, AlbumPage } from './album';
 import { Basket } from './basket';
+import { CHALLENGE_NAME, ChallengeBar, ChallengeEnd, ChallengeMenu } from './challenge';
 import { Carnet, CarnetButton } from './carnet';
-import { DrillBreak, DrillMenu, RoundPebbles, roundFacts, Stump } from './drill';
+import {
+  DrillBreak,
+  DrillMenu,
+  Garland,
+  RoundPebbles,
+  roundFacts,
+  TuftButton,
+  DRILL_NAME,
+} from './drill';
 import { FinaleBanner, Frame, NextPainting, type NextChoice } from './finale';
 import { ParentMenu } from './parent-menu';
 import { Plume, type PlumeMood } from './plume';
@@ -74,6 +94,24 @@ const DRILL_REVEAL_MS = 1800;
 export const DRILL_ROUND = 20;
 /** After this long in a drill, Plume offers a pause once. */
 const DRILL_PAUSE_MS = 15 * 60_000;
+/** In a challenge, the next question comes at once; the sun moves this often. */
+const CHALLENGE_RIGHT_MS = 300;
+const CHALLENGE_TICK_MS = 250;
+
+/** Whose questions the slate asks. */
+type Mode = 'trail' | 'drill' | 'challenge';
+const DONE_TITLES: Record<Mode, string> = {
+  trail: 'Sentier terminé !',
+  drill: 'Rafale terminée !',
+  challenge: 'Défi terminé !',
+};
+
+/** How a challenge ended, and what to aim at next time. */
+interface ChallengeResult {
+  attempt: Attempt;
+  ending: Ending;
+  next: number;
+}
 
 type Phase =
   | 'walking'
@@ -83,6 +121,8 @@ type Phase =
   | 'seed'
   | 'drill-menu'
   | 'break'
+  | 'challenge-menu'
+  | 'challenge-end'
   | 'shop'
   | 'choosing'
   | 'planting'
@@ -156,6 +196,7 @@ export interface GameProbe {
   phase: Phase;
   /** The questions are those of a drill, not of the trail. */
   drilling: boolean;
+  mode: Mode;
   stone: number;
   stones: number;
   role: StepRole | null;
@@ -256,15 +297,23 @@ function Game(props: Props) {
   const [turnFrom, setTurnFrom] = useState<Phase>('walking');
   /** The drill in progress, its garland of right answers in a row, and how its last round ends. */
   const drill = useRef<Drill | null>(null);
-  const [drilling, setDrilling] = useState(false);
+  /** Whose questions the slate asks. */
+  const [mode, setMode] = useState<Mode>('trail');
+  const drilling = mode === 'drill';
   const [garland, setGarland] = useState(0);
   const [pause, setPause] = useState(false);
   const drillStart = useRef(0);
   const pauseOffered = useRef(false);
   /** The facts met in the round, shown with their progress at its end. */
   const met = useRef(new Map<FactId, Skill>());
+  /** The challenge in progress, then how it ended. */
+  const challenge = useRef<Challenge | null>(null);
+  const [challengeEnd, setChallengeEnd] = useState<ChallengeResult | null>(null);
+  const [, setTick] = useState(0);
   /** What ended last: the summary says it. */
-  const [ended, setEnded] = useState<'trail' | 'drill'>('trail');
+  const [ended, setEnded] = useState<Mode>('trail');
+  const phaseNow = useRef(phase);
+  phaseNow.current = phase;
   const timer = useRef(0);
   const shownAt = useRef(performance.now());
   const firstAnswerMs = useRef<number | null>(null);
@@ -287,6 +336,7 @@ function Game(props: Props) {
       basket,
       grown,
       phase,
+      mode,
       drilling,
       stone: finished ? session.stones : session.stone,
       stones: session.stones,
@@ -317,6 +367,25 @@ function Game(props: Props) {
     forest.explore(roaming ? setViewAway : null);
     if (!roaming) setViewAway(false);
   }, [roaming]);
+  // The sun crosses the sky; the basket's time may run out while the child thinks.
+  useEffect(() => {
+    if (mode !== 'challenge' || phase !== 'asking') return;
+    const id = window.setInterval(() => {
+      if (challenge.current?.over) finishChallenge();
+      else setTick((t) => t + 1);
+    }, CHALLENGE_TICK_MS);
+    return () => clearInterval(id);
+  }, [mode, phase]);
+  // The game hidden, the challenge's time stops.
+  useEffect(() => {
+    if (mode !== 'challenge') return;
+    const onVisibility = () => {
+      if (document.hidden) challenge.current?.pause();
+      else if (phaseNow.current === 'asking') challenge.current?.resume();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, [mode]);
   // A painting completed before the game stopped: its grand finale, or the next one to choose.
   useEffect(() => {
     if (!isComplete(forest.description())) return;
@@ -377,6 +446,10 @@ function Game(props: Props) {
       nextDrill();
       return;
     }
+    if (mode === 'challenge') {
+      nextChallenge();
+      return;
+    }
     if (session.advance()) {
       ask();
       return;
@@ -418,7 +491,7 @@ function Game(props: Props) {
     drillStart.current = performance.now();
     pauseOffered.current = false;
     met.current.clear();
-    setDrilling(true);
+    setMode('drill');
     setGarland(0);
     setLeavesHere(0);
     setSeedsHere(0);
@@ -446,10 +519,15 @@ function Game(props: Props) {
   const stopDrill = () => {
     if (phase !== 'break') return;
     drill.current = null;
-    setDrilling(false);
+    leave('drill');
+  };
+
+  /** Back to the walk after a drill or a challenge: the basket pours into the reserve. */
+  const leave = (from: Mode) => {
+    setMode('trail');
     // The trail waiting keeps a question of its own.
     if (!finished) setQuestion(session.ask());
-    setEnded('drill');
+    setEnded(from);
     setDone(true);
     setPhase('walking');
   };
@@ -459,6 +537,60 @@ function Game(props: Props) {
     if (phase !== 'break') return;
     if (!pause) met.current.clear();
     show(drill.current!.ask());
+  };
+
+  /** The acquired notions with a challenge: the sign waits for the first one. */
+  const challenges = challengeable(props.skills, session.progress);
+
+  const startChallenge = (skill: Skill, format: ChallengeFormat) => {
+    const level = challengeLevel(
+      session.progress.get(skill.id)?.level ?? 0,
+      session.attempts(skill.id, format),
+    );
+    const now = () => performance.now();
+    const rngOf = new Rng(rng.int(0, 2 ** 31));
+    challenge.current = new Challenge(session, skill, format, level, rngOf, now);
+    if (mode !== 'challenge') {
+      setLeavesHere(0);
+      setSeedsHere(0);
+      setBasket(0);
+    }
+    setMode('challenge');
+    setChallengeEnd(null);
+    nextChallenge();
+  };
+
+  const nextChallenge = () => {
+    const current = challenge.current!;
+    if (current.over) {
+      finishChallenge();
+      return;
+    }
+    current.resume();
+    show({ skill: current.skill, exercise: current.ask() });
+  };
+
+  /** The basket is full of what it got: always good news, a golden seed for trying. */
+  const finishChallenge = () => {
+    const current = challenge.current!;
+    current.pause();
+    clearTimeout(timer.current);
+    const {
+      skill: { id },
+      format,
+    } = current;
+    const before = session.attempts(id, format);
+    const attempt = current.attempt(today());
+    session.addAttempt(id, format, attempt);
+    setChallengeEnd({
+      attempt,
+      ending: ending(format, before, attempt),
+      next: goal(format, session.attempts(id, format))!,
+    });
+    setSeeds((s) => s + SEEDS_PER_CHALLENGE);
+    setSeedsHere((s) => s + SEEDS_PER_CHALLENGE);
+    forest.reward('seed');
+    setPhase('challenge-end');
   };
 
   /** One touch in the shop: an element waits for its place, an animal or a season comes at once. */
@@ -621,6 +753,10 @@ function Game(props: Props) {
       answerDrill(value, firstAnswerMs.current);
       return;
     }
+    if (mode === 'challenge') {
+      answerChallenge(value, firstAnswerMs.current);
+      return;
+    }
     if (!skill.validate(exercise, value)) {
       setMistakes(mistakes + 1);
       if (mistakes + 1 >= 2) {
@@ -652,6 +788,21 @@ function Game(props: Props) {
     }
     note(achievements);
     setGarland(0);
+    setPhase('reveal');
+    later(DRILL_REVEAL_MS, proceed);
+  };
+
+  /** One try in a challenge, the clock stopped until the next question: a mistake costs no time. */
+  const answerChallenge = (value: string, ms: number) => {
+    const current = challenge.current!;
+    current.pause();
+    const right = skill.validate(exercise, value);
+    const achievements = current.conclude(exercise, right, ms);
+    if (right) {
+      reward(achievements, CHALLENGE_RIGHT_MS);
+      return;
+    }
+    note(achievements);
     setPhase('reveal');
     later(DRILL_REVEAL_MS, proceed);
   };
@@ -724,8 +875,20 @@ function Game(props: Props) {
   const waiting = shown === 'walking' && !done;
   // Away from the framing, the landscape alone: the trail comes back with it.
   const exploring = waiting && viewAway;
-  // During a drill, the trail has nothing to show: out of sight.
-  const aside = (!waiting && !onTrail && !done) || exploring || drilling;
+  // During a drill or a challenge, the trail has nothing to show: out of sight.
+  const aside = (!waiting && !onTrail && !done) || exploring || mode !== 'trail';
+  let over: ComponentChildren = null;
+  if (drilling) over = <Garland leaves={garland} />;
+  else if (mode === 'challenge' && challenge.current) {
+    const { format, results } = challenge.current;
+    const total = format.kind === 'basket' ? format.seconds * 1000 : 1;
+    over = (
+      <ChallengeBar
+        time={1 - challenge.current.remaining() / total}
+        acorns={results.filter(Boolean).length}
+      />
+    );
+  }
   // A golden seed: the slate steps aside, the forest lights up.
   const away = phase === 'seed';
   let plume: PlumeMood = 'calm';
@@ -772,7 +935,20 @@ function Game(props: Props) {
         aside={aside}
       />
       {drillable.length > 0 && (
-        <Stump art={art} onOpen={free && !exploring ? () => setPhase('drill-menu') : undefined} />
+        <TuftButton
+          id="stump"
+          sprite={art?.stump}
+          name={DRILL_NAME}
+          onOpen={free && !exploring ? () => setPhase('drill-menu') : undefined}
+        />
+      )}
+      {challenges.length > 0 && (
+        <TuftButton
+          id="challenge-sign"
+          sprite={art?.challenge}
+          name={CHALLENGE_NAME}
+          onOpen={free && !exploring ? () => setPhase('challenge-menu') : undefined}
+        />
       )}
       {drilling && onTrail && drill.current && <DrillPebbles drill={drill.current} />}
       {/* During a question, the forest dims: one thing at a time. */}
@@ -839,7 +1015,7 @@ function Game(props: Props) {
           plume={plume}
           hint={hint}
           basket={basket}
-          garland={drilling ? garland : undefined}
+          over={over}
         >
           <Widget
             key={round}
@@ -855,10 +1031,34 @@ function Game(props: Props) {
         <>
           {done && (
             <TrailDone
-              title={ended === 'drill' ? 'Rafale terminée !' : 'Sentier terminé !'}
+              title={DONE_TITLES[ended]}
               leaves={leavesHere}
               seeds={seedsHere}
               basket={basket}
+            />
+          )}
+          {phase === 'challenge-menu' && (
+            <ChallengeMenu
+              skills={challenges}
+              best={(s, format) => bestOf(format, session.attempts(s.id, format))?.score ?? null}
+              onStart={(s, format) => {
+                if (phase === 'challenge-menu') startChallenge(s, format);
+              }}
+              onClose={() => setPhase('walking')}
+            />
+          )}
+          {phase === 'challenge-end' && challengeEnd && (
+            <ChallengeEnd
+              {...challengeEnd}
+              basket={basket}
+              onMore={() => {
+                const { skill: s, format } = challenge.current!;
+                startChallenge(s, format);
+              }}
+              onStop={() => {
+                challenge.current = null;
+                leave('challenge');
+              }}
             />
           )}
           {phase === 'drill-menu' && (
@@ -1009,6 +1209,7 @@ export function mountGame(
     grown: 0,
     phase: home ? 'walking' : 'asking',
     drilling: false,
+    mode: 'trail',
     stone: 0,
     stones: session.stones,
     role: null,

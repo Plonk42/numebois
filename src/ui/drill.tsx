@@ -11,36 +11,42 @@ import { LeafIcon } from './reserve';
 /** The name of the drill, written on its stump. */
 export const DRILL_NAME = 'Rafale';
 
-interface StumpProps {
-  art: TrailArt | null;
-  /** Between two trails, a touch opens the drill; out of sight otherwise. */
+interface TuftProps {
+  id: string;
+  /** Drawn with the models of the forest; nothing shows while they load. */
+  sprite: TrailArt['stump'] | undefined;
+  /** Written on its plank. */
+  name: string;
+  /** Between two trails, a touch opens it; out of sight otherwise. */
   onOpen?: () => void;
 }
 
-/** The stump of the drill, at the bottom right, beside the trail and like its sign. */
-export function Stump({ art, onOpen }: StumpProps) {
-  if (!art) return null;
-  const { stump } = art;
+/**
+ * A way in on its tuft of grass, beside the trail and like its sign: the stump of the drill
+ * at the bottom right, the sign of the challenges at the bottom left.
+ */
+export function TuftButton({ id, sprite, name, onOpen }: TuftProps) {
+  if (!sprite) return null;
   return (
     <button
       type="button"
-      id="stump"
-      class={onOpen ? 'open' : 'aside'}
-      aria-label={DRILL_NAME}
-      style={{ width: `${stump.width}px`, height: `${stump.height}px` }}
+      id={id}
+      class={`tuft ${onOpen ? 'open' : 'aside'}`}
+      aria-label={name}
+      style={{ width: `${sprite.width}px`, height: `${sprite.height}px` }}
       onPointerDown={onOpen}
     >
-      <img src={stump.url} alt="" draggable={false} />
+      <img src={sprite.url} alt="" draggable={false} />
       <span
         style={{
-          left: `${stump.label.x}px`,
-          top: `${stump.label.y}px`,
-          width: `${stump.label.width}px`,
-          height: `${stump.label.height}px`,
-          lineHeight: `${stump.label.height}px`,
+          left: `${sprite.label.x}px`,
+          top: `${sprite.label.y}px`,
+          width: `${sprite.label.width}px`,
+          height: `${sprite.label.height}px`,
+          lineHeight: `${sprite.label.height}px`,
         }}
       >
-        {DRILL_NAME}
+        {name}
       </span>
     </button>
   );

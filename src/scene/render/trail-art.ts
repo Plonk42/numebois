@@ -35,6 +35,8 @@ export interface TrailArt {
   };
   /** The stump of the drill (« Rafale »), on its own tuft of grass, and where its word goes. */
   stump: Sprite & { label: { x: number; y: number; width: number; height: number } };
+  /** The sign of the challenges (« Défi »), acorns at its foot, and where its word goes. */
+  challenge: TrailArt['stump'];
 }
 
 /** CSS pixels per world unit of the art: its size at the bottom of the screen. */
@@ -469,13 +471,14 @@ function signSprite(stage: Stage, kit: Kit, stand: readonly [number, number]): T
   };
 }
 
-// The stump of the drill, in world units: a mossy stump on a round tuft of grass, a small
-// plank with its word leaning on its front.
+// The stump of the drill and the sign of the challenges, in world units: each on a round tuft
+// of grass, a small plank with its word facing the camera.
 const STUMP_PITCH = (30 * Math.PI) / 180;
 const STUMP_BOX: [number, number, number, number] = [-62, 62, 62, 30];
 const STUMP_PLANK = [58, 19] as const;
 
-function stumpSprite(stage: Stage, kit: Kit): TrailArt['stump'] {
+/** A round tuft of grass with a few blades, a stone and two flowers. */
+function tuft(kit: Kit): THREE.Scene {
   const scene = new THREE.Scene();
   lights(scene);
   const grass = kit.mesh(tile(118, 60, 28, 6), [
@@ -484,7 +487,6 @@ function stumpSprite(stage: Stage, kit: Kit): TrailArt['stump'] {
   ]);
   scene.add(
     grass,
-    kit.model('Stump_Moss', 66, 0, 0, -8, 0.5),
     kit.model('Grass_1_A', 16, -44, 0, 6, 0.4),
     kit.model('Grass_2_B', 12, 46, 0, 2, 2.2),
     kit.model('Grass_1_A', 14, 40, 0, -16, 1.3),
@@ -501,7 +503,11 @@ function stumpSprite(stage: Stage, kit: Kit): TrailArt['stump'] {
     bloom.position.set(x, 2, z);
     scene.add(bloom);
   }
-  // Pale wood, like the sign of the trail, facing the camera.
+  return scene;
+}
+
+/** A plank of pale wood, like the sign of the trail, its front face towards +z. */
+function plank(kit: Kit): THREE.Mesh {
   const pale = paletteColor('Brown', 0).lerp(paletteColor('Birch', 0), 0.2);
   const [width, height] = STUMP_PLANK;
   const edge = kit.flat(paletteColor('Brown', 0.62));
@@ -512,19 +518,12 @@ function stumpSprite(stage: Stage, kit: Kit): TrailArt['stump'] {
     flatShading: true,
   });
   // Box faces: ±x, ±y, then +z, the front, and -z.
-  const plank = kit.mesh(new THREE.BoxGeometry(width, height, 3), [
-    edge,
-    edge,
-    edge,
-    edge,
-    face,
-    edge,
-  ]);
-  const front = new THREE.Group();
-  front.position.set(0, height / 2 + 2, 26);
-  front.rotation.x = -0.3;
-  front.add(plank);
-  scene.add(front);
+  return kit.mesh(new THREE.BoxGeometry(width, height, 3), [edge, edge, edge, edge, face, edge]);
+}
+
+/** Draws the tuft, and where the words of its plank (in `front`) go on the sprite. */
+function tuftSprite(stage: Stage, scene: THREE.Scene, front: THREE.Object3D): TrailArt['stump'] {
+  const [width, height] = STUMP_PLANK;
   const view = camera(new THREE.Vector3(0, 16, 0), STUMP_PITCH, 0, STUMP_BOX);
   const w = (STUMP_BOX[1] - STUMP_BOX[0]) * TRAIL_ZOOM;
   const h = (STUMP_BOX[2] + STUMP_BOX[3]) * TRAIL_ZOOM;
@@ -544,6 +543,54 @@ function stumpSprite(stage: Stage, kit: Kit): TrailArt['stump'] {
   };
 }
 
+/** A mossy stump, the plank leaning on its front. */
+function stumpSprite(stage: Stage, kit: Kit): TrailArt['stump'] {
+  const scene = tuft(kit);
+  scene.add(kit.model('Stump_Moss', 66, 0, 0, -8, 0.5));
+  const front = new THREE.Group();
+  front.position.set(0, STUMP_PLANK[1] / 2 + 2, 26);
+  front.rotation.x = -0.3;
+  front.add(plank(kit));
+  scene.add(front);
+  return tuftSprite(stage, scene, front);
+}
+
+/** A post, the plank nailed on top, and a heap of acorns at its foot. */
+function challengeSprite(stage: Stage, kit: Kit): TrailArt['stump'] {
+  const scene = tuft(kit);
+  const post = kit.mesh(
+    new THREE.CylinderGeometry(3.4, 4, 34, 6),
+    kit.flat(paletteColor('DarkBark', 0.42)),
+  );
+  post.position.set(0, 17, 0);
+  scene.add(post);
+  const front = new THREE.Group();
+  front.position.set(0, 34, 4);
+  front.rotation.z = 0.04;
+  front.add(plank(kit));
+  scene.add(front);
+  const nut = kit.flat(paletteColor('Brown', 0.35));
+  const cap = kit.flat(paletteColor('DarkBark', 0.6));
+  for (const [x, z, turn] of [
+    [-16, 18, 0.3],
+    [-8, 22, -0.4],
+    [-12, 12, 0.1],
+    [12, 20, 0.5],
+    [20, 15, -0.2],
+  ] as const) {
+    const acorn = new THREE.Group();
+    const body = kit.mesh(new THREE.SphereGeometry(4, 6, 5), nut);
+    body.scale.set(0.85, 1.1, 0.85);
+    const top = kit.mesh(new THREE.SphereGeometry(4.4, 6, 3, 0, Math.PI * 2, 0, Math.PI / 2), cap);
+    top.position.y = 2.4;
+    acorn.add(body, top);
+    acorn.position.set(x, 4, z);
+    acorn.rotation.z = turn;
+    scene.add(acorn);
+  }
+  return tuftSprite(stage, scene, front);
+}
+
 /** Draws the trail of `stones` stones and its sign with the models and colours of the forest. */
 export function trailArt(stage: Stage, assets: AssetLibrary, stones: number): TrailArt {
   const kit = new Kit(assets);
@@ -554,6 +601,7 @@ export function trailArt(stage: Stage, assets: AssetLibrary, stones: number): Tr
       stone: stoneSprites(stage, kit),
       sign: signSprite(stage, kit, stand),
       stump: stumpSprite(stage, kit),
+      challenge: challengeSprite(stage, kit),
     };
   } finally {
     kit.dispose();
