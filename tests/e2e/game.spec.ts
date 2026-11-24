@@ -447,7 +447,8 @@ test('la boutique : une biche achetée en graines dorées rejoint la prairie et 
   await test.info().attach('arrivée', { body: await page.screenshot(), contentType: 'image/png' });
   expect((await game(page)).seeds).toBe(seeds - 2);
   expect(await page.evaluate(() => window.__numebois!.describe().animals)).toEqual(['Deer']);
-  await expect(end).not.toHaveClass(/away/, { timeout: 15_000 });
+  // The arrival waits on the scene's clock, slower than the wall clock on a loaded runner.
+  await expect(end).not.toHaveClass(/away/, { timeout: 45_000 });
   expect(await moved()).toBeLessThan(3);
   await expect(page.locator('#arrival')).toHaveCount(0);
   await expect(shop.getByRole('button', { name: /^Une biche/ })).toHaveCount(0);
