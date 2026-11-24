@@ -58,8 +58,8 @@ const SEED_FLY_MS = 1000;
 /** At the end of the trail, Plume pours her basket into the reserve, leaf after leaf. */
 const POUR_START_MS = 700;
 const POUR_STEP_MS = 150;
-/** A big basket (a long drill) pours faster: never longer than this. */
-const POUR_MAX_MS = 2000;
+/** A big basket (a long drill) pours by handfuls: never more steps than this. */
+const POUR_STEPS = 12;
 /** Then « Sentier terminé ! » stays a moment before the forest is all the child's. */
 const DONE_MS = 2000;
 /** The finished painting stays framed a moment, then the light comes over it. */
@@ -348,8 +348,8 @@ function Game(props: Props) {
       return () => clearTimeout(id);
     }
     const id = window.setTimeout(
-      () => setBasket((b) => b - 1),
-      basket === leavesHere ? POUR_START_MS : Math.min(POUR_STEP_MS, POUR_MAX_MS / leavesHere),
+      () => setBasket((b) => Math.max(0, b - Math.ceil(leavesHere / POUR_STEPS))),
+      basket === leavesHere ? POUR_START_MS : POUR_STEP_MS,
     );
     return () => clearTimeout(id);
   }, [done, basket]);

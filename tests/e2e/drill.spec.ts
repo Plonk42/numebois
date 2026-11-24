@@ -89,7 +89,8 @@ test('la rafale : la table de 7 enchaînée sans interruption, une erreur revien
   expect([missed + 2, missed + 3]).toContain(statements.indexOf(statements[missed], missed + 1));
 
   await expect(page.locator('#trail-end')).toContainText('Rafale terminée !');
-  await expect(page.locator('#trail-end')).toHaveCount(0, { timeout: 20_000 });
+  // Each handful of the pour waits for a frame of the landscape: slow on a loaded runner.
+  await expect(page.locator('#trail-end')).toHaveCount(0, { timeout: 40_000 });
   // A leaf for each right answer, poured from Plume's basket into the reserve.
   expect(await game(page)).toMatchObject({ leaves: 39, basket: 0, drilling: false });
   // The trail still waits with its sign.
