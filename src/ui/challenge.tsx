@@ -248,3 +248,67 @@ export function ChallengeEnd({ format, attempt, ending, next, basket, onMore, on
     </section>
   );
 }
+
+interface OfferProps {
+  skill: Skill;
+  onAccept(): void;
+  onDecline(): void;
+}
+
+/** After a trail ended on right answers, once per session: a squirrel offers a challenge. */
+export function SquirrelOffer({ skill, onAccept, onDecline }: OfferProps) {
+  return (
+    <section id="squirrel" class="card" aria-live="polite">
+      <SquirrelIcon />
+      <p class="praise">Un écureuil passe !</p>
+      <p class="instruction">{'Il te propose le panier de glands de 30\u00a0secondes.'}</p>
+      <p class="legend">{skill.name}</p>
+      <div class="actions">
+        <button type="button" class="next" onPointerDown={onAccept}>
+          D’accord !
+        </button>
+        <button type="button" onPointerDown={onDecline}>
+          Non merci
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function SquirrelIcon() {
+  return (
+    <svg class="squirrel" viewBox="0 0 96 96" aria-hidden="true">
+      <path
+        class="tail"
+        d="M58 84C86 82 94 52 80 30 72 18 56 18 54 30c10 0 16 10 12 22-4 12-12 20-8 32z"
+      />
+      <path class="body" d="M24 84c0-18 6-32 20-34 12 2 18 14 16 34z" />
+      <circle class="body" cx="38" cy="40" r="15" />
+      <path class="body" d="M28 30l-2-12 9 8M44 27l4-11 3 12" />
+      <circle class="eye" cx="33" cy="38" r="2.6" />
+      <path class="belly" d="M34 82c0-12 4-22 10-24 6 2 8 12 7 24z" />
+      <AcornShape />
+    </svg>
+  );
+}
+
+function AcornShape() {
+  return (
+    <g transform="translate(18 52)">
+      <path class="nut" d="M0 6h12c0 6-3 10-6 11-3-1-6-5-6-11z" />
+      <path class="cap" d="M-2 6c0-4 4-6 8-6s8 2 8 6z" />
+    </g>
+  );
+}
+
+/** A flash question: discreet, on the frame of the slate, no time shown. */
+export function FlashBadge() {
+  return (
+    <div class="flash-badge" aria-label="Éclair">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M13 2L4 14h7l-1 8 9-12h-7z" />
+      </svg>
+      Éclair
+    </div>
+  );
+}

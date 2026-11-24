@@ -158,6 +158,7 @@ const ready = sceneOnly
             'break',
             'challenge-menu',
             'challenge-end',
+            'squirrel',
             'shop',
             'choosing',
             'planting',

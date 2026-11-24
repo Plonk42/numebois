@@ -1,6 +1,6 @@
 import { CLEARING } from './helpers';
 import { describe, expect, it } from 'vitest';
-import { Challenge, challengeable } from '../../src/core/challenge';
+import { Challenge, challengeable, squirrelComes } from '../../src/core/challenge';
 import { curriculum } from '../../src/core/registry';
 import {
   addAttempt,
@@ -128,6 +128,12 @@ describe('challenges', () => {
     expect(challengeLevel(4, [{ day: 1, score: 3, rate: 0.6, level: 4 }])).toBe(4);
     expect(challengeLevel(4, [{ day: 1, score: 3, rate: 0.4, level: 4 }])).toBe(3);
     expect(challengeLevel(4, [{ day: 1, score: 3, rate: 0.4, level: 0 }])).toBe(0);
+  });
+
+  it('bring the squirrel only after a trail ending on right answers', () => {
+    expect(squirrelComes([false, true, true, true])).toBe(true);
+    expect(squirrelComes([true, true, false, true])).toBe(false);
+    expect(squirrelComes([true, true])).toBe(false);
   });
 
   it('keep the last attempts only', () => {

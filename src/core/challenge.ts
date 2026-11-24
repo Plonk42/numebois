@@ -15,6 +15,20 @@ export function challengeable(
   return skills.filter((skill) => skill.challenge && isAcquired(progress.get(skill.id)));
 }
 
+/** Right answers in a row at the end of a trail before the squirrel offers a challenge. */
+export const SQUIRREL_AFTER_RIGHT = 3;
+
+/** The squirrel never comes just after a mistake: the last answers of the trail were right. */
+export function squirrelComes(results: readonly boolean[]): boolean {
+  const last = results.slice(-SQUIRREL_AFTER_RIGHT);
+  return last.length === SQUIRREL_AFTER_RIGHT && last.every(Boolean);
+}
+
+/** A trail question on a challenge notion is a flash bonus this often, once per trail at most. */
+export const FLASH_SHARE = 0.25;
+/** A flash bonus is won by a right first answer within this time. */
+export const FLASH_MS = 5000;
+
 /**
  * A timed challenge on a notion, kind and without pressure: a mistake costs no time, the
  * clock stops while the game is hidden or the answer is shown (`pause`), and the answers go to

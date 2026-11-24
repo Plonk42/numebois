@@ -998,6 +998,80 @@
   vertical-align: -5px;
 }
 
+/* The squirrel's offer (#45), after a trail ended well: refusable at once. */
+#squirrel {
+  width: 560px;
+}
+#squirrel .squirrel {
+  position: absolute;
+  left: -70px;
+  top: -64px;
+  width: 120px;
+  height: 120px;
+  filter: drop-shadow(0 4px 6px rgba(0, 30, 20, 0.3));
+}
+.squirrel .tail {
+  fill: #d0793a;
+  stroke: #8a4a1e;
+  stroke-width: 2;
+}
+.squirrel .body {
+  fill: #c96d30;
+  stroke: #8a4a1e;
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+.squirrel .belly {
+  fill: #f3d2a8;
+}
+.squirrel .eye {
+  fill: #2f2014;
+}
+.squirrel .nut {
+  fill: #c98a4a;
+  stroke: #8a5a2b;
+  stroke-width: 1.5;
+}
+.squirrel .cap {
+  fill: #7a5230;
+}
+#squirrel .actions {
+  justify-content: center;
+}
+#squirrel .actions button {
+  min-width: 220px;
+}
+#squirrel .legend {
+  font-size: 18px;
+  color: #5a6e5f;
+}
+
+/* A flash question, discreet on the frame of the slate: no time shown. */
+.flash-badge {
+  position: absolute;
+  right: 28px;
+  top: -16px;
+  padding: 2px 12px 2px 6px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border-radius: 16px;
+  background: #fff6cf;
+  box-shadow: 0 2px 6px rgba(0, 30, 20, 0.2);
+  font-size: 18px;
+  font-weight: 700;
+  color: #8a6a10;
+  pointer-events: none;
+}
+.flash-badge svg {
+  width: 22px;
+  height: 22px;
+  fill: #ffd85a;
+  stroke: #c59a1a;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+
 /* The end of the round in sight, at the bottom: flat and quiet, like the stones of the trail. */
 #drill-round {
   position: fixed;

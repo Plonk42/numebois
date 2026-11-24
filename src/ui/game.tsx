@@ -1,13 +1,14 @@
 import { render, type ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { isoDate, today } from '../core/day';
-import { Challenge, challengeable } from '../core/challenge';
+import { Challenge, challengeable, FLASH_MS, FLASH_SHARE, squirrelComes } from '../core/challenge';
 import { Drill, fragileFacts, type DrillTarget } from '../core/drill';
 import {
   LEAVES_PER_ELEMENT,
   LEAVES_PER_RIGHT_ANSWER,
   SEEDS_PER_ACHIEVEMENT,
   SEEDS_PER_CHALLENGE,
+  LEAVES_PER_FLASH,
 } from '../core/economy';
 import { Rng } from '../core/rng';
 import {
@@ -48,7 +49,15 @@ import type { Quality } from '../scene/render/quality';
 import type { TrailArt } from '../scene/render/trail-art';
 import { AlbumButton, AlbumGrid, AlbumPage } from './album';
 import { Basket } from './basket';
-import { CHALLENGE_NAME, ChallengeBar, ChallengeEnd, ChallengeMenu, RaceBar } from './challenge';
+import {
+  CHALLENGE_NAME,
+  ChallengeBar,
+  ChallengeEnd,
+  ChallengeMenu,
+  FlashBadge,
+  RaceBar,
+  SquirrelOffer,
+} from './challenge';
 import { Carnet, CarnetButton } from './carnet';
 import {
   DrillBreak,
@@ -126,6 +135,7 @@ type Phase =
   | 'break'
   | 'challenge-menu'
   | 'challenge-end'
+  | 'squirrel'
   | 'shop'
   | 'choosing'
   | 'planting'
@@ -200,6 +210,8 @@ export interface GameProbe {
   /** The questions are those of a drill, not of the trail. */
   drilling: boolean;
   mode: Mode;
+  /** The question asked is a flash bonus. */
+  flash: boolean;
   stone: number;
   stones: number;
   role: StepRole | null;
@@ -313,6 +325,12 @@ function Game(props: Props) {
   const challenge = useRef<Challenge | null>(null);
   const [challengeEnd, setChallengeEnd] = useState<ChallengeResult | null>(null);
   const [, setTick] = useState(0);
+  /** The squirrel's challenge, offered once per session after a trail ended well. */
+  const [offer, setOffer] = useState<Skill | null>(null);
+  const offered = useRef(false);
+  /** The question asked is a flash bonus; one per trail at most. */
+  const [flash, setFlash] = useState(false);
+  const flashUsed = useRef(false);
   /** What ended last: the summary says it. */
   const [ended, setEnded] = useState<Mode>('trail');
   const phaseNow = useRef(phase);
@@ -340,6 +358,7 @@ function Game(props: Props) {
       grown,
       phase,
       mode,
+      flash,
       drilling,
       stone: finished ? session.stones : session.stone,
       stones: session.stones,
@@ -416,7 +435,10 @@ function Game(props: Props) {
   useEffect(() => {
     if (!done) return;
     if (basket === 0) {
-      const id = window.setTimeout(() => setDone(false), DONE_MS);
+      const id = window.setTimeout(() => {
+        setDone(false);
+        if (ended === 'trail') offerChallenge();
+      }, DONE_MS);
       return () => clearTimeout(id);
     }
     const id = window.setTimeout(
@@ -433,13 +455,25 @@ function Game(props: Props) {
     timer.current = window.setTimeout(action, ms);
   };
 
-  const ask = () => show(session.ask(exercise));
+  /** The next question of the trail; now and then on a challenge notion, a flash bonus. */
+  const ask = () => {
+    const question = session.ask(exercise);
+    const chance =
+      !flashUsed.current &&
+      question.exercise.input.kind === 'keypad' &&
+      challenges.some((s) => s.id === question.skill.id) &&
+      rng.chance(FLASH_SHARE);
+    show(question);
+    if (chance) flashUsed.current = true;
+    setFlash(chance);
+  };
 
   const show = (question: { skill: Skill; exercise: Exercise }) => {
     setQuestion(question);
     setMistakes(0);
     setRound((r) => r + 1);
     setPhase('asking');
+    setFlash(false);
     shownAt.current = performance.now();
     firstAnswerMs.current = null;
   };
@@ -476,6 +510,7 @@ function Game(props: Props) {
     setLeavesHere(0);
     setSeedsHere(0);
     setBasket(0);
+    flashUsed.current = false;
     ask();
   };
 
@@ -544,6 +579,14 @@ function Game(props: Props) {
 
   /** The acquired notions with a challenge: the sign waits for the first one. */
   const challenges = challengeable(props.skills, session.progress);
+
+  /** After a trail ended on right answers, once per session, the squirrel offers a challenge. */
+  const offerChallenge = () => {
+    if (offered.current || challenges.length === 0 || !squirrelComes(session.results)) return;
+    offered.current = true;
+    setOffer(rng.pick(challenges));
+    setPhase('squirrel');
+  };
 
   const startChallenge = (skill: Skill, format: ChallengeFormat) => {
     const level = challengeLevel(
@@ -777,7 +820,8 @@ function Game(props: Props) {
       firstAnswerMs.current,
       false,
     );
-    reward(achievements, PRAISE_MS);
+    const flashWon = flash && mistakes === 0 && firstAnswerMs.current <= FLASH_MS;
+    reward(achievements, PRAISE_MS, flashWon ? LEAVES_PER_FLASH : 0);
   };
 
   /** One try in a drill: a missed answer shows a moment, then the next question comes. */
@@ -828,15 +872,16 @@ function Game(props: Props) {
     }));
   };
 
-  /** A right answer: praise and a leaf, golden seeds for what it taught, then the next question. */
-  const reward = (achievements: readonly Achievement[], praiseMs: number) => {
+  /** A right answer: praise and a leaf (and a flash bonus), golden seeds for what it taught. */
+  const reward = (achievements: readonly Achievement[], praiseMs: number, bonus = 0) => {
     note(achievements);
-    setPraise(rng.pick(PRAISES));
+    setPraise(bonus > 0 ? 'Éclair !' : rng.pick(PRAISES));
     setPhase('right');
     forest.reward('right');
-    setLeaves(leaves + LEAVES_PER_RIGHT_ANSWER);
-    setLeavesHere(leavesHere + LEAVES_PER_RIGHT_ANSWER);
-    setBasket(basket + LEAVES_PER_RIGHT_ANSWER);
+    const earned = LEAVES_PER_RIGHT_ANSWER + bonus;
+    setLeaves(leaves + earned);
+    setLeavesHere(leavesHere + earned);
+    setBasket(basket + earned);
     const steps: Step[] = [];
     if (achievements.length > 0) {
       const count = achievements.length * SEEDS_PER_ACHIEVEMENT;
@@ -884,6 +929,7 @@ function Game(props: Props) {
   const aside = (!waiting && !onTrail && !done) || exploring || mode !== 'trail';
   let over: ComponentChildren = null;
   if (drilling) over = <Garland leaves={garland} />;
+  else if (flash && mode === 'trail') over = <FlashBadge />;
   else if (mode === 'challenge' && challenge.current) {
     const current = challenge.current;
     const { format, results } = current;
@@ -1047,6 +1093,15 @@ function Game(props: Props) {
               leaves={leavesHere}
               seeds={seedsHere}
               basket={basket}
+            />
+          )}
+          {phase === 'squirrel' && offer && (
+            <SquirrelOffer
+              skill={offer}
+              onAccept={() => {
+                if (phase === 'squirrel') startChallenge(offer, { kind: 'basket', seconds: 30 });
+              }}
+              onDecline={() => setPhase('walking')}
             />
           )}
           {phase === 'challenge-menu' && (
@@ -1222,6 +1277,7 @@ export function mountGame(
     phase: home ? 'walking' : 'asking',
     drilling: false,
     mode: 'trail',
+    flash: false,
     stone: 0,
     stones: session.stones,
     role: null,

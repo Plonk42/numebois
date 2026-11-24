@@ -6,6 +6,8 @@ export const LEAVES_PER_RIGHT_ANSWER = 1;
 export const SEEDS_PER_ACHIEVEMENT = 1;
 /** Golden seeds earned by a challenge played, whatever its score. */
 export const SEEDS_PER_CHALLENGE = 1;
+/** Leaves added by a flash bonus won in the trail. */
+export const LEAVES_PER_FLASH = 1;
 /** Leaves of a new element in the shop of the forest (#83). */
 export const LEAVES_PER_ELEMENT = 4;
 /** Golden seeds of an animal in the shop of the forest (#83). */
