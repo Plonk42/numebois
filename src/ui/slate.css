@@ -809,3 +809,76 @@
 #drill-break .actions button {
   min-width: 220px;
 }
+#drill-break .facts {
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  list-style: none;
+}
+#drill-break .fact {
+  padding: 4px 10px 4px 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 2px 0 #e3e9dc;
+  font-size: 22px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+#drill-break .fact.known {
+  background: #fff6cf;
+  box-shadow: 0 0 0 2px #f2d46b;
+}
+#drill-break .days {
+  display: flex;
+}
+#drill-break .day svg {
+  width: 20px;
+  height: 20px;
+}
+#drill-break .day:not(.on) .leaf-icon {
+  fill: #e3e9dc;
+  stroke: #cfd8c6;
+}
+#drill-break .legend {
+  font-size: 18px;
+  line-height: 22px;
+  color: #5a6e5f;
+}
+
+/* The end of the round in sight, at the bottom: flat and quiet, like the stones of the trail. */
+#drill-round {
+  position: fixed;
+  bottom: 14px;
+  left: 50%;
+  z-index: 4;
+  padding: 8px 14px;
+  display: flex;
+  gap: 8px;
+  border-radius: 20px;
+  background: rgba(255, 251, 240, 0.55);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+#drill-round .pebble {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.75);
+  box-shadow: inset 0 -2px 0 rgba(90, 110, 95, 0.25);
+}
+#drill-round .pebble.crossed {
+  background: #7cc46a;
+  box-shadow: inset 0 -2px 0 #4a8f3a;
+}
+#drill-round .pebble.here {
+  background: #ffe27a;
+  box-shadow:
+    inset 0 -2px 0 #e2c35a,
+    0 0 6px rgba(255, 226, 122, 0.9);
+}

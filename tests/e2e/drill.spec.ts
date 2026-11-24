@@ -65,11 +65,22 @@ test('la rafale : la table de 7 enchaînée sans interruption, une erreur revien
       await driver(exercise.input).answer(page, exercise.input, exercise.answer);
     }
     await expect(page.locator('#question .hint')).toHaveCount(0);
-    if (i === 3) await expect(garland).toHaveCount(4);
-    // A round of 20: another one, or the end.
+    if (i === 3) {
+      await expect(garland).toHaveCount(4);
+      // The end of the round in sight: 20 pebbles, 4 crossed.
+      await expect(page.locator('#drill-round .pebble')).toHaveCount(20);
+      await expect(page.locator('#drill-round .pebble.crossed')).toHaveCount(4);
+    }
+    // A round of 20: the facts met and their leaves, then another round or the end.
     if (i === 19 || i === 39) {
       const pause = page.locator('#drill-break');
-      await expect(pause).toContainText(`${i + 1} calculs !`);
+      await expect(pause).toContainText(`${i + 1} questions !`);
+      await expect(page.locator('#drill-round')).toHaveCount(0);
+      const facts = await pause.locator('.fact .label').allTextContents();
+      expect(facts.length).toBeGreaterThan(0);
+      for (const fact of facts) expect(fact).toMatch(/\b7\b/);
+      // Answered at once today: a leaf on the way to « by heart ».
+      expect(await pause.locator('.day.on').count()).toBeGreaterThan(0);
       if (i === 19) await pause.getByRole('button', { name: 'Encore !' }).click();
       else await pause.getByRole('button', { name: 'J’ai fini' }).click();
     }
