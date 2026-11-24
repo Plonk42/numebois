@@ -97,6 +97,32 @@ describe('sauvegarde', () => {
     expect(parsed.ok && parsed.data.facts).toEqual([]);
   });
 
+  it('keeps the challenges played, and opens a save written before them', () => {
+    const session = played();
+    const basket = { kind: 'basket', seconds: 30 } as const;
+    session.addAttempt('mental-math.add', basket, { day: 200, score: 12, rate: 0.8, level: 4 });
+    const data = {
+      ...session.snapshot(),
+      leaves: 0,
+      seeds: 0,
+      trailLength: 'normal' as const,
+      painting: PAINTING,
+      journal: JOURNAL,
+    };
+    const parsed = parseSave(serializeSave(data, new Date()), SKILLS);
+    expect(parsed.ok && parsed.data.records).toEqual([
+      {
+        skill: 'mental-math.add',
+        format: 'basket-30',
+        attempts: [{ day: 200, score: 12, rate: 0.8, level: 4 }],
+      },
+    ]);
+    const before = JSON.parse(serializeSave(data, new Date())) as Record<string, unknown>;
+    delete before.records;
+    const old = parseSave(JSON.stringify(before), SKILLS);
+    expect(old.ok && old.data.records).toEqual([]);
+  });
+
   it.each([
     ['not JSON', '{', 'pas une sauvegarde'],
     ['another file', '[1, 2]', 'pas une sauvegarde'],
@@ -116,6 +142,7 @@ describe('sauvegarde', () => {
           progress,
           facts: [],
           history: [],
+          records: [],
           leaves: 0,
           seeds: 0,
           trailLength: 'normal',

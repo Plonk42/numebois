@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import type { Exercise } from '../../src/core/types';
-import { current, driver, game, loadSave, wrong } from './helpers';
+import { answered, current, driver, game, loadSave, wrong } from './helpers';
 
 test('la rafale : la table de 7 enchaînée sans interruption, une erreur revient, puis la fin', async ({
   page,
@@ -63,6 +63,7 @@ test('la rafale : la table de 7 enchaînée sans interruption, une erreur revien
       await expect(garland).toHaveCount(0);
     } else {
       await driver(exercise.input).answer(page, exercise.input, exercise.answer);
+      await answered(page, exercise);
     }
     await expect(page.locator('#question .hint')).toHaveCount(0);
     if (i === 3) {

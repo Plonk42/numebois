@@ -1,5 +1,6 @@
 import type { FactProgress } from '../core/facts';
 import { newProgress, type SkillProgress, type Stage } from '../core/mastery';
+import type { Attempt, ChallengeRecord } from '../core/records';
 import type { SessionSnapshot } from '../core/session';
 import type { TrailLength } from '../core/trail';
 import type { FactId, Skill, SkillId } from '../core/types';
@@ -81,6 +82,26 @@ function isFact(value: unknown): value is FactProgress {
   );
 }
 
+function isRecord(value: unknown): value is ChallengeRecord {
+  return (
+    isObject(value) &&
+    isText(value.skill) &&
+    isText(value.format) &&
+    isList(
+      value.attempts,
+      (a): a is Attempt =>
+        isObject(a) &&
+        isDay(a.day) &&
+        typeof a.score === 'number' &&
+        a.score >= 0 &&
+        typeof a.rate === 'number' &&
+        a.rate >= 0 &&
+        a.rate <= 1 &&
+        isCount(a.level),
+    )
+  );
+}
+
 /**
  * Reads a save written by this version. Notions and facts unknown to the registry are
  * ignored; anything else unexpected refuses the whole save, with a reason for the parent.
@@ -111,7 +132,9 @@ export function parseSave(json: string, skills: readonly Skill[]): ParsedSave {
     !isJournal(value.journal) ||
     !isList(value.progress, isProgress) ||
     !isList(value.facts, isFact) ||
-    !isList(value.history, (h): h is boolean => typeof h === 'boolean')
+    !isList(value.history, (h): h is boolean => typeof h === 'boolean') ||
+    // Saves written before the challenges (#43) have none.
+    (value.records !== undefined && !isList(value.records, isRecord))
   ) {
     return { ok: false, reason: 'Sauvegarde abîmée : des données manquent.' };
   }
@@ -136,6 +159,7 @@ export function parseSave(json: string, skills: readonly Skill[]): ParsedSave {
         .map((p) => ({ ...p, level: Math.min(p.level, levels.get(p.skill)! - 1) })),
       facts: value.facts.filter((f) => facts.has(f.fact)),
       history: value.history,
+      records: (value.records ?? []).filter((r) => levels.has(r.skill)),
     },
   };
 }
@@ -169,6 +193,7 @@ export function practiceSave(
       progress: skill ? [{ ...newProgress(skill.id), stage: 'learning', level: at }] : [],
       facts: [],
       history: [],
+      records: [],
     },
   };
 }

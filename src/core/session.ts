@@ -1,6 +1,13 @@
 import { CHOICE_SHARE, offerChoices } from './choices';
 import { isAutomated, recordFact, newFact, type FactProgress } from './facts';
 import { isAcquired, newProgress, record, type SkillProgress } from './mastery';
+import {
+  addAttempt,
+  formatKey,
+  type Attempt,
+  type ChallengeFormat,
+  type ChallengeRecord,
+} from './records';
 import type { Rng } from './rng';
 import { composeTrail, revisit, stepLevel, type TrailLength, type TrailStep } from './trail';
 import type { Exercise, ExerciseContext, FactId, Skill, SkillId } from './types';
@@ -21,6 +28,8 @@ export type Achievement =
 export class Session {
   readonly progress = new Map<SkillId, SkillProgress>();
   readonly facts = new Map<FactId, FactProgress>();
+  /** Challenges played, by notion and format (`records.ts`). */
+  readonly records = new Map<string, ChallengeRecord>();
   trail: TrailStep[] = [];
   index = 0;
   /** Stones of the path: the size of the trail when it was composed. */
@@ -152,6 +161,7 @@ export class Session {
       progress: [...this.progress.values()],
       facts: [...this.facts.values()],
       history: [...this.history],
+      records: [...this.records.values()],
     };
   }
 
@@ -161,12 +171,29 @@ export class Session {
     this.facts.clear();
     for (const f of snapshot.facts) this.facts.set(f.fact, f);
     this.history = snapshot.history.slice(-HISTORY);
+    this.records.clear();
+    for (const r of snapshot.records) this.records.set(recordKey(r.skill, r.format), r);
+  }
+
+  /** The attempts of a notion's challenge in a format, the oldest first. */
+  attempts(skill: SkillId, format: ChallengeFormat): Attempt[] {
+    return this.records.get(recordKey(skill, formatKey(format)))?.attempts ?? [];
+  }
+
+  addAttempt(skill: SkillId, format: ChallengeFormat, attempt: Attempt): void {
+    const key = formatKey(format);
+    const record = this.records.get(recordKey(skill, key)) ?? { skill, format: key, attempts: [] };
+    this.records.set(recordKey(skill, key), addAttempt(record, attempt));
   }
 }
+
+const recordKey = (skill: SkillId, format: string) => `${skill}|${format}`;
 
 export interface SessionSnapshot {
   progress: SkillProgress[];
   facts: FactProgress[];
   /** Right first answers of the last trails. */
   history: boolean[];
+  /** The challenges played, per notion and format. */
+  records: ChallengeRecord[];
 }

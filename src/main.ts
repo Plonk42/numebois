@@ -93,7 +93,7 @@ const ready = sceneOnly
           start: () => undefined,
           answer: () => undefined,
           give: () => undefined,
-          progress: () => ({ progress: [], facts: [], history: [] }),
+          progress: () => ({ progress: [], facts: [], history: [], records: [] }),
           step: () => ({ skill: '', level: 0 }),
         };
         game = mountGame(
@@ -156,6 +156,8 @@ const ready = sceneOnly
             'seed',
             'drill-menu',
             'break',
+            'challenge-menu',
+            'challenge-end',
             'shop',
             'choosing',
             'planting',

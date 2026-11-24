@@ -79,6 +79,7 @@ describe('Album', () => {
         progress: [],
         facts: [],
         history: [],
+        records: [],
         leaves: 2,
         seeds: 1,
         trailLength: 'short',

@@ -22,6 +22,19 @@ export async function current(page: Page) {
   return (await game(page)).exercise!;
 }
 
+/**
+ * The answer to `exercise` was taken: in a drill or a challenge, the next question may come
+ * before the probe shows anything else, so a different question counts too.
+ */
+export async function answered(page: Page, exercise: { statement: string }) {
+  await expect
+    .poll(async () => {
+      const now = await game(page);
+      return now.phase !== 'asking' || now.exercise?.statement !== exercise.statement;
+    })
+    .toBe(true);
+}
+
 /** A wrong answer: the expected one with its last digit changed. */
 export function wrong(answer: string): string {
   const last = Number(answer.at(-1));
