@@ -12,7 +12,7 @@ test('la rafale : la table de 7 enchaînée sans interruption, une erreur revien
   await page.evaluate(() => window.__numebois!.ready);
   // The tables are under way, one fact often missed: « Mes faits fragiles » has it.
   await loadSave(page, {
-    version: 5,
+    version: 6,
     savedAt: '2026-11-23T10:00:00.000Z',
     leaves: 0,
     seeds: 0,

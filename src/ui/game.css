@@ -352,6 +352,16 @@
   stroke: #6b9ad8;
   stroke-width: 5;
 }
+.season-icon .moon {
+  fill: #ffe9a3;
+  stroke: #5a6fb8;
+  stroke-width: 2.5;
+}
+.season-icon .star {
+  fill: #ffd85a;
+  stroke: #5a6fb8;
+  stroke-width: 1.5;
+}
 
 /* A walk in the forest: the forest everywhere; at the top centre, once the view has left it,
    the whole forest again. */

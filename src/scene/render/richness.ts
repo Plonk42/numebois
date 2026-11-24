@@ -28,6 +28,12 @@ interface Light {
  */
 export interface Ambience extends Light {
   name: string;
+  /** The night (#85): moon instead of sun, stars in the sky. */
+  night: boolean;
+  /** Share of the lit colours turned to a moonlit blue grey (`nightVeil`). */
+  veil: number;
+  /** Darkness of the shadows (1 = full) and blur of their edges, in shadow map texels. */
+  shadow: { strength: number; blur: number };
   /** Densities, as factors of the full amounts. */
   grass: number;
   flowers: number;
@@ -257,6 +263,7 @@ export interface SeasonLight {
   hemisphereGround?: Tint;
   sun?: Tint;
   sunIntensity?: number;
+  hemisphereIntensity?: number;
 }
 
 // Each season pulls the light of the stage towards its own colours: the golden finale stays
@@ -300,20 +307,43 @@ function tint(color: number, pull: Tint | undefined): number {
   return pull ? mixColor(color, pull[0], pull[1]) : color;
 }
 
-/** Ambience of a stage, adjusted for the décor and the season. */
+// The night (#85) pulls the light of the stage and its season to a cartoon moonlight: a deep
+// blue sky, a blue shade still light enough to read the painting, a silver moon. A little of
+// the season stays (the snow, the gold of the last stage).
+const NIGHT_LIGHT: SeasonLight = {
+  zenith: [0x0c1640, 0.92],
+  horizon: [0x3a4c88, 0.85],
+  nadir: [0x263463, 0.88],
+  fog: [0x2b3a6e, 0.85],
+  hemisphereSky: [0x6f86d4, 0.85],
+  hemisphereGround: [0x283358, 0.85],
+  sun: [0xcad8ff, 0.85],
+  sunIntensity: 0.45,
+  hemisphereIntensity: 0.72,
+};
+/** Fireflies at night, whatever the stage (outside winter). */
+const NIGHT_FIREFLIES = 0.7;
+/** The colours fade under the moon; the shadows soften. */
+const NIGHT_VEIL = 0.45;
+const NIGHT_SHADOW = { strength: 0.45, blur: 7 };
+
+/** Ambience of a stage, adjusted for the décor, the season and the night. */
 export function ambienceFor(
   stage: Stage,
   season: Season,
   look: BiomeLook = CLEARING_LOOK,
+  night = false,
 ): Ambience {
   const light = lightOf(stage);
-  for (const s of look.light ? [look.light, SEASON_LIGHT[season]] : [SEASON_LIGHT[season]]) {
+  const pulls = [look.light, SEASON_LIGHT[season], night ? NIGHT_LIGHT : undefined];
+  for (const s of pulls.filter((pull) => pull !== undefined)) {
     light.sky.zenith = tint(light.sky.zenith, s.zenith);
     light.sky.horizon = tint(light.sky.horizon, s.horizon);
     light.sky.nadir = tint(light.sky.nadir, s.nadir);
     light.fog.color = tint(light.fog.color, s.fog);
     light.hemisphere.sky = tint(light.hemisphere.sky, s.hemisphereSky);
     light.hemisphere.ground = tint(light.hemisphere.ground, s.hemisphereGround);
+    light.hemisphere.intensity *= s.hemisphereIntensity ?? 1;
     light.sun.color = tint(light.sun.color, s.sun);
     light.sun.intensity *= s.sunIntensity ?? 1;
   }
@@ -321,6 +351,9 @@ export function ambienceFor(
   const a: Ambience = {
     ...light,
     name: look.stageNames[stage],
+    night,
+    veil: night ? NIGHT_VEIL : 0,
+    shadow: night ? NIGHT_SHADOW : { strength: 1, blur: 2.5 },
     grass: LIFE.grass[stage],
     flowers: LIFE.flowers[stage],
     bushes: LIFE.bushes[stage],
@@ -391,6 +424,29 @@ export function ambienceFor(
     sound.chorus *= 0.3;
     sound.birds *= 0.5;
     sound.leaves *= 0.6;
+  }
+  if (night) {
+    // Only the life and the sound change: the plants (densities) stay as by day.
+    a.wind *= 0.6;
+    a.sun.glow = 0.5;
+    a.butterflies = 0;
+    a.birds = 0;
+    a.sunRays = 0;
+    a.rainbow = 0;
+    if (season !== 'winter') {
+      a.pollen *= 0.3;
+      a.fireflies = Math.max(a.fireflies, NIGHT_FIREFLIES);
+    }
+    // The birds sleep: crickets, the tawny owl and the water.
+    sound.wind *= 0.8;
+    sound.birds = 0;
+    sound.chorus = 0;
+    sound.meadow = 0;
+    sound.songs = 0;
+    sound.woodpecker = 0;
+    sound.cuckoo = 0;
+    sound.owl = Math.max(sound.owl, 1);
+    if (season !== 'winter') sound.crickets = Math.max(sound.crickets, 0.35);
   }
   return a;
 }

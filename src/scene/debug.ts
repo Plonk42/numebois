@@ -165,6 +165,19 @@ export function mountDebugPanel(app: SceneApp): HTMLElement {
         apply();
       }),
     ]),
+    element('label', {}, [
+      'Moment',
+      select(
+        'debug-night',
+        ['day', 'night'] as const,
+        { day: 'Jour', night: 'Nuit' },
+        app.description.night === 'shown' ? 'night' : 'day',
+        (moment) => {
+          app.description = { ...app.description, night: moment === 'night' ? 'shown' : 'none' };
+          apply();
+        },
+      ),
+    ]),
     element('label', {}, ['Graine', seed]),
     element('label', {}, ['Emplacements', fill]),
     fillValue,

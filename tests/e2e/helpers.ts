@@ -111,6 +111,7 @@ export async function loadSave(page: Page, save: object) {
     stage: 0,
     season: 'summer',
     seasons: ['summer'],
+    night: 'none',
     elements: [],
     animals: [],
   };

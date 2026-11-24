@@ -22,7 +22,13 @@ import {
   type HerdMember,
 } from './render/ambient-life';
 import { Lighting, sunDirection } from './render/lighting';
-import { createMaterials, paletteColor, type SceneMaterials } from './render/materials';
+import {
+  createMaterials,
+  nightVeil,
+  paletteColor,
+  veiled,
+  type SceneMaterials,
+} from './render/materials';
 import {
   applyFog,
   Flappers,
@@ -34,6 +40,7 @@ import {
   GLOW_SPARKLE,
   RAINBOW_TRIANGLES,
   GlowPoints,
+  Lamps,
   Leaves,
   Rainbow,
   SunRays,
@@ -60,6 +67,10 @@ const TOUCH_PX = 36;
 const SWAY_SECONDS = 1.4;
 
 const sway = (t: number) => 0.14 * Math.sin(t * 15) * Math.exp(-t * 3);
+
+/** Warm light of the lit windows and lamps at night (#85), linear. */
+const WINDOW_GLOW = new THREE.Color().setRGB(2.6, 1.4, 0.5);
+const LAMP_COLOR = new THREE.Color(0xffb04a);
 
 /** What a touch of the child made react (#28). */
 export type Touched = { kind: 'animal'; name: AnimalName } | { kind: 'plant' };
@@ -164,6 +175,7 @@ export class Painting {
   private readonly spinners: { pivot: THREE.Group; speed: number }[] = [];
   private readonly drifters: { mesh: THREE.Mesh; drifter: Drifter }[] = [];
   private readonly cloudSea: CloudSea | null = null;
+  private readonly lamps: Lamps | null = null;
   /** Bursts of the grand finale still to come, the first one last. */
   private readonly finaleBursts: { point: THREE.Vector3; at: number }[] = [];
   private readonly burstOrigin = new THREE.Vector3();
@@ -185,7 +197,12 @@ export class Painting {
     quality: QualitySettings,
   ) {
     const { seed, season } = description;
-    const ambience = ambienceFor(description.stage, season, BIOMES[description.biome]);
+    const ambience = ambienceFor(
+      description.stage,
+      season,
+      BIOMES[description.biome],
+      description.night === 'shown',
+    );
     this.ambience = ambience;
     const composition = composeScene(description, assets, ambience, quality);
     const { terrain, ground, water, planting, population } = composition;
@@ -195,6 +212,11 @@ export class Painting {
     materials.shared.uWindStrength.value = quality.wind ? ambience.wind : 0;
     materials.waterUniforms.uWave.value = quality.waterWaves ? 1 : 0;
     materials.waterUniforms.uSparkle.value = ambience.sparkle;
+    nightVeil.value = ambience.veil;
+    if (ambience.night) {
+      materials.windowGlow.value.copy(WINDOW_GLOW);
+      this.lamps = new Lamps(LAMP_COLOR);
+    }
     if (season === 'winter') {
       materials.waterUniforms.uDeep.value.copy(paletteColor('HexWaterLight', 0.6));
       materials.waterUniforms.uShallow.value.copy(paletteColor('HexCloud', 0.7));
@@ -232,16 +254,35 @@ export class Painting {
       this.spinners.push({ pivot, speed: s.speed * TAU });
     }
     let drifterTriangles = 0;
+    // At night, the burner lights the balloon from inside.
+    const lit = this.lamps
+      ? veiled(
+          new THREE.MeshLambertMaterial({
+            map: assets.atlas,
+            emissive: LAMP_COLOR,
+            emissiveIntensity: 0.18,
+          }),
+        )
+      : null;
+    if (lit) this.disposables.push(lit);
     for (const drifter of terrain.drifters) {
       const data = GENERATED_DRIFTERS[drifter.model]();
       drifterTriangles += triangleCount(data);
-      const mesh = new THREE.Mesh(bufferGeometryOf(data), materials.solid);
+      const mesh = new THREE.Mesh(bufferGeometryOf(data), lit ?? materials.solid);
       mesh.castShadow = true;
       mesh.scale.setScalar(drifter.scale);
       mesh.name = drifter.model;
+      if (this.lamps) mesh.add(this.lamps.burner());
       this.root.add(mesh);
       this.drifters.push({ mesh, drifter });
       this.disposables.push({ dispose: () => mesh.geometry.dispose() });
+    }
+    // Lit buildings: a warm halo on the side of the camera, its windows glow (`windowGlow`).
+    for (const m of this.lamps ? terrain.staticModels : []) {
+      const { kind, max } = MODELS[m.model];
+      if (kind !== 'building') continue;
+      const tall = max[1] * (m.scaleY ?? m.scale);
+      this.root.add(this.lamps!.haloAt(m.x, m.y + tall * 0.3, m.z + max[2] * m.scale, tall * 1.1));
     }
 
     this.demo = planting.demo;
@@ -862,6 +903,7 @@ export class Painting {
     this.backdrop.dispose();
     this.clouds.dispose();
     this.cloudSea?.dispose();
+    this.lamps?.dispose();
     this.lighting.dispose();
     this.glow.dispose();
     this.leaves.dispose();

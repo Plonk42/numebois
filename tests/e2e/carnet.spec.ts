@@ -19,7 +19,7 @@ test('le Carnet : l’arbre des tables, une feuille par fait, la table complète
   await page.evaluate(() => window.__numebois!.ready);
   // The table of 2 known by heart, 7 × 8 on its way (2 days out of 3).
   await loadSave(page, {
-    version: 5,
+    version: 6,
     savedAt: '2026-11-23T10:00:00.000Z',
     leaves: 0,
     seeds: 0,

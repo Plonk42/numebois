@@ -10,7 +10,7 @@ import { readDescription, type SceneDescription } from '../scene/description';
  * Version of the save format, Album included. Free to change until the owner declares that
  * the child really plays (doc/GITHUB_WORKFLOW.md, « Compatibilité des sauvegardes »).
  */
-export const SAVE_SCHEMA_VERSION = 5;
+export const SAVE_SCHEMA_VERSION = 6;
 
 /** What happened during a painting, for its page of the Album (#34). */
 export interface PaintingJournal {

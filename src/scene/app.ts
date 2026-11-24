@@ -3,14 +3,20 @@ import type { AnimalName } from './animal-catalog';
 import { loadAnimals, type AnimalLibrary } from './animals';
 import { loadAssets, type AssetLibrary } from './assets';
 import { Soundscape } from './audio/soundscape';
-import { parseDescription, stageFor, type SceneDescription } from './description';
+import {
+  choose,
+  isBought,
+  parseDescription,
+  stageFor,
+  type SceneDescription,
+  type SeasonChoice,
+} from './description';
 import { Painting, type PaintingStats, type Touched } from './painting';
 import { animalPortrait } from './render/portrait';
 import { parseViewShares, type View } from './render/explore';
 import { QUALITY, QualityGovernor, parseQuality, type Quality } from './render/quality';
 import { APPROACH_ARRIVAL_SECONDS, APPROACH_SECONDS, Stage, TOUR_SECONDS } from './render/stage';
 import { trailArt, type TrailArt } from './render/trail-art';
-import type { Season } from './trees/builder';
 
 export interface SceneCounters extends PaintingStats {
   fps: number;
@@ -342,18 +348,13 @@ export class SceneApp {
   }
 
   /**
-   * The painting takes another of its seasons, under the veil, without moving anything; a
-   * bought season joins them. Resolves once the veil is gone, with the new description.
+   * The painting takes another of its seasons or the night, under the veil, without moving
+   * anything; a bought one joins them. Resolves once the veil is gone, with the new description.
    */
-  async changeSeason(season: Season): Promise<SceneDescription> {
+  async changeSeason(choice: SeasonChoice): Promise<SceneDescription> {
     const before = this.description;
-    const bought = !before.seasons.includes(season);
-    const next = {
-      ...before,
-      season,
-      seasons: bought ? [...before.seasons, season] : before.seasons,
-    };
-    if (bought) this.sound.reward('element');
+    const next = choose(before, choice);
+    if (!isBought(before, choice)) this.sound.reward('element');
     this.veil.classList.add('on', 'quiet');
     await wait(VEIL_IN_MS);
     this.description = next;

@@ -48,6 +48,7 @@ function scene(
     stage,
     season,
     seasons: [season],
+    night: 'none',
     elements: demoElements(seed, fill),
     animals: demoAnimals('sky', stage),
     ...more,

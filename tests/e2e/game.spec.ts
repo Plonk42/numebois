@@ -389,7 +389,7 @@ test('la boutique : une biche achetée en graines dorées rejoint la prairie et 
   await page.goto('./?seed=3');
   await page.evaluate(() => window.__numebois!.ready);
   await loadSave(page, {
-    version: 5,
+    version: 6,
     savedAt: '2026-11-23T10:00:00.000Z',
     leaves: 0,
     seeds: 2,
@@ -400,6 +400,7 @@ test('la boutique : une biche achetée en graines dorées rejoint la prairie et 
       stage: 3,
       season: 'summer',
       seasons: ['summer'],
+      night: 'none',
       elements: [0, 1, 2].map((slot) => ({ slot, day: 1 })),
       animals: [],
     },
@@ -492,7 +493,7 @@ test('les saisons : l’automne acheté, l’enfant choisit la saison de son tab
   await page.goto('./?seed=3');
   await page.evaluate(() => window.__numebois!.ready);
   await loadSave(page, {
-    version: 5,
+    version: 6,
     savedAt: '2026-11-23T10:00:00.000Z',
     leaves: 0,
     seeds: 3,
@@ -503,6 +504,7 @@ test('les saisons : l’automne acheté, l’enfant choisit la saison de son tab
       stage: 3,
       season: 'summer',
       seasons: ['summer'],
+      night: 'none',
       elements: [0, 1, 2].map((slot) => ({ slot, day: 1 })),
       animals: [],
     },
@@ -607,6 +609,98 @@ test('les saisons : l’automne acheté, l’enfant choisit la saison de son tab
   expect(errors).toEqual([]);
 });
 
+test('la nuit : achetée dans la boutique, choisie comme une cinquième saison (#85)', async ({
+  page,
+}) => {
+  // Three changes under the veil and a reload: about a minute on CI.
+  test.setTimeout(150_000);
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto('./?seed=3');
+  await page.evaluate(() => window.__numebois!.ready);
+  await loadSave(page, {
+    version: 6,
+    savedAt: '2026-11-24T10:00:00.000Z',
+    leaves: 0,
+    seeds: 3,
+    trailLength: 'short',
+    painting: {
+      biome: 'clearing',
+      seed: 3,
+      stage: 5,
+      season: 'summer',
+      seasons: ['summer', 'autumn'],
+      night: 'none',
+      elements: [0, 1, 2, 3, 4, 5, 6].map((slot) => ({ slot, day: 1 })),
+      animals: [],
+    },
+    progress: [],
+    facts: [],
+    history: [],
+  });
+  const describe = () => page.evaluate(() => window.__numebois!.describe());
+  const picker = page.locator('#seasons');
+  const summer = picker.getByRole('button', { name: 'L’été' });
+  const moon = picker.getByRole('button', { name: 'La nuit' });
+  const shop = page.locator('#shop');
+  const offer = shop
+    .locator('.articles')
+    .getByRole('button', { name: 'La nuit, 3 graines dorées' });
+  // Not bought yet: the bar has only the seasons.
+  await expect(picker.getByRole('button')).toHaveCount(2);
+  await expect(moon).toHaveCount(0);
+
+  // One touch in the shop: the seeds are spent and the night falls, nothing else moves.
+  await page.locator('#reserve').click();
+  await expect(offer).toBeEnabled();
+  await offer.click();
+  await expect(moon).toHaveAttribute('aria-pressed', 'true', { timeout: 12_000 });
+  await expect(shop).not.toHaveClass(/away/, { timeout: 12_000 });
+  expect((await game(page)).seeds).toBe(0);
+  expect(await describe()).toMatchObject({
+    season: 'summer',
+    seasons: ['summer', 'autumn'],
+    night: 'shown',
+    elements: [0, 1, 2, 3, 4, 5, 6].map((slot) => ({ slot, day: 1 })),
+  });
+  await expect(picker.getByRole('button')).toHaveCount(3);
+  await expect(shop.locator('.articles').getByRole('button', { name: /^La nuit/ })).toHaveCount(0);
+  await test.info().attach('nuit', { body: await page.screenshot(), contentType: 'image/png' });
+
+  // Back to the day of summer, then the night again, from the bar.
+  await shop.getByRole('button', { name: 'Fermer' }).click();
+  await summer.click();
+  await expect(summer).toHaveAttribute('aria-pressed', 'true', { timeout: 12_000 });
+  await expect(summer).toBeEnabled({ timeout: 12_000 });
+  expect(await describe()).toMatchObject({ season: 'summer', night: 'owned' });
+  await moon.click();
+  await expect(moon).toHaveAttribute('aria-pressed', 'true', { timeout: 12_000 });
+  await expect(moon).toBeEnabled({ timeout: 12_000 });
+  await expect(page.getByRole('button', { name: 'Chemin du progrès' })).toBeVisible();
+
+  // The night stays in the painting, once written.
+  const saved = () =>
+    page.evaluate(
+      () =>
+        new Promise<string>((resolve) => {
+          const request = indexedDB.open('numebois', 1);
+          request.onsuccess = () => {
+            const get = request.result.transaction('kv').objectStore('kv').get('numebois:save');
+            get.onsuccess = () => {
+              request.result.close();
+              resolve(JSON.parse(String(get.result)).painting.night);
+            };
+          };
+        }),
+    );
+  await expect.poll(saved).toBe('shown');
+  await page.reload();
+  await page.evaluate(() => window.__numebois!.ready);
+  expect(await describe()).toMatchObject({ season: 'summer', night: 'shown' });
+  await expect(moon).toHaveAttribute('aria-pressed', 'true');
+  expect(errors).toEqual([]);
+});
+
 test('comparer : le signe posé entre les deux nombres, changé, puis validé, sans rouge', async ({
   page,
 }) => {
@@ -616,7 +710,7 @@ test('comparer : le signe posé entre les deux nombres, changé, puis validé, s
   await page.evaluate(() => window.__numebois!.ready);
   // A save where « comparer » is in progress: the trail warms up with it.
   await loadSave(page, {
-    version: 5,
+    version: 6,
     savedAt: '2026-11-23T10:00:00.000Z',
     leaves: 0,
     seeds: 0,
@@ -714,7 +808,7 @@ test('une notion acquise : une graine dorée, seule à l’écran, rejoint la r�
   // « Écrire en chiffres » at its last level: one more right answer acquires it.
   const recent = Array.from({ length: 4 }, () => ({ level: 3, right: true, day: 1 }));
   await loadSave(page, {
-    version: 5,
+    version: 6,
     savedAt: '2026-11-23T10:00:00.000Z',
     leaves: 7,
     seeds: 0,

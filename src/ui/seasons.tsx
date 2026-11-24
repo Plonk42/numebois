@@ -1,16 +1,17 @@
 import type { JSX } from 'preact';
-import { SEASONS, type Season } from '../scene/trees/builder';
+import type { SeasonChoice } from '../scene/description';
 
-export const SEASON_LABELS: Record<Season, string> = {
+export const SEASON_LABELS: Record<SeasonChoice, string> = {
   spring: 'Le printemps',
   summer: 'L’été',
   autumn: 'L’automne',
   winter: 'L’hiver',
+  night: 'La nuit',
 };
 
 const turns = (count: number) => Array.from({ length: count }, (_, i) => (i * 360) / count);
 
-const SHAPES: Record<Season, JSX.Element> = {
+const SHAPES: Record<SeasonChoice, JSX.Element> = {
   spring: (
     <>
       {turns(5).map((a) => (
@@ -40,10 +41,16 @@ const SHAPES: Record<Season, JSX.Element> = {
       ))}
     </>
   ),
+  night: (
+    <>
+      <path class="moon" d="M40 8a24 24 0 1 0 16 38A20 20 0 0 1 40 8z" />
+      <path class="star" d="M47 13l2 5 5 2-5 2-2 5-2-5-5-2 5-2z" />
+    </>
+  ),
 };
 
-/** A season in one picture: blossom, sun, red leaf, snowflake. */
-export function SeasonIcon({ season }: { season: Season }) {
+/** A season in one picture: blossom, sun, red leaf, snowflake; the night: a moon and a star. */
+export function SeasonIcon({ season }: { season: SeasonChoice }) {
   return (
     <svg class={`season-icon ${season}`} viewBox="0 0 64 64" aria-hidden="true">
       {SHAPES[season]}
@@ -52,27 +59,27 @@ export function SeasonIcon({ season }: { season: Season }) {
 }
 
 interface Props {
-  /** Seasons of the painting. */
-  seasons: readonly Season[];
-  season: Season;
+  /** Seasons of the painting, then its night. */
+  choices: readonly SeasonChoice[];
+  shown: SeasonChoice;
   /** Off while the season changes under the light. */
   active: boolean;
-  onPick(season: Season): void;
+  onPick(choice: SeasonChoice): void;
 }
 
-/** The seasons of the painting, next to the sound button: one touch shows another. */
-export function SeasonPicker({ seasons, season, active, onPick }: Props) {
+/** The seasons of the painting and its night, next to the sound button: one touch shows another. */
+export function SeasonPicker({ choices, shown, active, onPick }: Props) {
   return (
     <div id="seasons" role="group" aria-label="Saison du tableau" class={active ? '' : 'resting'}>
-      {SEASONS.filter((s) => seasons.includes(s)).map((s) => (
+      {choices.map((s) => (
         <button
           key={s}
           type="button"
           aria-label={SEASON_LABELS[s]}
-          aria-pressed={s === season}
+          aria-pressed={s === shown}
           disabled={!active}
           onPointerDown={() => {
-            if (s !== season) onPick(s);
+            if (s !== shown) onPick(s);
           }}
         >
           <SeasonIcon season={s} />

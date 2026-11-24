@@ -114,7 +114,8 @@ export class CloudSea {
       uniforms: {
         uTime: shared.uTime,
         uMotion: { value: motion ? 1 : 0 },
-        uLit: { value: new THREE.Color(0xffffff).lerp(sun, 0.35) },
+        // Silver-blue under the moon (#85).
+        uLit: { value: new THREE.Color(ambience.night ? 0x7484b8 : 0xffffff).lerp(sun, 0.35) },
         uShade: {
           value: fog.clone().lerp(new THREE.Color(ambience.sky.zenith), 0.45).multiplyScalar(0.72),
         },
