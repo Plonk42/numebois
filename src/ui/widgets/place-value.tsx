@@ -1,8 +1,8 @@
 /** Rank names over the columns of the table, from the thousands. */
 const COLUMNS = ['milliers', 'centaines', 'dizaines', 'unités'];
 
-/** The place-value table: one coloured column per rank, a digit (or an empty cell) under it. */
-export function PlaceValueFigure({ digits }: { digits: readonly (number | null)[] }) {
+/** The place-value table: one coloured column per rank, its digit under it. */
+export function PlaceValueFigure({ digits }: { digits: readonly number[] }) {
   const columns = COLUMNS.slice(COLUMNS.length - digits.length);
   return (
     <div class="place-value" style={{ gridTemplateColumns: `repeat(${digits.length}, 1fr)` }}>
@@ -13,7 +13,7 @@ export function PlaceValueFigure({ digits }: { digits: readonly (number | null)[
       ))}
       {digits.map((digit, i) => (
         <b key={i} class={`r${digits.length - 1 - i}`}>
-          {digit ?? ''}
+          {digit}
         </b>
       ))}
     </div>

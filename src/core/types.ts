@@ -25,8 +25,8 @@ export type Figure =
   | { kind: 'number-line'; line: NumberLine; arrow: number }
   /** Base-ten blocks: plates of 100, bars of 10 and cubes of 1. */
   | { kind: 'blocks'; hundreds: number; tens: number; units: number }
-  /** A place-value table, one column per rank down to the units; null is an empty cell. */
-  | { kind: 'place-value'; digits: readonly (number | null)[] };
+  /** A place-value table, one column per rank down to the units, a digit in each. */
+  | { kind: 'place-value'; digits: readonly number[] };
 
 export interface Exercise {
   skill: SkillId;

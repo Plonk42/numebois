@@ -4,6 +4,7 @@ import {
   COMPARE_LEVELS,
   DECOMPOSE_LEVELS,
   DECOMPOSE_SHOWS,
+  EASY_SHOW_SHARE,
   NUMBER_LINE_LEVELS,
   ORDER_LEVELS,
   RANK_NAMES,
@@ -190,24 +191,34 @@ describe('lire, décomposer, comparer, ranger', () => {
     );
   });
 
-  it('shows a number to decompose in several ways, each level its own', () => {
+  it('shows a number to decompose in several ways, one easy way in four', () => {
     for (let level = 0; level < DECOMPOSE_LEVELS; level++) {
       const shows = new Set<string>();
+      const { easy, effort } = DECOMPOSE_SHOWS[level];
+      let easyCount = 0;
       seeds((rng) => {
         const e = generateDecompose(rng, level);
         shows.add(e.show);
+        if (easy.includes(e.show)) easyCount++;
         const digits = [...String(e.value)].map(Number);
+        const ranks = () =>
+          e.statement
+            .split(', ')
+            .map((part) => RANK_NAMES.findIndex((names) => names.some((n) => part.endsWith(n))));
         if (e.show === 'sum') {
           const terms = e.statement.split(' + ').map((t) => Number(t.replace(/\s/g, '')));
           expect(terms.reduce((a, b) => a + b, 0)).toBe(e.value);
         }
         if (e.show === 'mixed') {
-          const ranks = e.statement
-            .split(', ')
-            .map((part) => RANK_NAMES.findIndex((names) => names.some((n) => part.endsWith(n))));
-          expect(new Set(ranks).size).toBe(ranks.length);
+          const order = ranks();
+          expect(new Set(order).size).toBe(order.length);
           // Out of order whenever there are two ranks or more.
-          expect(ranks.length === 1 || ranks.some((r, i) => i > 0 && r > ranks[i - 1])).toBe(true);
+          expect(order.length === 1 || order.some((r, i) => i > 0 && r > order[i - 1])).toBe(true);
+        }
+        // Every rank named in order, the empty one with its 0.
+        if (e.show === 'named') {
+          expect(ranks()).toEqual(digits.map((_, i) => digits.length - 1 - i));
+          expect(e.statement.split(', ').map((part) => Number(part.split(' ')[0]))).toEqual(digits);
         }
         if (e.show === 'blocks') {
           expect(e.figure).toEqual({
@@ -217,12 +228,15 @@ describe('lire, décomposer, comparer, ranger', () => {
             units: digits[2],
           });
         }
+        // The table only to read a column, every digit in its cell, 0 included.
         if (e.show === 'table') {
-          const cells = digits.map((d) => (e.ask === 'compose' && d === 0 ? null : d));
-          expect(e.figure).toEqual({ kind: 'place-value', digits: cells });
+          expect(e.ask).not.toBe('compose');
+          expect(e.figure).toEqual({ kind: 'place-value', digits });
         } else if (e.show !== 'blocks') expect(e.figure).toBeUndefined();
       });
-      expect([...shows].sort()).toEqual([...DECOMPOSE_SHOWS[level]].sort());
+      expect([...shows].sort()).toEqual([...easy, ...effort].sort());
+      expect(easyCount / 1000).toBeGreaterThan(EASY_SHOW_SHARE - 0.05);
+      expect(easyCount / 1000).toBeLessThan(EASY_SHOW_SHARE + 0.05);
     }
     const at = (value: number, show: DecomposeExercise['show']): DecomposeExercise => ({
       ...generateDecompose(new Rng(1), 0),
@@ -232,7 +246,7 @@ describe('lire, décomposer, comparer, ranger', () => {
     });
     expect(decomposeHint(at(324, 'blocks'), 2)).toBe('3 plaques, 2 barres, 4 cubes : 324.');
     expect(decomposeHint(at(111, 'blocks'), 2)).toBe('1 plaque, 1 barre, 1 cube : 111.');
-    expect(decomposeHint(at(3042, 'table'), 2)).toBe(
+    expect(decomposeHint(at(3042, 'named'), 2)).toBe(
       '3 milliers, 0 centaine, 4 dizaines, 2 unités : 3\u202f042.',
     );
   });

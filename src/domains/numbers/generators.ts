@@ -115,15 +115,17 @@ export function generateRead(rng: Rng, level: number): ReadExercise {
 
 /** How a number to decompose is shown, to work several methods. */
 export type DecomposeShow =
-  /** « 3 centaines, 2 dizaines, 4 unités », or the question in a sentence. */
+  /** « 3 centaines, 2 dizaines, 4 unités » (an empty rank left out), or the question in a sentence. */
   | 'words'
+  /** Every rank in order, the empty one too: « 3 milliers, 0 centaine, 4 dizaines, 2 unités ». */
+  | 'named'
   /** The same ranks in another order: « 4 unités, 3 centaines, 2 dizaines ». */
   | 'mixed'
   /** 300 + 20 + 4. */
   | 'sum'
   /** Plates, bars and cubes (`Figure` blocks). */
   | 'blocks'
-  /** The place-value table (`Figure` place-value). */
+  /** The number in the place-value table, to read a column (`Figure` place-value). */
   | 'table';
 
 /** Compose from the ranks, or find a digit or a count of a rank. */
@@ -145,25 +147,33 @@ export const RANK_NAMES = [
 /**
  * Levels of « décomposer »:
  * 0. 3 centaines, 2 dizaines, 4 unités → 324;
- * 1. four digits with an empty rank, which is not named: 3 milliers, 4 dizaines, 2 unités;
+ * 1. four digits with an empty rank, named or not: 3 milliers, 4 dizaines, 2 unités;
  * 2. the hundreds (or tens) digit of a four-digit number;
  * 3. the number of tens (or hundreds) in a four-digit number.
  */
 export const DECOMPOSE_LEVELS = 4;
 
-/** The ways of showing each level, drawn in turn. */
-export const DECOMPOSE_SHOWS: readonly (readonly DecomposeShow[])[] = [
-  ['words', 'mixed', 'sum', 'blocks'],
-  ['words', 'mixed', 'sum', 'table'],
-  ['words', 'table'],
-  ['words', 'table'],
+/**
+ * The ways of showing each level: the easy ones, where the digits are almost copied (they
+ * reassure), and the ones that work a method.
+ */
+export const DECOMPOSE_SHOWS: readonly {
+  easy: readonly DecomposeShow[];
+  effort: readonly DecomposeShow[];
+}[] = [
+  { easy: ['words', 'sum'], effort: ['mixed', 'blocks'] },
+  { easy: ['named'], effort: ['words', 'mixed', 'sum'] },
+  { easy: ['table'], effort: ['words'] },
+  { easy: ['table'], effort: ['words'] },
 ];
+/** Share of the easy ways at each level (owner, #110). */
+export const EASY_SHOW_SHARE = 1 / 4;
 
-/** The non-empty ranks of `value`, as words (in order or not) or as a sum; a drawing asks for it. */
+/** The ranks of `value`, as words (in order or not, the empty one named or not) or as a sum. */
 function composeStatement(rng: Rng, value: number, ranks: number[], show: DecomposeShow): string {
-  if (show === 'blocks' || show === 'table') return 'Quel nombre\u00a0?';
+  if (show === 'blocks') return 'Quel nombre\u00a0?';
   const digit = (r: number) => Math.floor(value / 10 ** r) % 10;
-  let parts = ranks.filter((r) => digit(r) > 0);
+  let parts = show === 'named' ? ranks : ranks.filter((r) => digit(r) > 0);
   if (show === 'sum') return parts.map((r) => formatNumber(digit(r) * 10 ** r)).join(' + ');
   if (show === 'mixed' && parts.length > 1) {
     const order = parts;
@@ -183,19 +193,15 @@ export function generateDecompose(rng: Rng, level: number): DecomposeExercise {
     ask = level === 2 ? 'digit' : 'count';
     rank = rng.int(1, 2);
   } else throw levelError(level);
-  const show = rng.pick(DECOMPOSE_SHOWS[level]);
+  const shows = DECOMPOSE_SHOWS[level];
+  const show = rng.pick(rng.chance(EASY_SHOW_SHARE) ? shows.easy : shows.effort);
   const digit = (r: number) => Math.floor(value / 10 ** r) % 10;
   const ranks = [3, 2, 1, 0].filter((r) => 10 ** r <= value);
   let instruction = 'Écris ce nombre en chiffres.';
   let statement: string;
   let figure: Figure | undefined;
   let answer: number;
-  if (show === 'table') {
-    figure = {
-      kind: 'place-value',
-      digits: ranks.map((r) => (ask === 'compose' && digit(r) === 0 ? null : digit(r))),
-    };
-  }
+  if (show === 'table') figure = { kind: 'place-value', digits: ranks.map(digit) };
   if (ask === 'compose') {
     statement = composeStatement(rng, value, ranks, show);
     if (show === 'blocks') {

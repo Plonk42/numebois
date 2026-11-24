@@ -57,10 +57,11 @@ export function readHint({ value }: ReadExercise, attempt: 1 | 2): string {
 /** How to read each way of showing a number to compose. */
 const COMPOSE_METHOD: Record<DecomposeExercise['show'], string> = {
   words: 'Un chiffre par rang. Un rang vide, c’est 0.',
+  named: 'Un chiffre par rang, dans l’ordre.',
   mixed: 'Remets chaque nombre à son rang. Un rang vide, c’est 0.',
   sum: 'Chaque nombre donne le chiffre d’un rang. Un rang vide, c’est 0.',
   blocks: 'Une plaque, c’est 100. Une barre, 10. Un cube, 1.',
-  table: 'Lis les chiffres du tableau. Une case vide, c’est 0.',
+  table: 'Lis les chiffres du tableau, de gauche à droite.',
 };
 
 function plural(count: number, word: string): string {

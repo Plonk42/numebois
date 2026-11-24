@@ -118,6 +118,7 @@
   text-align: center;
   font-weight: 700;
   overflow-wrap: anywhere;
+  text-wrap: balance;
 }
 .statement.large {
   font-size: 56px;
