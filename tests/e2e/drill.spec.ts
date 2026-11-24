@@ -1,0 +1,87 @@
+import { expect, test } from '@playwright/test';
+import type { Exercise } from '../../src/core/types';
+import { current, driver, game, loadSave, wrong } from './helpers';
+
+test('la rafale : la table de 7 enchaînée sans interruption, une erreur revient, puis la fin', async ({
+  page,
+}) => {
+  test.setTimeout(360_000);
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto('./?stage=0');
+  await page.evaluate(() => window.__numebois!.ready);
+  // The tables are under way, one fact often missed: « Mes faits fragiles » has it.
+  await loadSave(page, {
+    version: 5,
+    savedAt: '2026-11-23T10:00:00.000Z',
+    leaves: 0,
+    seeds: 0,
+    trailLength: 'normal',
+    progress: [
+      {
+        skill: 'times-tables.products',
+        stage: 'learning',
+        level: 3,
+        recent: [],
+        box: 0,
+        due: null,
+      },
+    ],
+    facts: [
+      {
+        fact: 'times-tables.products:6x8',
+        tries: 4,
+        right: 1,
+        fastDays: [],
+        times: [6000, 7000, 5000, 8000],
+      },
+    ],
+    history: [],
+  });
+  const stump = page.getByRole('button', { name: 'Rafale' });
+  await expect(stump).toBeVisible();
+  await stump.click();
+  const menu = page.locator('#drill-menu');
+  await expect(menu.getByRole('button', { name: 'Mes faits fragiles' })).toBeVisible();
+  await menu.getByRole('button', { name: 'Je choisis' }).click();
+  await menu.getByRole('button', { name: 'Les tables de multiplication' }).click();
+  await menu.getByRole('button', { name: 'La table de 7' }).click();
+
+  const garland = page.locator('#question .garland .leaf');
+  const statements: string[] = [];
+  const missed = 5;
+  for (let i = 0; i < 40; i++) {
+    const exercise = (await current(page)) as Exercise & { a: number; b: number };
+    expect((await game(page)).drilling).toBe(true);
+    expect([exercise.a, exercise.b]).toContain(7);
+    statements.push(exercise.statement);
+    if (i === missed) {
+      await driver(exercise.input).answer(page, exercise.input, wrong(exercise.answer));
+      // The answer shows a moment, without a hint, and the garland starts again.
+      await expect.poll(async () => (await game(page)).phase).toBe('reveal');
+      await expect(page.locator('#question .answer.shown')).toHaveText(exercise.answer);
+      await expect(garland).toHaveCount(0);
+    } else {
+      await driver(exercise.input).answer(page, exercise.input, exercise.answer);
+    }
+    await expect(page.locator('#question .hint')).toHaveCount(0);
+    if (i === 3) await expect(garland).toHaveCount(4);
+    // A round of 20: another one, or the end.
+    if (i === 19 || i === 39) {
+      const pause = page.locator('#drill-break');
+      await expect(pause).toContainText(`${i + 1} calculs !`);
+      if (i === 19) await pause.getByRole('button', { name: 'Encore !' }).click();
+      else await pause.getByRole('button', { name: 'J’ai fini' }).click();
+    }
+  }
+  // The missed question came back 2 or 3 questions later.
+  expect([missed + 2, missed + 3]).toContain(statements.indexOf(statements[missed], missed + 1));
+
+  await expect(page.locator('#trail-end')).toContainText('Rafale terminée !');
+  await expect(page.locator('#trail-end')).toHaveCount(0, { timeout: 20_000 });
+  // A leaf for each right answer, poured from Plume's basket into the reserve.
+  expect(await game(page)).toMatchObject({ leaves: 39, basket: 0, drilling: false });
+  // The trail still waits with its sign.
+  await expect(page.getByRole('button', { name: 'Chemin du progrès' })).toBeVisible();
+  expect(errors).toEqual([]);
+});

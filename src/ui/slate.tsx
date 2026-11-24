@@ -1,6 +1,7 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useRef } from 'preact/hooks';
 import { Basket } from './basket';
+import { Garland } from './drill';
 import { Plume, type PlumeMood } from './plume';
 import './slate.css';
 
@@ -21,6 +22,8 @@ interface SlateProps {
   away: boolean;
   /** Leaves of the trail in Plume's basket. */
   basket: number;
+  /** In a drill: right answers in a row, a leaf each on the garland. */
+  garland?: number;
   /** The widget: its `Work` and `AnswerZone`. */
   children: ComponentChildren;
 }
@@ -30,7 +33,7 @@ interface SlateProps {
  * The heading on top, the work area on the left with Plume's hints under it, the answer
  * zone at the bottom right, always in the same place.
  */
-export function Slate({ heading, plume, hint, away, basket, children }: SlateProps) {
+export function Slate({ heading, plume, hint, away, basket, garland, children }: SlateProps) {
   const next = useRef(hint?.onNext);
   next.current = hint?.onNext;
   const hasNext = next.current !== undefined;
@@ -50,6 +53,7 @@ export function Slate({ heading, plume, hint, away, basket, children }: SlatePro
     <section id="question" class={away ? 'away' : ''} aria-live="polite">
       <Plume mood={plume} />
       <Basket leaves={basket} pouring={false} />
+      {garland !== undefined && <Garland leaves={garland} />}
       <header>{heading}</header>
       <div class="bench">
         {children}

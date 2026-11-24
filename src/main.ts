@@ -154,6 +154,8 @@ const ready = sceneOnly
           ![
             'walking',
             'seed',
+            'drill-menu',
+            'break',
             'shop',
             'choosing',
             'planting',

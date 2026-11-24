@@ -1,6 +1,7 @@
 import { render } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { isoDate, today } from '../core/day';
+import { Drill, fragileFacts, type DrillTarget } from '../core/drill';
 import {
   LEAVES_PER_ELEMENT,
   LEAVES_PER_RIGHT_ANSWER,
@@ -34,6 +35,7 @@ import type { TrailArt } from '../scene/render/trail-art';
 import type { Season } from '../scene/trees/builder';
 import { AlbumButton, AlbumGrid, AlbumPage } from './album';
 import { Basket } from './basket';
+import { DrillBreak, DrillMenu, Stump } from './drill';
 import { FinaleBanner, Frame, NextPainting, type NextChoice } from './finale';
 import { ParentMenu } from './parent-menu';
 import { Plume, type PlumeMood } from './plume';
@@ -62,6 +64,13 @@ const FRAMED_MS = 3500;
 /** Time for the light to cover the scene before a painting is built under it (#veil). */
 const COVER_MS = 750;
 const PRAISES = ['Bravo !', 'Super !', 'Oui !', 'Bien vu !', 'Génial !'];
+/** In a drill, the next question comes quickly; a missed answer shows a moment. */
+const DRILL_RIGHT_MS = 400;
+const DRILL_REVEAL_MS = 1800;
+/** Questions of a round of the drill: then another one, or the end. */
+export const DRILL_ROUND = 20;
+/** After this long in a drill, Plume offers a pause once. */
+const DRILL_PAUSE_MS = 15 * 60_000;
 
 type Phase =
   | 'walking'
@@ -69,6 +78,8 @@ type Phase =
   | 'right'
   | 'reveal'
   | 'seed'
+  | 'drill-menu'
+  | 'break'
   | 'shop'
   | 'choosing'
   | 'planting'
@@ -80,7 +91,7 @@ type Phase =
   | 'album'
   | 'visiting';
 
-/** A trail in progress: the slate and its rewards. */
+/** A trail or a drill in progress: the slate and its rewards. */
 const TRAIL_PHASES = new Set<Phase>(['asking', 'right', 'reveal', 'seed']);
 /** The shop, opened from the reserve between two trails, and what it brings to the painting. */
 const SHOP_PHASES = new Set<Phase>(['shop', 'choosing', 'planting', 'adopting', 'turning']);
@@ -139,6 +150,8 @@ export interface GameProbe {
   basket: number;
   grown: number;
   phase: Phase;
+  /** The questions are those of a drill, not of the trail. */
+  drilling: boolean;
   stone: number;
   stones: number;
   role: StepRole | null;
@@ -237,6 +250,15 @@ function Game(props: Props) {
   const [page, setPage] = useState<AlbumEntry | null>(null);
   /** Where a change of season started: the screen stays as it was under the light. */
   const [turnFrom, setTurnFrom] = useState<Phase>('walking');
+  /** The drill in progress, its garland of right answers in a row, and how its last round ends. */
+  const drill = useRef<Drill | null>(null);
+  const [drilling, setDrilling] = useState(false);
+  const [garland, setGarland] = useState(0);
+  const [pause, setPause] = useState(false);
+  const drillStart = useRef(0);
+  const pauseOffered = useRef(false);
+  /** What ended last: the summary says it. */
+  const [ended, setEnded] = useState<'trail' | 'drill'>('trail');
   const timer = useRef(0);
   const shownAt = useRef(performance.now());
   const firstAnswerMs = useRef<number | null>(null);
@@ -259,6 +281,7 @@ function Game(props: Props) {
       basket,
       grown,
       phase,
+      drilling,
       stone: finished ? session.stones : session.stone,
       stones: session.stones,
       role: finished ? null : session.step.role,
@@ -332,8 +355,10 @@ function Game(props: Props) {
     timer.current = window.setTimeout(action, ms);
   };
 
-  const ask = () => {
-    setQuestion(session.ask(exercise));
+  const ask = () => show(session.ask(exercise));
+
+  const show = (question: { skill: Skill; exercise: Exercise }) => {
+    setQuestion(question);
     setMistakes(0);
     setRound((r) => r + 1);
     setPhase('asking');
@@ -342,10 +367,15 @@ function Game(props: Props) {
   };
 
   const proceed = () => {
+    if (drilling) {
+      nextDrill();
+      return;
+    }
     if (session.advance()) {
       ask();
       return;
     }
+    setEnded('trail');
     setFinished(true);
     setDone(true);
     setPhase('walking');
@@ -365,6 +395,52 @@ function Game(props: Props) {
     setSeedsHere(0);
     setBasket(0);
     ask();
+  };
+
+  /** The notions met so far that can be drilled: the stump waits for the first one. */
+  const drillable = props.skills.filter(
+    (s) => s.drill && (session.progress.get(s.id)?.stage ?? 'discovery') !== 'discovery',
+  );
+
+  const startDrill = (target: DrillTarget) => {
+    if (phase !== 'drill-menu') return;
+    drill.current = new Drill(session, target, new Rng(rng.int(0, 2 ** 31)));
+    drillStart.current = performance.now();
+    pauseOffered.current = false;
+    setDrilling(true);
+    setGarland(0);
+    setLeavesHere(0);
+    setSeedsHere(0);
+    setBasket(0);
+    show(drill.current.ask());
+  };
+
+  /** After each round, another one or the end; once, after a while, Plume offers a pause. */
+  const nextDrill = () => {
+    const current = drill.current!;
+    if (current.asked % DRILL_ROUND === 0) {
+      setPause(false);
+      setPhase('break');
+      return;
+    }
+    if (!pauseOffered.current && performance.now() - drillStart.current >= DRILL_PAUSE_MS) {
+      pauseOffered.current = true;
+      setPause(true);
+      setPhase('break');
+      return;
+    }
+    show(current.ask());
+  };
+
+  const stopDrill = () => {
+    if (phase !== 'break') return;
+    drill.current = null;
+    setDrilling(false);
+    // The trail waiting keeps a question of its own.
+    if (!finished) setQuestion(session.ask());
+    setEnded('drill');
+    setDone(true);
+    setPhase('walking');
   };
 
   /** One touch in the shop: an element waits for its place, an animal or a season comes at once. */
@@ -511,6 +587,10 @@ function Game(props: Props) {
   const answer = (value: string) => {
     if (phase !== 'asking') return;
     firstAnswerMs.current ??= performance.now() - shownAt.current;
+    if (drilling) {
+      answerDrill(value, firstAnswerMs.current);
+      return;
+    }
     if (!skill.validate(exercise, value)) {
       setMistakes(mistakes + 1);
       if (mistakes + 1 >= 2) {
@@ -526,19 +606,43 @@ function Game(props: Props) {
       firstAnswerMs.current,
       false,
     );
-    if (achievements.length > 0) {
-      setJournal((j) => ({
-        ...j,
-        acquired: [
-          ...j.acquired,
-          ...achievements.flatMap((a) => (a.kind === 'acquired' ? [a.skill] : [])),
-        ],
-        automated: [
-          ...j.automated,
-          ...achievements.flatMap((a) => (a.kind === 'automated' ? [a.fact] : [])),
-        ],
-      }));
+    reward(achievements, PRAISE_MS);
+  };
+
+  /** One try in a drill: a missed answer shows a moment, then the next question comes. */
+  const answerDrill = (value: string, ms: number) => {
+    const right = skill.validate(exercise, value);
+    const achievements = drill.current!.conclude(skill, exercise, right, ms);
+    if (right) {
+      setGarland((g) => g + 1);
+      reward(achievements, DRILL_RIGHT_MS);
+      return;
     }
+    note(achievements);
+    setGarland(0);
+    setPhase('reveal');
+    later(DRILL_REVEAL_MS, proceed);
+  };
+
+  /** What an answer taught goes in the journal of the painting. */
+  const note = (achievements: readonly Achievement[]) => {
+    if (achievements.length === 0) return;
+    setJournal((j) => ({
+      ...j,
+      acquired: [
+        ...j.acquired,
+        ...achievements.flatMap((a) => (a.kind === 'acquired' ? [a.skill] : [])),
+      ],
+      automated: [
+        ...j.automated,
+        ...achievements.flatMap((a) => (a.kind === 'automated' ? [a.fact] : [])),
+      ],
+    }));
+  };
+
+  /** A right answer: praise and a leaf, golden seeds for what it taught, then the next question. */
+  const reward = (achievements: readonly Achievement[], praiseMs: number) => {
+    note(achievements);
     setPraise(rng.pick(PRAISES));
     setPhase('right');
     forest.reward('right');
@@ -569,7 +673,7 @@ function Game(props: Props) {
         },
       );
     }
-    later(PRAISE_MS, () => play(steps));
+    later(praiseMs, () => play(steps));
   };
 
   const revealed = mistakes >= 2;
@@ -588,7 +692,8 @@ function Game(props: Props) {
   const waiting = shown === 'walking' && !done;
   // Away from the framing, the landscape alone: the trail comes back with it.
   const exploring = waiting && viewAway;
-  const aside = (!waiting && !onTrail && !done) || exploring;
+  // During a drill, the trail has nothing to show: out of sight.
+  const aside = (!waiting && !onTrail && !done) || exploring || drilling;
   // A golden seed: the slate steps aside, the forest lights up.
   const away = phase === 'seed';
   let plume: PlumeMood = 'calm';
@@ -634,6 +739,9 @@ function Game(props: Props) {
         onStart={waiting && !exploring ? start : undefined}
         aside={aside}
       />
+      {drillable.length > 0 && (
+        <Stump art={art} onOpen={free && !exploring ? () => setPhase('drill-menu') : undefined} />
+      )}
       {/* During a question, the forest dims: one thing at a time. */}
       <div id="dim" class={onTrail && !away ? 'on' : ''} />
       {gift && phase === 'seed' && <SeedGift {...gift} />}
@@ -696,6 +804,7 @@ function Game(props: Props) {
           plume={plume}
           hint={hint}
           basket={basket}
+          garland={drilling ? garland : undefined}
         >
           <Widget
             key={round}
@@ -709,7 +818,33 @@ function Game(props: Props) {
         </Slate>
       ) : (
         <>
-          {done && <TrailDone leaves={leavesHere} seeds={seedsHere} basket={basket} />}
+          {done && (
+            <TrailDone
+              title={ended === 'drill' ? 'Rafale terminée !' : 'Sentier terminé !'}
+              leaves={leavesHere}
+              seeds={seedsHere}
+              basket={basket}
+            />
+          )}
+          {phase === 'drill-menu' && (
+            <DrillMenu
+              skills={drillable}
+              fragile={fragileFacts(props.skills, session.facts).length > 0}
+              onPick={startDrill}
+              onClose={() => setPhase('walking')}
+            />
+          )}
+          {phase === 'break' && drill.current && (
+            <DrillBreak
+              asked={drill.current.asked}
+              basket={basket}
+              pause={pause}
+              onMore={() => {
+                if (phase === 'break') show(drill.current!.ask());
+              }}
+              onStop={stopDrill}
+            />
+          )}
           {SHOP_PHASES.has(shown) && (
             <section id="shop" class={`card${phase === 'shop' ? '' : ' away'}`}>
               <Shop
@@ -767,6 +902,8 @@ function Walk({ away, onRecenter }: WalkProps) {
 }
 
 interface TrailDoneProps {
+  /** « Sentier terminé ! » or « Rafale terminée ! ». */
+  title: string;
   /** Earned on this trail. */
   leaves: number;
   seeds: number;
@@ -774,8 +911,8 @@ interface TrailDoneProps {
   basket: number;
 }
 
-/** The end of a trail, a moment over the whole forest: what was done, never what was missed. */
-function TrailDone({ leaves, seeds, basket }: TrailDoneProps) {
+/** The end of a trail or a drill, a moment over the whole forest: what was done, never what was missed. */
+function TrailDone({ title, leaves, seeds, basket }: TrailDoneProps) {
   let earned = '';
   if (leaves > 0 && seeds > 0) {
     earned = `Tu as gagné ${plural(leaves, 'feuille', 'feuilles')} et ${plural(seeds, 'graine dorée', 'graines dorées')}.`;
@@ -784,7 +921,7 @@ function TrailDone({ leaves, seeds, basket }: TrailDoneProps) {
     <section id="trail-end" class="card" aria-live="polite">
       <Plume mood="cheer" />
       <Basket leaves={basket} pouring={basket > 0} />
-      <p class="praise">Sentier terminé !</p>
+      <p class="praise">{title}</p>
       {earned && <p class="instruction earned">{earned}</p>}
     </section>
   );
@@ -830,6 +967,7 @@ export function mountGame(
     basket: 0,
     grown: 0,
     phase: home ? 'walking' : 'asking',
+    drilling: false,
     stone: 0,
     stones: session.stones,
     role: null,
