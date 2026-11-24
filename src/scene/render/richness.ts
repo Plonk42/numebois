@@ -324,7 +324,7 @@ const NIGHT_LIGHT: SeasonLight = {
 /** Fireflies at night, whatever the stage (outside winter). */
 const NIGHT_FIREFLIES = 0.7;
 /** The colours fade under the moon; the shadows soften. */
-const NIGHT_VEIL = 0.7;
+const NIGHT_VEIL = 0.45;
 const NIGHT_SHADOW = { strength: 0.45, blur: 7 };
 
 /** Ambience of a stage, adjusted for the décor, the season and the night. */

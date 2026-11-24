@@ -674,7 +674,7 @@ describe('slots and grand moments', () => {
       expect(brightness(night.sky.zenith)).toBeLessThan(brightness(day.sky.zenith) / 2);
       expect(night.sun.intensity).toBeLessThan(day.sun.intensity);
       // A blue veil over the colours, softer shadows.
-      expect([day.veil, night.veil > 0.5]).toEqual([0, true]);
+      expect([day.veil, night.veil > 0]).toEqual([0, true]);
       expect(night.shadow.strength).toBeLessThan(day.shadow.strength);
       expect(night.shadow.blur).toBeGreaterThan(day.shadow.blur);
       expect([night.butterflies, night.birds, night.sunRays, night.rainbow]).toEqual([0, 0, 0, 0]);

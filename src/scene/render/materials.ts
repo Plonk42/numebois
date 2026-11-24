@@ -62,7 +62,7 @@ const NIGHT_VEIL = /* glsl */ `
 {
   vec3 reflected = outgoingLight - totalEmissiveRadiance;
   float grey = dot(reflected, vec3(0.3, 0.59, 0.11));
-  outgoingLight = mix(reflected, grey * vec3(0.62, 0.8, 1.42), uNightVeil) + totalEmissiveRadiance;
+  outgoingLight = mix(reflected, grey * vec3(0.68, 0.84, 1.32), uNightVeil) + totalEmissiveRadiance;
 }
 #include <opaque_fragment>
 `;
