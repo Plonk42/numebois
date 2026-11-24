@@ -90,11 +90,9 @@ export interface Skill<E extends Exercise = Exercise> {
    * when the trail offers it among choices (`offerChoices`).
    */
   lures?(exercise: E): readonly number[];
-  /** Can be played in a drill (rafale) until automatic. */
-  drill?: boolean;
   /** Can be timed in a challenge (défi). */
   challenge?: boolean;
-  /** Elementary facts followed one by one (drill notions only). */
+  /** Elementary facts known by heart, followed one by one: the notion is played in drills. */
   facts?: SkillFacts<E>;
 }
 

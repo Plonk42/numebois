@@ -7,6 +7,12 @@ import type {
 
 const tens = (n: number) => Math.floor(n / 10);
 
+/** One off, or the ten forgotten past 10. */
+export function sumLures({ a, b }: OperationExercise): number[] {
+  const result = a + b;
+  return result > 10 ? [result - 10, result - 1, result + 1] : [result - 1, result + 1];
+}
+
 /** A carry forgotten or added; in a subtraction, the smaller units taken from the larger. */
 export function addSubtractLures({ a, op, b }: OperationExercise): number[] {
   const result = op === '+' ? a + b : a - b;

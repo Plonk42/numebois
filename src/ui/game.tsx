@@ -401,7 +401,7 @@ function Game(props: Props) {
 
   /** The notions met so far that can be drilled: the stump waits for the first one. */
   const drillable = props.skills.filter(
-    (s) => s.drill && (session.progress.get(s.id)?.stage ?? 'discovery') !== 'discovery',
+    (s) => s.facts && (session.progress.get(s.id)?.stage ?? 'discovery') !== 'discovery',
   );
 
   const startDrill = (target: DrillTarget) => {

@@ -1,6 +1,7 @@
 import type { Rng } from '../../core/rng';
 import type { Exercise } from '../../core/types';
 
+export const SUMS = 'mental-math.sums';
 export const ADD = 'mental-math.add';
 export const SUBTRACT = 'mental-math.subtract';
 export const NINE_ELEVEN = 'mental-math.nine-eleven';
@@ -43,6 +44,29 @@ function operation(
 
 function levelError(level: number): RangeError {
   return new RangeError(`niveau ${level}`);
+}
+
+/**
+ * Levels of « les additions simples », two numbers from 1 to 9, to know by heart:
+ * 0. 3 + 5, up to 10;
+ * 1. 8 + 5, past 10;
+ * 2. both, mixed.
+ */
+export const SUMS_LEVELS = 3;
+
+/** Up to 10 or past it: the two halves of the facts. */
+export const sumLevel = (a: number, b: number) => (a + b <= 10 ? 0 : 1);
+
+export function generateSum(rng: Rng, level: number): OperationExercise {
+  if (level < 0 || level >= SUMS_LEVELS) throw levelError(level);
+  const past = level === 2 ? rng.chance(0.5) : level === 1;
+  const a = rng.int(past ? 2 : 1, 9);
+  const b = past ? rng.int(11 - a, 9) : rng.int(1, 10 - a);
+  return sum(a, b, level);
+}
+
+export function sum(a: number, b: number, level: number): OperationExercise {
+  return operation(SUMS, level, a, '+', b);
 }
 
 /**

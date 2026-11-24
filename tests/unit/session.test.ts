@@ -36,7 +36,7 @@ describe('session', () => {
     expect(new Set(play(session))).toEqual(new Set(['numbers.write-digits']));
     expect(session.progress.get('numbers.write-digits')?.level).toBe(3);
     session.startTrail();
-    expect(session.trail.find((step) => step.role === 'new')?.skill).toBe('mental-math.add');
+    expect(session.trail.find((step) => step.role === 'new')?.skill).toBe('mental-math.sums');
     expect(play(session)).toHaveLength(TRAIL_QUESTIONS.normal);
   });
 

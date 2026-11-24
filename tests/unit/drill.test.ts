@@ -91,15 +91,17 @@ describe('drill', () => {
   });
 
   it('automates a fact after 3 fast right answers on different days, never with slow ones', () => {
+    const toTen = complements.facts!.groups!.find((group) => group.id === 'to-10')!.facts;
     for (const [ms, expected] of [
-      [1500, complements.facts!.all.length],
+      [1500, toTen.length],
       [6000, 0],
     ] as const) {
       let day = 100;
       const player = session(() => day);
       const automatedOn: number[] = [];
       for (; day < 103; day++) {
-        const drill = new Drill(player, { kind: 'skill', skill: complements.id }, new Rng(day));
+        const target = { kind: 'skill', skill: complements.id, group: 'to-10' } as const;
+        const drill = new Drill(player, target, new Rng(day));
         for (let i = 0; i < 60; i++) {
           const { skill, exercise } = drill.ask();
           for (const achievement of drill.conclude(skill, exercise, true, ms)) {
@@ -146,26 +148,8 @@ describe('drill', () => {
     expect(player.progress.get(complements.id)).toMatchObject({ stage: 'maintenance', box: 1 });
   });
 
-  it('mixes easier questions in a notion without facts', () => {
-    const add = SKILLS.find((skill) => skill.id === 'mental-math.add')!;
-    const top = add.levels - 1;
-    const player = session();
-    player.progress.set(add.id, {
-      skill: add.id,
-      stage: 'anchored',
-      level: top,
-      recent: [],
-      box: 0,
-      due: null,
-    });
-    const drill = new Drill(player, { kind: 'skill', skill: add.id }, new Rng(5));
-    const levels = new Set<number>();
-    for (let i = 0; i < 30; i++) {
-      const { skill, exercise } = drill.ask();
-      expect(skill.validate(exercise, exercise.answer)).toBe(true);
-      levels.add(exercise.level);
-      drill.conclude(skill, exercise, true, 2000);
-    }
-    expect(levels).toEqual(new Set([top - 1, top]));
+  it('plays only notions with facts, known by heart', () => {
+    const drill = new Drill(session(), { kind: 'skill', skill: 'mental-math.add' }, new Rng(5));
+    expect(() => drill.ask()).toThrow('notion sans faits');
   });
 });

@@ -18,6 +18,6 @@ applyTo: "src/core/**, src/domains/**"
 - Limites vérifiées par les tests de contenu :
   - au plus 6 étapes par leçon ;
   - prérequis existants et sans boucle ;
-  - une notion à faits (tables, compléments à 10, doubles…) est une notion `drill` : ses faits sont déclarés (`facts.all`, préfixés par l'id de la notion), `facts.of(exercise)` renvoie un fait déclaré ou `null`, et `facts.exercise(fact, rng)` pose ce fait (rafale) ; `facts.groups` (facultatif, ids stables) limite une rafale à un groupe (« La table de 7 »).
+  - une notion à faits (tables, additions simples, compléments à 10, doubles…) se joue en rafale, et seules celles-là : la rafale entraîne ce qui se sait par cœur, pas « écrire un nombre » ni la droite graduée. Ses faits sont déclarés (`facts.all`, préfixés par l'id de la notion), `facts.of(exercise)` renvoie un fait déclaré ou `null`, et `facts.exercise(fact, rng)` pose ce fait ; `facts.groups` (facultatif, ids stables) limite une rafale à un groupe (« La table de 7 »).
 - Leçons dans `Domain.lessons` (`defineLesson`, id `<notion>/<nom>`) ; `registryErrors` les vérifie.
 - Les devoirs de la semaine ne s'écrivent pas en code : le parent les règle dans le tableau de bord (focus jusqu'à une date, niveaux, astuce et défi à proposer). Le code de la quête en fichier (`src/quests/`, `Quest`, `defineQuest`, `questErrors`) part avec #54. Une notion manquante suit la recette du plan, en avance sur le programme.

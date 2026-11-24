@@ -4,8 +4,8 @@ import type { Achievement, Session } from './session';
 import type { Exercise, FactId, Skill, SkillId } from './types';
 
 /**
- * What a drill works on: a notion (« Je choisis », « Recommandé »), maybe one group of its
- * facts (« la table de 7 »), or the facts least automated (« Mes faits fragiles »).
+ * What a drill works on: the facts of a notion (« Je choisis », « Recommandé »), maybe one
+ * group of them (« la table de 7 »), or the facts least automated (« Mes faits fragiles »).
  */
 export type DrillTarget = { kind: 'skill'; skill: SkillId; group?: string } | { kind: 'fragile' };
 
@@ -22,11 +22,10 @@ export const FRAGILE_FACTS = 6;
 /** Draws to avoid asking the same question twice in a row. */
 const REDRAWS = 20;
 
-/** A kind of question: a fact, or an easy or current level of a notion without facts. */
+/** A fact to ask, with its notion. */
 interface Item {
   skill: Skill;
-  fact: FactId | null;
-  easy: boolean;
+  fact: FactId;
 }
 
 interface Question {
@@ -35,8 +34,8 @@ interface Question {
 }
 
 /**
- * Calculations one after the other until they are automatic, without a budget: hard
- * questions mixed with sure ones to keep about 80 % right, a missed one coming back 2 or 3
+ * Facts known by heart, one after the other until they come at once, without a budget: hard
+ * facts mixed with sure ones to keep about 80 % right, a missed one coming back 2 or 3
  * questions later. The answers go to the progress of the session (mastery, review, facts).
  */
 export class Drill {
@@ -106,11 +105,8 @@ export class Drill {
     return question;
   }
 
-  private pose({ skill, fact, easy }: Item): Question {
-    if (fact) return { skill, exercise: skill.facts!.exercise(fact, this.rng) };
-    const level = this.session.progress.get(skill.id)?.level ?? 0;
-    const asked = easy ? level - 1 : level;
-    return { skill, exercise: skill.generate(this.rng, asked, this.session.context()) };
+  private pose({ skill, fact }: Item): Question {
+    return { skill, exercise: skill.facts!.exercise(fact, this.rng) };
   }
 
   private items(): { hard: Item[]; sure: Item[] } {
@@ -121,32 +117,21 @@ export class Drill {
       const sure = skills.flatMap((skill) =>
         skill.facts!.all.filter((fact) => isSure(facts.get(fact))).map((fact) => ({ skill, fact })),
       );
-      return { hard: hard.map(asItem), sure: sure.map(asItem) };
+      return { hard, sure };
     }
     const { skill: id, group } = this.target;
     const skill = this.session.skills.find((candidate) => candidate.id === id);
-    if (!skill) throw new Error(`notion inconnue : ${id}`);
-    if (!skill.facts) {
-      const level = this.session.progress.get(skill.id)?.level ?? 0;
-      return {
-        hard: [{ skill, fact: null, easy: false }],
-        sure: level > 0 ? [{ skill, fact: null, easy: true }] : [],
-      };
-    }
+    if (!skill?.facts) throw new Error(`notion sans faits : ${id}`);
     const all = group
       ? skill.facts.groups?.find((candidate) => candidate.id === group)?.facts
       : skill.facts.all;
     if (!all) throw new Error(`groupe inconnu : ${id} ${group}`);
-    const items = all.map((fact) => asItem({ skill, fact }));
+    const items = all.map((fact) => ({ skill, fact }));
     return {
-      hard: items.filter((item) => !isSure(facts.get(item.fact!))),
-      sure: items.filter((item) => isSure(facts.get(item.fact!))),
+      hard: items.filter((item) => !isSure(facts.get(item.fact))),
+      sure: items.filter((item) => isSure(facts.get(item.fact))),
     };
   }
-}
-
-function asItem({ skill, fact }: { skill: Skill; fact: FactId }): Item {
-  return { skill, fact, easy: false };
 }
 
 /**

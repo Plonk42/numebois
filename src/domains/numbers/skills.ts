@@ -47,7 +47,6 @@ export const writeDigits = defineSkill<WriteDigitsExercise>({
   validate: validateNumber,
   hint: writeDigitsHint,
   lures: writeDigitsLures,
-  drill: true,
 });
 
 export const read = defineSkill<ReadExercise>({
@@ -58,7 +57,6 @@ export const read = defineSkill<ReadExercise>({
   generate: generateRead,
   validate: validateChoice,
   hint: readHint,
-  drill: true,
 });
 
 export const decompose = defineSkill<DecomposeExercise>({
@@ -70,7 +68,6 @@ export const decompose = defineSkill<DecomposeExercise>({
   validate: validateNumber,
   hint: decomposeHint,
   lures: decomposeLures,
-  drill: true,
 });
 
 export const compare = defineSkill<CompareExercise>({
@@ -81,7 +78,6 @@ export const compare = defineSkill<CompareExercise>({
   generate: generateCompare,
   validate: validateChoice,
   hint: compareHint,
-  drill: true,
 });
 
 export const order = defineSkill<OrderExercise>({
@@ -92,7 +88,6 @@ export const order = defineSkill<OrderExercise>({
   generate: generateOrder,
   validate: validateChoice,
   hint: orderHint,
-  drill: true,
 });
 
 export const lineRead = defineSkill<NumberLineExercise>({
@@ -104,7 +99,6 @@ export const lineRead = defineSkill<NumberLineExercise>({
   validate: validateNumber,
   hint: numberLineHint,
   lures: numberLineLures,
-  drill: true,
 });
 
 export const linePlace = defineSkill<NumberLineExercise>({
@@ -115,5 +109,4 @@ export const linePlace = defineSkill<NumberLineExercise>({
   generate: generateLinePlace,
   validate: validateNumber,
   hint: numberLineHint,
-  drill: true,
 });

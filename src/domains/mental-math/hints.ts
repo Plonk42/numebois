@@ -20,6 +20,24 @@ const NINE_ELEVEN_METHOD: Record<string, string> = {
   '−11': 'Enlever 11, c’est enlever 10 puis encore 1.',
 };
 
+/** From the larger number: on to the sum, or to 10 then the rest; a double is a double. */
+export function sumHint({ a, b }: OperationExercise, attempt: 1 | 2): string {
+  const big = Math.max(a, b);
+  const small = Math.min(a, b);
+  const result = a + b;
+  if (a === b) {
+    return attempt === 1 ? `C’est le double de ${a}.` : `Le double de ${a}, c’est ${result}.`;
+  }
+  if (result <= 10) {
+    return attempt === 1
+      ? `Pars de ${big} et avance de ${small}.`
+      : `${big} + ${small} = ${result}.`;
+  }
+  const toTen = 10 - big;
+  if (attempt === 1) return `Pars de ${big}, va jusqu’à 10, puis ajoute le reste.`;
+  return `${big} + ${toTen} = 10, puis 10 + ${small - toTen} = ${result}.`;
+}
+
 /** Units first, by the ten when crossing it, tens then units for two-digit numbers. */
 export function addSubtractHint(exercise: OperationExercise, attempt: 1 | 2): string {
   const { a, op, b } = exercise;

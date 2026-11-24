@@ -73,8 +73,17 @@ export interface MissingFactorExercise extends Exercise {
 }
 
 export function generateMissingFactor(rng: Rng, level: number): MissingFactorExercise {
-  const tables = TABLES_BY_LEVEL[level];
   const [a, b] = drawFactors(rng, level);
+  return missingFactor(rng, a, b, level);
+}
+
+export function missingFactor(
+  rng: Rng,
+  a: number,
+  b: number,
+  level: number,
+): MissingFactorExercise {
+  const tables = TABLES_BY_LEVEL[level];
   // The table is the shown factor; with two tables of the level, either one.
   let hidden: 'a' | 'b' = rng.pick(['a', 'b']);
   if (!tables.includes(a)) hidden = 'a';

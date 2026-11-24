@@ -1,7 +1,7 @@
 import { defineSkill } from '../../core/registry';
 import { validateNumber } from '../../core/validate';
 import { DOUBLES_HALVES } from '../mental-math/generators';
-import { productFacts } from './facts';
+import { missingFactorFacts, productFacts } from './facts';
 import {
   MISSING_FACTOR,
   PRODUCTS,
@@ -23,7 +23,6 @@ export const products = defineSkill<ProductExercise>({
   validate: validateNumber,
   hint: productHint,
   lures: productLures,
-  drill: true,
   challenge: true,
   facts: productFacts,
 });
@@ -37,6 +36,6 @@ export const missingFactor = defineSkill<MissingFactorExercise>({
   validate: validateNumber,
   hint: missingFactorHint,
   lures: missingFactorLures,
-  drill: true,
   challenge: true,
+  facts: missingFactorFacts,
 });

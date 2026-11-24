@@ -7,12 +7,14 @@ import {
   DOUBLES_HALVES_LEVELS,
   NINE_ELEVEN_LEVELS,
   SUBTRACT_LEVELS,
+  SUMS_LEVELS,
   TIMES_TEN_LEVELS,
   generateAdd,
   generateComplement,
   generateDoubleHalf,
   generateNineEleven,
   generateSubtract,
+  generateSum,
   generateTimesTen,
   type ComplementExercise,
   type DoubleHalfExercise,
@@ -24,6 +26,7 @@ import {
   complementHint,
   doubleHalfHint,
   nineElevenHint,
+  sumHint,
   timesTenHint,
 } from './hints';
 
@@ -60,6 +63,12 @@ function checkLevels<E extends Exercise>(
     });
   });
 }
+
+checkLevels<OperationExercise>('les additions simples', generateSum, SUMS_LEVELS, [
+  ({ a, b }) => a >= 1 && b >= 1 && a + b <= 10,
+  ({ a, b }) => a <= 9 && b <= 9 && a + b > 10,
+  ({ a, b }) => a >= 1 && b >= 1 && a <= 9 && b <= 9,
+]);
 
 checkLevels<OperationExercise>('additionner de tête', generateAdd, ADD_LEVELS, [
   ({ a, b }) => twoDigits(a) && b <= 9 && units(a) + b <= 9,
@@ -124,6 +133,17 @@ describe('multiplier par 10 et par 100 : les cas mélangés', () => {
 });
 
 describe('indices', () => {
+  const sum = (a: number, b: number) =>
+    ({ ...generateSum(new Rng(1), 0), a, b }) as OperationExercise;
+
+  it('simple additions: from the larger number, through 10, or a double', () => {
+    expect(sumHint(sum(3, 5), 1)).toBe('Pars de 5 et avance de 3.');
+    expect(sumHint(sum(3, 5), 2)).toBe('5 + 3 = 8.');
+    expect(sumHint(sum(5, 8), 1)).toBe('Pars de 8, va jusqu’à 10, puis ajoute le reste.');
+    expect(sumHint(sum(5, 8), 2)).toBe('8 + 2 = 10, puis 10 + 3 = 13.');
+    expect(sumHint(sum(7, 7), 2)).toBe('Le double de 7, c’est 14.');
+  });
+
   const operation = (a: number, op: '+' | '−', b: number) =>
     ({ ...generateAdd(new Rng(1), 0), a, op, b }) as OperationExercise;
 

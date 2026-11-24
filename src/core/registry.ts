@@ -39,8 +39,8 @@ export function curriculum(domains: readonly Domain[]): Skill[] {
 
 /**
  * Content errors of a registry (empty when valid): unique identifiers prefixed by their
- * domain, existing prerequisites without cycles, at least one level, facts on drill notions
- * only, short lessons on existing notions.
+ * domain, existing prerequisites without cycles, at least one level, facts and their groups
+ * declared once, short lessons on existing notions.
  */
 export function registryErrors(domains: readonly Domain[]): string[] {
   const errors: string[] = [];
@@ -72,7 +72,6 @@ export function registryErrors(domains: readonly Domain[]): string[] {
 function factErrors(skill: Skill): string[] {
   if (!skill.facts) return [];
   const errors: string[] = [];
-  if (!skill.drill) errors.push(`${skill.id} : des faits sans rafale`);
   if (new Set(skill.facts.all).size !== skill.facts.all.length) {
     errors.push(`${skill.id} : fait en double`);
   }
@@ -155,7 +154,7 @@ function questContentErrors(
       errors.push(`${name} : niveau ${level} invalide pour ${id}`);
     }
   }
-  if (quest.drill && !skills.get(quest.drill)?.drill) {
+  if (quest.drill && !skills.get(quest.drill)?.facts) {
     errors.push(`${name} : ${quest.drill} n'est pas une notion de rafale`);
   }
   for (const id of quest.challenges ?? []) {
