@@ -166,6 +166,7 @@ const ready = sceneOnly
             'next',
             'album',
             'visiting',
+            'carnet',
           ].includes(game?.phase ?? '');
         return started;
       });

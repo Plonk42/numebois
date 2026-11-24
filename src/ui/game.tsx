@@ -35,6 +35,7 @@ import type { TrailArt } from '../scene/render/trail-art';
 import type { Season } from '../scene/trees/builder';
 import { AlbumButton, AlbumGrid, AlbumPage } from './album';
 import { Basket } from './basket';
+import { Carnet, CarnetButton } from './carnet';
 import { DrillBreak, DrillMenu, RoundPebbles, roundFacts, Stump } from './drill';
 import { FinaleBanner, Frame, NextPainting, type NextChoice } from './finale';
 import { ParentMenu } from './parent-menu';
@@ -89,7 +90,8 @@ type Phase =
   | 'framing'
   | 'next'
   | 'album'
-  | 'visiting';
+  | 'visiting'
+  | 'carnet';
 
 /** A trail or a drill in progress: the slate and its rewards. */
 const TRAIL_PHASES = new Set<Phase>(['asking', 'right', 'reveal', 'seed']);
@@ -403,6 +405,10 @@ function Game(props: Props) {
   const drillable = props.skills.filter(
     (s) => s.facts && (session.progress.get(s.id)?.stage ?? 'discovery') !== 'discovery',
   );
+  /** The Carnet's trees: the notions met with groups of facts, the most branches first. */
+  const trees = drillable
+    .filter((s) => s.facts!.groups)
+    .sort((a, b) => b.facts!.groups!.length - a.facts!.groups!.length);
 
   const startDrill = (target: DrillTarget) => {
     if (phase !== 'drill-menu') return;
@@ -579,6 +585,18 @@ function Game(props: Props) {
     forest.show(null);
     forest.cover(false);
     setPage(null);
+    setPhase('walking');
+  };
+
+  const openCarnet = () => {
+    if (!free) return;
+    forest.cover(true);
+    setPhase('carnet');
+  };
+
+  const closeCarnet = () => {
+    if (phase !== 'carnet') return;
+    forest.cover(false);
     setPhase('walking');
   };
 
@@ -761,6 +779,8 @@ function Game(props: Props) {
       {phase === 'choosing' && <Spots forest={forest} slots={spots} onPick={plant} />}
       {roaming && !done && <Walk away={viewAway} onRecenter={() => forest.recenter()} />}
       {free && album.length > 0 && <AlbumButton onOpen={openAlbum} />}
+      {free && trees.length > 0 && <CarnetButton below={album.length > 0} onOpen={openCarnet} />}
+      {phase === 'carnet' && <Carnet skills={trees} facts={session.facts} onClose={closeCarnet} />}
       {phase === 'album' && <AlbumGrid entries={album} onVisit={visit} onClose={closeAlbum} />}
       {phase === 'visiting' && page && (
         <AlbumPage entry={page} skills={props.skills} onBack={backToAlbum} />
