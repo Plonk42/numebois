@@ -43,7 +43,8 @@ export class Lighting {
       camera.updateProjectionMatrix();
       shadow.bias = -0.0006;
       shadow.normalBias = 0.06;
-      shadow.radius = 2.5;
+      shadow.radius = ambience.shadow.blur;
+      shadow.intensity = ambience.shadow.strength;
     }
   }
 

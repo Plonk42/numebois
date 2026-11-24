@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { swatchColor } from '../atlas';
+import { swatchColor, swatchUV } from '../atlas';
 import { createNoiseTexture } from './noise';
 
 /** Uniforms shared by every material of a scene, updated once per frame. */
@@ -23,6 +23,8 @@ interface Patch {
   fragmentHeader?: string;
   /** Replaces `map_fragment`. */
   mapFragment?: string;
+  /** Runs after `emissivemap_fragment`. */
+  emissiveFragment?: string;
 }
 
 function patch<T extends THREE.Material>(material: T, p: Patch): T {
@@ -40,11 +42,58 @@ function patch<T extends THREE.Material>(material: T, p: Patch): T {
       fs = fs.replace('#include <common>', `#include <common>\n${p.fragmentHeader}`);
     }
     if (p.mapFragment) fs = fs.replace('#include <map_fragment>', p.mapFragment);
+    if (p.emissiveFragment) {
+      fs = fs.replace(
+        '#include <emissivemap_fragment>',
+        `#include <emissivemap_fragment>\n${p.emissiveFragment}`,
+      );
+    }
     shader.fragmentShader = fs;
   };
   material.customProgramCacheKey = () => p.key;
   return material;
 }
+
+/** Night veil (#85): share of the lit colours turned to a moonlit blue grey; set by the painting. */
+export const nightVeil = { value: 0 };
+
+// Light given off (windows) keeps its colour under the veil.
+const NIGHT_VEIL = /* glsl */ `
+{
+  vec3 reflected = outgoingLight - totalEmissiveRadiance;
+  float grey = dot(reflected, vec3(0.3, 0.59, 0.11));
+  outgoingLight = mix(reflected, grey * vec3(0.62, 0.8, 1.42), uNightVeil) + totalEmissiveRadiance;
+}
+#include <opaque_fragment>
+`;
+
+/** The lit material takes the night veil, on top of its own patch. */
+export function veiled<T extends THREE.Material>(material: T): T {
+  const before = material.onBeforeCompile.bind(material);
+  const key = material.customProgramCacheKey.bind(material);
+  material.onBeforeCompile = (shader, renderer) => {
+    before(shader, renderer);
+    shader.uniforms.uNightVeil = nightVeil;
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nuniform float uNightVeil;')
+      .replace('#include <opaque_fragment>', NIGHT_VEIL);
+  };
+  material.customProgramCacheKey = () => `${key()}|veil`;
+  return material;
+}
+
+// The windows of the buildings: the black of the Medieval Hexagon pack, copied to the darkest
+// part of `DarkBark` (`HEX_ALIASES`), which nothing else of the scenery uses.
+const [WINDOW_U, WINDOW_V0] = swatchUV('DarkBark', 0.9);
+const WINDOW_V1 = swatchUV('DarkBark', 1)[1];
+const WINDOW_GLOW = /* glsl */ `
+#ifdef USE_MAP
+  if (abs(vMapUv.x - ${WINDOW_U.toFixed(6)}) < 0.001
+      && vMapUv.y > ${(WINDOW_V0 - 0.001).toFixed(6)} && vMapUv.y < ${(WINDOW_V1 + 0.001).toFixed(6)}) {
+    totalEmissiveRadiance += uWindowGlow;
+  }
+#endif
+`;
 
 // Trees: growth by age and wind, from per-vertex attributes and a per-tree data texture
 // (row 0: origin and age; row 1: stretch and phase).
@@ -211,6 +260,8 @@ export interface SceneMaterials {
     uFoam: { value: THREE.Color };
   };
   treeData: { value: THREE.Texture | null };
+  /** Light given off by the windows of the buildings (black by day). */
+  windowGlow: { value: THREE.Color };
   dispose(): void;
 }
 
@@ -236,7 +287,13 @@ export function createMaterials(atlas: THREE.Texture, seed: number): SceneMateri
     uFoam: { value: new THREE.Color(1, 1, 1) },
   };
 
-  const solid = new THREE.MeshLambertMaterial({ map: atlas });
+  const windowGlow = { value: new THREE.Color(0, 0, 0) };
+  const solid = patch(new THREE.MeshLambertMaterial({ map: atlas }), {
+    key: 'solid',
+    uniforms: { uWindowGlow: windowGlow },
+    fragmentHeader: 'uniform vec3 uWindowGlow;',
+    emissiveFragment: WINDOW_GLOW,
+  });
   const vegetation = patch(new THREE.MeshLambertMaterial({ map: atlas }), {
     key: 'vegetation',
     uniforms: shared as unknown as Record<string, THREE.IUniform>,
@@ -270,13 +327,14 @@ export function createMaterials(atlas: THREE.Texture, seed: number): SceneMateri
 
   return {
     shared,
-    solid,
-    vegetation,
-    tree,
+    solid: veiled(solid),
+    vegetation: veiled(vegetation),
+    tree: veiled(tree),
     treeDepth,
-    water,
+    water: veiled(water),
     waterUniforms,
     treeData,
+    windowGlow,
     dispose() {
       for (const m of [solid, vegetation, tree, treeDepth, water]) m.dispose();
       noise.dispose();

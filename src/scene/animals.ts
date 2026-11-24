@@ -5,6 +5,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { ANIMAL_CLIPS, ANIMAL_NAMES, type AnimalClip, type AnimalName } from './animal-catalog';
 import { ANIMAL_FILE, ANIMALS } from './animals.gen';
+import { veiled } from './render/materials';
 
 /** One animal in the scene: a model posed by blending its clips. */
 export interface AnimalBody {
@@ -155,7 +156,7 @@ export class AnimalLibrary {
 }
 
 export function createPlaceholderAnimals(): AnimalLibrary {
-  return new AnimalLibrary(null, new THREE.MeshLambertMaterial({ color: 0xa0683c }));
+  return new AnimalLibrary(null, veiled(new THREE.MeshLambertMaterial({ color: 0xa0683c })));
 }
 
 const GLB_MAGIC = 0x46546c67;
@@ -197,5 +198,8 @@ export async function loadAnimals(
     templates.set(name, { scene, clips });
   }
   // Colours are in the vertices: one material for every animal.
-  return new AnimalLibrary(templates, new THREE.MeshLambertMaterial({ vertexColors: true }));
+  return new AnimalLibrary(
+    templates,
+    veiled(new THREE.MeshLambertMaterial({ vertexColors: true })),
+  );
 }

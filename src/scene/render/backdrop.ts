@@ -6,6 +6,7 @@ import { groundSwatch } from '../terrain/clearing';
 import type { Reveal } from '../terrain/types';
 import type { Season } from '../trees/builder';
 import { GLOW_SPARKLE, GlowPoints } from './particles';
+import { veiled } from './materials';
 import type { Ambience } from './richness';
 
 const TAU = Math.PI * 2;
@@ -164,11 +165,13 @@ export class Backdrop {
     this.triangles = writer.triangles;
     if (reveal === 'shown') {
       // Far away: lit like the scene, lifted towards the haze.
-      this.material = new THREE.MeshLambertMaterial({
-        map: atlas,
-        fog: false,
-        emissive: new THREE.Color(ambience.fog.color).multiplyScalar(0.18),
-      });
+      this.material = veiled(
+        new THREE.MeshLambertMaterial({
+          map: atlas,
+          fog: false,
+          emissive: new THREE.Color(ambience.fog.color).multiplyScalar(0.18),
+        }),
+      );
     } else {
       const haze = new THREE.Color(ambience.fog.color).lerp(
         new THREE.Color(ambience.sky.zenith),

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { AnimalName } from '../animal-catalog';
 import type { AnimalLibrary } from '../animals';
 import { ANIMALS } from '../animals.gen';
+import { nightVeil } from './materials';
 import type { Stage } from './stage';
 
 /** Background of the portraits: the soft green of the shop's tiles. */
@@ -35,7 +36,11 @@ export function animalPortrait(
     .copy(center)
     .addScaledVector(new THREE.Vector3(0.8, 0.35, 1).normalize(), distance);
   camera.lookAt(center);
+  // The shop shows the animal in its colours, even at night.
+  const veil = nightVeil.value;
+  nightVeil.value = 0;
   const url = stage.snapshot(scene, camera, size, BACKGROUND);
+  nightVeil.value = veil;
   body.dispose();
   return url;
 }

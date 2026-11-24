@@ -694,3 +694,64 @@ export function applyFog(objects: readonly THREE.Object3D[], fog: THREE.Fog): vo
     uniforms.uFogFar.value = fog.far;
   }
 }
+
+/** Side of the halo texture, in texels. */
+const HALO_SIZE = 64;
+
+/**
+ * Warm lights of the night (#85): a soft halo around a lit building or the burner of the
+ * balloon (a sprite each, steady, never blinking), and the burner's flame.
+ */
+export class Lamps {
+  private readonly texture: THREE.DataTexture;
+  private readonly halo: THREE.SpriteMaterial;
+  private readonly flame: THREE.MeshBasicMaterial;
+  private readonly flameGeometry = new THREE.ConeGeometry(0.07, 0.26, 6);
+
+  constructor(color: THREE.Color) {
+    const data = new Uint8Array(HALO_SIZE * HALO_SIZE * 4);
+    for (let y = 0; y < HALO_SIZE; y++) {
+      for (let x = 0; x < HALO_SIZE; x++) {
+        const r = Math.hypot(x + 0.5 - HALO_SIZE / 2, y + 0.5 - HALO_SIZE / 2) / (HALO_SIZE / 2);
+        const a = Math.max(0, 1 - r) ** 2;
+        data.set([255, 255, 255, Math.round(255 * a)], (y * HALO_SIZE + x) * 4);
+      }
+    }
+    this.texture = new THREE.DataTexture(data, HALO_SIZE, HALO_SIZE);
+    this.texture.needsUpdate = true;
+    this.halo = new THREE.SpriteMaterial({
+      map: this.texture,
+      color,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      fog: false,
+    });
+    this.flame = new THREE.MeshBasicMaterial({ color: 0xffc35a, fog: false });
+  }
+
+  /** A halo `size` wide. */
+  haloAt(x: number, y: number, z: number, size: number): THREE.Sprite {
+    const sprite = new THREE.Sprite(this.halo);
+    sprite.position.set(x, y, z);
+    sprite.scale.setScalar(size);
+    sprite.renderOrder = 9;
+    sprite.name = 'halo';
+    return sprite;
+  }
+
+  /** The lit burner of a balloon 1 wide, to add to its mesh: flame and halo. */
+  burner(): THREE.Group {
+    const group = new THREE.Group();
+    const flame = new THREE.Mesh(this.flameGeometry, this.flame);
+    flame.position.y = -0.22;
+    group.add(flame, this.haloAt(0, -0.1, 0, 2.4));
+    return group;
+  }
+
+  dispose(): void {
+    this.texture.dispose();
+    this.halo.dispose();
+    this.flame.dispose();
+    this.flameGeometry.dispose();
+  }
+}

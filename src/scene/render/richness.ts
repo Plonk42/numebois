@@ -30,6 +30,10 @@ export interface Ambience extends Light {
   name: string;
   /** The night (#85): moon instead of sun, stars in the sky. */
   night: boolean;
+  /** Share of the lit colours turned to a moonlit blue grey (`nightVeil`). */
+  veil: number;
+  /** Darkness of the shadows (1 = full) and blur of their edges, in shadow map texels. */
+  shadow: { strength: number; blur: number };
   /** Densities, as factors of the full amounts. */
   grass: number;
   flowers: number;
@@ -319,6 +323,9 @@ const NIGHT_LIGHT: SeasonLight = {
 };
 /** Fireflies at night, whatever the stage (outside winter). */
 const NIGHT_FIREFLIES = 0.7;
+/** The colours fade under the moon; the shadows soften. */
+const NIGHT_VEIL = 0.7;
+const NIGHT_SHADOW = { strength: 0.45, blur: 7 };
 
 /** Ambience of a stage, adjusted for the décor, the season and the night. */
 export function ambienceFor(
@@ -345,6 +352,8 @@ export function ambienceFor(
     ...light,
     name: look.stageNames[stage],
     night,
+    veil: night ? NIGHT_VEIL : 0,
+    shadow: night ? NIGHT_SHADOW : { strength: 1, blur: 2.5 },
     grass: LIFE.grass[stage],
     flowers: LIFE.flowers[stage],
     bushes: LIFE.bushes[stage],
