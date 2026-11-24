@@ -151,6 +151,45 @@ test('mode débogage : réglages, compteurs et pousse', async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
+test('bac à sable : du paysage au jeu, réponses et réserve sans sauvegarde', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('./?debug&stage=0&fill=10&quality=low');
+  await page.evaluate(() => window.__numebois!.ready);
+  await page.locator('#debug-sandbox summary').click();
+  await page.locator('#debug-notion').selectOption('mental-math.add');
+  await page.locator('#debug-level').selectOption('2');
+  await page.locator('#debug-leaves').fill('40');
+  await page.locator('#debug-seeds').fill('5');
+  await page.locator('#debug-play').click();
+  await page.waitForURL(/sandbox/);
+  await page.evaluate(() => window.__numebois!.ready);
+  expect(await page.evaluate(() => window.__numebois!.describe())).toMatchObject({
+    stage: 2,
+    elements: [{}, {}],
+    animals: [],
+  });
+
+  const panel = page.locator('#sandbox-panel');
+  const game = () => page.evaluate(() => window.__numebois!.game()!);
+  await expect.poll(async () => (await game()).phase).toBe('asking');
+  await expect(panel).toContainText('Additionner de tête');
+  expect(await game()).toMatchObject({ leaves: 40, seeds: 5 });
+  await page.locator('#debug-right').click();
+  await expect.poll(async () => (await game()).leaves).toBe(41);
+  await expect.poll(async () => (await game()).phase).toBe('asking');
+  await page.locator('#debug-wrong').click();
+  await page.locator('#debug-wrong').click();
+  await expect.poll(async () => (await game()).phase).toBe('reveal');
+  await page.locator('#debug-give-seeds').click();
+  await expect.poll(async () => (await game()).seeds).toBe(15);
+  await expect(panel).toContainText('apprentissage');
+
+  await page.locator('#debug-landscape').click();
+  await page.waitForURL(/debug/);
+  await expect(page.locator('#debug-panel')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
 test('avec ?scene, rien d’autre que la scène', async ({ page }) => {
   await openScene(page, 'time=1');
   await expect(page.locator('#debug-panel')).toHaveCount(0);

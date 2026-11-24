@@ -136,7 +136,7 @@ describe('sauvegarde', () => {
 
   it('practises one notion from a level: the trail asks only it, at that level', () => {
     const compare = SKILLS.find((skill) => skill.id === 'numbers.compare')!;
-    const practice = practiceSave(compare, 2, PAINTING, 200);
+    const practice = practiceSave(compare, 2, PAINTING, 200, { leaves: 0, seeds: 0 });
     expect(practice.ok && practice.data.progress).toEqual([
       { skill: compare.id, stage: 'learning', level: 2, recent: [], box: 0, due: null },
     ]);
@@ -151,10 +151,15 @@ describe('sauvegarde', () => {
     expect(new Set(session.trail.map((step) => step.skill))).toEqual(new Set([compare.id]));
     expect(session.trail.find((step) => step.role === 'core')).toBeDefined();
     for (const level of [Number.NaN, -1, 99]) {
-      const clamped = practiceSave(compare, level, PAINTING, 200);
+      const clamped = practiceSave(compare, level, PAINTING, 200, { leaves: 0, seeds: 0 });
       expect(clamped.ok && clamped.data.progress[0].level).toBe(
         level === 99 ? compare.levels - 1 : 0,
       );
     }
+  });
+
+  it('opens the sandbox as a new game, with the reserve given', () => {
+    const sandbox = practiceSave(null, 3, PAINTING, 200, { leaves: 40, seeds: 5 });
+    expect(sandbox.ok && sandbox.data).toMatchObject({ leaves: 40, seeds: 5, progress: [] });
   });
 });

@@ -145,25 +145,28 @@ export function serializeSave(data: Omit<SaveData, 'version' | 'savedAt'>, now: 
   return JSON.stringify(save);
 }
 
-/** A save where one notion is in progress at `level` (clamped), with an empty reserve. */
+/**
+ * A save never written (`?practice`, `?sandbox`): one notion in progress at `level` (clamped),
+ * or none as in a new game, and the reserve given.
+ */
 export function practiceSave(
-  skill: Skill,
+  skill: Skill | null,
   level: number,
   painting: SceneDescription,
   day: number,
+  reserve: { leaves: number; seeds: number },
 ): ParsedSave {
-  const at = Number.isInteger(level) ? Math.min(Math.max(level, 0), skill.levels - 1) : 0;
+  const at = skill && Number.isInteger(level) ? Math.min(Math.max(level, 0), skill.levels - 1) : 0;
   return {
     ok: true,
     data: {
       version: SAVE_SCHEMA_VERSION,
       savedAt: new Date(0).toISOString(),
-      leaves: 0,
-      seeds: 0,
+      ...reserve,
       trailLength: 'normal',
       painting,
       journal: { started: day, acquired: [], automated: [] },
-      progress: [{ ...newProgress(skill.id), stage: 'learning', level: at }],
+      progress: skill ? [{ ...newProgress(skill.id), stage: 'learning', level: at }] : [],
       facts: [],
       history: [],
     },

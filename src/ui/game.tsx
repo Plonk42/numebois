@@ -7,9 +7,9 @@ import {
   SEEDS_PER_ACHIEVEMENT,
 } from '../core/economy';
 import { Rng } from '../core/rng';
-import { Session, type Achievement } from '../core/session';
-import type { StepRole, TrailLength } from '../core/trail';
-import type { Exercise, Skill } from '../core/types';
+import { Session, type Achievement, type SessionSnapshot } from '../core/session';
+import { stepLevel, type StepRole, type TrailLength } from '../core/trail';
+import type { Exercise, Skill, SkillId } from '../core/types';
 import { QUESTS } from '../quests';
 import {
   exportFile,
@@ -144,6 +144,20 @@ export interface GameProbe {
   role: StepRole | null;
 }
 
+/** Shortcuts of the sandbox (`?sandbox`), wired by the game. */
+export interface GameDebug {
+  /** Starts the trail waiting, between two trails. */
+  start(): void;
+  /** Answers the question asked, right or wrong; nothing outside a question. */
+  answer(right: boolean): void;
+  /** Adds to the reserve. */
+  give(leaves: number, seeds: number): void;
+  /** Progress of the notions and facts. */
+  progress(): SessionSnapshot;
+  /** Notion and level of the step in progress. */
+  step(): { skill: SkillId; level: number };
+}
+
 interface Gift {
   count: number;
   reason: string;
@@ -173,6 +187,7 @@ interface Props {
   probe: GameProbe;
   /** Opens on the landscape, between two trails, rather than on the first question. */
   home: boolean;
+  debug?: GameDebug;
 }
 
 /** Why golden seeds came: the first thing learnt. */
@@ -249,6 +264,17 @@ function Game(props: Props) {
       stone: finished ? session.stones : session.stone,
       stones: session.stones,
       role: finished ? null : session.step.role,
+    });
+  });
+  useEffect(() => {
+    if (!props.debug) return;
+    Object.assign(props.debug, {
+      start,
+      answer: (right: boolean) => answer(right ? exercise.answer : ''),
+      give: (more: number, moreSeeds: number) => {
+        setLeaves((l) => l + more);
+        setSeeds((s) => s + moreSeeds);
+      },
     });
   });
   useEffect(() => () => clearTimeout(timer.current), []);
@@ -797,6 +823,7 @@ export function mountGame(
   write: (json: string) => void,
   writeAlbum: (json: string) => void,
   home = true,
+  debug?: GameDebug,
 ) {
   const rng = new Rng(seed);
   const session = new Session(skills, rng.fork('trail'), today, () => ({
@@ -807,6 +834,13 @@ export function mountGame(
     session.length = saved.data.trailLength;
   }
   session.startTrail();
+  if (debug) {
+    debug.progress = () => session.snapshot();
+    debug.step = () => ({
+      skill: session.step.skill,
+      level: stepLevel(session.step, session.progress.get(session.step.skill)),
+    });
+  }
   const probe: GameProbe = {
     exercise: null,
     leaves: 0,
@@ -839,6 +873,7 @@ export function mountGame(
       saveAlbum={problem ? () => undefined : (entries) => writeAlbum(serializeAlbum(entries))}
       probe={probe}
       home={home}
+      debug={debug}
     />,
     root,
   );

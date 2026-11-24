@@ -23,6 +23,7 @@ const SEASON_LABELS: Record<Season, string> = {
 const STYLE = `
 #debug-panel {
   position: fixed; top: 8px; left: 8px; z-index: 10; width: 250px;
+  max-height: calc(100vh - 16px); overflow-y: auto; box-sizing: border-box;
   font: 13px/1.35 system-ui, sans-serif; color: #17324a;
   background: rgba(255, 255, 255, 0.86); border-radius: 12px; padding: 10px 12px;
   box-shadow: 0 2px 10px rgba(0, 40, 80, 0.2);
@@ -37,7 +38,7 @@ const STYLE = `
 #debug-panel p { margin: 6px 0 0; font-size: 12px; }
 `;
 
-function element<K extends keyof HTMLElementTagNameMap>(
+export function element<K extends keyof HTMLElementTagNameMap>(
   tag: K,
   props: Partial<HTMLElementTagNameMap[K]> = {},
   children: (Node | string)[] = [],
@@ -66,7 +67,7 @@ function select<T extends string>(
 export const BUDGET = { drawCalls: 100, triangles: 150_000, memoryMb: 64 };
 
 /** Debug panel (`?debug`): stage, season, seed and quality controls, live counters. */
-export function mountDebugPanel(app: SceneApp): void {
+export function mountDebugPanel(app: SceneApp): HTMLElement {
   document.head.append(element('style', { textContent: STYLE }));
   const panel = element('div', { id: 'debug-panel' });
   const apply = () => {
@@ -211,4 +212,5 @@ export function mountDebugPanel(app: SceneApp): void {
       ? 'Formes de remplacement : lancer « npm run assets » avec les packs KayKit.'
       : '';
   };
+  return panel;
 }

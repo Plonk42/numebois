@@ -4,12 +4,18 @@ import { DOMAINS } from './domains';
 import { SceneApp, type SceneCounters } from './scene/app';
 import { mountSoundButton } from './scene/audio/sound-button';
 import type { Reward, SoundState } from './scene/audio/soundscape';
-import { newPainting, parseDescription, type SceneDescription } from './scene/description';
+import {
+  newPainting,
+  parseDescription,
+  stageFor,
+  type SceneDescription,
+} from './scene/description';
 import { mountDebugPanel } from './scene/debug';
 import { parseAlbum, type ParsedAlbum } from './save/album';
 import { parseSave, practiceSave } from './save/save';
 import { persistStorage, readAlbum, readSave, writeAlbum, writeSave } from './save/store';
-import { mountGame, type GameProbe } from './ui/game';
+import { mountSandboxPanel, sandboxForm } from './ui/debug';
+import { mountGame, type GameDebug, type GameProbe } from './ui/game';
 
 declare global {
   interface Window {
@@ -38,8 +44,10 @@ const app = new SceneApp(canvas, params, import.meta.env.BASE_URL);
 const randomSeed = () => Math.floor(Math.random() * 1_000_000);
 
 // `?scene` (captures) and `?debug` show the landscape alone, as the address describes it.
+// `?sandbox` plays without the save, on the painting of the address, with the reserve given.
 let game: GameProbe | null = null;
-const sceneOnly = params.has('scene') || params.has('debug');
+const sandbox = params.has('sandbox');
+const sceneOnly = !sandbox && (params.has('scene') || params.has('debug'));
 // The landscape alone can always be explored.
 if (sceneOnly) app.explore(() => undefined);
 const ready = sceneOnly
@@ -56,16 +64,34 @@ const ready = sceneOnly
         // without reading or writing the save (tests, trying a new notion).
         const practice = all.find((skill) => skill.id === params.get('practice'));
         const skills = practice ? [practice] : all;
-        const saved = json === undefined || practice ? null : parseSave(json, skills);
+        const unsaved = practice !== undefined || sandbox;
+        const saved = json === undefined || unsaved ? null : parseSave(json, skills);
         const album: ParsedAlbum =
-          albumJson === undefined || practice ? { ok: true, entries: [] } : parseAlbum(albumJson);
+          albumJson === undefined || unsaved ? { ok: true, entries: [] } : parseAlbum(albumJson);
         // The painting in progress, or a new one (`?seed=`, `?season=` and `?biome=` choose it).
         const asked = parseDescription(params);
-        app.description = saved?.ok
-          ? saved.data.painting
-          : newPainting(params.has('seed') ? asked.seed : randomSeed(), asked.season, asked.biome);
+        if (sandbox) {
+          // The elements of `?fill=`, at their stage, nothing bought yet.
+          app.description = { ...asked, stage: stageFor(asked.elements.length), animals: [] };
+        } else {
+          app.description = saved?.ok
+            ? saved.data.painting
+            : newPainting(
+                params.has('seed') ? asked.seed : randomSeed(),
+                asked.season,
+                asked.biome,
+              );
+        }
         const started = app.start();
         persistStorage();
+        const count = (name: string) => Math.max(0, Math.floor(Number(params.get(name)) || 0));
+        const debug: GameDebug = {
+          start: () => undefined,
+          answer: () => undefined,
+          give: () => undefined,
+          progress: () => ({ progress: [], facts: [], history: [] }),
+          step: () => ({ skill: '', level: 0 }),
+        };
         game = mountGame(
           document.querySelector<HTMLElement>('#ui')!,
           skills,
@@ -92,19 +118,33 @@ const ready = sceneOnly
             quality: () => ({ chosen: app.qualityChoice, current: app.quality }),
             setQuality: (quality) => app.setQuality(quality),
           },
-          practice
-            ? practiceSave(practice, Number(params.get('level')), app.description, today())
+          unsaved
+            ? practiceSave(
+                practice ?? null,
+                Number(params.get('level')),
+                app.description,
+                today(),
+                { leaves: count('leaves'), seeds: count('seeds') },
+              )
             : saved,
           album,
-          practice
+          unsaved
             ? () => undefined
             : (data) => void writeSave(data).catch((error: unknown) => console.warn(error)),
-          practice
+          unsaved
             ? () => undefined
             : (data) => void writeAlbum(data).catch((error: unknown) => console.warn(error)),
           // A notion alone starts on its first question; the game on the landscape.
           !practice,
+          debug,
         );
+        if (sandbox)
+          mountSandboxPanel(
+            debug,
+            () => game,
+            skills,
+            () => app.description,
+          );
         // During a question, the soundscape stays low and plays no calls.
         app.sound.quiet = () =>
           ![
@@ -145,4 +185,6 @@ window.addEventListener('keydown', (event) => {
   if (event.key === 'g' || event.key === 'G') app.grow();
 });
 
-if (params.has('debug')) mountDebugPanel(app);
+if (sceneOnly && params.has('debug')) {
+  mountDebugPanel(app).append(sandboxForm(curriculum(DOMAINS), () => app.description));
+}
