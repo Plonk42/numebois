@@ -54,6 +54,19 @@ export function isFragile(progress: FactProgress): boolean {
   );
 }
 
+/** Tries, and their rate of right first answers, that make a fact sure. */
+const SURE_TRIES = 3;
+const SURE_RATE = 0.9;
+
+/** A fact the child nearly always knows: the drill mixes it with the hard ones. */
+export function isSure(progress: FactProgress | undefined): boolean {
+  if (progress === undefined) return false;
+  return (
+    isAutomated(progress) ||
+    (progress.tries >= SURE_TRIES && progress.right / progress.tries >= SURE_RATE)
+  );
+}
+
 /** A notion with facts is automated when all its facts are. */
 export function allAutomated(
   facts: readonly FactId[],

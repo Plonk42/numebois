@@ -32,11 +32,11 @@ export class Session {
   private extra = 0;
 
   constructor(
-    private readonly skills: readonly Skill[],
+    readonly skills: readonly Skill[],
     private readonly rng: Rng,
-    private readonly today: () => number,
+    readonly today: () => number,
     /** The decor of the painting in progress, when a question is asked. */
-    private readonly context: () => ExerciseContext,
+    readonly context: () => ExerciseContext,
     public length: TrailLength = 'normal',
   ) {
     this.byId = new Map(skills.map((skill) => [skill.id, skill]));
@@ -98,6 +98,19 @@ export class Session {
     ms: number,
     revealed: boolean,
   ): Achievement[] {
+    const achievements = this.learn(skill, exercise, right, ms);
+    this.results.push(right);
+    if (revealed) this.trail = revisit(this.trail, this.index);
+    if (revealed && this.index === this.trail.length - 1 && this.extra < MAX_EXTRA) {
+      // Always finish on a success: one more easy question.
+      this.trail.push({ ...this.trail[this.index], role: 'finish', easy: true });
+      this.extra++;
+    }
+    return achievements;
+  }
+
+  /** Records an answer, of a trail or a drill, in the progress of its notion and fact. */
+  learn(skill: Skill, exercise: Exercise, right: boolean, ms: number): Achievement[] {
     const achievements: Achievement[] = [];
     const day = this.today();
     const progress = this.progress.get(skill.id) ?? newProgress(skill.id);
@@ -114,13 +127,6 @@ export class Session {
       this.facts.set(fact, after);
       if (!isAutomated(before) && isAutomated(after))
         achievements.push({ kind: 'automated', fact });
-    }
-    this.results.push(right);
-    if (revealed) this.trail = revisit(this.trail, this.index);
-    if (revealed && this.index === this.trail.length - 1 && this.extra < MAX_EXTRA) {
-      // Always finish on a success: one more easy question.
-      this.trail.push({ ...this.trail[this.index], role: 'finish', easy: true });
-      this.extra++;
     }
     return achievements;
   }

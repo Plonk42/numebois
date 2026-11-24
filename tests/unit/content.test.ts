@@ -50,7 +50,18 @@ describe('registre', () => {
   });
 
   it('detects facts without drill, long lessons and lessons on unknown notions', () => {
-    const facts = { all: ['a.x:1', 'b.y:2'], of: () => null, seconds: 3 };
+    const facts = {
+      all: ['a.x:1', 'b.y:2'],
+      of: () => null,
+      exercise: () => {
+        throw new Error('unused');
+      },
+      seconds: 3,
+      groups: [
+        { id: 'g', name: 'G', facts: ['a.x:1', 'a.x:3'] },
+        { id: 'g', name: 'G', facts: [] },
+      ],
+    };
     const errors = registryErrors([
       {
         id: 'a',
@@ -70,6 +81,9 @@ describe('registre', () => {
     expect(errors).toEqual([
       'a.x : des faits sans rafale',
       "b.y:2 n'est pas préfixé par a.x:",
+      'a.x : groupe de faits en double',
+      'a.x : groupe g, fait inconnu a.x:3',
+      'a.x : groupe g vide',
       'a.x/long : 7 étapes (1 à 6)',
       'a.z/lost : notion inconnue a.z',
     ]);
@@ -118,7 +132,12 @@ describe('registre', () => {
       hint: (_, attempt) =>
         attempt === 1 ? 'Ce n’est pas faux.' : 'Un. Deux. Trois. Ce sont quatre phrases.',
       drill: true,
-      facts: { all: ['a.x:1'], of: () => 'a.x:2', seconds: 3 },
+      facts: {
+        all: ['a.x:1'],
+        of: () => 'a.x:2',
+        exercise: () => exercise,
+        seconds: 3,
+      },
     };
     expect(exerciseErrors(notion, exercise, 1)).toEqual([
       'niveau 0 au lieu de 1',
@@ -170,6 +189,16 @@ describe('registre', () => {
             }
           }
           for (const fact of notion.facts!.all) expect(reached).toContain(fact);
+        });
+
+        it('asks each declared fact in a drill', () => {
+          for (const fact of notion.facts!.all) {
+            for (let seed = 0; seed < 10; seed++) {
+              const exercise = notion.facts!.exercise(fact, new Rng(seed));
+              expect(notion.facts!.of(exercise)).toBe(fact);
+              expect(exerciseErrors(notion, exercise, exercise.level), fact).toEqual([]);
+            }
+          }
         });
       }
     });

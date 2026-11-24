@@ -105,8 +105,20 @@ export interface SkillFacts<E extends Exercise = Exercise> {
   all: readonly FactId[];
   /** The fact an exercise works on, or null when it is not an elementary fact. */
   of(exercise: E): FactId | null;
+  /** An exercise on this declared fact, for the drill. */
+  exercise(fact: FactId, rng: Rng): E;
   /** A right first answer under this time counts towards automation. */
   seconds: number;
+  /** Sets of facts a drill can be limited to (« la table de 7 »). */
+  groups?: readonly FactGroup[];
+}
+
+export interface FactGroup {
+  /** Stable: the parent's recommended drill refers to it. */
+  id: string;
+  /** Displayed name, in French: « La table de 7 ». */
+  name: string;
+  facts: readonly FactId[];
 }
 
 /** One step of a lesson (« Plume te montre une astuce »), played by `LessonPlayer`. */

@@ -150,7 +150,7 @@ Widgets : `Keypad`, `Choice`, `CompareSigns`, `FractionInput`, `TimeInput`, `Clo
   - `index.ts` : `defineDomain` (id, nom affiché en français, icône, liste des notions) ;
   - `skills.ts` : notions avec id stable, prérequis, niveaux de difficulté internes, drapeaux `drill`/`challenge` ;
   - `generators.ts`, `validate.ts`, `hints.ts` : fonctions pures ;
-  - `facts.ts` (facultatif) : découpage en faits élémentaires pour l'automatisation, par exemple « 7×8 » ou « 3+7=10 » ;
+  - `facts.ts` (facultatif) : découpage en faits élémentaires pour l'automatisation, par exemple « 7×8 » ou « 3+7=10 » ; `exercise(fait, rng)` pose un fait donné (rafale), `groups` regroupe des faits pour une rafale ciblée (« La table de 7 », id stable `table-7`) ;
   - `lessons/*.ts` : leçons écrites avec `defineLesson` ;
   - `widgets/*.tsx` : seulement si le domaine a besoin d'une interaction qui lui est propre ;
   - `problems.ts` : modèles d'énoncés ;
@@ -557,6 +557,8 @@ Dépend de 4.
 6. Après environ 15 minutes, Plume propose une pause, sans l'imposer.
 7. Le budget du sentier ne s'applique pas à la rafale. Les réponses en rafale alimentent quand même la maîtrise et la révision.
 
+État (2026-11-24, #39) : moteur `src/core/drill.ts` (`Drill`, cible `DrillTarget` : une notion, un groupe de ses faits ou « Mes faits fragiles », `fragileFacts`). Une erreur revient 2 ou 3 questions plus tard, la même question ; entre-temps, seulement des faits sûrs (`isSure` : automatisé, ou au moins 3 essais justes à 90 %) ; ailleurs, un fait sûr après 2 difficiles ou dès que la réussite des 10 dernières passe sous 80 %. Une notion sans faits mélange son niveau et le niveau d'en dessous. Les réponses passent par `Session.learn` (maîtrise, révision, faits), comme au sentier. « Mes faits fragiles » : les faits déjà rencontrés et pas automatisés, les moins automatisés d'abord (6 à la fois).
+
 ## Phase 8 : défis chronométrés
 
 Dépend de 4 et 7 (réutilise le suivi des faits).
@@ -800,3 +802,4 @@ Vérification : frontmatter YAML valide, `name` identique au nom du dossier, `de
 - 2026-11-24 : arrivée d'un animal acheté (#107, zoom « fort » choisi par le propriétaire). La caméra s'approche en 1,5 s de l'endroit où l'animal va apparaître (distance ramenée à 45 % du cadrage, jamais plus loin que le zoom de l'enfant), l'animal apparaît avec sa gerbe d'étincelles, la caméra le suit 3 s puis revient en 1,5 s à la vue qu'avait l'enfant (`Stage.approach`, `Painting.adopt`/`arrive`). La boutique revient une fois la caméra rentrée ; l'attente suit l'horloge de la scène (`SceneApp.after`), qui prend du retard quand les images sont lentes. Aucun rendu en plus.
 - 2026-11-24 : « Décomposer un nombre » reprise (#110, retour du propriétaire sur #109 : colonnes bonnes, forme confuse, trop de « recopier »). Le tableau de numération ne sert plus qu'à lire une colonne (niveaux 2 et 3), avec un 0 dans la case d'un rang à 0 ; plus de « Quel nombre ? » sur un tableau. Une présentation sur quatre est facile, pour rassurer, les autres font travailler une méthode (`DECOMPOSE_SHOWS` : `easy`/`effort`, `EASY_SHOW_SHARE`) : niveau 0, mots dans l'ordre ou somme contre désordre ou cubes ; niveau 1, rang vide nommé (« 0 centaine », `named`) contre rang vide à deviner, désordre ou somme ; niveaux 2 et 3, tableau contre phrase.
 - 2026-11-24 : plus de consigne du geste pendant la promenade (« Glisse un doigt… »), retirée à la demande du propriétaire : sur tablette, c'est intuitif ; en haut au centre, seulement « Revenir » dès que la vue a bougé.
+- 2026-11-24 : début de M2, moteur de la rafale (#39, voir la phase 7). Une notion à faits sait poser un fait donné (`facts.exercise`) et peut regrouper ses faits (`facts.groups` : les 9 tables de `times-tables.products`) ; `registryErrors` vérifie les groupes, les tests de contenu chaque fait posé. Pendant qu'une erreur attend son retour, la rafale ne pose que des faits sûrs : sans cela, la réussite tombait vers 73 % avec un enfant qui sait la moitié des faits difficiles.

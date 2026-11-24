@@ -44,6 +44,15 @@ function drawFactors(rng: Rng, level: number): [number, number] {
 
 export function generateProduct(rng: Rng, level: number): ProductExercise {
   const [a, b] = drawFactors(rng, level);
+  return product(a, b, level);
+}
+
+/** The first level whose tables hold either factor. */
+export function levelOfProduct(a: number, b: number): number {
+  return TABLES_BY_LEVEL.findIndex((tables) => tables.includes(a) || tables.includes(b));
+}
+
+export function product(a: number, b: number, level: number): ProductExercise {
   return {
     skill: PRODUCTS,
     level,

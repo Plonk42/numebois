@@ -1,4 +1,4 @@
-import type { Domain, Exercise, Lesson, Quest, Skill, SkillId } from './types';
+import type { Domain, Exercise, Lesson, Quest, Skill, SkillFacts, SkillId } from './types';
 
 /** Content limits checked by the tests (plan, « Pour le parent et le code »). */
 export const MAX_LESSON_STEPS = 6;
@@ -78,6 +78,21 @@ function factErrors(skill: Skill): string[] {
   }
   for (const fact of skill.facts.all) {
     if (!fact.startsWith(`${skill.id}:`)) errors.push(`${fact} n'est pas préfixé par ${skill.id}:`);
+  }
+  return [...errors, ...groupErrors(skill.id, skill.facts)];
+}
+
+function groupErrors(id: SkillId, facts: SkillFacts): string[] {
+  const errors: string[] = [];
+  const groups = facts.groups ?? [];
+  if (new Set(groups.map((group) => group.id)).size !== groups.length) {
+    errors.push(`${id} : groupe de faits en double`);
+  }
+  for (const group of groups) {
+    if (group.facts.length === 0) errors.push(`${id} : groupe ${group.id} vide`);
+    for (const fact of group.facts.filter((fact) => !facts.all.includes(fact))) {
+      errors.push(`${id} : groupe ${group.id}, fait inconnu ${fact}`);
+    }
   }
   return errors;
 }

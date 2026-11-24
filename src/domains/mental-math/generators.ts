@@ -159,6 +159,10 @@ export function generateComplement(rng: Rng, level: number): ComplementExercise 
     default:
       throw levelError(level);
   }
+  return complement(given, target, level);
+}
+
+export function complement(given: number, target: 10 | 100, level: number): ComplementExercise {
   return {
     skill: COMPLEMENTS,
     level,
@@ -208,6 +212,14 @@ export function generateDoubleHalf(rng: Rng, level: number): DoubleHalfExercise 
     default:
       throw levelError(level);
   }
+  return doubleHalf(kind, value, level);
+}
+
+export function doubleHalf(
+  kind: DoubleHalfExercise['kind'],
+  value: number,
+  level: number,
+): DoubleHalfExercise {
   return {
     skill: DOUBLES_HALVES,
     level,
