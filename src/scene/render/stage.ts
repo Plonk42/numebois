@@ -16,6 +16,18 @@ const FOV = 30;
 const NEAR = 5;
 /** The camera tour of the grand finale (#33), in seconds. */
 export const TOUR_SECONDS = 9;
+/** The camera comes close to a bought animal (#107), stays, then goes back, in seconds. */
+const APPROACH = { in: 1.5, stay: 3, out: 1.5 };
+/** The animal appears once the camera has come close. */
+export const APPROACH_ARRIVAL_SECONDS = APPROACH.in;
+export const APPROACH_SECONDS = APPROACH.in + APPROACH.stay + APPROACH.out;
+/** Distance to what the camera looks at, at the closest, as a share of the framing's. */
+const APPROACH_DISTANCE = 0.45;
+
+const smooth = (x: number) => {
+  const t = Math.min(1, Math.max(0, x));
+  return t * t * (3 - 2 * t);
+};
 
 /** Screen pixels per CSS pixel, the page scale of a phone (index.html) included. */
 export function screenPixelRatio(): number {
@@ -46,6 +58,8 @@ export class Stage {
 
   private readonly focusPoint = new THREE.Vector3();
   private focusStart = -100;
+  private approachPoint: THREE.Vector3 | null = null;
+  private approachStart = -100;
   private tourStart = -100;
   private readonly lookAt = new THREE.Vector3();
   private readonly offset = new THREE.Vector3();
@@ -166,6 +180,15 @@ export class Stage {
     this.focusStart = time;
   }
 
+  /**
+   * Come close to a point, followed as it moves (a bought animal), stay, then go back to the
+   * view of the child, from wherever the exploration had taken it.
+   */
+  approach(point: THREE.Vector3, time: number): void {
+    this.approachPoint = point;
+    this.approachStart = time;
+  }
+
   /** The grand finale: the camera swings slowly over the whole painting, rises, and comes back. */
   tour(time: number): void {
     this.tourStart = time;
@@ -197,13 +220,22 @@ export class Stage {
     this.lookAt.z += view.z;
     this.lookAt.lerp(this.focusPoint, 0.3 * weight);
     distance *= 1 - 0.1 * weight;
+    const near = time - this.approachStart;
+    if (this.approachPoint && near >= 0 && near < APPROACH_SECONDS) {
+      const close =
+        smooth(near / APPROACH.in) *
+        (1 - smooth((near - APPROACH.in - APPROACH.stay) / APPROACH.out));
+      this.lookAt.lerp(this.approachPoint, close);
+      // Never further than the child's own zoom.
+      distance += (Math.min(distance, this.distance * APPROACH_DISTANCE) - distance) * close;
+    }
     this.direction(yaw, pitch, this.offset);
     this.camera.position.copy(this.lookAt).addScaledVector(this.offset, distance);
     this.camera.lookAt(this.lookAt);
     // Up close, a nearer clipping plane keeps the trees in front of the camera whole.
-    const near = Math.min(NEAR, distance * 0.2);
-    if (Math.abs(near - this.camera.near) > 0.02) {
-      this.camera.near = near;
+    const clip = Math.min(NEAR, distance * 0.2);
+    if (Math.abs(clip - this.camera.near) > 0.02) {
+      this.camera.near = clip;
       this.camera.updateProjectionMatrix();
     }
   }

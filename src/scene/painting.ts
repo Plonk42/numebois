@@ -14,7 +14,13 @@ import { GENERATED_DRIFTERS } from './props';
 import { Backdrop, BACKDROP_TRIANGLES } from './render/backdrop';
 import { CloudSea, CLOUD_SEA_TRIANGLES } from './render/cloud-sea';
 import type { InstanceBatch } from './render/instancing';
-import { animalState, Herd, planHerd, type AnimalState } from './render/ambient-life';
+import {
+  animalState,
+  Herd,
+  planHerd,
+  type AnimalState,
+  type HerdMember,
+} from './render/ambient-life';
 import { Lighting, sunDirection } from './render/lighting';
 import { createMaterials, paletteColor, type SceneMaterials } from './render/materials';
 import {
@@ -38,7 +44,7 @@ import {
 import type { QualitySettings } from './render/quality';
 import { ambienceFor, type Ambience } from './render/richness';
 import { Clouds, Sky } from './render/sky';
-import type { Stage } from './render/stage';
+import { APPROACH_ARRIVAL_SECONDS, APPROACH_SECONDS, type Stage } from './render/stage';
 import type { Drifter, Terrain } from './terrain/types';
 import type { Season } from './trees/builder';
 import { Forest } from './trees/forest';
@@ -161,6 +167,12 @@ export class Painting {
   /** Bursts of the grand finale still to come, the first one last. */
   private readonly finaleBursts: { point: THREE.Vector3; at: number }[] = [];
   private readonly burstOrigin = new THREE.Vector3();
+  /** Bought animals still to appear, once the camera has come close (#107). */
+  private arriving: { members: HerdMember[]; at: number } | null = null;
+  /** The last bought animal, followed by the camera until it has gone back. */
+  private followed: { member: HerdMember; until: number } | null = null;
+  private readonly followedPoint = new THREE.Vector3();
+  private readonly followedState = {} as AnimalState;
   private readonly scratch = new THREE.Matrix4();
   /** Free slots offered for the next element, prepared hidden. */
   readonly candidates: readonly number[];
@@ -613,21 +625,41 @@ export class Painting {
   }
 
   /**
-   * A bought animal comes into the meadow, where its own draw puts it, with a burst of sparks
-   * and the camera leaning towards it. `next` is the description with the animal. False when
-   * it found no place.
+   * A bought animal comes into the meadow, where its own draw puts it: the camera comes close
+   * to that place, the animal appears with a burst of sparks (`arrive`), then the camera goes
+   * back. `next` is the description with the animal. False when it found no place.
    */
   adopt(next: SceneDescription, time: number): boolean {
+    this.arrive(time);
     const plan = planHerd(this.terrain, next.animals, next.seed);
     if (plan.length <= this.herd.size) return false;
+    const members = plan.slice(this.herd.size);
+    this.arriving = { members, at: time + APPROACH_ARRIVAL_SECONDS };
+    this.followed = { member: members.at(-1)!, until: time + APPROACH_SECONDS };
+    this.follow(time);
+    this.stage.approach(this.followedPoint, time);
+    return true;
+  }
+
+  /** The bought animals appear, if they have not yet. */
+  arrive(time: number): void {
+    const arriving = this.arriving;
+    if (!arriving) return;
+    this.arriving = null;
     const before = this.herd.triangles;
-    for (const member of plan.slice(this.herd.size)) this.herd.add(member);
+    for (const member of arriving.members) this.herd.add(member);
     this.stats.animals = this.herd.size;
     this.stats.animalTriangles = this.herd.triangles;
     this.stats.triangles += this.herd.triangles - before;
-    const at = animalState(plan.at(-1)!, time, {} as AnimalState);
-    this.celebrate(at.x, at.y, at.z, time);
-    return true;
+    const at = animalState(arriving.members.at(-1)!, time, this.followedState);
+    this.burst(at.x, at.y, at.z, time);
+  }
+
+  /** Where the camera looks while it comes close to the bought animal: its body. */
+  private follow(time: number): void {
+    if (!this.followed) return;
+    const s = animalState(this.followed.member, time, this.followedState);
+    this.followedPoint.set(s.x, s.y + 0.6, s.z);
   }
 
   /**
@@ -739,17 +771,25 @@ export class Painting {
 
   /** Sparks, leaves and the camera leaning towards what grows. */
   private celebrate(x: number, y: number, z: number, time: number): void {
+    this.burst(x, y, z, time);
+    this.burstOrigin.y += 1.6;
+    this.stage.focus(this.burstOrigin, time);
+  }
+
+  /** Sparks and leaves. */
+  private burst(x: number, y: number, z: number, time: number): void {
     this.burstOrigin.set(x, y + 0.4, z);
     this.glow.burst(this.burstOrigin, time);
     this.leaves.burst(this.burstOrigin, time);
-    this.burstOrigin.y += 1.6;
-    this.stage.focus(this.burstOrigin, time);
   }
 
   /** Per-frame update: uniforms and a few matrices only, no allocation. */
   update(time: number): void {
     this.materials.shared.uTime.value = time;
     this.clouds.update(time);
+    if (this.arriving && time >= this.arriving.at) this.arrive(time);
+    if (this.followed && time > this.followed.until) this.followed = null;
+    this.follow(time);
     this.herd.update(time);
     for (const s of this.spinners) s.pivot.rotation.z = time * s.speed;
     for (const { mesh, drifter: d } of this.drifters) {

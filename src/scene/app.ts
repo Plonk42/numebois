@@ -8,7 +8,7 @@ import { Painting, type PaintingStats, type Touched } from './painting';
 import { animalPortrait } from './render/portrait';
 import { parseViewShares, type View } from './render/explore';
 import { QUALITY, QualityGovernor, parseQuality, type Quality } from './render/quality';
-import { Stage, TOUR_SECONDS } from './render/stage';
+import { APPROACH_ARRIVAL_SECONDS, APPROACH_SECONDS, Stage, TOUR_SECONDS } from './render/stage';
 import { trailArt, type TrailArt } from './render/trail-art';
 import type { Season } from './trees/builder';
 
@@ -37,7 +37,7 @@ function textureBytes(texture: THREE.Texture | null | undefined): number {
 const GROWTH_MS = 3600;
 const VEIL_IN_MS = 700;
 const VEIL_OUT_MS = 1400;
-/** A bought animal settles in the meadow, with sparks and the camera leaning towards it. */
+/** A bought animal that found no place: the time of its arrival all the same. */
 const ARRIVAL_MS = 3200;
 /** Side of the animal portraits of the shop, in pixels of the image. */
 const PORTRAIT_PX = 256;
@@ -74,6 +74,8 @@ export class SceneApp {
   private fpsFrames = 0;
   private fpsElapsed = 0;
   private readonly fixedTime: number | null;
+  /** Promises waiting for a time of the scene (`after`). */
+  private readonly timers: { at: number; resolve: () => void }[] = [];
   private readonly forcePlaceholders: boolean;
   /** Light over the whole scene while a new stage is built. */
   private readonly veil: HTMLElement;
@@ -307,14 +309,36 @@ export class SceneApp {
     }
   }
 
-  /** A bought animal comes into the meadow. Resolves once it has settled, with the new description. */
+  /**
+   * A bought animal comes into the meadow: the camera comes close, it appears, then the camera
+   * goes back. Resolves once the camera is back, with the new description.
+   */
   async adopt(animal: AnimalName): Promise<SceneDescription> {
     const next = { ...this.description, animals: [...this.description.animals, animal] };
-    this.painting?.adopt(next, this.time);
+    const coming = this.painting?.adopt(next, this.time) ?? false;
     this.description = next;
+    if (coming) {
+      await this.after(APPROACH_ARRIVAL_SECONDS);
+      // With the time frozen (captures), the painting does not make it appear by itself.
+      this.painting?.arrive(this.time);
+    }
     this.sound.reward('element');
-    await wait(ARRIVAL_MS);
+    await (coming ? this.after(APPROACH_SECONDS - APPROACH_ARRIVAL_SECONDS) : wait(ARRIVAL_MS));
     return next;
+  }
+
+  /**
+   * Resolves after `seconds` of the scene's own time, which falls behind the clock when the
+   * frames are slow: what waits for the camera stays in step with it.
+   */
+  private after(seconds: number): Promise<void> {
+    if (this.fixedTime !== null) return wait(seconds * 1000).then(() => undefined);
+    return new Promise((resolve) => this.timers.push({ at: this.time + seconds, resolve }));
+  }
+
+  /** Where the camera is, for the tests. */
+  camera(): [number, number, number] {
+    return this.stage.camera.position.toArray();
   }
 
   /**
@@ -406,6 +430,11 @@ export class SceneApp {
     this.painting.update(this.time);
     this.stage.update(this.time);
     this.stage.render();
+    for (let i = this.timers.length - 1; i >= 0; i--) {
+      if (this.time < this.timers[i].at) continue;
+      this.timers[i].resolve();
+      this.timers.splice(i, 1);
+    }
   }
 
   counters(): SceneCounters {
