@@ -71,7 +71,8 @@ export function Slate({ heading, plume, hint, away, basket, children }: SlatePro
 
 /**
  * What the child works on, left of the answer zone (about 430 × 450 px). `wide` takes the
- * whole width of the slate (ruler, number line), the answer zone then goes under it.
+ * whole width of the slate (a statement alone, a ruler, a number line), the answer zone then
+ * goes under it.
  */
 export function Work({ wide = false, children }: { wide?: boolean; children: ComponentChildren }) {
   return <div class={wide ? 'work wide' : 'work'}>{children}</div>;

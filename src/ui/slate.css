@@ -54,7 +54,7 @@
   margin: 0;
 }
 #question header {
-  min-height: 36px;
+  min-height: 48px;
   display: grid;
   place-items: center;
   text-align: center;
@@ -63,6 +63,15 @@
   font-size: 24px;
   line-height: 32px;
   color: #5a6e5f;
+}
+#question .instruction {
+  padding: 6px 24px;
+  border-radius: 24px;
+  background: #e6f1dc;
+  font-size: 28px;
+  line-height: 36px;
+  font-weight: 600;
+  color: #2f4a3a;
 }
 .praise {
   font-size: 32px;
@@ -90,7 +99,7 @@
   display: grid;
   place-items: center;
 }
-/* Rulers and number lines: the whole width, the answer zone under it. */
+/* A statement alone, rulers and number lines: the whole width, the answer zone under it. */
 .bench > .work.wide {
   grid-column: 1 / -1;
 }

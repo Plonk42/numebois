@@ -23,13 +23,13 @@ type Widgets = {
 
 /**
  * One widget per kind of input (a new kind does not compile without its widget). Each one
- * lays itself out on the slate: a `Work` (the statement, or a clock, an operation…) and an
- * `AnswerZone`, or a `Work wide` that takes the whole width.
+ * lays itself out on the slate: a `Work` (a clock, an operation…) and an `AnswerZone`, or a
+ * `Work wide` that takes the whole width (a statement alone, a ruler…).
  */
 const WIDGETS: Widgets = {
   keypad: ({ exercise, input, ...state }) => (
     <>
-      <Work>
+      <Work wide>
         <Statement text={exercise.statement} />
       </Work>
       <AnswerZone>
@@ -39,7 +39,7 @@ const WIDGETS: Widgets = {
   ),
   choice: ({ exercise, input, ...state }) => (
     <>
-      <Work>
+      <Work wide>
         <Statement text={exercise.statement} />
       </Work>
       <AnswerZone>
