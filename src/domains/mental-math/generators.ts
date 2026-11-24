@@ -223,23 +223,32 @@ export function generateDoubleHalf(rng: Rng, level: number): DoubleHalfExercise 
 export interface TimesTenExercise extends Exercise {
   value: number;
   factor: 10 | 100;
+  /** `10 × 34` rather than `34 × 10`. */
+  factorFirst: boolean;
 }
 
-/** Levels of « multiplier par 10 et par 100 »: 0. 34 × 10; 1. 34 × 100. */
+/**
+ * Levels of « multiplier par 10 et par 100 », × 10 and × 100 mixed:
+ * 0. 34 × 10, 34 × 100;
+ * 1. also 10 × 34, 100 × 34.
+ */
 export const TIMES_TEN_LEVELS = 2;
 
 export function generateTimesTen(rng: Rng, level: number): TimesTenExercise {
   if (level !== 0 && level !== 1) throw levelError(level);
-  const factor = level === 0 ? 10 : 100;
+  const factor = rng.pick([10, 100] as const);
   const value = rng.int(2, 99);
+  const factorFirst = level === 1 && rng.chance(0.5);
+  const [left, right] = factorFirst ? [factor, value] : [value, factor];
   return {
     skill: TIMES_TEN,
     level,
     instruction: CALCULATE,
-    statement: `${value}${SPACE}×${SPACE}${factor}`,
+    statement: `${left}${SPACE}×${SPACE}${right}`,
     input: { kind: 'keypad', maxDigits: 4 },
     answer: String(value * factor),
     value,
     factor,
+    factorFirst,
   };
 }

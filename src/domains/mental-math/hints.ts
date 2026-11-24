@@ -113,9 +113,16 @@ export function doubleHalfHint({ kind, value }: DoubleHalfExercise, attempt: 1 |
   );
 }
 
-/** Each unit becomes a ten (or a hundred). */
-export function timesTenHint({ value, factor }: TimesTenExercise, attempt: 1 | 2): string {
+/** Each unit becomes a ten (or a hundred), whatever the order. */
+export function timesTenHint(
+  { value, factor, factorFirst }: TimesTenExercise,
+  attempt: 1 | 2,
+): string {
   const [one, many] = factor === 10 ? ['dizaine', 'dizaines'] : ['centaine', 'centaines'];
-  if (attempt === 1) return `× ${factor} : chaque unité devient une ${one}.`;
-  return `${value} × ${factor} = ${formatNumber(value * factor)} : ${value} ${many}.`;
+  if (attempt === 1) {
+    const method = `× ${factor} : chaque unité devient une ${one}.`;
+    return factorFirst ? `${factor} × ${value}, c’est ${value} × ${factor}.\n${method}` : method;
+  }
+  const product = factorFirst ? `${factor} × ${value}` : `${value} × ${factor}`;
+  return `${product} = ${formatNumber(value * factor)} : ${value} ${many}.`;
 }

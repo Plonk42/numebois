@@ -102,9 +102,26 @@ checkLevels<DoubleHalfExercise>('doubles et moitiés', generateDoubleHalf, DOUBL
 ]);
 
 checkLevels<TimesTenExercise>('multiplier par 10 et par 100', generateTimesTen, TIMES_TEN_LEVELS, [
-  ({ value, factor }) => factor === 10 && value >= 2 && value <= 99,
-  ({ value, factor }) => factor === 100 && value >= 2 && value <= 99,
+  ({ value, factorFirst, statement }) =>
+    value >= 2 && value <= 99 && !factorFirst && statement.startsWith(String(value)),
+  ({ value, factor, factorFirst, statement }) =>
+    value >= 2 && value <= 99 && statement.startsWith(String(factorFirst ? factor : value)),
 ]);
+
+describe('multiplier par 10 et par 100 : les cas mélangés', () => {
+  it.each([
+    [0, ['10:false', '100:false']],
+    [1, ['10:false', '100:false', '10:true', '100:true']],
+  ])('level %i mixes both factors (and both orders at level 1)', (level, cases) => {
+    const seen = new Set<string>();
+    for (let seed = 0; seed < 1000; seed++) {
+      const exercise = generateTimesTen(new Rng(seed), level);
+      expect(Number(exercise.answer)).toBe(exercise.value * exercise.factor);
+      seen.add(`${exercise.factor}:${exercise.factorFirst}`);
+    }
+    expect([...seen].sort()).toEqual([...cases].sort());
+  });
+});
 
 describe('indices', () => {
   const operation = (a: number, op: '+' | '−', b: number) =>
@@ -165,8 +182,19 @@ describe('indices', () => {
   });
 
   it('times 10 and 100: units become tens or hundreds', () => {
-    const exercise = { ...generateTimesTen(new Rng(1), 1), value: 34 };
-    expect(timesTenHint(exercise, 1)).toBe('× 100 : chaque unité devient une centaine.');
-    expect(timesTenHint(exercise, 2)).toBe('34 × 100 = 3\u202f400 : 34 centaines.');
+    const exercise = (factor: 10 | 100, factorFirst: boolean) => ({
+      ...generateTimesTen(new Rng(1), 1),
+      value: 34,
+      factor,
+      factorFirst,
+    });
+    expect(timesTenHint(exercise(100, false), 1)).toBe(
+      '× 100 : chaque unité devient une centaine.',
+    );
+    expect(timesTenHint(exercise(100, false), 2)).toBe('34 × 100 = 3\u202f400 : 34 centaines.');
+    expect(timesTenHint(exercise(10, true), 1)).toBe(
+      '10 × 34, c’est 34 × 10.\n× 10 : chaque unité devient une dizaine.',
+    );
+    expect(timesTenHint(exercise(10, true), 2)).toBe('10 × 34 = 340 : 34 dizaines.');
   });
 });
