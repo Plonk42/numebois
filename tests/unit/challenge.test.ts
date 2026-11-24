@@ -90,6 +90,15 @@ describe('challenges', () => {
     expect(challenge.attempt(100).score).toBe(15_000);
   });
 
+  it('move the race on right answers only: a mistake neither advances nor ends it', () => {
+    const challenge = new Challenge(player(), products, RACE, 4, new Rng(3), () => 0);
+    for (let i = 0; i < 11; i++) challenge.conclude(challenge.ask(), i % 5 !== 4, 1000);
+    expect(challenge.over).toBe(false);
+    challenge.conclude(challenge.ask(), true, 1000);
+    expect(challenge.over).toBe(true);
+    expect(challenge.attempt(100).rate).toBeCloseTo(10 / 12);
+  });
+
   it('aim just above the recent median', () => {
     expect(goal(BASKET, [])).toBeNull();
     expect(goal(BASKET, attempts(4, 20, 9, 11, 10))).toBe(11);

@@ -3,13 +3,14 @@ import type { Attempt, ChallengeFormat, Ending } from '../core/records';
 import type { Skill } from '../core/types';
 import { Basket } from './basket';
 import { Plume } from './plume';
-import { plural, SeedIcon } from './reserve';
+import { LeafIcon, plural, SeedIcon } from './reserve';
 
 /** The name of the challenges, written on their sign. */
 export const CHALLENGE_NAME = 'Défi';
 
-/** The baskets offered, in seconds. */
+/** The baskets offered, in seconds, and the races, in questions. */
 export const BASKET_SECONDS = [30, 60, 90] as const;
+export const RACE_QUESTIONS = [10, 20] as const;
 const DURATIONS: Record<(typeof BASKET_SECONDS)[number], string> = {
   30: '30 secondes',
   60: '1 minute',
@@ -17,6 +18,19 @@ const DURATIONS: Record<(typeof BASKET_SECONDS)[number], string> = {
 };
 
 export const acorns = (n: number) => plural(n, 'gland', 'glands');
+
+/** A time of the race, to the second: « 42 s », « 1 min 12 s ». */
+export function duration(ms: number): string {
+  const seconds = Math.max(1, Math.round(ms / 1000));
+  if (seconds < 60) return `${seconds}\u00a0s`;
+  const rest = seconds % 60;
+  const minutes = `${Math.floor(seconds / 60)}\u00a0min`;
+  return rest ? `${minutes} ${rest}\u00a0s` : minutes;
+}
+
+/** A score as the child reads it: acorns in the basket, the time of the race. */
+export const scoreLabel = (format: ChallengeFormat, score: number) =>
+  format.kind === 'basket' ? acorns(score) : duration(score);
 
 interface MenuProps {
   /** The notions acquired that have a challenge. */
@@ -27,7 +41,7 @@ interface MenuProps {
   onClose(): void;
 }
 
-/** Where a challenge starts, always refusable: the notion, then the size of the basket. */
+/** Where a challenge starts, always refusable: the notion, then a basket or a race. */
 export function ChallengeMenu({ skills, best, onStart, onClose }: MenuProps) {
   const [skill, setSkill] = useState<Skill | null>(skills.length === 1 ? skills[0] : null);
   let body;
@@ -45,28 +59,36 @@ export function ChallengeMenu({ skills, best, onStart, onClose }: MenuProps) {
       </>
     );
   } else {
+    const entry = (format: ChallengeFormat, label: string) => {
+      const record = best(skill, format);
+      return (
+        <button
+          key={label}
+          type="button"
+          class="entry"
+          onPointerDown={() => onStart(skill, format)}
+        >
+          {label}
+          {record !== null && <span class="record">Record : {scoreLabel(format, record)}</span>}
+        </button>
+      );
+    };
     body = (
       <>
-        <p class="praise">Le panier de glands</p>
-        <p class="instruction">{skill.name}</p>
-        <p class="instruction">Remplis le panier pendant que le soleil traverse le ciel.</p>
+        <p class="praise">{skill.name}</p>
+        <p class="kind">
+          <SunIcon /> Le panier de glands : remplis-le avant la fin du soleil.
+        </p>
         <div class="options baskets">
-          {BASKET_SECONDS.map((seconds) => {
-            const format = { kind: 'basket', seconds } as const;
-            const record = best(skill, format);
-            return (
-              <button
-                key={seconds}
-                type="button"
-                class="entry"
-                onPointerDown={() => onStart(skill, format)}
-              >
-                <SunIcon />
-                {DURATIONS[seconds]}
-                {record !== null && <span class="record">Record : {acorns(record)}</span>}
-              </button>
-            );
-          })}
+          {BASKET_SECONDS.map((seconds) => entry({ kind: 'basket', seconds }, DURATIONS[seconds]))}
+        </div>
+        <p class="kind">
+          <LeafIcon /> La course de la feuille : va plus vite que ta feuille fantôme.
+        </p>
+        <div class="options races">
+          {RACE_QUESTIONS.map((questions) =>
+            entry({ kind: 'race', questions }, `${questions} questions`),
+          )}
         </div>
       </>
     );
@@ -138,15 +160,53 @@ export function ChallengeBar({ time, acorns: count }: BarProps) {
   );
 }
 
-const ENDINGS: Record<Ending, string> = {
-  first: 'Ton premier panier !',
-  record: 'Nouveau record !',
-  goal: 'Objectif atteint !',
-  better: 'Plus que la dernière fois !',
-  played: 'Bravo pour ce défi !',
+interface RaceProps {
+  /** The child's leaf: right answers over the questions of the race, from 0 to 1. */
+  leaf: number;
+  /** The ghost leaf replaying the best time, from 0 to 1; null before the first race. */
+  ghost: number | null;
+}
+
+/** The race as two leaves along a path over the slate: the child's, and the ghost of the best. */
+export function RaceBar({ leaf, ghost }: RaceProps) {
+  const at = (t: number) => 30 + t * 540;
+  return (
+    <div class="challenge-bar race">
+      <svg viewBox="0 0 600 56" aria-hidden="true">
+        <path class="track" d="M30 30H570" />
+        <circle class="finish" cx="570" cy="30" r="8" />
+        {ghost !== null && (
+          <g class="ghost" transform={`translate(${at(ghost)} 30)`}>
+            <path d="M-11 7C-11-5-3-12 11-12 11 0 3 7-11 7z" />
+          </g>
+        )}
+        <g class="runner" transform={`translate(${at(leaf)} 30)`}>
+          <path d="M-13 8C-13-6-4-14 13-14 13 0 4 8-13 8z" />
+        </g>
+      </svg>
+    </div>
+  );
+}
+
+const ENDINGS: Record<ChallengeFormat['kind'], Record<Ending, string>> = {
+  basket: {
+    first: 'Ton premier panier !',
+    record: 'Nouveau record !',
+    goal: 'Objectif atteint !',
+    better: 'Plus que la dernière fois !',
+    played: 'Bravo pour ce défi !',
+  },
+  race: {
+    first: 'Ta première course !',
+    record: 'Nouveau record !',
+    goal: 'Objectif atteint !',
+    better: 'Plus vite que la dernière fois !',
+    played: 'Bravo pour cette course !',
+  },
 };
 
 interface EndProps {
+  format: ChallengeFormat;
   attempt: Attempt;
   ending: Ending;
   /** What to aim at next time. */
@@ -157,20 +217,26 @@ interface EndProps {
   onStop(): void;
 }
 
-/** The end of a challenge, always good news: the acorns, a golden seed, the next goal. */
-export function ChallengeEnd({ attempt, ending, next, basket, onMore, onStop }: EndProps) {
+/** The end of a challenge, always good news: the score, a golden seed, the next goal. */
+export function ChallengeEnd({ format, attempt, ending, next, basket, onMore, onStop }: EndProps) {
   return (
     <section id="challenge-end" class="card" aria-live="polite">
       <Plume mood="cheer" />
       <Basket leaves={basket} pouring={false} />
-      <p class="praise">{ENDINGS[ending]}</p>
-      <p class="instruction">
-        <AcornIcon /> {acorns(attempt.score)} dans ton panier.
-      </p>
+      <p class="praise">{ENDINGS[format.kind][ending]}</p>
+      {format.kind === 'basket' ? (
+        <p class="instruction">
+          <AcornIcon /> {acorns(attempt.score)} dans ton panier.
+        </p>
+      ) : (
+        <p class="instruction">
+          <LeafIcon /> {format.questions} questions en {duration(attempt.score)}.
+        </p>
+      )}
       <p class="instruction">
         <SeedIcon /> Une graine dorée pour ton défi !
       </p>
-      <p class="legend">La prochaine fois, vise {acorns(next)}.</p>
+      <p class="legend">La prochaine fois, vise {scoreLabel(format, next)}.</p>
       <div class="actions">
         <button type="button" class="next" onPointerDown={onMore}>
           Encore un défi

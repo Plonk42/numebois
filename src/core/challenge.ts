@@ -58,10 +58,10 @@ export class Challenge {
     this.paused = null;
   }
 
-  /** The basket's time is up, or the race's questions are all answered. */
+  /** The basket's time is up, or the race's questions are all answered right. */
   get over(): boolean {
     if (this.format.kind === 'basket') return this.elapsed() >= this.format.seconds * 1000;
-    return this.results.length >= this.format.questions;
+    return this.results.filter(Boolean).length >= this.format.questions;
   }
 
   /** Time left in the basket, in milliseconds. */

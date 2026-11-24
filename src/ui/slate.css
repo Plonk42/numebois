@@ -951,7 +951,48 @@
 #challenge-end {
   width: 560px;
 }
-#challenge-end .seed-icon {
+#challenge-menu .kind {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 21px;
+  font-weight: 700;
+  color: #2f4a3a;
+}
+#challenge-menu .kind svg {
+  width: 32px;
+  height: 32px;
+}
+#challenge-menu .races {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+#challenge-menu .entry {
+  min-height: 88px;
+}
+.challenge-bar.race .track {
+  stroke: #e3d3b0;
+  stroke-width: 8;
+  stroke-linecap: round;
+}
+.challenge-bar.race .finish {
+  fill: #ffd85a;
+  stroke: #e2a42a;
+  stroke-width: 2;
+}
+.challenge-bar.race .runner path {
+  fill: #6dbb4f;
+  stroke: #3f8a35;
+  stroke-width: 2;
+}
+.challenge-bar.race .ghost path {
+  fill: rgba(255, 255, 255, 0.7);
+  stroke: #b8c7b0;
+  stroke-width: 2;
+  stroke-dasharray: 3 3;
+}
+#challenge-end .seed-icon,
+#challenge-end .leaf-icon {
   width: 26px;
   height: 26px;
   vertical-align: -5px;

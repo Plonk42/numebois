@@ -48,7 +48,7 @@ import type { Quality } from '../scene/render/quality';
 import type { TrailArt } from '../scene/render/trail-art';
 import { AlbumButton, AlbumGrid, AlbumPage } from './album';
 import { Basket } from './basket';
-import { CHALLENGE_NAME, ChallengeBar, ChallengeEnd, ChallengeMenu } from './challenge';
+import { CHALLENGE_NAME, ChallengeBar, ChallengeEnd, ChallengeMenu, RaceBar } from './challenge';
 import { Carnet, CarnetButton } from './carnet';
 import {
   DrillBreak,
@@ -110,6 +110,7 @@ const DONE_TITLES: Record<Mode, string> = {
 
 /** How a challenge ended, and what to aim at next time. */
 interface ChallengeResult {
+  format: ChallengeFormat;
   attempt: Attempt;
   ending: Ending;
   next: number;
@@ -585,6 +586,7 @@ function Game(props: Props) {
     const attempt = current.attempt(today());
     session.addAttempt(id, format, attempt);
     setChallengeEnd({
+      format,
       attempt,
       ending: ending(format, before, attempt),
       next: goal(format, session.attempts(id, format))!,
@@ -883,14 +885,21 @@ function Game(props: Props) {
   let over: ComponentChildren = null;
   if (drilling) over = <Garland leaves={garland} />;
   else if (mode === 'challenge' && challenge.current) {
-    const { format, results } = challenge.current;
-    const total = format.kind === 'basket' ? format.seconds * 1000 : 1;
-    over = (
-      <ChallengeBar
-        time={1 - challenge.current.remaining() / total}
-        acorns={results.filter(Boolean).length}
-      />
-    );
+    const current = challenge.current;
+    const { format, results } = current;
+    const right = results.filter(Boolean).length;
+    if (format.kind === 'basket') {
+      const total = format.seconds * 1000;
+      over = <ChallengeBar time={1 - current.remaining() / total} acorns={right} />;
+    } else {
+      const best = bestOf(format, session.attempts(current.skill.id, format));
+      over = (
+        <RaceBar
+          leaf={right / format.questions}
+          ghost={best && Math.min(1, current.elapsed() / best.score)}
+        />
+      );
+    }
   }
   // A golden seed: the slate steps aside, the forest lights up.
   const away = phase === 'seed';

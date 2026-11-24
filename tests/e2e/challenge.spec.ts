@@ -1,17 +1,11 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { answered, current, driver, game, loadSave, wrong } from './helpers';
 
-test('le panier de glands : 30 s sous le soleil, une erreur sans perte de temps, fin heureuse', async ({
-  page,
-}) => {
-  test.setTimeout(120_000);
-  const errors: string[] = [];
-  page.on('pageerror', (error) => errors.push(error.message));
-  // Simulated time: the 30 s pass in a moment (no screenshot under it, it waits for a frame).
+/** The tables acquired, under a simulated clock (no screenshot under it: it waits for a frame). */
+async function tablesAcquired(page: Page) {
   await page.clock.install();
   await page.goto('./?stage=0');
   await page.evaluate(() => window.__numebois!.ready);
-  // The tables acquired: they have a challenge.
   await loadSave(page, {
     version: 6,
     savedAt: '2026-11-23T10:00:00.000Z',
@@ -31,6 +25,15 @@ test('le panier de glands : 30 s sous le soleil, une erreur sans perte de temps,
     facts: [],
     history: [],
   });
+}
+
+test('le panier de glands : 30 s sous le soleil, une erreur sans perte de temps, fin heureuse', async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await tablesAcquired(page);
   const sign = page.getByRole('button', { name: 'Défi' });
   await sign.click();
   const menu = page.locator('#challenge-menu');
@@ -75,5 +78,43 @@ test('le panier de glands : 30 s sous le soleil, une erreur sans perte de temps,
   await expect(menu.getByRole('button', { name: /30 secondes/ })).toContainText(
     'Record : 3 glands',
   );
+  expect(errors).toEqual([]);
+});
+
+test('la course de la feuille : 10 bonnes réponses, puis la feuille fantôme rejoue le record', async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await tablesAcquired(page);
+  await page.getByRole('button', { name: 'Défi' }).click();
+  await page.locator('#challenge-menu').getByRole('button', { name: '10 questions' }).click();
+  const runner = page.locator('#question .challenge-bar.race .runner');
+  await expect(runner).toHaveCount(1);
+  // No ghost before the first race.
+  await expect(page.locator('#question .challenge-bar .ghost')).toHaveCount(0);
+  // A mistake shows the answer, and the leaf waits: 10 right answers end the race.
+  for (let right = 0; right < 10;) {
+    const exercise = await current(page);
+    await page.clock.fastForward(1500);
+    if (right === 4) {
+      await driver(exercise.input).answer(page, exercise.input, wrong(exercise.answer));
+      await expect.poll(async () => (await game(page)).phase).toBe('reveal');
+      await page.clock.fastForward(1500);
+    }
+    const again = await current(page);
+    await driver(again.input).answer(page, again.input, again.answer);
+    await answered(page, again);
+    right++;
+  }
+  const end = page.locator('#challenge-end');
+  await expect(end).toContainText('Ta première course !');
+  await expect(end).toContainText(/10 questions en \d+\s+s\./);
+  await expect(end).toContainText(/vise \d+\s+s\./);
+  // Another race: the ghost leaf of the record runs along.
+  await end.getByRole('button', { name: 'Encore un défi' }).click();
+  await current(page);
+  await expect(page.locator('#question .challenge-bar .ghost')).toHaveCount(1);
   expect(errors).toEqual([]);
 });
