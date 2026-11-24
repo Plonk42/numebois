@@ -62,13 +62,15 @@ test('le panier de glands : 30 s sous le soleil, une erreur sans perte de temps,
   }
   await expect(bar.locator('.acorns')).toHaveAccessibleName('3 glands');
   await current(page);
+  // A right answer may also teach something (a golden seed of its own): counted from here.
+  const { seeds } = await game(page);
   // The sun sets: the basket is full of what it got.
   await page.clock.fastForward(31_000);
   const end = page.locator('#challenge-end');
   await expect(end).toContainText('Ton premier panier !');
   await expect(end).toContainText('3 glands dans ton panier.');
   await expect(end).toContainText('La prochaine fois, vise 4 glands.');
-  expect(await game(page)).toMatchObject({ seeds: 1, leaves: 3 });
+  expect(await game(page)).toMatchObject({ seeds: seeds + 1, leaves: 3 });
   await end.getByRole('button', { name: 'J’ai fini' }).click();
   await expect(page.locator('#trail-end')).toContainText('Défi terminé !');
   await expect(page.locator('#trail-end')).toHaveCount(0, { timeout: 15_000 });

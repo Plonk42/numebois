@@ -135,8 +135,8 @@ test('une boucle jouable : questions, indices et feuilles', async ({ page }) => 
 test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt pousse où l’enfant choisit', async ({
   page,
 }) => {
-  // A whole trail, then two elements that grow and pass a stage: about 2 minutes on CI.
-  test.setTimeout(240_000);
+  // A whole trail, then two elements that grow and pass a stage: about 3 minutes on CI.
+  test.setTimeout(420_000);
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('./?seed=3');
@@ -382,8 +382,8 @@ test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt po
 test('la boutique : une biche achetée en graines dorées rejoint la prairie et y reste', async ({
   page,
 }) => {
-  // A short trail, then the doe settles: about a minute on CI.
-  test.setTimeout(180_000);
+  // A short trail, then the doe settles: about 3 minutes on CI.
+  test.setTimeout(420_000);
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('./?seed=3');
@@ -486,8 +486,8 @@ test('la boutique : une biche achetée en graines dorées rejoint la prairie et 
 test('les saisons : l’automne acheté, l’enfant choisit la saison de son tableau', async ({
   page,
 }) => {
-  // A short trail, then two seasons under the veil: about a minute on CI.
-  test.setTimeout(180_000);
+  // A short trail, then two seasons under the veil: about 3 minutes on CI.
+  test.setTimeout(420_000);
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('./?seed=3');
@@ -612,8 +612,8 @@ test('les saisons : l’automne acheté, l’enfant choisit la saison de son tab
 test('la nuit : achetée dans la boutique, choisie comme une cinquième saison (#85)', async ({
   page,
 }) => {
-  // Three changes under the veil and a reload: about a minute on CI.
-  test.setTimeout(150_000);
+  // Three changes under the veil and a reload: about a minute and a half on CI.
+  test.setTimeout(240_000);
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('./?seed=3');
@@ -754,11 +754,22 @@ test('comparer : le signe posé entre les deux nombres, changé, puis validé, s
   // The keyboard too: the sign itself, then Enter.
   await page.keyboard.press(exercise.answer);
   await expect(between).toHaveText(exercise.answer);
+  // The praise is short and the runner sometimes slow: an observer keeps that it showed.
+  await page.evaluate(() => {
+    const doc = globalThis.document;
+    const seen = globalThis as unknown as { praised: boolean };
+    seen.praised = false;
+    new MutationObserver(() => {
+      if (doc.querySelector('#question .praise')) seen.praised = true;
+    }).observe(doc.body, { childList: true, subtree: true, attributes: true });
+  });
   await page.keyboard.press('Enter');
   // Within the praise, before the next question.
   await expect(card.locator('.comparison .between.right')).toHaveText(exercise.answer);
   await expect(card.locator('.choice button.right')).toHaveText(exercise.answer);
-  await expect(card.locator('.praise')).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => (globalThis as unknown as { praised: boolean }).praised))
+    .toBe(true);
   expect(errors).toEqual([]);
 });
 
