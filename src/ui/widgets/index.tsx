@@ -5,6 +5,7 @@ import { Choice } from './choice';
 import { CompareSigns } from './compare';
 import { Keypad } from './keypad';
 import { NumberLineFigure, NumberLinePlace } from './number-line';
+import { BlocksFigure, PlaceValueFigure } from './place-value';
 
 /** What every widget receives; the validation and the hints come from the domain. */
 export interface WidgetProps<I extends ExerciseInput = ExerciseInput> {
@@ -30,6 +31,10 @@ type Figures = {
 /** One component per kind of figure (a new kind does not compile without it). */
 const FIGURES: Figures = {
   'number-line': ({ figure }) => <NumberLineFigure line={figure.line} arrow={figure.arrow} />,
+  blocks: ({ figure: { hundreds, tens, units } }) => (
+    <BlocksFigure hundreds={hundreds} tens={tens} units={units} />
+  ),
+  'place-value': ({ figure }) => <PlaceValueFigure digits={figure.digits} />,
 };
 
 /** The statement alone on the whole width, or with its figure beside the answer zone. */

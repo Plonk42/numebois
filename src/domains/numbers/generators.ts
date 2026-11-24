@@ -1,4 +1,4 @@
-import type { Exercise, NumberLine } from '../../core/types';
+import type { Exercise, Figure, NumberLine } from '../../core/types';
 import type { Rng } from '../../core/rng';
 import { formatNumber, numberWords } from './words';
 
@@ -113,12 +113,26 @@ export function generateRead(rng: Rng, level: number): ReadExercise {
   };
 }
 
+/** How a number to decompose is shown, to work several methods. */
+export type DecomposeShow =
+  /** « 3 centaines, 2 dizaines, 4 unités », or the question in a sentence. */
+  | 'words'
+  /** The same ranks in another order: « 4 unités, 3 centaines, 2 dizaines ». */
+  | 'mixed'
+  /** 300 + 20 + 4. */
+  | 'sum'
+  /** Plates, bars and cubes (`Figure` blocks). */
+  | 'blocks'
+  /** The place-value table (`Figure` place-value). */
+  | 'table';
+
 /** Compose from the ranks, or find a digit or a count of a rank. */
 export interface DecomposeExercise extends Exercise {
   value: number;
   ask: 'compose' | 'digit' | 'count';
   /** 0 units, 1 tens, 2 hundreds, 3 thousands. */
   rank: number;
+  show: DecomposeShow;
 }
 
 export const RANK_NAMES = [
@@ -137,6 +151,27 @@ export const RANK_NAMES = [
  */
 export const DECOMPOSE_LEVELS = 4;
 
+/** The ways of showing each level, drawn in turn. */
+export const DECOMPOSE_SHOWS: readonly (readonly DecomposeShow[])[] = [
+  ['words', 'mixed', 'sum', 'blocks'],
+  ['words', 'mixed', 'sum', 'table'],
+  ['words', 'table'],
+  ['words', 'table'],
+];
+
+/** The non-empty ranks of `value`, as words (in order or not) or as a sum; a drawing asks for it. */
+function composeStatement(rng: Rng, value: number, ranks: number[], show: DecomposeShow): string {
+  if (show === 'blocks' || show === 'table') return 'Quel nombre\u00a0?';
+  const digit = (r: number) => Math.floor(value / 10 ** r) % 10;
+  let parts = ranks.filter((r) => digit(r) > 0);
+  if (show === 'sum') return parts.map((r) => formatNumber(digit(r) * 10 ** r)).join(' + ');
+  if (show === 'mixed' && parts.length > 1) {
+    const order = parts;
+    while (parts.every((r, i) => r === order[i])) parts = shuffled(rng, order);
+  }
+  return parts.map((r) => `${digit(r)} ${RANK_NAMES[r][digit(r) >= 2 ? 1 : 0]}`).join(', ');
+}
+
 export function generateDecompose(rng: Rng, level: number): DecomposeExercise {
   let value: number;
   let ask: DecomposeExercise['ask'] = 'compose';
@@ -148,23 +183,38 @@ export function generateDecompose(rng: Rng, level: number): DecomposeExercise {
     ask = level === 2 ? 'digit' : 'count';
     rank = rng.int(1, 2);
   } else throw levelError(level);
+  const show = rng.pick(DECOMPOSE_SHOWS[level]);
   const digit = (r: number) => Math.floor(value / 10 ** r) % 10;
+  const ranks = [3, 2, 1, 0].filter((r) => 10 ** r <= value);
   let instruction = 'Écris ce nombre en chiffres.';
   let statement: string;
+  let figure: Figure | undefined;
   let answer: number;
+  if (show === 'table') {
+    figure = {
+      kind: 'place-value',
+      digits: ranks.map((r) => (ask === 'compose' && digit(r) === 0 ? null : digit(r))),
+    };
+  }
   if (ask === 'compose') {
-    statement = [3, 2, 1, 0]
-      .filter((r) => digit(r) > 0 && 10 ** r <= value)
-      .map((r) => `${digit(r)} ${RANK_NAMES[r][digit(r) >= 2 ? 1 : 0]}`)
-      .join(', ');
+    statement = composeStatement(rng, value, ranks, show);
+    if (show === 'blocks') {
+      figure = { kind: 'blocks', hundreds: digit(2), tens: digit(1), units: digit(0) };
+    }
     answer = value;
   } else if (ask === 'digit') {
     instruction = 'Trouve le chiffre.';
-    statement = `Le chiffre des ${RANK_NAMES[rank][1]} de ${formatNumber(value)}`;
+    statement =
+      show === 'table'
+        ? `Le chiffre des ${RANK_NAMES[rank][1]}\u00a0?`
+        : `Le chiffre des ${RANK_NAMES[rank][1]} de ${formatNumber(value)}`;
     answer = digit(rank);
   } else {
     instruction = 'Compte en tout.';
-    statement = `Combien de ${RANK_NAMES[rank][1]} dans ${formatNumber(value)} ?`;
+    statement =
+      show === 'table'
+        ? `Combien de ${RANK_NAMES[rank][1]} en tout\u00a0?`
+        : `Combien de ${RANK_NAMES[rank][1]} dans ${formatNumber(value)} ?`;
     answer = Math.floor(value / 10 ** rank);
   }
   return {
@@ -172,11 +222,13 @@ export function generateDecompose(rng: Rng, level: number): DecomposeExercise {
     level,
     instruction,
     statement,
+    ...(figure && { figure }),
     input: { kind: 'keypad', maxDigits: 4 },
     answer: String(answer),
     value,
     ask,
     rank,
+    show,
   };
 }
 

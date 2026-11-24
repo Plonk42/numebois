@@ -54,20 +54,45 @@ export function readHint({ value }: ReadExercise, attempt: 1 | 2): string {
   return `${formatNumber(value)} : ${numberWordParts(value).join(' · ')}.`;
 }
 
+/** How to read each way of showing a number to compose. */
+const COMPOSE_METHOD: Record<DecomposeExercise['show'], string> = {
+  words: 'Un chiffre par rang. Un rang vide, c’est 0.',
+  mixed: 'Remets chaque nombre à son rang. Un rang vide, c’est 0.',
+  sum: 'Chaque nombre donne le chiffre d’un rang. Un rang vide, c’est 0.',
+  blocks: 'Une plaque, c’est 100. Une barre, 10. Un cube, 1.',
+  table: 'Lis les chiffres du tableau. Une case vide, c’est 0.',
+};
+
+function plural(count: number, word: string): string {
+  return `${count} ${word}${count >= 2 ? 's' : ''}`;
+}
+
 /** Rank by rank; an empty rank is a 0. */
 export function decomposeHint(exercise: DecomposeExercise, attempt: 1 | 2): string {
-  const { value, ask, rank } = exercise;
+  const { value, ask, rank, show } = exercise;
   const ranks = rankCount(value);
   const [one, many] = RANK_NAMES[rank];
   if (ask === 'compose') {
-    if (attempt === 1) return 'Un chiffre par rang. Un rang vide, c’est 0.';
+    if (attempt === 1) return COMPOSE_METHOD[show];
+    if (show === 'blocks') {
+      const [hundreds, tens, units] = [...String(value)].map(Number);
+      return `${plural(hundreds, 'plaque')}, ${plural(tens, 'barre')}, ${plural(units, 'cube')} : ${formatNumber(value)}.`;
+    }
     return `${ranks} : ${formatNumber(value)}.`;
   }
   if (ask === 'digit') {
-    if (attempt === 1) return 'De droite à gauche : unités, dizaines, centaines, milliers.';
+    if (attempt === 1) {
+      return show === 'table'
+        ? `Cherche la colonne des ${many}.`
+        : 'De droite à gauche : unités, dizaines, centaines, milliers.';
+    }
     return `${formatNumber(value)} : ${ranks}.\nLe chiffre des ${many} est ${exercise.answer}.`;
   }
-  if (attempt === 1) return `Cache les chiffres à droite des ${many}.`;
+  if (attempt === 1) {
+    return show === 'table'
+      ? `Lis tous les chiffres, jusqu’à la colonne des ${many}.`
+      : `Cache les chiffres à droite des ${many}.`;
+  }
   const count = Number(exercise.answer);
   return (
     `Dans ${formatNumber(value)}, il y a ${formatNumber(count)} ${many}.\n` +

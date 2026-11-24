@@ -479,6 +479,73 @@
   min-height: 88px;
 }
 
+/* Decompose (#109): a colour per rank, the same in the table and in the blocks. */
+.bench > .work:has(.place-value, .blocks) {
+  align-content: center;
+  gap: 28px;
+}
+.r3 {
+  --rank: #b48ad8;
+  --rank-dark: #7c55a3;
+  --rank-pale: #f1e7fa;
+}
+.r2 {
+  --rank: #f0a64a;
+  --rank-dark: #b8701f;
+  --rank-pale: #fdeed9;
+}
+.r1 {
+  --rank: #6fb3e0;
+  --rank-dark: #3c7fae;
+  --rank-pale: #e3f1fa;
+}
+.r0 {
+  --rank: #7cc46a;
+  --rank-dark: #4a8f3a;
+  --rank-pale: #e6f6da;
+}
+.place-value {
+  display: grid;
+  gap: 4px;
+  width: 420px;
+  max-width: 100%;
+}
+.place-value .rank {
+  padding: 6px 0;
+  border-radius: 12px 12px 0 0;
+  background: var(--rank);
+  font-size: 17px;
+  font-weight: 700;
+  text-align: center;
+  color: #fff;
+}
+.place-value b {
+  height: 84px;
+  display: grid;
+  place-items: center;
+  border: 3px solid var(--rank);
+  border-top: 0;
+  border-radius: 0 0 12px 12px;
+  background: var(--rank-pale);
+  font-size: 52px;
+  color: #2f4a3a;
+}
+.blocks {
+  width: 420px;
+  max-width: 100%;
+  max-height: 260px;
+}
+.blocks rect {
+  fill: var(--rank);
+  stroke: var(--rank-dark);
+  stroke-width: 1.5;
+}
+.blocks path {
+  fill: none;
+  stroke: var(--rank-dark);
+  stroke-width: 0.6;
+}
+
 /* The end of the trail and the shop: the slate is gone, the whole forest shows, a card at the
    bottom. */
 .card {

@@ -121,7 +121,7 @@ Le code (identifiants, fichiers, dossiers) est en anglais. Les textes affichés,
 
 Domaines : `numbers`, `mental-math`, `times-tables`, `column-arithmetic` (opérations posées), `fractions`, `units`, `measures`, `time`, `word-problems`. Puis à la demande : `division`, `geometry`…
 
-Widgets : `Keypad`, `Choice`, `CompareSigns`, `FractionInput`, `TimeInput`, `Clock`, `Ruler`, `ScaleDial` (balance, verre doseur), `ConversionTable`, `FractionParts`, `NumberLine`, `ColumnOperation`.
+Widgets : `Keypad`, `Choice`, `CompareSigns`, `FractionInput`, `TimeInput`, `Clock`, `Ruler`, `ScaleDial` (balance, verre doseur), `ConversionTable`, `FractionParts`, `NumberLine`, `PlaceValueFigure` (tableau de numération), `BlocksFigure` (plaques, barres, cubes), `ColumnOperation`.
 
 ## Couverture du programme
 
@@ -795,3 +795,4 @@ Vérification : frontmatter YAML valide, `name` identique au nom du dossier, `de
 - 2026-11-24 : devoirs de la semaine sans programmation (décision du propriétaire). Les devoirs ne sont souvent connus que quelques jours avant, et une mise à jour n'arrive sur la tablette qu'au lancement suivant : plus de quête écrite en fichier ni d'activation par la date (`src/quests/`, `?quest=`, skill `weekly-quest` abandonnés), plus de décor imposé. Tout se règle dans le tableau de bord parent, sur la tablette : notions (Auto, Fermée, Ouverte, Focus, au plus 2 en focus), niveaux le plus bas et le plus haut (#47), focus jusqu'à une date, astuce et défi à proposer au prochain sentier, astuces disponibles dans le Carnet (#54), rafale recommandée. Ce que le jeu ne couvre pas devient une notion, ajoutée en avance sur le programme.
 - 2026-11-24 : « Multiplier par 10 et par 100 » (#104) mélange × 10 et × 100 à chaque niveau ; le niveau 1 propose aussi l'autre ordre (`10 × 34`, `100 × 34`), et l'indice de Plume rappelle d'abord que c'est la même chose que `34 × 10`.
 - 2026-11-24 : « Choisis le bon signe » (#106) a sa propre saisie, `compare` (widget `CompareSigns`) : les deux nombres séparés, une case en pointillés entre eux ; toucher un signe le pose dans la case sans le vérifier (l'enfant peut en changer), puis « ✓ Valider ». Clavier : le signe ou 1 à 3, Retour arrière, Entrée. Un signe essayé reste grisé, la case se vide.
+- 2026-11-24 : « Décomposer un nombre » (#109) se présente de plusieurs façons, pour travailler plusieurs méthodes (choix du propriétaire), tirées à chaque exercice (`show`, `DECOMPOSE_SHOWS`) : en mots dans l'ordre ou dans le désordre, en somme (300 + 20 + 4), en plaques, barres et cubes (niveau 0, figure `blocks`) ou dans le tableau de numération (niveaux 1 à 3, figure `place-value` : une couleur par rang, une case vide pour le rang vide). L'indice de Plume suit la présentation.
