@@ -6,7 +6,10 @@ export const CHOICE_SHARE = 1 / 3;
 /** The answer and three lures. */
 export const OFFERED_CHOICES = 4;
 
-/** Common slips around a number: one or ten off, two neighbour digits swapped, a rank too far. */
+/**
+ * Common slips around a number, with as many digits: one, ten or a hundred off, two
+ * neighbour digits swapped; then a rank too far.
+ */
 export function nearNumbers(value: number): number[] {
   const digits = [...String(value)];
   const swaps = digits.slice(1).map((digit, i) => {
@@ -14,17 +17,8 @@ export function nearNumbers(value: number): number[] {
     [swapped[i], swapped[i + 1]] = [digit, digits[i]];
     return Number(swapped.join(''));
   });
-  return [
-    value + 1,
-    value - 1,
-    value + 10,
-    value - 10,
-    ...swaps,
-    value * 10,
-    value / 10,
-    value + 100,
-    value - 100,
-  ];
+  const slips = [value + 1, value - 1, value + 10, value - 10, value + 100, value - 100, ...swaps];
+  return [...slips.filter((n) => String(n).length === digits.length), value * 10, value / 10];
 }
 
 function shuffled<T>(rng: Rng, items: readonly T[]): T[] {

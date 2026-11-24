@@ -22,6 +22,9 @@ import {
   type WriteDigitsExercise,
 } from './generators';
 import { compareHint, decomposeHint, numberLineHint, orderHint, writeDigitsHint } from './hints';
+import { decomposeLures } from './lures';
+import { decompose, lineRead } from './skills';
+import { offerChoices } from '../../core/choices';
 import type { NumberLine } from '../../core/types';
 import { validateNumber } from '../../core/validate';
 import { formatNumber, numberWords } from './words';
@@ -249,6 +252,26 @@ describe('lire, décomposer, comparer, ranger', () => {
     expect(decomposeHint(at(3042, 'named'), 2)).toBe(
       '3 milliers, 0 centaine, 4 dizaines, 2 unités : 3\u202f042.',
     );
+  });
+
+  it('offers the typical mistakes among choices: another column, a tick away', () => {
+    seeds((rng) => {
+      const digit = generateDecompose(rng, 2);
+      const offered = offerChoices(decompose, digit, rng);
+      const options = offered.input.kind === 'choice' ? offered.input.options : [];
+      const digits = [...String(digit.value)];
+      // Distinct digits of the number first, then the common slips.
+      const fromValue = options.filter((o) => digits.includes(o)).length;
+      expect(fromValue).toBe(Math.min(4, new Set(digits).size));
+      const read = generateLineRead(rng, 3);
+      const ticks = offerChoices(lineRead, read, rng);
+      for (const option of ticks.input.kind === 'choice' ? ticks.input.options : []) {
+        expect((Number(option) - read.line.from) % read.line.step).toBe(0);
+      }
+    });
+    expect(
+      decomposeLures({ ...generateDecompose(new Rng(1), 1), value: 3042, ask: 'compose' }),
+    ).toEqual([342]);
   });
 
   it('compares within the constraints of each level, with every sign', () => {

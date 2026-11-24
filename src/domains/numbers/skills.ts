@@ -36,6 +36,7 @@ import {
   readHint,
   writeDigitsHint,
 } from './hints';
+import { decomposeLures, numberLineLures, writeDigitsLures } from './lures';
 
 export const writeDigits = defineSkill<WriteDigitsExercise>({
   id: WRITE_DIGITS,
@@ -45,6 +46,7 @@ export const writeDigits = defineSkill<WriteDigitsExercise>({
   generate: generateWriteDigits,
   validate: validateNumber,
   hint: writeDigitsHint,
+  lures: writeDigitsLures,
   drill: true,
 });
 
@@ -67,6 +69,7 @@ export const decompose = defineSkill<DecomposeExercise>({
   generate: generateDecompose,
   validate: validateNumber,
   hint: decomposeHint,
+  lures: decomposeLures,
   drill: true,
 });
 
@@ -100,6 +103,7 @@ export const lineRead = defineSkill<NumberLineExercise>({
   generate: generateLineRead,
   validate: validateNumber,
   hint: numberLineHint,
+  lures: numberLineLures,
   drill: true,
 });
 

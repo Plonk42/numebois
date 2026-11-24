@@ -111,7 +111,9 @@ describe('session', () => {
     expect(new Set(options).size).toBe(4);
     // Three of 49, 63, 48, 64 and 15.
     expect(options.filter((o) => ['49', '63', '48', '64', '15'].includes(o))).toHaveLength(3);
-    expect(nearNumbers(305)).toEqual([306, 304, 315, 295, 35, 350, 3050, 30.5, 405, 205]);
+    // As many digits (35 is not), then a rank too far.
+    expect(nearNumbers(305)).toEqual([306, 304, 315, 295, 405, 205, 350, 3050, 30.5]);
+    expect(nearNumbers(4).filter((n) => n > 9)).toEqual([40]);
   });
 
   it('reports a notion acquired and a fact automated, once', () => {
