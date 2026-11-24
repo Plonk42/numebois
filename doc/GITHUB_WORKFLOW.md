@@ -8,7 +8,7 @@ Différence majeure avec PasCap : **`main` est la production**. Chaque push sur 
 
 | Changement                                                                                                                                                                                                   | Route                                                 |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------- |
-| **Courant :** interface, widgets, notions et leçons, quêtes, problèmes, textes, docs, tests, petites corrections, refactorisations                                                                           | Contrôle local rapide, commit, push direct sur `main` |
+| **Courant :** interface, widgets, notions et leçons, problèmes, textes, docs, tests, petites corrections, refactorisations                                                                                   | Contrôle local rapide, commit, push direct sur `main` |
 | **Risqué :** format de sauvegarde ou de l'Album, service worker et cache PWA, moteur de rendu partagé et budget tablette, chaîne de traitement des assets, CI/workflows/secrets, mises à jour de dépendances | Branche courte et PR en squash auto-merge             |
 
 En cas de doute, la route risquée. Un mauvais service worker peut bloquer l'app hors-ligne sur la tablette, et un mauvais format de sauvegarde peut faire perdre l'Album : ces deux-là ne passent jamais en direct.

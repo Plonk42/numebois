@@ -13,6 +13,7 @@ Numebois est un jeu web de maths pour un enfant de CE2 (8 ans, grande difficult�
 - Progression : l'enfant accumule des feuilles (bonnes réponses) et des graines dorées (apprentissages) et les dépense quand il le décide, dans la boutique de fin de sentier ; les paliers avancent avec les éléments posés (plan, « Boucle de progression »).
 - Pendant une question, une seule chose à l'écran, rien qui distrait.
 - Le mot « leçon » n'apparaît pas dans le jeu (« Plume te montre une astuce ») ; les devoirs de la semaine sont des « quêtes ».
+- Réglages pédagogiques (notions et astuces disponibles, niveaux, focus, devoirs de la semaine, défi à proposer) : seulement dans le tableau de bord parent, sur la tablette. Jamais de processus programmatique (fichier de quête, activation par la date, mise à jour du jeu).
 
 ## Conventions
 
@@ -21,8 +22,7 @@ Numebois est un jeu web de maths pour un enfant de CE2 (8 ans, grande difficult�
   - `src/core/` : moteur générique ;
   - `src/domains/<domain>/` : un module par domaine, enregistré dans `src/domains/index.ts` ;
   - `src/ui/widgets/` : widgets partagés ;
-  - `src/scene/` : rendu, décors, tableaux ;
-  - `src/quests/YYYY-MM-DD.ts` : quêtes de la semaine.
+  - `src/scene/` : rendu, décors, tableaux.
 
   Tout le contenu est en TypeScript (pas de YAML).
 
@@ -33,7 +33,7 @@ Numebois est un jeu web de maths pour un enfant de CE2 (8 ans, grande difficult�
 
 - Partir de `main` à jour (`git pull --ff-only`). Ne jamais mettre de côté (stash), réinitialiser, jeter ni commiter des modifications sans rapport.
 - `main` = production : un push déploie sur la tablette de l'enfant si la CI passe.
-- **Courant** (interface, notions, leçons, quêtes, textes, docs, tests, petites corrections) : `npm run format`, `npm run check` et les specs Playwright concernées, puis commit et push sur `main`.
+- **Courant** (interface, notions, leçons, textes, docs, tests, petites corrections) : `npm run format`, `npm run check` et les specs Playwright concernées, puis commit et push sur `main`.
 - **Risqué** (format de sauvegarde ou de l'Album, service worker, moteur de rendu partagé, chaîne de traitement des assets, CI, dépendances) : branche, PR avec le modèle, `gh pr merge --auto --squash`, sans attendre la CI.
 - Un commit par étape cohérente, avec ses tests et ses docs. Résumé à l'impératif, `(#N)` ou `Closes #N`. Ne jamais faire de force-push sur `main`, affaiblir un test ni ajouter de relances pour obtenir du vert.
 - Ticket avancé sans être fermé : y ajouter un commentaire court une fois livré (commit ou PR, ce qui est fait, ce qui reste).

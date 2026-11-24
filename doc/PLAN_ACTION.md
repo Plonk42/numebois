@@ -4,7 +4,7 @@ Ce document est vivant : il est mis à jour à chaque nouvelle demande (voir [Te
 
 Numebois est un jeu web éducatif pour un enfant de CE2 : chaque exercice réussi fait grandir une forêt cartoon. Il couvre les tables, le calcul mental, les opérations posées (addition, multiplication par 1 chiffre) avec un atelier guidé, les fractions, les unités et conversions, les mesures, l'heure et les durées. S'y ajoutent de petites leçons interactives, un mode « rafale » pour automatiser les calculs et des défis chronométrés bienveillants.
 
-Stack : Vite + TypeScript + Preact, scène 3D Three.js en style cartoon low-poly, PWA hors-ligne sur la tablette de l'enfant (Lenovo Tab M10 Gen 3), déploiement GitHub Actions vers GitHub Pages. Tout le contenu (notions, leçons, quêtes) est du TypeScript typé, organisé en modules par domaine. Ajouter « les divisions » ou « les triangles » revient à ajouter un module selon une recette fixe.
+Stack : Vite + TypeScript + Preact, scène 3D Three.js en style cartoon low-poly, PWA hors-ligne sur la tablette de l'enfant (Lenovo Tab M10 Gen 3), déploiement GitHub Actions vers GitHub Pages. Tout le contenu (notions, leçons) est du TypeScript typé, organisé en modules par domaine ; les devoirs de la semaine se règlent sur la tablette, dans le tableau de bord parent. Ajouter « les divisions » ou « les triangles » revient à ajouter un module selon une recette fixe.
 
 ## Objectif principal : donner envie, malgré la difficulté à se concentrer
 
@@ -21,7 +21,7 @@ L'enfant a beaucoup de mal à se concentrer. Le but n°1 est qu'il ait envie de 
 6. **Le travail déguisé :**
    - le mot « leçon » n'apparaît jamais : c'est « Plume te montre une astuce » ;
    - les exercices parlent du décor du tableau (glands, cabane, ruisseau, horloge du moulin) ;
-   - les devoirs de la semaine deviennent des « quêtes ».
+   - les devoirs de la semaine, réglés par le parent sur la tablette, deviennent des « quêtes ».
 7. **Concentration protégée :**
    - pendant une question, une seule chose à l'écran, sans menu ni animation qui attire l'œil en dehors des moments de récompense ;
    - les animaux et les arbres ne réagissent au toucher qu'entre deux sentiers (promenade, visite d'un tableau de l'Album), jamais pendant le sentier (#28).
@@ -68,7 +68,8 @@ Tickets : réserve et micro-retour (#22), boutique (#83), pose et paliers (#24),
   - **Le relief est un axe de progrès des paliers (demande du propriétaire, 2026-11-22).** Le terrain de la clairière dépend du palier (`RELIEF_BY_STAGE` dans `src/scene/terrain/clearing.ts`) : le tableau s'agrandit à chaque palier (27 × 21 unités au palier 0, 60 × 54 au palier 11), les montagnes du fond montent (corniche au palier 2, colline au palier 3, puis de 11 à 26 unités de haut, avec neige à partir du palier 6), et l'eau en descend (de 0 à 7 chutes, une de plus à la fois ; le petit étang de la source reçoit la première cascade au palier 2 et déborde en ruisseau au palier 3 ; un ruisseau venu de l'est rejoint le ruisseau principal au palier 5, un troisième se jette dans le lac au palier 9). Les éléments sont placés une fois pour toutes dans la disposition finale, tirée de la graine : un palier décide seulement lesquels sont présents et à quelle hauteur. Un arbre garde donc sa place, sa graine et sa forme d'un palier au suivant. La caméra se cadre toute seule sur le bord du tableau et les sommets. Changer de palier reconstruit le tableau ; la transition animée reste à concevoir.
   - **Douze paliers, progressifs (demande du propriétaire, 2026-11-22).** Plus de paliers donnent plus d'occasions de progresser : chaque palier est un petit pas, et la plupart apportent une seule nouveauté. Les valeurs sont écrites en colonnes, une ligne par paramètre et une valeur par palier (`RELIEF_BY_STAGE` pour le relief, `LIFE` dans `src/scene/render/richness.ts` pour les densités et la vie), ce qui rend chaque progression lisible et facile à régler. La lumière glisse entre cinq ambiances (matin brumeux, matin clair, midi, après-midi chaud, heure dorée), atteintes aux paliers 0, 3, 6, 9 et 11. Le nombre de paliers est déclaré une seule fois (`STAGES` dans `src/scene/description.ts`).
   - **Chaque graine, une clairière différente (demande du propriétaire, 2026-11-22).** Sinon le jeu lasse vite. La topologie reste la même (massif et cascade au fond, lac, ruisseau vers l'avant, affluents de l'est et de l'ouest), mais la graine tire toute la disposition (`drawLayout` dans `src/scene/terrain/clearing-layout.ts`) : position des groupes, hauteur, profil et arêtes des sommets, tracé des ruisseaux, bord du tableau, buttes, emplacements d'arbres et rochers, lisière, part de sapins ; la végétation a son essence et sa fleur préférées (`floraOf` dans `src/scene/populate.ts`). Les règles de composition sont du code : un tirage qui ne les respecte pas est refait. Pour juger un changement, comparer plusieurs graines (`npm run capture -- --seed 1,2,3,4`).
-- **Contenu en TypeScript, pas en YAML :** c'est toujours l'agent qui ajoute les notions et les quêtes, à la demande du propriétaire. Le compilateur et les tests vérifient tout, sans schéma ni validateur à part.
+- **Contenu en TypeScript, pas en YAML :** c'est toujours l'agent qui ajoute les notions et les leçons, à la demande du propriétaire. Le compilateur et les tests vérifient tout, sans schéma ni validateur à part.
+- **Devoirs de la semaine sans programmation (décision du propriétaire, 2026-11-24) :** les devoirs ne sont souvent connus que quelques jours avant, et une mise à jour du jeu n'arrive sur la tablette qu'au lancement suivant. Tout se règle donc dans le tableau de bord parent, sur la tablette, même hors ligne : notions et astuces disponibles, niveaux, focus jusqu'à une date, rafale recommandée, défi à proposer (voir « Pour le parent et le code »). Aucun fichier de quête, aucune activation par la date. Ce que le jeu ne couvre pas encore devient une nouvelle notion (recette `add-skill`), à anticiper sur le programme de CE2 plutôt que sur les devoirs d'une semaine.
 - **Un module par domaine** (`src/domains/<domain>/`), branché sur un registre. Le moteur (sentier, maîtrise, rafale, défis) est générique et ne connaît aucun domaine en particulier.
 - **Surimpression du jeu (2026-11-23, `src/ui/`) :** Preact par-dessus la scène. Réserve en haut à gauche (feuilles et graines dorées, #22 ; un appui long ouvre l'espace parent), chemin du sentier toujours en bas au centre (un petit diorama dessiné avec les modèles et les couleurs de la forêt, `src/scene/render/trail-art.ts` : chemin de terre sur une tuile d'herbe, une pierre par question, jusqu'à un arbre ; petit et immobile pendant le sentier, pour ne pas distraire pendant une question, l'ardoise au-dessus ; entre deux sentiers, plus grand, son panneau qui appelle, voir « Accueil et promenade »), saisons du tableau et bouton du son en haut à droite ; l'exercice est sur l'ardoise (ci-dessous), qui s'écarte pendant une graine dorée. Le jeu s'affiche par défaut ; `?scene` (captures de `npm run capture`, specs du rendu) et `?debug` montrent le paysage seul. Gains et prix dans `src/core/economy.ts` (une feuille par bonne réponse, une graine dorée par notion acquise ou fait automatisé, 4 feuilles par élément et 2 graines dorées par animal pour commencer, #29).
 - **Écran d'exercice : l'ardoise (choix du propriétaire, 2026-11-23, #84) :** parmi trois maquettes (pupitre à droite, ardoise au centre, établi en bas), le propriétaire choisit l'ardoise : la concentration d'abord.
@@ -143,7 +144,7 @@ Widgets : `Keypad`, `Choice`, `FractionInput`, `TimeInput`, `Clock`, `Ruler`, `S
 - `src/core/` : moteur générique en TS pur.
   - `rng.ts`, `expr.ts` (interpréteur limité, pas d'`eval`) ;
   - `mastery.ts` (cycle de vie et Leitner), `facts.ts` (suivi fait par fait), `trail.ts` (sentier), `drill.ts` (rafale), `challenge.ts`, `records.ts` ;
-  - `registry.ts` et `types.ts` : les contrats `Domain`, `Skill`, `Generator`, `Exercise`, `Lesson`, `Quest` ;
+  - `registry.ts` et `types.ts` : les contrats `Domain`, `Skill`, `Generator`, `Exercise`, `Lesson` ;
   - `content.ts` : les règles de contenu vérifiées sur chaque exercice tiré (`exerciseErrors` : réponse exacte et de la forme que rend le widget, 2 à 4 choix, phrases de 12 mots, bulles de 3 phrases ou lignes et 120 caractères, énoncé de 25 mots, aucun mot d'échec, fait déclaré).
 - `src/domains/<domain>/` : un module autonome.
   - `index.ts` : `defineDomain` (id, nom affiché en français, icône, liste des notions) ;
@@ -159,7 +160,6 @@ Widgets : `Keypad`, `Choice`, `FractionInput`, `TimeInput`, `Clock`, `Ruler`, `S
 - **Regarder ou manipuler (décision pour #21 et les ateliers) :** ce que l'enfant regarde et ce qu'il manipule restent séparés. Une illustration en lecture seule (droite graduée à lire, horloge, parts coloriées, quadrillage) est un champ `figure` de l'exercice, affiché dans `Work` sous l'énoncé, à côté de la zone de réponse ; la saisie (`ExerciseInput`) dit seulement comment il répond. Lire une graduation = figure « droite graduée » + pavé ; placer un nombre = saisie `number-line` qui occupe `Work wide`. Une figure a son composant par type, exhaustif comme les saisies (`FIGURES` dans `src/ui/widgets/index.tsx`, #21).
 - **Essayer une notion :** `?practice=<notion>&level=<n>` joue cette notion seule à partir de ce niveau, sur un tableau neuf, sans lire ni écrire la sauvegarde (tests, revue d'une nouvelle notion sur la tablette).
 - **Bac à sable :** `?sandbox` joue sans lire ni écrire la sauvegarde ni l'Album, sur le tableau de l'adresse (`biome`, `seed`, `season`, `fill` ; le palier suit le nombre d'éléments posés, aucun animal acheté), avec la réserve `leaves` et `seeds`, et `practice`/`level` pour une notion seule. Le panneau `?debug` y mène (section « Jouer (bac à sable) ») ; en jeu, le panneau du bac à sable (`src/ui/debug.ts`, raccourcis `GameDebug` de `game.tsx`) répond juste ou faux, finit le sentier, ajoute des feuilles ou des graines, et montre la phase, la réponse attendue, le palier et la progression de chaque notion.
-- `src/quests/YYYY-MM-DD.ts` : `defineQuest` (titre de quête, période, décor facultatif pour le prochain tableau, notions travaillées avec paramètres, rafale recommandée, leçons, défis). Une quête tient en une dizaine de lignes.
 - `src/scene/` : paysage Three.js, `render/` (moteur de rendu), `biomes/` (décors) et `painting.ts`. Le module `word-problems` puise le vocabulaire et les objets du décor en cours pour habiller les énoncés.
 - `src/ui/` : surimpression (`game.tsx`), ardoise (`slate.tsx` : `Slate`, `Work`, `AnswerZone`, `Statement`) et Plume (`plume.tsx`). Gabarit des widgets larges : la zone de travail fait environ 430 × 450 px à côté de la zone de réponse (300 px de large) ; `Work wide` prend toute la largeur (environ 760 px) pour un énoncé seul, une règle ou une droite graduée, et la zone de réponse passe dessous.
 
@@ -184,7 +184,7 @@ Exemples de demandes : « ajouter les divisions », « l'enfant doit travailler 
 4. Réutiliser un widget partagé si possible. Sinon, ajouter un type de saisie à `ExerciseInput`, sa règle de réponse, son widget dans `src/ui/widgets/index.tsx` (placé sur l'ardoise avec `Work`, ou `Work wide`, et `AnswerZone`) et son pilote de test.
 5. Écrire une leçon courte, et éventuellement des modèles de problèmes.
 6. Déclarer les prérequis pour placer la notion dans le parcours.
-7. Facultatif : une quête qui active la notion cette semaine, avec un décor assorti si besoin.
+7. Pas de quête à écrire : le parent met la notion en focus depuis le tableau de bord quand elle arrive dans les devoirs.
 8. `tests/e2e/notions.spec.ts` joue déjà chaque notion sur l'ardoise (indice, réponse montrée, dernier niveau, capture jointe) ; ajouter un test Playwright pour ce que le widget a de propre (glisser, aimanter), puis relire les captures et essayer `?practice=<notion>`.
 
 Ajouter un décor (« fais un tableau de montagne »), détail dans le skill `add-biome` :
@@ -324,7 +324,7 @@ Principe : le contenu grandit, mais la charge par session reste fixe. Tout est l
 
 1. **Sentier**, le mode par défaut, guidé et à budget fixe :
    - échauffement : 2 ou 3 questions faciles ;
-   - cœur : 6 à 8 questions sur la notion en cours ou la quête ;
+   - cœur : 6 à 8 questions sur la notion en cours ou en focus ;
    - au plus une nouveauté (leçon, atelier ou défi) ;
    - fin sur une réussite, puis résumé.
 
@@ -334,7 +334,7 @@ Principe : le contenu grandit, mais la charge par session reste fixe. Tout est l
 
 ### Pour l'enfant
 
-1. Au plus 3 notions « en cours » à la fois dans le sentier. Une nouvelle notion ne s'ouvre que lorsqu'une autre est acquise. La quête occupe l'une de ces places.
+1. Au plus 3 notions « en cours » à la fois dans le sentier. Une nouvelle notion ne s'ouvre que lorsqu'une autre est acquise. Une notion en focus (au plus 2) occupe l'une de ces places.
 2. Cycle de vie d'une notion :
    - découverte ;
    - en cours ;
@@ -348,14 +348,14 @@ Principe : le contenu grandit, mais la charge par session reste fixe. Tout est l
 3. La difficulté monte à l'intérieur d'une notion (niveaux internes). Les acquis se combinent dans des problèmes mixtes au lieu de s'empiler.
 4. Viser environ 80 % de réussite. En dessous de 70 %, plus de nouveauté et davantage de réussites faciles. Si les temps de réponse s'allongent nettement, le sentier est raccourci.
 5. Une leçon par session au maximum, jamais imposée deux fois, puis rangée dans le Carnet.
-6. Les quêtes sont archivées à la fin de leur période. Leurs notions rejoignent la révision normale.
+6. Un focus avec une date de fin (devoirs de la semaine) repasse en Auto le lendemain de cette date : ses notions rejoignent la révision normale, et l'astuce ou le défi demandés et pas encore vus ne sont plus proposés.
 
 ### Pour l'écran et la forêt : les tableaux
 
 1. Écran principal invariable : la forêt, une question et la réserve, la boutique à la fin du sentier, plus deux points d'entrée dans la scène, la souche « Rafale » et le panneau « Défi ». Le Carnet et l'Album sont les seuls endroits qui grandissent.
 2. La forêt est découpée en **tableaux** de taille fixe (environ 25 emplacements ; les grands moments sont des paliers). Un tableau est conçu pour être complété en environ 40 minutes de jeu, soit une semaine de sessions courtes, mais il n'y a pas de calendrier.
 3. **Un nouveau tableau commence quand le précédent est complet, quel que soit le jour.** Grand final animé, puis le tableau est encadré dans l'Album.
-4. **Décor du nouveau tableau :** celui imposé par la quête en cours s'il y en a un, sinon l'enfant choisit parmi 2 ou 3 décors.
+4. **Décor du nouveau tableau :** l'enfant choisit parmi 2 ou 3 décors (aucune quête ne l'impose plus, 2026-11-24).
 5. **Album des paysages :** tous les tableaux terminés sont conservés et revisitables, animés et en vie (pas une simple photo), avec les dates et ce qu'il a appris pendant ce tableau. Le tableau en cours n'est jamais archivé tant qu'il n'est pas complet.
 6. Le nombre d'objets de chaque tableau est plafonné, ce qui règle aussi la question des performances sur tablette.
 
@@ -363,12 +363,10 @@ Principe : le contenu grandit, mais la charge par session reste fixe. Tout est l
 
 1. Tests de contenu sur le registre :
    - prérequis existants, pas de boucle ;
-   - au plus 2 nouvelles notions par quête ;
    - au plus 6 étapes par leçon ;
-   - énoncés de longueur limitée ;
-   - au plus 15 éléments par quête.
+   - énoncés de longueur limitée.
 2. Identifiants stables. Une notion nouvelle démarre à zéro, et une notion inconnue de la sauvegarde est ignorée.
-3. Tableau de bord parent (menu caché, #47) :
+3. Tableau de bord parent (menu caché, #47) : **tout réglage pédagogique passe par lui, sur la tablette** (décision du propriétaire, 2026-11-24), jamais par du code ni une mise à jour. L'enfant ne voit que l'effet : les notions des devoirs reviennent plus souvent, l'astuce ou le défi demandés lui sont proposés.
    - par domaine, puis notion par notion : étape (à découvrir, en cours, acquis, à revoir, ancré, automatisé), niveau atteint sur le nombre de niveaux, taux de réussite récent ;
    - les faits fragiles ;
    - temps et taux de réussite des dernières sessions ;
@@ -376,9 +374,12 @@ Principe : le contenu grandit, mais la charge par session reste fixe. Tout est l
      - **Auto** (par défaut) : le sentier décide ;
      - **Fermée** : jamais proposée, ni comme nouveauté ni en révision ;
      - **Ouverte** : disponible tout de suite, même sans prérequis acquis ;
-     - **Focus** : prioritaire, au moins la moitié du sentier ;
+     - **Focus** : prioritaire, au moins la moitié du sentier ; au plus 2 notions en focus à la fois ;
+   - **niveaux** de chaque notion : le plus bas et le plus haut proposés, pour coller à ce qui est vu en classe (#47) ;
+   - **devoirs de la semaine (quête, #54)** : un focus peut avoir une date de fin (voir « Pour l'enfant », point 6) ; s'y ajoutent, pour la notion, « Proposer l'astuce au prochain sentier » et « Proposer un défi » (l'écureuil le propose au prochain sentier, toujours refusable, seulement sur une notion maîtrisée) ;
+   - **astuces** : chacune disponible ou non dans le Carnet (#54) ;
    - les réglages sont dans la sauvegarde (exportés avec elle) et le sentier les respecte (`composeTrail`) ;
-   - autres actions : régler la longueur, la rafale recommandée et le seuil d'automatisation (M2).
+   - autres actions : régler la longueur, la rafale recommandée (ruban « Recommandé » sur la souche) et le seuil d'automatisation (M2).
 
 ## Jalons
 
@@ -432,7 +433,7 @@ Dépend de 0. Bloque les phases 3 et 4. Peut avancer en parallèle de la phase 1
 
 Dépend de 0. En parallèle de la phase R.
 
-1. `src/core/types.ts` et `registry.ts` : contrats, et `defineDomain`, `defineLesson`, `defineQuest`.
+1. `src/core/types.ts` et `registry.ts` : contrats, et `defineDomain`, `defineLesson`.
 2. `rng.ts`, `expr.ts`.
 3. `mastery.ts` (cycle de vie, maîtrise sur les 10 dernières réponses, Leitner) et `facts.ts` (pour chaque fait : réussites, temps de réponse, état d'automatisation).
 4. `trail.ts` : sentier à budget fixe, au plus 3 notions en cours, révision ≤ 25 %, au plus une nouveauté, adaptation au taux de réussite et aux temps de réponse.
@@ -466,7 +467,7 @@ Dépend de 2 et 3.
 
 1. Sentier complet, avec son chemin de 10 pierres visible : question → micro-retour → feuille dans la réserve → suite, puis résumé de fin et boutique (acheter, poser).
 2. Calibrage des gains et des prix : de quoi acheter au moins un élément par sentier court, un tableau en environ 40 minutes de jeu (#29). Le réglage est centralisé dans un seul fichier. Repoussé en M2 (décision du propriétaire, 2026-11-24), quand la rafale, les défis et les éléments rares seront là : avec les seules notions acquises et faits automatisés, un tableau rapporte 0 à 4 graines dorées pour 19 à dépenser.
-3. Fin de tableau : grand final, encadrement, entrée dans l'Album, puis choix du décor suivant (celui de la quête s'il y en a un, sinon 2 ou 3 au choix) et démarrage immédiat. **Fait le 2026-11-23 (#33) :** le dernier élément posé, le grand final dure 9 s (« Ton tableau est terminé ! », son du grand final, la caméra balaie le tableau de gauche à droite et s'élève un peu, `Stage.tour`, pendant que 8 gerbes d'étincelles et de feuilles jaillissent d'élément en élément, `Painting.finale`) ; puis un cadre en bois se referme autour de l'écran, avec sa plaque (nom du décor, dates) et « Il rejoint ton album ! » ; puis, sous le voile de lumière, « Un nouveau tableau ! » propose les décors (`nextBiomes` : celui de la quête de la semaine s'il en impose un, sinon jusqu'à 3, les moins peints d'abord), chacun montré tel qu'il sera une fois complet (sa propre graine au palier 11, image rendue sous le voile). Un toucher démarre le tableau, dans sa saison de départ. Un tableau complet retrouvé au chargement (jeu fermé pendant le grand final) rejoue le grand final, ou repropose le choix s'il est déjà dans l'Album.
+3. Fin de tableau : grand final, encadrement, entrée dans l'Album, puis choix du décor suivant (2 ou 3 au choix) et démarrage immédiat. **Fait le 2026-11-23 (#33) :** le dernier élément posé, le grand final dure 9 s (« Ton tableau est terminé ! », son du grand final, la caméra balaie le tableau de gauche à droite et s'élève un peu, `Stage.tour`, pendant que 8 gerbes d'étincelles et de feuilles jaillissent d'élément en élément, `Painting.finale`) ; puis un cadre en bois se referme autour de l'écran, avec sa plaque (nom du décor, dates) et « Il rejoint ton album ! » ; puis, sous le voile de lumière, « Un nouveau tableau ! » propose les décors (`nextBiomes` : jusqu'à 3, les moins peints d'abord ; le décor imposé par une quête part avec #54), chacun montré tel qu'il sera une fois complet (sa propre graine au palier 11, image rendue sous le voile). Un toucher démarre le tableau, dans sa saison de départ. Un tableau complet retrouvé au chargement (jeu fermé pendant le grand final) rejoue le grand final, ou repropose le choix s'il est déjà dans l'Album.
 4. Album des paysages :
    - une grille de vignettes, une page par tableau, avec le tableau rejoué en vie à partir de sa description ;
    - les dates, et ce qu'il a appris pendant ce tableau (notions acquises, faits automatisés, records) ;
@@ -519,7 +520,7 @@ Dépend de 5 pour les modes démo et guidé.
    - au premier déblocage d'une notion ;
    - proposée (jamais imposée) après 3 erreurs sur les 5 dernières réponses ;
    - depuis le Carnet, à tout moment ;
-   - depuis une quête.
+   - à la demande du parent, au prochain sentier (#54).
 3. Leçons V1, chacune dans son module :
    - valeur des chiffres ;
    - stratégies de calcul mental ;
@@ -540,7 +541,7 @@ Dépend de 4.
 
 1. Accès depuis la souche « Rafale », avec trois entrées en grandes icônes :
    - **« Je choisis »** : toutes les notions déjà découvertes, avec un sous-choix rapide quand c'est utile (par exemple quelle table) ;
-   - **« Recommandé »** : la rafale fixée par la quête de la semaine ou par le parent (par exemple « table de 7 »), mise en avant par un ruban ;
+   - **« Recommandé »** : la rafale fixée par le parent dans le tableau de bord (par exemple « table de 7 »), mise en avant par un ruban ;
    - **« Mes faits fragiles »** : le jeu choisit les faits les moins automatisés, mélangés à des faits sûrs pour garder environ 80 % de réussite.
 2. Flux rapide :
    - question suivante environ 400 ms après une bonne réponse ;
@@ -568,20 +569,19 @@ Dépend de 4 et 7 (réutilise le suivi des faits).
 3. Déclenchement :
    - proposé par l'écureuil, au plus une fois par session, refusable, et pas juste après des erreurs ;
    - panneau « Défi » ;
-   - quête (le défi compte comme fait dès qu'il est tenté).
+   - à la demande du parent : l'écureuil propose ce défi au prochain sentier, toujours refusable (#54) ; il compte comme fait dès qu'il est tenté.
 4. Le temps est représenté par un soleil ou un sablier de feuilles : pas de rouge ni de bip. Une erreur ne coûte pas de temps. Pause sur `visibilitychange`.
 5. Objectif = médiane récente + 1, fin toujours positive, tendance sur les 3 dernières tentatives.
 6. Feuilles toujours données, et des graines dorées pour chaque défi tenté ; les éléments rares s'achètent en graines dorées (#46).
 7. Garde-fou : moins de 50 % de réponses justes → le défi suivant est plus facile ou plus long.
 
-## Phase 9 : contenu CE2 et première quête
+## Phase 9 : contenu CE2 et devoirs de la semaine
 
 En parallèle des jalons.
 
-1. Notions et prérequis de chaque module, du simple au complexe.
+1. Notions et prérequis de chaque module, du simple au complexe, ajoutés en avance sur le programme de CE2 pour être là quand les devoirs les demandent.
 2. Banque de problèmes à variables sur le thème de la forêt.
-3. Première quête dans `src/quests/`, avec notions, rafale recommandée, leçon et défi.
-4. Aperçu avant activation via `?quest=YYYY-MM-DD`. Activation automatique par la date.
+3. Devoirs de la semaine réglés dans le tableau de bord parent (#54) : focus jusqu'à une date, niveaux, astuce et défi à proposer, rafale recommandée. Le code de la quête en fichier (`src/quests/`, `Quest`, `defineQuest`, `questErrors`, décor imposé) est retiré.
 
 ## Phase 10 : performances tablette
 
@@ -593,14 +593,14 @@ Dépend de 4, puis à chaque jalon.
 ## Vérification
 
 1. Vitest, modules : 1 000 graines par générateur, toutes les contraintes respectées. Opérations posées comparées à un calcul direct. Horloge (aller-retour exact), conversions, fractions, `expr.ts` qui refuse toute entrée non autorisée.
-2. Vitest, contenu (sur le registre) : prérequis et absence de boucle, limites des quêtes et des leçons, identifiants uniques, chaque notion à faits est une notion `drill` et chaque fait tiré est déclaré.
+2. Vitest, contenu (sur le registre) : prérequis et absence de boucle, limites des leçons, identifiants uniques, chaque notion à faits est une notion `drill` et chaque fait tiré est déclaré.
 3. Vitest, moteur :
    - maîtrise, Leitner, sentier ;
    - rafale : retour d'un fait 2 ou 3 questions après une erreur, mélange qui garde environ 80 % de réussite, critère d'automatisation ;
    - défis avec temps simulé ;
    - aller-retour export/import ;
    - une fois la compatibilité activée, ouverture de chaque fixture figée `tests/fixtures/saves/schema-N.json`.
-4. Simulation de 6 mois, avec un élève virtuel à 80 % de réussite et une quête par semaine, qui vérifie (`tests/unit/simulation.test.ts` pour le sentier, sur le registre actuel et sur un registre d'une centaine de notions ; la quête s'y ajoute avec #54, le tableau avec #29, l'Album avec #34) :
+4. Simulation de 6 mois, avec un élève virtuel à 80 % de réussite et des devoirs chaque semaine (focus jusqu'à une date), qui vérifie (`tests/unit/simulation.test.ts` pour le sentier, sur le registre actuel et sur un registre d'une centaine de notions ; les devoirs s'y ajoutent avec #54, le tableau avec #29, l'Album avec #34) :
    - un sentier de taille constante ;
    - au plus 3 notions en cours ;
    - des révisions ≤ 25 % ;
@@ -636,7 +636,7 @@ Dépend de 4, puis à chaque jalon.
 Repris de PasCap, où il a donné de bons résultats pour itérer de façon cohérente, et adapté à Numebois. Le détail est dans [GITHUB_WORKFLOW.md](GITHUB_WORKFLOW.md). En résumé :
 
 - **`main` est la production :** chaque push sur `main` déploie sur la tablette de l'enfant, mais seulement si le `Delivery gate` de la CI passe.
-- **Changements courants** (interface, widgets, notions, leçons, quêtes, textes, docs, tests, petites corrections) : contrôle local rapide, commit, push direct sur `main`.
+- **Changements courants** (interface, widgets, notions, leçons, textes, docs, tests, petites corrections) : contrôle local rapide, commit, push direct sur `main`.
 - **Changements risqués** (format de sauvegarde ou de l'Album, service worker et cache PWA, moteur de rendu partagé, chaîne de traitement des assets, CI/workflows/secrets, dépendances) : branche courte, PR, `gh pr merge --auto --squash`.
 - **Tickets :** une catégorie, une priorité, des domaines `area:*` et un jalon M0 à M5, sans GitHub Project. `/github-issue` crée un ticket, `/work-on-issue <X>` livre les X tickets les plus pertinents. Les tickets initiaux seront créés quand ce plan sera finalisé.
 - **Sauvegardes :** compatibilité obligatoire dès que le propriétaire déclare « l'enfant joue pour de vrai ».
@@ -649,7 +649,7 @@ Tout est rangé dans le dépôt (`.github/`), donc versionné avec le code. Chaq
 
 - [copilot-instructions.md](../.github/copilot-instructions.md) : toujours chargé. Projet, règles non négociables, conventions, architecture, routes de livraison, auto-amélioration.
 - [child-ux.instructions.md](../.github/instructions/child-ux.instructions.md) : textes et interactions pour un enfant de 8 ans (interface, scène, leçons, énoncés).
-- [domain-modules.instructions.md](../.github/instructions/domain-modules.instructions.md) : moteur, domaines et quêtes (fonctions pures, identifiants stables, tests sur 1 000 graines).
+- [domain-modules.instructions.md](../.github/instructions/domain-modules.instructions.md) : moteur et domaines (fonctions pures, identifiants stables, tests sur 1 000 graines).
 - [scene-art.instructions.md](../.github/instructions/scene-art.instructions.md) : rendu Three.js, direction artistique low-poly, budget tablette, assets.
 
 ### Skills et prompts
@@ -665,7 +665,6 @@ Tout est rangé dans le dépôt (`.github/`), donc versionné avec le code. Chaq
 | `blender-asset`                                  | créer un modèle, asset manquant, Blender, low-poly                                 | MCP Blender : partir d'un modèle KayKit proche, réutiliser la texture de dégradé, respecter l'échelle et le nombre de polygones, exporter en glTF, passer la chaîne de traitement, rendu de contrôle  | Phase R, après le premier lot |
 | `add-skill`                                      | ajouter les divisions, l'enfant doit travailler…, nouvelle notion, nouveau domaine | La recette, une liste de contrôle, un modèle tiré de `times-tables` (#18)                                                                                                                             | Oui (#93)                     |
 | `write-lesson`                                   | leçon, astuce de Plume, explique-lui…                                              | Types d'étapes, scripts de démo des widgets, règles de formulation, au plus 6 étapes                                                                                                                  | Phase 6                       |
-| `weekly-quest`                                   | devoirs de la semaine, cette semaine l'enfant doit…, photo du cahier, quête        | Relier les devoirs aux notions (ou passer par `add-skill`), choisir rafale, leçon, défi et décor, respecter les limites, aperçu `?quest=`                                                             | Phase 9                       |
 
 Chaque skill est créé quand le code correspondant existe, pour que ses modèles soient tirés du vrai code. Dès qu'une même procédure revient une deuxième fois, elle devient un skill.
 
@@ -793,3 +792,4 @@ Vérification : frontmatter YAML valide, `name` identique au nom du dossier, `de
 - 2026-11-24 : toucher le paysage (#28). Entre deux sentiers, un appui sur un animal le fait sauter, tourné vers l'enfant, puis il reprend sa promenade ; un appui sur un arbre le secoue, lâche des feuilles et fait chanter un oiseau. Rien pendant le sentier. Réaction choisie sans le propriétaire (absent) : saut pour tous les animaux, cris d'animaux laissés pour un choix à l'oreille.
 - 2026-11-24 : après le saut, l'animal touché fait un tour au galop autour de sa place avant de reprendre sa promenade (demande du propriétaire : animation plus longue et plus forte, #28).
 - 2026-11-24 : calibrage de l'économie (#29) repoussé en M2 (décision du propriétaire) : il attend la rafale, les défis et les éléments rares. Évaluation dans le ticket : les feuilles tiennent à peu près (environ 100 questions par tableau, donc environ 24 s par question pour 40 minutes, à mesurer), mais les graines dorées manquent (0 à 4 par tableau pour 19 à dépenser).
+- 2026-11-24 : devoirs de la semaine sans programmation (décision du propriétaire). Les devoirs ne sont souvent connus que quelques jours avant, et une mise à jour n'arrive sur la tablette qu'au lancement suivant : plus de quête écrite en fichier ni d'activation par la date (`src/quests/`, `?quest=`, skill `weekly-quest` abandonnés), plus de décor imposé. Tout se règle dans le tableau de bord parent, sur la tablette : notions (Auto, Fermée, Ouverte, Focus, au plus 2 en focus), niveaux le plus bas et le plus haut (#47), focus jusqu'à une date, astuce et défi à proposer au prochain sentier, astuces disponibles dans le Carnet (#54), rafale recommandée. Ce que le jeu ne couvre pas devient une notion, ajoutée en avance sur le programme.
