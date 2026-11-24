@@ -239,7 +239,7 @@ test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt po
   expect(signBox.y).toBeGreaterThan(trailBox.y - 24);
   expect(signBox.y + signBox.height).toBeLessThan(trailBox.y + trailBox.height);
   expect(Math.abs(trailBox.x + trailBox.width / 2 - viewport.width / 2)).toBeLessThan(2);
-  for (const other of ['#reserve', '#sound-toggle', '#walk .hint']) {
+  for (const other of ['#reserve', '#sound-toggle']) {
     const [box] = await boxes(page, other);
     expect(apart(box, signBox) && apart(box, trailBox), other).toBe(true);
   }

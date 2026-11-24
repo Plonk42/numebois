@@ -353,8 +353,8 @@
   stroke-width: 5;
 }
 
-/* A walk in the forest: the forest everywhere; at the top centre, how to move until the child
-   has moved, then the whole forest again. */
+/* A walk in the forest: the forest everywhere; at the top centre, once the view has left it,
+   the whole forest again. */
 #walk {
   position: fixed;
   inset: 0;
@@ -397,21 +397,6 @@
 #walk .whole .hill {
   fill: #8cc56c;
   stroke-width: 2;
-}
-#walk .hint {
-  left: 50%;
-  margin: 0;
-  padding: 10px 22px;
-  transform: translateX(-50%);
-  font-size: 20px;
-  line-height: 26px;
-  text-align: center;
-  white-space: nowrap;
-  color: #2f4a26;
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.82);
-  box-shadow: 0 2px 8px rgba(0, 40, 80, 0.18);
-  pointer-events: none;
 }
 
 /* The trail: a tiny diorama of the forest, its sign, then a stepping stone per question, to a

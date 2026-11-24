@@ -229,8 +229,6 @@ function Game(props: Props) {
   /** The trail is over: the next one is drawn when the child starts it. */
   const [finished, setFinished] = useState(false);
   const [viewAway, setViewAway] = useState(false);
-  /** The child has moved the view once: no need to say how any more. */
-  const [moved, setMoved] = useState(false);
   /** « Sentier terminé ! » shows while Plume pours her basket, then goes. */
   const [done, setDone] = useState(false);
   const [journal, setJournal] = useState(props.journal);
@@ -287,11 +285,7 @@ function Game(props: Props) {
   }, [session.stones]);
   // After the walk, the view glides back to the framing.
   useEffect(() => {
-    const onAway = (away: boolean) => {
-      setViewAway(away);
-      if (away) setMoved(true);
-    };
-    forest.explore(roaming ? onAway : null);
+    forest.explore(roaming ? setViewAway : null);
     if (!roaming) setViewAway(false);
   }, [roaming]);
   // A painting completed before the game stopped: its grand finale, or the next one to choose.
@@ -644,9 +638,7 @@ function Game(props: Props) {
       <div id="dim" class={onTrail && !away ? 'on' : ''} />
       {gift && phase === 'seed' && <SeedGift {...gift} />}
       {phase === 'choosing' && <Spots forest={forest} slots={spots} onPick={plant} />}
-      {roaming && !done && (
-        <Walk away={viewAway} moved={moved} onRecenter={() => forest.recenter()} />
-      )}
+      {roaming && !done && <Walk away={viewAway} onRecenter={() => forest.recenter()} />}
       {free && album.length > 0 && <AlbumButton onOpen={openAlbum} />}
       {phase === 'album' && <AlbumGrid entries={album} onVisit={visit} onClose={closeAlbum} />}
       {phase === 'visiting' && page && (
@@ -754,16 +746,11 @@ function SeedGift({ count, reason, leaving }: Gift) {
 interface WalkProps {
   /** The view has left the framing. */
   away: boolean;
-  /** The child has already moved the view. */
-  moved: boolean;
   onRecenter(): void;
 }
 
-/**
- * During a walk in the forest: how to move until the child has moved, and the whole forest
- * again once the view has left it.
- */
-function Walk({ away, moved, onRecenter }: WalkProps) {
+/** During a walk in the forest: the whole forest again once the view has left it. */
+function Walk({ away, onRecenter }: WalkProps) {
   return (
     <section id="walk" aria-label="Promenade dans le paysage">
       {away && (
@@ -774,13 +761,6 @@ function Walk({ away, moved, onRecenter }: WalkProps) {
           </svg>
           Revenir
         </button>
-      )}
-      {!moved && (
-        <p class="hint">
-          Glisse un doigt pour te promener,
-          <br />
-          deux doigts pour t’approcher et tourner.
-        </p>
       )}
     </section>
   );

@@ -52,12 +52,11 @@ test('se promener dans la forêt : gestes dans leurs limites, retour au cadrage,
   const viewport = page.viewportSize()!;
   const walk = page.locator('#walk');
   const back = walk.getByRole('button', { name: 'Revenir' });
-  const hint = walk.locator('.hint');
   await expect(walk).toBeVisible();
-  await expect(hint).toBeVisible();
+  await expect(walk.locator('.hint')).toHaveCount(0);
   await expect(back).toBeHidden();
   expect(await view(page)).toMatchObject({ goal: home, active: true });
-  // How to move at the top; the trail waits at the bottom, its sign at its start.
+  // The trail waits at the bottom, its sign at its start.
   const trail = page.getByRole('button', { name: 'Chemin du progrès' }).and(page.locator('#trail'));
   await expect(trail.locator('.sign')).toHaveText('Chemindu progrès');
   await expect
@@ -67,10 +66,8 @@ test('se promener dans la forêt : gestes dans leurs limites, retour au cadrage,
     })
     .toEqual([12, true]);
   await test.info().attach('accueil', { body: await page.screenshot(), contentType: 'image/png' });
-  const [hintBox] = await boxes(page, '#walk .hint');
   const [pathBox, signBox] = await boxes(page, '#trail, #trail .sign');
   const bar = await boxes(page, '#reserve, #seasons, #sound-toggle, #album-button');
-  for (const box of [...bar, pathBox, signBox]) expect(apart(box, hintBox)).toBe(true);
   // What can be touched is big enough: the reserve, the trail and its sign.
   for (const box of [...bar, pathBox, signBox]) {
     expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(56);
@@ -90,8 +87,6 @@ test('se promener dans la forêt : gestes dans leurs limites, retour au cadrage,
   // Away from the framing, the landscape alone: the trail steps aside.
   await expect(page.locator('#trail')).toHaveClass(/aside/);
   await expect(trail).toHaveCount(0);
-  // Once the child has moved, the hint has done its work: the whole painting takes its place.
-  await expect(hint).toHaveCount(0);
   const [backBox] = await boxes(page, '#walk .whole');
   expect(Math.min(backBox.width, backBox.height)).toBeGreaterThanOrEqual(56);
   for (const box of [...bar, pathBox, signBox]) expect(apart(box, backBox)).toBe(true);
