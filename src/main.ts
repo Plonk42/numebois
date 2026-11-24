@@ -34,6 +34,7 @@ declare global {
       };
       game(): GameProbe | null;
       view(): ReturnType<SceneApp['view']>;
+      camera(): ReturnType<SceneApp['camera']>;
       animals(): ReturnType<SceneApp['animalsOnScreen']>;
       slot(slot: number): ReturnType<SceneApp['slotOnScreen']>;
       touches(): SceneApp['touches'];
@@ -181,6 +182,7 @@ window.__numebois = {
   }),
   game: () => game && { ...game },
   view: () => app.view(),
+  camera: () => app.camera(),
   animals: () => app.animalsOnScreen(),
   slot: (slot) => app.slotOnScreen(slot),
   touches: () => [...app.touches],

@@ -406,6 +406,8 @@ test('la boutique : une biche achetée en graines dorées rejoint la prairie et 
   await expect(doe.locator('img')).toHaveAttribute('src', /^data:image\/png/);
   // The fox waits for stage 5: four elements away.
   await expect(shop.getByRole('button', { name: /^Un renard/ })).toContainText('Encore 4 pousses');
+  // Measured once the card has slid in.
+  await end.evaluate((card) => Promise.all(card.getAnimations().map((a) => a.finished)));
   const layout = await page.evaluate(() => {
     const box = (element: Element) => {
       const { x, y, width, height } = element.getBoundingClientRect();
@@ -426,16 +428,27 @@ test('la boutique : une biche achetée en graines dorées rejoint la prairie et 
   }
   await test.info().attach('boutique', { body: await page.screenshot(), contentType: 'image/png' });
 
-  // One touch: the seeds are spent, the card steps aside, the doe comes into the meadow.
+  // One touch: the seeds are spent, the card steps aside, the camera comes close to the meadow,
+  // the doe appears in view, then the camera goes back (#107).
   const seeds = (await game(page)).seeds;
+  const camera = () => page.evaluate(() => window.__numebois!.camera());
+  const home = await camera();
+  const moved = async () => Math.hypot(...(await camera()).map((v, i) => v - home[i]));
   await doe.click();
   await expect(page.locator('#arrival')).toHaveText('Une biche arrive !');
   await expect(end).toHaveClass(/away/);
+  await expect.poll(moved).toBeGreaterThan(15);
+  await expect.poll(animals).toBe(1);
+  const [doeOnScreen] = await page.evaluate(() => window.__numebois!.animals());
+  expect(doeOnScreen.x).toBeGreaterThan(0);
+  expect(doeOnScreen.x).toBeLessThan(viewport.width);
+  expect(doeOnScreen.y).toBeGreaterThan(0);
+  expect(doeOnScreen.y).toBeLessThan(viewport.height);
   await test.info().attach('arrivée', { body: await page.screenshot(), contentType: 'image/png' });
   expect((await game(page)).seeds).toBe(seeds - 2);
   expect(await page.evaluate(() => window.__numebois!.describe().animals)).toEqual(['Deer']);
-  expect(await animals()).toBe(1);
-  await expect(end).not.toHaveClass(/away/, { timeout: 12_000 });
+  await expect(end).not.toHaveClass(/away/, { timeout: 15_000 });
+  expect(await moved()).toBeLessThan(3);
   await expect(page.locator('#arrival')).toHaveCount(0);
   await expect(shop.getByRole('button', { name: /^Une biche/ })).toHaveCount(0);
 
