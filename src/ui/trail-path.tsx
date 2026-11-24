@@ -9,16 +9,17 @@ interface Props {
   stones: number;
   /** The stone in progress; all stones are crossed when it equals `stones`. */
   current: number;
-  /** Between two trails, the trail waits big, its sign on its left: a touch starts it. */
+  /** Between two trails, the trail waits big, its sign calling: a touch starts it. */
   onStart?: () => void;
   /** Out of sight while the shop, the finale or the Album has the screen. */
   aside?: boolean;
 }
 
 /**
- * The trail as a tiny diorama of the forest, always at the bottom of the screen: a dirt path
- * through the grass, a stepping stone per question, to a tree: the end is always in sight.
- * Small during a trail; between two trails, bigger, with its sign: the way on.
+ * The trail as a tiny diorama of the forest, always at the bottom of the screen: a wooden
+ * sign with its name, then a dirt path through the grass, a stepping stone per question, to
+ * a tree: the end is always in sight. Small during a trail; between two trails, bigger: the
+ * way on.
  */
 export function TrailPath({ art, stones, current, onStart, aside }: Props) {
   const label = onStart ? TRAIL_NAME : `Pierre ${Math.min(current + 1, stones)} sur ${stones}`;
@@ -26,7 +27,7 @@ export function TrailPath({ art, stones, current, onStart, aside }: Props) {
   if (onStart) place = 'start';
   else if (aside) place = 'aside';
   if (!art) return <div id="trail" class={place} role="img" aria-label={label} />;
-  const { path, plot, sign } = art;
+  const { path, sign } = art;
   const [first, ...rest] = TRAIL_NAME.split(' ');
   return (
     <div
@@ -34,49 +35,34 @@ export function TrailPath({ art, stones, current, onStart, aside }: Props) {
       class={place}
       role={onStart ? 'button' : 'img'}
       aria-label={label}
-      style={{
-        width: `${path.width}px`,
-        height: `${path.height}px`,
-        '--small': 1 / TRAIL_ZOOM,
-        '--plot': `${plot.width}px`,
-      }}
+      style={{ width: `${path.width}px`, height: `${path.height}px`, '--small': 1 / TRAIL_ZOOM }}
       onPointerDown={onStart}
     >
+      <img class="land" src={path.url} alt="" draggable={false} />
       <div
         class="sign"
         style={{
-          left: `${-plot.width}px`,
-          width: `${plot.width}px`,
-          height: `${plot.height}px`,
+          left: `${sign.left}px`,
+          top: `${sign.top}px`,
+          width: `${sign.width}px`,
+          height: `${sign.height}px`,
+          transformOrigin: `${sign.foot[0]}px ${sign.foot[1]}px`,
         }}
       >
-        <img src={plot.url} alt="" draggable={false} />
-        <div
-          class="plank"
+        <img src={sign.url} alt="" draggable={false} />
+        <span
           style={{
-            left: `${sign.left}px`,
-            top: `${sign.top}px`,
-            width: `${sign.width}px`,
-            height: `${sign.height}px`,
-            transformOrigin: `${sign.foot[0]}px ${sign.foot[1]}px`,
+            left: `${sign.label.x}px`,
+            top: `${sign.label.y}px`,
+            width: `${sign.label.width}px`,
+            height: `${sign.label.height}px`,
           }}
         >
-          <img src={sign.url} alt="" draggable={false} />
-          <span
-            style={{
-              left: `${sign.label.x}px`,
-              top: `${sign.label.y}px`,
-              width: `${sign.label.width}px`,
-              height: `${sign.label.height}px`,
-            }}
-          >
-            {first}
-            <br />
-            {rest.join(' ')}
-          </span>
-        </div>
+          {first}
+          <br />
+          {rest.join(' ')}
+        </span>
       </div>
-      <img class="land" src={path.url} alt="" draggable={false} />
       {art.stones.slice(0, stones).map(([x, y], i) => {
         let state: keyof TrailArt['stone'] = 'ahead';
         if (i < current) state = 'crossed';

@@ -57,7 +57,7 @@ test('se promener dans la forêt : gestes dans leurs limites, retour au cadrage,
   await expect(hint).toBeVisible();
   await expect(back).toBeHidden();
   expect(await view(page)).toMatchObject({ goal: home, active: true });
-  // How to move at the top; the trail waits at the bottom, its sign on its left.
+  // How to move at the top; the trail waits at the bottom, its sign at its start.
   const trail = page.getByRole('button', { name: 'Chemin du progrès' }).and(page.locator('#trail'));
   await expect(trail.locator('.sign')).toHaveText('Chemindu progrès');
   await expect
@@ -68,7 +68,7 @@ test('se promener dans la forêt : gestes dans leurs limites, retour au cadrage,
     .toEqual([12, true]);
   await test.info().attach('accueil', { body: await page.screenshot(), contentType: 'image/png' });
   const [hintBox] = await boxes(page, '#walk .hint');
-  const [pathBox, signBox] = await boxes(page, '#trail, #trail .plank');
+  const [pathBox, signBox] = await boxes(page, '#trail, #trail .sign');
   const bar = await boxes(page, '#reserve, #seasons, #sound-toggle, #album-button');
   for (const box of [...bar, pathBox, signBox]) expect(apart(box, hintBox)).toBe(true);
   // What can be touched is big enough: the reserve, the trail and its sign.

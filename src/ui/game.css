@@ -414,9 +414,8 @@
   pointer-events: none;
 }
 
-/* The trail: a tiny diorama of the forest, a stepping stone per question, to a tree. Always
-   at the bottom: small during a trail; between two trails, bigger, its sign on its left, the
-   two centred: the way on. */
+/* The trail: a tiny diorama of the forest, its sign, then a stepping stone per question, to a
+   tree. Always at the bottom: small during a trail; between two trails, bigger: the way on. */
 #trail {
   position: fixed;
   bottom: 12px;
@@ -431,7 +430,7 @@
 }
 #trail.start,
 #trail.aside {
-  transform: translateX(calc(-50% + var(--plot, 0px) / 2));
+  transform: translateX(-50%);
 }
 #trail.start {
   touch-action: manipulation;
@@ -459,39 +458,24 @@
   filter: drop-shadow(0 0 3px #fff6c8) drop-shadow(0 0 6px rgba(255, 226, 122, 0.9));
 }
 
-/* The wooden sign on its plot of grass, left of the path, only between two trails: it grows
-   out of the start of the path and is touched like it; the plank glows softly and, now and
-   then, sways to call the child. */
+/* The wooden sign planted in the grass of the trail, at the start of the path, and touched
+   like it. Still during a trail; between two trails, it glows softly and, now and then, sways
+   to call the child. */
 #trail .sign {
   position: absolute;
-  top: 0;
-  opacity: 0;
-  transform-origin: 100% 70%;
-  transform: scale(0.2);
-  transition:
-    transform 0.45s cubic-bezier(0.3, 1.5, 0.5, 1),
-    opacity 0.2s ease;
   pointer-events: none;
 }
 #trail.start .sign {
-  opacity: 1;
-  transform: none;
-  transition-delay: 0.3s;
   pointer-events: auto;
+  animation: sign-call 4s ease-in-out 2s infinite;
 }
 #trail .sign img {
   inset: 0;
   width: 100%;
   height: 100%;
 }
-#trail .plank {
-  position: absolute;
-}
-#trail.start .plank {
-  animation: sign-call 4s ease-in-out 2s infinite;
-}
 /* A soft halo behind the plank (opacity only: nothing to repaint on the tablet). */
-#trail .plank::before {
+#trail .sign::before {
   content: '';
   position: absolute;
   left: -10%;
@@ -502,7 +486,7 @@
   background: radial-gradient(closest-side, rgba(255, 232, 140, 0.95), transparent);
   opacity: 0;
 }
-#trail.start .plank::before {
+#trail.start .sign::before {
   animation: sign-glow 2s ease-in-out infinite alternate;
 }
 @keyframes sign-call {
@@ -530,7 +514,7 @@
   }
 }
 /* The words painted on the plank. */
-#trail .plank span {
+#trail .sign span {
   position: absolute;
   display: flex;
   flex-direction: column;
