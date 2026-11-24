@@ -4,6 +4,7 @@ import {
   signOf,
   type CompareExercise,
   type DecomposeExercise,
+  type NumberLineExercise,
   type OrderExercise,
   type ReadExercise,
   type WriteDigitsExercise,
@@ -106,4 +107,19 @@ export function orderHint({ values, want }: OrderExercise, attempt: 1 | 2): stri
   const sorted = [...values].sort((p, q) => p - q).map((v) => formatNumber(v));
   const target = want === 'largest' ? sorted.at(-1) : sorted[0];
   return `Rangés : ${sorted.join(' < ')}.\nLe plus ${want === 'largest' ? 'grand' : 'petit'} : ${target}.`;
+}
+
+/** From the closest written number, tick by tick. */
+export function numberLineHint({ line, value }: NumberLineExercise, attempt: 1 | 2): string {
+  const start = line.labels.reduce((best, label) =>
+    Math.abs(label - value) < Math.abs(best - value) ? label : best,
+  );
+  const forward = value > start;
+  const step = formatNumber(line.step);
+  if (attempt === 1) {
+    return `Pars de ${formatNumber(start)} et ${forward ? 'avance' : 'recule'} de ${step} en ${step}.`;
+  }
+  const count = Math.abs(value - start) / line.step;
+  const ticks = `${count} trait${count > 1 ? 's' : ''} de ${step}${forward ? '' : ' en arrière'}`;
+  return `Depuis ${formatNumber(start)}, ${ticks} : ${formatNumber(value)}.`;
 }

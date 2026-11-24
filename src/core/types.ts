@@ -3,9 +3,23 @@ import type { Rng } from './rng';
 /** `<domain>.<notion>`, stable: saves refer to it, never rename a published one. */
 export type SkillId = string;
 
+/** A graduated line: a tick every `step` from `from` to `to`, numbers written under `labels`. */
+export interface NumberLine {
+  from: number;
+  to: number;
+  step: number;
+  labels: readonly number[];
+}
+
 /** How the child answers; the shared widget of the same name collects the answer. */
 export type ExerciseInput =
-  { kind: 'keypad'; maxDigits: number } | { kind: 'choice'; options: readonly string[] };
+  | { kind: 'keypad'; maxDigits: number }
+  | { kind: 'choice'; options: readonly string[] }
+  /** A number placed with the finger on a tick of the line. */
+  | { kind: 'number-line'; line: NumberLine };
+
+/** What the child looks at without touching it, under the statement (one component per kind). */
+export type Figure = { kind: 'number-line'; line: NumberLine; arrow: number };
 
 export interface Exercise {
   skill: SkillId;
@@ -14,6 +28,7 @@ export interface Exercise {
   instruction: string;
   /** What the child works on, displayed large. */
   statement: string;
+  figure?: Figure;
   input: ExerciseInput;
   /** Expected answer, as the widget returns it. */
   answer: string;

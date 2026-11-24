@@ -47,6 +47,23 @@ const DRIVERS: { [K in ExerciseInput['kind']]: Driver<Extract<ExerciseInput, { k
       page.locator('#question .choice').getByRole('button', { name: value, exact: true }).click(),
     wrongs: (input, expected) => input.options.filter((option) => option !== expected).slice(0, 2),
   },
+  'number-line': {
+    async answer(page, _, value) {
+      // A tick is a line without width: the finger lands on the drawing, above it.
+      const line = page.locator('#question .number-line.place');
+      const x = await line
+        .locator(`[data-value="${value}"]`)
+        .evaluate((tick) => tick.getBoundingClientRect().x);
+      const box = (await line.boundingBox())!;
+      await page.mouse.click(x, box.y + box.height / 2);
+      await page.locator('#question .submit').click();
+    },
+    wrongs: ({ line }, expected) =>
+      [1, -1]
+        .map((side) => Number(expected) + side * line.step)
+        .filter((value) => value >= line.from && value <= line.to)
+        .map(String),
+  },
 };
 
 export function driver(input: ExerciseInput): Driver<ExerciseInput> {

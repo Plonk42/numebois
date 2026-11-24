@@ -367,6 +367,71 @@
   opacity: 0.4;
 }
 
+/* Number line (#21): to read beside the keypad, or to place a number on the whole width. */
+.bench > .work:has(.number-line) {
+  align-content: center;
+  gap: 20px;
+}
+/* The line under the finger stays put when Plume's bubble comes. */
+.bench > .work:has(.number-line.place) {
+  align-content: start;
+  padding-top: 48px;
+}
+.number-line {
+  display: block;
+  width: 100%;
+  overflow: visible;
+}
+.number-line .axis {
+  stroke: #6b4a2b;
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+.number-line .tick {
+  stroke: #6b4a2b;
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+.number-line .tick.labelled {
+  stroke-width: 5;
+}
+.number-line text {
+  font-size: 26px;
+  font-weight: 700;
+  text-anchor: middle;
+  fill: #2f4a3a;
+}
+.number-line .pin path {
+  stroke: #fff;
+  stroke-width: 3;
+  stroke-linejoin: round;
+}
+.number-line .pin circle {
+  fill: #fff;
+}
+.number-line .pin.arrow path {
+  fill: #e07b39;
+}
+.number-line .pin.placed path {
+  fill: #4a7fc1;
+}
+.number-line .pin.right path {
+  fill: #4e9a35;
+}
+.number-line .pin.shown path {
+  fill: #f2c33a;
+}
+.number-line.place {
+  touch-action: none;
+  cursor: pointer;
+}
+.number-line.place .touch {
+  fill: transparent;
+}
+#question .answer-zone > .submit {
+  min-height: 88px;
+}
+
 /* The end of the trail and the shop: the slate is gone, the whole forest shows, a card at the
    bottom. */
 .card {

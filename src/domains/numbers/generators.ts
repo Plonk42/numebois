@@ -1,4 +1,4 @@
-import type { Exercise } from '../../core/types';
+import type { Exercise, NumberLine } from '../../core/types';
 import type { Rng } from '../../core/rng';
 import { formatNumber, numberWords } from './words';
 
@@ -293,5 +293,72 @@ export function generateOrder(rng: Rng, level: number): OrderExercise {
     answer: formatNumber(target),
     values,
     want,
+  };
+}
+
+export const LINE_READ = 'numbers.number-line-read';
+export const LINE_PLACE = 'numbers.number-line-place';
+
+/**
+ * Levels of the number line, 11 ticks, for both notions:
+ * 0. 0 to 10 by 1, numbers under 0, 5 and 10;
+ * 1. 0 to 100 by 10, numbers under 0, 50 and 100;
+ * 2. a ten, 40 to 50 by 1, numbers at both ends;
+ * 3. a hundred, 300 to 400 by 10, numbers at both ends;
+ * 4. a thousand, 2 000 to 3 000 by 100, numbers at both ends.
+ */
+export const NUMBER_LINE_LEVELS = 5;
+
+function drawLine(rng: Rng, level: number): NumberLine {
+  if (level === 0) return { from: 0, to: 10, step: 1, labels: [0, 5, 10] };
+  if (level === 1) return { from: 0, to: 100, step: 10, labels: [0, 50, 100] };
+  if (level > 4) throw levelError(level);
+  const step = 10 ** (level - 2);
+  const from = rng.int(1, 9) * step * 10;
+  return { from, to: from + step * 10, step, labels: [from, from + step * 10] };
+}
+
+/** A tick without its number. */
+function drawTick(rng: Rng, line: NumberLine): number {
+  const ticks = Array.from(
+    { length: (line.to - line.from) / line.step + 1 },
+    (_, i) => line.from + i * line.step,
+  );
+  return rng.pick(ticks.filter((tick) => !line.labels.includes(tick)));
+}
+
+export interface NumberLineExercise extends Exercise {
+  line: NumberLine;
+  value: number;
+}
+
+export function generateLineRead(rng: Rng, level: number): NumberLineExercise {
+  const line = drawLine(rng, level);
+  const value = drawTick(rng, line);
+  return {
+    skill: LINE_READ,
+    level,
+    instruction: 'Lis la droite graduée.',
+    statement: 'Quel nombre montre la flèche ?',
+    figure: { kind: 'number-line', line, arrow: value },
+    input: { kind: 'keypad', maxDigits: 4 },
+    answer: String(value),
+    line,
+    value,
+  };
+}
+
+export function generateLinePlace(rng: Rng, level: number): NumberLineExercise {
+  const line = drawLine(rng, level);
+  const value = drawTick(rng, line);
+  return {
+    skill: LINE_PLACE,
+    level,
+    instruction: 'Place ce nombre sur la droite.',
+    statement: formatNumber(value),
+    input: { kind: 'number-line', line },
+    answer: String(value),
+    line,
+    value,
   };
 }

@@ -32,6 +32,15 @@ const ANSWER_FITS: {
 } = {
   keypad: (input, answer) => new RegExp(String.raw`^\d{1,${input.maxDigits}}$`).test(answer),
   choice: (input, answer) => input.options.includes(answer),
+  'number-line': ({ line }, answer) => {
+    const value = Number(answer);
+    return (
+      /^\d+$/.test(answer) &&
+      value >= line.from &&
+      value <= line.to &&
+      (value - line.from) % line.step === 0
+    );
+  },
 };
 
 function inputErrors(input: ExerciseInput, answer: string): string[] {

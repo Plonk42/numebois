@@ -3,18 +3,22 @@ import { Rng } from '../../core/rng';
 import {
   COMPARE_LEVELS,
   DECOMPOSE_LEVELS,
+  NUMBER_LINE_LEVELS,
   ORDER_LEVELS,
   READ_LEVELS,
   WRITE_DIGITS_LEVELS,
   generateCompare,
   generateDecompose,
+  generateLinePlace,
+  generateLineRead,
   generateOrder,
   generateRead,
   generateWriteDigits,
   hasEmptyRank,
   type WriteDigitsExercise,
 } from './generators';
-import { compareHint, decomposeHint, orderHint, writeDigitsHint } from './hints';
+import { compareHint, decomposeHint, numberLineHint, orderHint, writeDigitsHint } from './hints';
+import type { NumberLine } from '../../core/types';
 import { validateNumber } from '../../core/validate';
 import { formatNumber, numberWords } from './words';
 
@@ -219,5 +223,72 @@ describe('lire, décomposer, comparer, ranger', () => {
       want: 'largest' as const,
     };
     expect(orderHint(e, 2)).toBe('Rangés : 125 < 215 < 512.\nLe plus grand : 512.');
+  });
+});
+
+describe('droite graduée', () => {
+  const RULES: ((line: NumberLine) => boolean)[] = [
+    (l) => l.from === 0 && l.to === 10 && l.step === 1,
+    (l) => l.from === 0 && l.to === 100 && l.step === 10,
+    (l) => l.step === 1 && l.from % 10 === 0 && l.from >= 10 && l.to <= 100,
+    (l) => l.step === 10 && l.from % 100 === 0 && l.from >= 100 && l.to <= 1000,
+    (l) => l.step === 100 && l.from % 1000 === 0 && l.from >= 1000 && l.to <= 10_000,
+  ];
+
+  it.each(RULES.map((rule, level) => [level, rule] as const))(
+    'level %i: 11 ticks, the number on an unwritten tick, on 1 000 seeds',
+    (level, rule) => {
+      const values = new Set<number>();
+      for (let seed = 0; seed < 1000; seed++) {
+        for (const generate of [generateLineRead, generateLinePlace]) {
+          const e = generate(new Rng(seed), level);
+          const { line, value } = e;
+          expect(rule(line)).toBe(true);
+          expect((line.to - line.from) / line.step).toBe(10);
+          expect(line.labels).toContain(line.from);
+          expect(line.labels).toContain(line.to);
+          expect(value > line.from && value < line.to).toBe(true);
+          expect((value - line.from) % line.step).toBe(0);
+          expect(line.labels).not.toContain(value);
+          expect(e.answer).toBe(String(value));
+          values.add(value);
+        }
+      }
+      expect(values.size).toBeGreaterThanOrEqual(level < 2 ? 8 : 9);
+      expect(() => generateLineRead(new Rng(1), NUMBER_LINE_LEVELS)).toThrow(RangeError);
+    },
+  );
+
+  it('reads with an arrow and the keypad, places with the finger', () => {
+    const read = generateLineRead(new Rng(4), 3);
+    expect(read.figure).toEqual({ kind: 'number-line', line: read.line, arrow: read.value });
+    expect(read.input.kind).toBe('keypad');
+    const place = generateLinePlace(new Rng(4), 3);
+    expect(place.figure).toBeUndefined();
+    expect(place.input).toEqual({ kind: 'number-line', line: place.line });
+    expect(place.statement).toBe(formatNumber(place.value));
+  });
+
+  it('counts tick by tick from the closest written number', () => {
+    const at = (level: number, from: number, value: number) => {
+      const e = generateLineRead(new Rng(1), level);
+      const step = e.line.step;
+      const line = {
+        ...e.line,
+        from,
+        to: from + 10 * step,
+        labels: level < 2 ? e.line.labels : [from, from + 10 * step],
+      };
+      return { ...e, line, value };
+    };
+    expect(numberLineHint(at(0, 0, 7), 1)).toBe('Pars de 5 et avance de 1 en 1.');
+    expect(numberLineHint(at(0, 0, 7), 2)).toBe('Depuis 5, 2 traits de 1 : 7.');
+    expect(numberLineHint(at(3, 300, 340), 2)).toBe('Depuis 300, 4 traits de 10 : 340.');
+    expect(numberLineHint(at(4, 2000, 2800), 1)).toBe(
+      'Pars de 3\u202f000 et recule de 100 en 100.',
+    );
+    expect(numberLineHint(at(4, 2000, 2800), 2)).toBe(
+      'Depuis 3\u202f000, 2 traits de 100 en arrière : 2\u202f800.',
+    );
   });
 });

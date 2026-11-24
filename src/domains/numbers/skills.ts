@@ -5,6 +5,9 @@ import {
   COMPARE_LEVELS,
   DECOMPOSE,
   DECOMPOSE_LEVELS,
+  LINE_PLACE,
+  LINE_READ,
+  NUMBER_LINE_LEVELS,
   ORDER,
   ORDER_LEVELS,
   READ,
@@ -13,16 +16,26 @@ import {
   WRITE_DIGITS_LEVELS,
   generateCompare,
   generateDecompose,
+  generateLinePlace,
+  generateLineRead,
   generateOrder,
   generateRead,
   generateWriteDigits,
   type CompareExercise,
   type DecomposeExercise,
+  type NumberLineExercise,
   type OrderExercise,
   type ReadExercise,
   type WriteDigitsExercise,
 } from './generators';
-import { compareHint, decomposeHint, orderHint, readHint, writeDigitsHint } from './hints';
+import {
+  compareHint,
+  decomposeHint,
+  numberLineHint,
+  orderHint,
+  readHint,
+  writeDigitsHint,
+} from './hints';
 
 export const writeDigits = defineSkill<WriteDigitsExercise>({
   id: WRITE_DIGITS,
@@ -76,5 +89,27 @@ export const order = defineSkill<OrderExercise>({
   generate: generateOrder,
   validate: validateChoice,
   hint: orderHint,
+  drill: true,
+});
+
+export const lineRead = defineSkill<NumberLineExercise>({
+  id: LINE_READ,
+  name: 'Lire une droite graduée',
+  prerequisites: [WRITE_DIGITS],
+  levels: NUMBER_LINE_LEVELS,
+  generate: generateLineRead,
+  validate: validateNumber,
+  hint: numberLineHint,
+  drill: true,
+});
+
+export const linePlace = defineSkill<NumberLineExercise>({
+  id: LINE_PLACE,
+  name: 'Placer un nombre sur une droite graduée',
+  prerequisites: [LINE_READ],
+  levels: NUMBER_LINE_LEVELS,
+  generate: generateLinePlace,
+  validate: validateNumber,
+  hint: numberLineHint,
   drill: true,
 });

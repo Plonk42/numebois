@@ -14,11 +14,12 @@ Recette de fond : [plan, « Recette : ajouter une notion ou un domaine »](../..
 3. **Indices** (`hints.ts`) : 1 = la méthode, 2 = la réponse avec la méthode. Phrases de 12 mots au plus, 3 phrases ou lignes et 120 caractères par bulle, aucun mot d'échec.
 4. **Validation :** `validateNumber` ou `validateChoice` (`src/core/validate.ts`), sinon une nouvelle fonction au même endroit.
 5. **Notion** (`skills.ts`, `defineSkill`) : prérequis (y compris d'autres domaines), `levels`, `drill`/`challenge`, `facts` (`facts.ts`, ids `<notion>:<clé>`) pour une notion à faits.
-6. **Nouveau type de saisie** (seulement si pavé et choix ne suffisent pas) : le compilateur réclame les quatre morceaux.
+6. **Nouveau type de saisie** (seulement si pavé, choix et droite graduée ne suffisent pas) : le compilateur réclame les quatre morceaux.
    - `ExerciseInput` dans `src/core/types.ts` ;
    - sa règle de réponse dans `ANSWER_FITS` (`src/core/content.ts`) ;
    - son widget dans `src/ui/widgets/index.tsx`, placé avec `Work` (ou `Work wide`) et `AnswerZone`, cibles de 56 px, `pointerdown` ;
    - son pilote de test dans `DRIVERS` (`tests/e2e/helpers.ts`) : répondre comme l'enfant, et deux mauvaises réponses.
+7. **Figure** (une illustration à lire sans la toucher : droite graduée, horloge…) : champ `figure` de l'exercice, type `Figure` dans `src/core/types.ts` et son composant dans `FIGURES` (`src/ui/widgets/index.tsx`), affiché sous l'énoncé à côté de la zone de réponse. Modèle : `numbers.number-line-read`.
 
 ## Vérifier
 
