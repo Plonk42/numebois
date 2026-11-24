@@ -64,7 +64,6 @@ const COVER_MS = 750;
 const PRAISES = ['Bravo !', 'Super !', 'Oui !', 'Bien vu !', 'Génial !'];
 
 type Phase =
-  | 'welcome'
   | 'walking'
   | 'asking'
   | 'right'
@@ -81,7 +80,9 @@ type Phase =
   | 'album'
   | 'visiting';
 
-/** Phases of the end of the trail besides the walk, when the reserve is spent. */
+/** A trail in progress: the slate and its rewards. */
+const TRAIL_PHASES = new Set<Phase>(['asking', 'right', 'reveal', 'seed']);
+/** The shop, opened from the reserve between two trails, and what it brings to the painting. */
 const SHOP_PHASES = new Set<Phase>(['shop', 'choosing', 'planting', 'adopting', 'turning']);
 /** A complete painting: the grand finale, its frame, then the choice of the next one (#33). */
 const FINALE_PHASES = new Set<Phase>(['finale', 'framing', 'next']);
@@ -170,8 +171,8 @@ interface Props {
   save(json: string): void;
   saveAlbum(entries: readonly AlbumEntry[]): void;
   probe: GameProbe;
-  /** Opens on the welcome card rather than on the first question. */
-  welcome: boolean;
+  /** Opens on the landscape, between two trails, rather than on the first question. */
+  home: boolean;
 }
 
 /** Why golden seeds came: the first thing learnt. */
@@ -181,10 +182,11 @@ function giftReason(achievement: Achievement, skill: Skill): string {
 }
 
 /**
- * The trail: question after question along a path of stones; each right answer brings a
- * leaf to the reserve, each notion acquired or fact automated a golden seed. At the end, the
- * forest is the child's to walk in: a touch on the reserve opens the shop where it is spent,
- * the sign by the path starts another trail. Mistakes cost nothing: a hint, then the answer.
+ * Between two trails, the landscape is the child's, always laid out the same: a walk with the
+ * fingers, the reserve (top left) opens the shop where it is spent, the trail waits at the
+ * bottom with its sign. A touch on it starts the trail: question after question along its
+ * stones; each right answer brings a leaf to the reserve, each notion acquired or fact
+ * automated a golden seed. Mistakes cost nothing: a hint, then the answer.
  */
 function Game(props: Props) {
   const { session, rng, forest, probe } = props;
@@ -201,7 +203,7 @@ function Game(props: Props) {
   const [mistakes, setMistakes] = useState(0);
   const [phase, setPhase] = useState<Phase>(() => {
     if (isComplete(forest.description())) return 'finale';
-    return props.welcome ? 'welcome' : 'asking';
+    return props.home ? 'walking' : 'asking';
   });
   const [praise, setPraise] = useState(PRAISES[0]);
   const [menu, setMenu] = useState(false);
@@ -209,21 +211,19 @@ function Game(props: Props) {
   const [art, setArt] = useState<TrailArt | null>(null);
   const [spots, setSpots] = useState<readonly number[]>([]);
   const [arrival, setArrival] = useState<string | null>(null);
-  /** Whether the walk started from the welcome card or the end of the trail. */
-  const [walkFrom, setWalkFrom] = useState<'welcome' | 'end'>('welcome');
+  /** The trail is over: the next one is drawn when the child starts it. */
+  const [finished, setFinished] = useState(false);
   const [viewAway, setViewAway] = useState(false);
+  /** The child has moved the view once: no need to say how any more. */
+  const [moved, setMoved] = useState(false);
   /** « Sentier terminé ! » shows while Plume pours her basket, then goes. */
   const [done, setDone] = useState(false);
   const [journal, setJournal] = useState(props.journal);
   const [album, setAlbum] = useState(props.album);
   const [choices, setChoices] = useState<readonly NextChoice[]>([]);
   const [page, setPage] = useState<AlbumEntry | null>(null);
-  /** Where the Album was opened from, to come back there. */
-  const albumFrom = useRef<Phase>('welcome');
   /** Where a change of season started: the screen stays as it was under the light. */
   const [turnFrom, setTurnFrom] = useState<Phase>('walking');
-  /** After the grand finale, the walk; the welcome card when it resumed at start. */
-  const finaleTo = useRef<'walking' | 'welcome'>('walking');
   const timer = useRef(0);
   const shownAt = useRef(performance.now());
   const firstAnswerMs = useRef<number | null>(null);
@@ -231,18 +231,11 @@ function Game(props: Props) {
   const walking = phase === 'walking';
   const browsing = ALBUM_PHASES.has(phase);
   const shown = phase === 'turning' ? turnFrom : phase;
-  const ended =
-    SHOP_PHASES.has(shown) ||
-    FINALE_PHASES.has(shown) ||
-    ((shown === 'walking' || browsing) && walkFrom === 'end');
-  const welcome =
-    shown === 'welcome' || ((shown === 'walking' || browsing) && walkFrom === 'welcome');
-  /** The forest is the child's: the reserve opens the shop, the sign waits. */
-  const free = ended && !done && (walking || phase === 'shop');
-  /** Nothing else on the screen: the Album can open. */
-  const idle = !done && (phase === 'welcome' || walking);
-  /** The seasons answer on the welcome card, during a walk and in the shop. */
-  const canTurn = idle || phase === 'shop';
+  const onTrail = TRAIL_PHASES.has(phase);
+  /** The landscape is the child's: the reserve opens the shop, the trail and the Album wait. */
+  const free = walking && !done;
+  /** The seasons answer during a walk and in the shop. */
+  const canTurn = free || phase === 'shop';
   /** Gestures move the view during a walk, in the forest or in a painting of the Album. */
   const roaming = walking || phase === 'visiting';
   useEffect(() => {
@@ -253,9 +246,9 @@ function Game(props: Props) {
       basket,
       grown,
       phase,
-      stone: ended ? session.stones : session.stone,
+      stone: finished ? session.stones : session.stone,
       stones: session.stones,
-      role: ended ? null : session.step.role,
+      role: finished ? null : session.step.role,
     });
   });
   useEffect(() => () => clearTimeout(timer.current), []);
@@ -268,13 +261,16 @@ function Game(props: Props) {
   }, [session.stones]);
   // After the walk, the view glides back to the framing.
   useEffect(() => {
-    forest.explore(roaming ? setViewAway : null);
+    const onAway = (away: boolean) => {
+      setViewAway(away);
+      if (away) setMoved(true);
+    };
+    forest.explore(roaming ? onAway : null);
     if (!roaming) setViewAway(false);
   }, [roaming]);
   // A painting completed before the game stopped: its grand finale, or the next one to choose.
   useEffect(() => {
     if (!isComplete(forest.description())) return;
-    finaleTo.current = 'welcome';
     void forest.ready.then(() => {
       if (isFramed(album, forest.description())) chooseNext(album);
       else finish();
@@ -325,32 +321,26 @@ function Game(props: Props) {
     firstAnswerMs.current = null;
   };
 
-  /** From the welcome card, or from a walk that started there: the first question, already drawn. */
-  const begin = () => {
-    if (!welcome) return;
-    setPhase('asking');
-    shownAt.current = performance.now();
-  };
-
-  const walk = () => {
-    if (phase !== 'welcome') return;
-    setWalkFrom('welcome');
-    setPhase('walking');
-  };
-
   const proceed = () => {
     if (session.advance()) {
       ask();
       return;
     }
-    setWalkFrom('end');
+    setFinished(true);
     setDone(true);
     setPhase('walking');
   };
 
-  const restart = () => {
+  /** A touch on the trail: its first question is already drawn, a new trail draws its own. */
+  const start = () => {
     if (!free) return;
+    if (!finished) {
+      setPhase('asking');
+      shownAt.current = performance.now();
+      return;
+    }
     session.startTrail();
+    setFinished(false);
     setLeavesHere(0);
     setSeedsHere(0);
     setBasket(0);
@@ -454,12 +444,11 @@ function Game(props: Props) {
     setJournal({ started: today(), acquired: [], automated: [] });
     setChoices([]);
     forest.cover(false);
-    setPhase(finaleTo.current);
+    setPhase('walking');
   };
 
   const openAlbum = () => {
-    if (!idle) return;
-    albumFrom.current = phase;
+    if (!free) return;
     forest.cover(true);
     setPhase('album');
   };
@@ -484,7 +473,7 @@ function Game(props: Props) {
     forest.show(null);
     forest.cover(false);
     setPage(null);
-    setPhase(albumFrom.current);
+    setPhase('walking');
   };
 
   /** Plays the moments of a reward one after the other, then the next question. */
@@ -574,6 +563,10 @@ function Game(props: Props) {
   }
   const { season, seasons } = forest.description();
   const items = shopItems(forest.description());
+  // Between two trails, the next one waits with its sign, a touch on it starts it; it stays
+  // while the season turns, out of sight in the shop, the finale and the Album.
+  const waiting = shown === 'walking' && !done;
+  const aside = !waiting && !onTrail && !done;
   // A golden seed: the slate steps aside, the forest lights up.
   const away = phase === 'seed';
   let plume: PlumeMood = 'calm';
@@ -586,12 +579,20 @@ function Game(props: Props) {
       <Reserve
         leaves={reserve}
         seeds={seeds}
-        // Glows when something is within reach, once the forest is the child's.
-        ready={free && walking && items.some((item) => canBuy(item, leaves, seeds))}
+        // A button between two trails, pressed while the shop is open; it glows when something
+        // is within reach.
+        button={waiting || SHOP_PHASES.has(shown)}
+        open={SHOP_PHASES.has(shown)}
+        ready={free && items.some((item) => canBuy(item, leaves, seeds))}
         onTap={() => {
-          if (free && walking) setPhase('shop');
+          if (free) setPhase('shop');
+          else if (phase === 'shop') setPhase('walking');
         }}
-        onLongPress={() => setMenu(true)}
+        // The same finger opened the shop when it touched: the parent menu takes its place.
+        onLongPress={() => {
+          setMenu(true);
+          setPhase((now) => (now === 'shop' ? 'walking' : now));
+        }}
       />
       {/* Only when there is a choice: a single season is nothing to touch. */}
       {seasons.length > 1 && (canTurn || phase === 'turning') && (
@@ -607,21 +608,18 @@ function Game(props: Props) {
       <TrailPath
         art={art}
         stones={session.stones}
-        current={ended ? session.stones : session.stone}
-        onNewTrail={free ? restart : undefined}
+        current={waiting ? 0 : finished ? session.stones : session.stone}
+        onStart={waiting ? start : undefined}
+        aside={aside}
       />
       {/* During a question, the forest dims: one thing at a time. */}
-      <div id="dim" class={ended || welcome || away ? '' : 'on'} />
+      <div id="dim" class={onTrail && !away ? 'on' : ''} />
       {gift && phase === 'seed' && <SeedGift {...gift} />}
       {phase === 'choosing' && <Spots forest={forest} slots={spots} onPick={plant} />}
       {roaming && !done && (
-        <Walk
-          away={viewAway}
-          onRecenter={() => forest.recenter()}
-          onStart={walking && walkFrom === 'welcome' ? begin : undefined}
-        />
+        <Walk away={viewAway} moved={moved} onRecenter={() => forest.recenter()} />
       )}
-      {idle && album.length > 0 && <AlbumButton onOpen={openAlbum} />}
+      {free && album.length > 0 && <AlbumButton onOpen={openAlbum} />}
       {phase === 'album' && <AlbumGrid entries={album} onVisit={visit} onClose={closeAlbum} />}
       {phase === 'visiting' && page && (
         <AlbumPage entry={page} skills={props.skills} onBack={backToAlbum} />
@@ -665,29 +663,7 @@ function Game(props: Props) {
           onClose={() => setMenu(false)}
         />
       )}
-      {FINALE_PHASES.has(phase) || browsing ? null : welcome ? (
-        <Welcome away={shown === 'walking'} onStart={begin} onWalk={walk} />
-      ) : ended ? (
-        <>
-          {done && <TrailDone leaves={leavesHere} seeds={seedsHere} basket={basket} />}
-          {SHOP_PHASES.has(phase) && (
-            <section id="shop" class={`card${phase === 'shop' ? '' : ' away'}`}>
-              <Shop
-                items={items}
-                leaves={leaves}
-                seeds={seeds}
-                portrait={(animal) => forest.portrait(animal)}
-                onBuy={buy}
-              />
-              <div class="actions">
-                <button type="button" onPointerDown={() => setPhase('walking')}>
-                  Fermer
-                </button>
-              </div>
-            </section>
-          )}
-        </>
-      ) : (
+      {FINALE_PHASES.has(phase) || browsing ? null : onTrail ? (
         <Slate
           away={away}
           heading={
@@ -711,6 +687,26 @@ function Game(props: Props) {
             onSubmit={answer}
           />
         </Slate>
+      ) : (
+        <>
+          {done && <TrailDone leaves={leavesHere} seeds={seedsHere} basket={basket} />}
+          {SHOP_PHASES.has(shown) && (
+            <section id="shop" class={`card${phase === 'shop' ? '' : ' away'}`}>
+              <Shop
+                items={items}
+                leaves={leaves}
+                seeds={seeds}
+                portrait={(animal) => forest.portrait(animal)}
+                onBuy={buy}
+              />
+              <div class="actions">
+                <button type="button" onPointerDown={() => setPhase('walking')}>
+                  Fermer
+                </button>
+              </div>
+            </section>
+          )}
+        </>
       )}
     </>
   );
@@ -727,49 +723,19 @@ function SeedGift({ count, reason, leaving }: Gift) {
   );
 }
 
-interface WelcomeProps {
-  /** The child walks in the forest: the card steps aside. */
-  away: boolean;
-  onStart(): void;
-  onWalk(): void;
-}
-
-/** The game opens on the forest: start the trail, or walk in the forest first. */
-function Welcome({ away, onStart, onWalk }: WelcomeProps) {
-  return (
-    <section id="welcome" class={`card${away ? ' away' : ''}`} aria-live="polite">
-      <Plume mood="cheer" />
-      <p class="praise">Bonjour !</p>
-      <p class="instruction">Ton paysage t’attend.</p>
-      <div class="actions">
-        <button type="button" class="walk" onPointerDown={onWalk}>
-          Se promener
-        </button>
-        <button type="button" class="next" onPointerDown={onStart}>
-          Commencer le sentier
-        </button>
-      </div>
-    </section>
-  );
-}
-
 interface WalkProps {
   /** The view has left the framing. */
   away: boolean;
+  /** The child has already moved the view. */
+  moved: boolean;
   onRecenter(): void;
-  /** From the welcome card: the way on to the trail (at the end, the sign by the path). */
-  onStart?: () => void;
 }
 
 /**
- * During a walk in the forest: how to move until the child has moved, the whole forest again
- * once the view has left it, and from the welcome card the way on to the trail.
+ * During a walk in the forest: how to move until the child has moved, and the whole forest
+ * again once the view has left it.
  */
-function Walk({ away, onRecenter, onStart }: WalkProps) {
-  const [moved, setMoved] = useState(false);
-  useEffect(() => {
-    if (away) setMoved(true);
-  }, [away]);
+function Walk({ away, moved, onRecenter }: WalkProps) {
   return (
     <section id="walk" aria-label="Promenade dans le paysage">
       {away && (
@@ -787,11 +753,6 @@ function Walk({ away, onRecenter, onStart }: WalkProps) {
           <br />
           deux doigts pour t’approcher et tourner.
         </p>
-      )}
-      {onStart && (
-        <button type="button" class="next" onPointerDown={onStart}>
-          Commencer le sentier
-        </button>
       )}
     </section>
   );
@@ -835,7 +796,7 @@ export function mountGame(
   album: ParsedAlbum,
   write: (json: string) => void,
   writeAlbum: (json: string) => void,
-  welcome = true,
+  home = true,
 ) {
   const rng = new Rng(seed);
   const session = new Session(skills, rng.fork('trail'), today);
@@ -850,7 +811,7 @@ export function mountGame(
     seeds: 0,
     basket: 0,
     grown: 0,
-    phase: welcome ? 'welcome' : 'asking',
+    phase: home ? 'walking' : 'asking',
     stone: 0,
     stones: session.stones,
     role: null,
@@ -875,7 +836,7 @@ export function mountGame(
       save={problem ? () => undefined : write}
       saveAlbum={problem ? () => undefined : (entries) => writeAlbum(serializeAlbum(entries))}
       probe={probe}
-      welcome={welcome}
+      home={home}
     />,
     root,
   );

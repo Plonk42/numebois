@@ -32,7 +32,7 @@ test('un tableau complet : grand final, cadre, nouveau décor ; il reste vivant 
     history: [],
   });
   // Nothing in the Album yet: no book.
-  await expect(page.locator('#welcome')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Chemin du progrès' })).toBeVisible();
   await expect(page.locator('#album-button')).toHaveCount(0);
   await startTrail(page);
   const { stones } = await game(page);
@@ -58,7 +58,7 @@ test('un tableau complet : grand final, cadre, nouveau décor ; il reste vivant 
   // The probe follows the page after its paint.
   await expect.poll(async () => (await game(page)).phase).toBe('finale');
   await expect(page.locator('#shop')).toHaveCount(0);
-  await expect(page.locator('#new-trail')).toHaveCount(0);
+  await expect(page.locator('#trail')).toHaveClass(/aside/);
   await expect
     .poll(() => page.evaluate(() => window.__numebois!.sound().played.includes('finale')))
     .toBe(true);
@@ -149,7 +149,9 @@ test('un tableau complet : grand final, cadre, nouveau décor ; il reste vivant 
   await expect
     .poll(() => page.evaluate(() => window.__numebois!.counters().fps), { timeout: 10_000 })
     .toBeGreaterThan(0);
-  for (const other of ['#reserve', '#trail', '#sound-toggle']) {
+  // The trail steps aside in the Album.
+  await expect(page.locator('#trail')).toHaveClass(/aside/);
+  for (const other of ['#reserve', '#sound-toggle']) {
     const [box] = await boxes(page, other);
     expect(apart(box, (await boxes(page, '#album-page'))[0]), other).toBe(true);
   }
@@ -163,7 +165,7 @@ test('un tableau complet : grand final, cadre, nouveau décor ; il reste vivant 
   await expect(pages).toHaveCount(1);
   await album.getByRole('button', { name: 'Fermer' }).click();
   await expect(album).toHaveCount(0);
-  await expect(page.locator('#welcome')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Chemin du progrès' })).toBeVisible();
   expect(await describe()).toEqual(painting);
   expect(errors).toEqual([]);
 });

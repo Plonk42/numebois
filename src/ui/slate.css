@@ -13,12 +13,13 @@
   opacity: 1;
 }
 
+/* Between the reserve and the sound button, over the trail, small at the bottom. */
 #question {
   position: fixed;
-  top: 84px;
+  top: 12px;
   left: 50%;
   z-index: 4;
-  width: min(840px, calc(100vw - 180px));
+  width: min(840px, calc(100vw - 440px));
   height: min(692px, calc(100vh - 108px));
   box-sizing: border-box;
   padding: 16px 28px 22px;
@@ -357,7 +358,8 @@
   opacity: 0.4;
 }
 
-/* Welcome and end of the trail: the slate is gone, the whole forest shows, a card at the bottom. */
+/* The end of the trail and the shop: the slate is gone, the whole forest shows, a card at the
+   bottom. */
 .card {
   position: fixed;
   left: 50%;
@@ -400,22 +402,17 @@
   top: 40px;
   bottom: auto;
 }
-/* The way on, wide, and a walk in the forest beside it. */
+/* The buttons of a card, side by side. */
 .card .actions {
   align-self: stretch;
   margin-top: 10px;
   display: flex;
   gap: 12px;
 }
-.card .actions .walk {
-  flex: 1;
-}
-.card .actions .next {
-  flex: 2;
-}
 
-/* « Sentier terminé ! », a moment while Plume pours her basket. */
+/* « Sentier terminé ! », a moment while Plume pours her basket, over the trail all crossed. */
 #trail-end {
+  bottom: 104px;
   width: 520px;
 }
 /* The shop, opened from the reserve: a few big articles, one touch to buy, one to close. */
