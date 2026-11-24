@@ -5,9 +5,9 @@ export async function game(page: Page) {
   return (await page.evaluate(() => window.__numebois!.game()))!;
 }
 
-/** The game opens on the welcome card: one touch starts the trail. */
+/** The game opens on the landscape: a touch on the trail, at the bottom, starts it. */
 export async function startTrail(page: Page) {
-  await page.getByRole('button', { name: 'Commencer le sentier' }).click();
+  await page.getByRole('button', { name: 'Chemin du progrès' }).click();
   await expect(page.locator('#question')).toBeVisible();
 }
 
@@ -106,7 +106,7 @@ export async function boxes(page: Page, selector: string): Promise<Box[]> {
   );
 }
 
-/** The slate stays under the top bar, on screen, without scrolling, every key 56 px or more. */
+/** The slate stays clear of the bars, on screen, without scrolling, every key 56 px or more. */
 export async function expectSlateLayout(page: Page) {
   const viewport = page.viewportSize()!;
   const layout = await page.evaluate(() => {
@@ -130,7 +130,7 @@ export async function expectSlateLayout(page: Page) {
   });
   const cardBox = layout.card;
   for (const [other, box] of layout.bars as [string, Box][]) {
-    expect(cardBox.y, other).toBeGreaterThan(box.y + box.height);
+    expect(apart(cardBox, box), other).toBe(true);
   }
   expect(cardBox.x).toBeGreaterThanOrEqual(0);
   expect(cardBox.x + cardBox.width).toBeLessThanOrEqual(viewport.width);

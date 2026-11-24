@@ -100,7 +100,11 @@ test('la progression et la réserve survivent au rechargement ; export et import
     autoQuality: false,
   });
 
-  // Importing the exported save brings it back after a reload.
+  // Importing the exported save brings it back after a reload. Between two trails, the long
+  // press opens the parent menu too, without the shop under it.
+  await openParentMenu(page);
+  await expect(page.locator('#shop')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Fermer' }).click();
   await startTrail(page);
   await answerRight(page);
   await expect(basket).toHaveAttribute('aria-label', basketLabel(1));

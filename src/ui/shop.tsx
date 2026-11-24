@@ -1,6 +1,6 @@
 import type { AnimalName } from '../scene/animal-catalog';
 import { canBuy, type Article, type ShopItem } from '../scene/shop';
-import { LeafIcon, plural, SeedIcon } from './reserve';
+import { LeafIcon, plural, SeedIcon, SproutIcon } from './reserve';
 import { SEASON_LABELS, SeasonIcon } from './seasons';
 
 export const ANIMAL_LABELS: Record<AnimalName, string> = {
@@ -24,18 +24,6 @@ const keyOf = (article: Article) => {
   return article.kind === 'animal' ? article.animal : article.season;
 };
 
-/** A young shoot: it becomes a tree or a grove, depending on the place chosen. */
-function SproutIcon() {
-  return (
-    <svg class="sprout" viewBox="0 0 64 64" aria-hidden="true">
-      <ellipse class="soil" cx="32" cy="54" rx="20" ry="6" />
-      <path class="stem" d="M32 54C32 44 31 36 33 26" />
-      <path class="leaf" d="M32 36C22 38 13 32 10 20c12-2 21 4 22 16z" />
-      <path class="leaf" d="M33 28c2-12 11-19 23-18-1 12-10 19-23 18z" />
-    </svg>
-  );
-}
-
 /** What is still to earn, never what is missing. */
 function toGo(item: ShopItem, leaves: number, seeds: number): string | null {
   if (item.elementsToGo > 0) return `Encore ${plural(item.elementsToGo, 'pousse', 'pousses')}`;
@@ -55,7 +43,7 @@ interface Props {
 }
 
 /**
- * The shop of the forest, opened from the reserve at the end of the trail: a few articles
+ * The shop of the forest, opened from the reserve between two trails: a few articles
  * with big pictures, one touch to buy. An article out of reach shows what is still to earn.
  */
 export function Shop({ items, leaves, seeds, portrait, onBuy }: Props) {

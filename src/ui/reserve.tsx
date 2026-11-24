@@ -26,6 +26,18 @@ export function SeedIcon() {
 
 export const plural = (n: number, one: string, many: string) => `${n} ${n > 1 ? many : one}`;
 
+/** A young shoot: what the reserve buys first. */
+export function SproutIcon() {
+  return (
+    <svg class="sprout" viewBox="0 0 64 64" aria-hidden="true">
+      <ellipse class="soil" cx="32" cy="54" rx="20" ry="6" />
+      <path class="stem" d="M32 54C32 44 31 36 33 26" />
+      <path class="leaf" d="M32 36C22 38 13 32 10 20c12-2 21 4 22 16z" />
+      <path class="leaf" d="M33 28c2-12 11-19 23-18-1 12-10 19-23 18z" />
+    </svg>
+  );
+}
+
 interface Flight {
   id: number;
   kind: 'leaf' | 'seed';
@@ -110,6 +122,10 @@ interface Props {
   /** In the reserve, the leaves of the trail in progress still in Plume's basket aside. */
   leaves: number;
   seeds: number;
+  /** A touch opens the shop: the reserve looks like the button it is. */
+  button: boolean;
+  /** The shop is open: the button stays pressed. */
+  open: boolean;
   /** Something can be bought: the reserve glows. */
   ready: boolean;
   onTap(): void;
@@ -119,9 +135,10 @@ interface Props {
 /**
  * The reserve, top left: leaves and golden seeds, never lost. The leaves come from Plume's
  * basket, the golden seeds from where they were won, and the counter pops when they land.
- * At the end of the trail, a touch opens the shop.
+ * Between two trails, it is a button, a shoot at its end: a touch opens the shop, the next
+ * one closes it.
  */
-export function Reserve({ leaves, seeds, ready, onTap, onLongPress }: Props) {
+export function Reserve({ leaves, seeds, button, open, ready, onTap, onLongPress }: Props) {
   const timer = useRef(0);
   const pressedAt = useRef<number | null>(null);
   const leafCounter = useRef<HTMLSpanElement>(null);
@@ -133,27 +150,30 @@ export function Reserve({ leaves, seeds, ready, onTap, onLongPress }: Props) {
     clearTimeout(timer.current);
     pressedAt.current = null;
   };
-  const open = () => {
+  const longPress = () => {
     cancel();
     onLongPress();
   };
+  let look = '';
+  if (button) look = open ? 'button open' : 'button';
   return (
     <>
       <div
         id="reserve"
-        class={ready ? 'ready' : ''}
-        role="img"
+        class={`${look}${ready ? ' ready' : ''}`}
+        role={button ? 'button' : 'img'}
+        aria-pressed={button ? open : undefined}
         aria-label={`Réserve : ${plural(leaves, 'feuille', 'feuilles')}, ${plural(seeds, 'graine dorée', 'graines dorées')}`}
         onPointerDown={(event) => {
           cancel();
           pressedAt.current = event.timeStamp;
-          timer.current = window.setTimeout(open, LONG_PRESS_MS);
+          timer.current = window.setTimeout(longPress, LONG_PRESS_MS);
           onTap();
         }}
         // A busy page can fire the timer late: the hold time decides, measured on the events.
         onPointerUp={(event) => {
           const held = pressedAt.current !== null && event.timeStamp - pressedAt.current;
-          if (held !== false && held >= LONG_PRESS_MS) open();
+          if (held !== false && held >= LONG_PRESS_MS) longPress();
           else cancel();
         }}
         onPointerLeave={cancel}
@@ -168,6 +188,11 @@ export function Reserve({ leaves, seeds, ready, onTap, onLongPress }: Props) {
           <SeedIcon />
           <b key={shownSeeds}>{shownSeeds}</b>
         </span>
+        {button && (
+          <span class="shoot">
+            <SproutIcon />
+          </span>
+        )}
       </div>
       {leafFlights}
       {seedFlights}

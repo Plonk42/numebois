@@ -32,7 +32,7 @@ test('un tableau complet : grand final, cadre, nouveau décor ; il reste vivant 
     history: [],
   });
   // Nothing in the Album yet: no book.
-  await expect(page.locator('#welcome')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Chemin du progrès' })).toBeVisible();
   await expect(page.locator('#album-button')).toHaveCount(0);
   await startTrail(page);
   const { stones } = await game(page);
@@ -165,7 +165,7 @@ test('un tableau complet : grand final, cadre, nouveau décor ; il reste vivant 
   await expect(pages).toHaveCount(1);
   await album.getByRole('button', { name: 'Fermer' }).click();
   await expect(album).toHaveCount(0);
-  await expect(page.locator('#welcome')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Chemin du progrès' })).toBeVisible();
   expect(await describe()).toEqual(painting);
   expect(errors).toEqual([]);
 });

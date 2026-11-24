@@ -140,6 +140,19 @@ test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt po
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('./?seed=3');
   await page.evaluate(() => window.__numebois!.ready);
+  // Nothing in the reserve yet: it is a button all the same, and shows what there is to earn.
+  const reserveButton = page.getByRole('button', { name: reserveLabel(0) });
+  await expect(reserveButton).toHaveId('reserve');
+  await expect(reserveButton).not.toHaveClass(/ready/);
+  await reserveButton.click();
+  await expect(page.locator('#shop .article').first()).toBeDisabled();
+  await expect(page.locator('#shop .article').first()).toContainText('Encore 4 feuilles');
+  await expect(page.locator('#trail')).toHaveClass(/aside/);
+  // It stays a button, pressed: nothing moves under the finger, a second touch closes the shop.
+  await expect(reserveButton).toHaveAttribute('aria-pressed', 'true');
+  await reserveButton.click();
+  await expect(page.locator('#shop')).toHaveCount(0);
+  await expect(reserveButton).toHaveAttribute('aria-pressed', 'false');
   await startTrail(page);
   const card = page.locator('#question');
   const path = page.locator('#trail');
@@ -147,8 +160,13 @@ test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt po
   await expect(path.locator('.stone')).toHaveCount(10);
   await expect(path).toHaveAttribute('aria-label', 'Pierre 1 sur 10');
 
-  // The path stays clear of the reserve, the sound button and the slate.
+  // The path, small at the bottom, stays clear of the reserve, the sound button and the slate.
+  const viewport = page.viewportSize()!;
+  await expect
+    .poll(async () => Math.round((await boxes(page, '#trail'))[0].width))
+    .toBeLessThan(520);
   const [pathBox] = await boxes(page, '#trail');
+  expect(Math.round(viewport.height - pathBox.y - pathBox.height)).toBe(12);
   for (const other of ['#reserve', '#sound-toggle', '#question']) {
     const [box] = await boxes(page, other);
     expect(apart(box, pathBox), other).toBe(true);
@@ -191,33 +209,37 @@ test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt po
     .poll(() => page.evaluate(() => (globalThis as unknown as { flights: number }).flights))
     .toBe(20);
   const [endBox] = await boxes(page, '#trail-end');
-  const viewport = page.viewportSize()!;
-  expect(endBox.y + endBox.height).toBeLessThanOrEqual(viewport.height);
+  expect(endBox.y + endBox.height).toBeLessThanOrEqual(pathBox.y);
   expect(Math.abs(endBox.x + endBox.width / 2 - viewport.width / 2)).toBeLessThan(2);
 
-  // Then the forest is the child's: a walk, the reserve glows, the next trail waits big at the
-  // bottom with its sign: a touch on it starts it.
+  // Then the forest is the child's: a walk, the reserve glows, the trail grows where it is,
+  // its sign on its left: a touch on it starts the next one.
   await expect(end).toHaveCount(0, { timeout: 8000 });
   await expect(page.locator('#walk')).toBeVisible();
   await expect(page.locator('#walk button')).toHaveCount(0);
   expect((await game(page)).phase).toBe('walking');
   await expect(page.locator('#reserve')).toHaveClass(/ready/);
-  const sign = page.getByRole('button', { name: 'Nouveau sentier' });
+  const sign = page.getByRole('button', { name: 'Chemin du progrès' });
   await expect(sign).toHaveId('trail');
-  await expect(sign.locator('.sign')).toHaveText('Nouveausentier');
+  await expect(sign.locator('.sign')).toHaveText('Chemindu progrès');
   await expect(path.locator('.stone.here')).toHaveCount(1);
   await expect
     .poll(async () => {
-      const [trail, plank] = await boxes(page, '#trail, #trail .sign');
-      return [Math.round(viewport.height - trail.y - trail.height), plank.width > 150];
+      const [trail, plot] = await boxes(page, '#trail, #trail .sign');
+      return [Math.round(viewport.height - trail.y - trail.height), plot.width > 150];
     })
-    .toEqual([16, true]);
-  const [trailBox, signBox] = await boxes(page, '#trail, #trail .sign');
+    .toEqual([12, true]);
+  const [trailBox, signBox, plankBox] = await boxes(page, '#trail, #trail .sign, #trail .plank');
   expect(trailBox.width).toBeGreaterThan(pathBox.width * 1.3);
-  expect(signBox.y).toBeGreaterThanOrEqual(0);
+  // The sign stands left of the path, hardly higher than it, the two centred.
+  expect(signBox.x + signBox.width).toBeLessThanOrEqual(trailBox.x + 1);
+  expect(plankBox.y).toBeGreaterThan(trailBox.y - 24);
+  expect(Math.abs((signBox.x + trailBox.x + trailBox.width) / 2 - viewport.width / 2)).toBeLessThan(
+    2,
+  );
   for (const other of ['#reserve', '#sound-toggle', '#walk .hint']) {
     const [box] = await boxes(page, other);
-    expect(apart(box, signBox) && apart(box, trailBox), other).toBe(true);
+    expect(apart(box, plankBox) && apart(box, trailBox), other).toBe(true);
   }
   // A single season: nothing to choose, no bar.
   await expect(page.locator('#seasons')).toHaveCount(0);
@@ -307,22 +329,23 @@ test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt po
   await expect(shoot).toContainText('Encore 2 feuilles');
   await expect(doe).toContainText('Encore 1 pousse');
 
-  // Nothing within reach: closed, the reserve rests; the sign starts another trail.
+  // Nothing within reach: closed, the reserve rests; a touch on the plank of the sign, above
+  // the path, starts another trail.
   await shopCard.getByRole('button', { name: 'Fermer' }).click();
   await expect(page.locator('#reserve')).not.toHaveClass(/ready/);
-  await sign.click();
+  await page.locator('#trail .plank').click({ position: { x: 90, y: 12 } });
   await expect(sign).toHaveCount(0);
   await expect(card.locator('.instruction')).toBeVisible();
   await expect(dim).toHaveClass(/on/);
   await expect(path.locator('.stone.crossed')).toHaveCount(0);
   await expect(path.locator('.stone.here')).toHaveCount(1);
-  // The trail climbs back to the top, small again.
+  // The trail stays at the bottom, small again.
   await expect
     .poll(async () => {
       const [box] = await boxes(page, '#trail');
-      return [Math.round(box.y), Math.round(box.width)];
+      return [Math.round(viewport.height - box.y - box.height), Math.round(box.width)];
     })
-    .toEqual([4, Math.round(pathBox.width)]);
+    .toEqual([12, Math.round(pathBox.width)]);
   expect((await game(page)).role).toBe('warmup');
 
   // The painting and the reserve come back as they were.
@@ -512,7 +535,7 @@ test('les saisons : l’automne acheté, l’enfant choisit la saison de son tab
   await end.getByRole('button', { name: 'Fermer' }).click();
   await expect(summer).toBeEnabled();
   const [bar, ...others] = await Promise.all(
-    ['#seasons', '#trail', '#trail .sign', '#sound-toggle'].map(
+    ['#seasons', '#trail', '#trail .plank', '#sound-toggle'].map(
       async (s) => (await boxes(page, s))[0],
     ),
   );
@@ -537,12 +560,12 @@ test('les saisons : l’automne acheté, l’enfant choisit la saison de son tab
   await page.reload();
   await page.evaluate(() => window.__numebois!.ready);
   expect(await describe()).toMatchObject({ season: 'summer', seasons: ['summer', 'autumn'] });
-  // On the welcome card, the season can change too; the card stays.
+  // Between two trails, the season can change; the trail keeps waiting.
   await expect(picker.getByRole('button')).toHaveCount(2);
   await autumn.click();
   await expect(autumn).toHaveAttribute('aria-pressed', 'true', { timeout: 12_000 });
   await expect(autumn).toBeEnabled({ timeout: 12_000 });
-  await expect(page.locator('#welcome')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Chemin du progrès' })).toBeVisible();
   expect(await describe()).toMatchObject({ season: 'autumn', seasons: ['summer', 'autumn'] });
   // During a question, nothing else: the bar goes.
   await startTrail(page);

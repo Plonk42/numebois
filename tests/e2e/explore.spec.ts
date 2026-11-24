@@ -46,51 +46,35 @@ test('se promener dans la forêt : gestes dans leurs limites, retour au cadrage,
   const cdp = await page.context().newCDPSession(page);
   const home = { yaw: 0, pitch: 0, zoom: 1, x: 0, z: 0 };
 
-  // The game opens on the forest, lit, with the welcome card at the bottom.
-  const welcome = page.locator('#welcome');
-  await expect(welcome).toBeVisible();
+  // The game opens on the landscape, lit, the child's at once: a walk with the fingers.
   await expect(page.locator('#question')).toHaveCount(0);
   await expect(page.locator('#dim')).not.toHaveClass(/on/);
   const viewport = page.viewportSize()!;
-  const [card] = await boxes(page, '#welcome');
-  expect(card.y + card.height).toBeLessThanOrEqual(viewport.height);
-  expect(Math.abs(card.x + card.width / 2 - viewport.width / 2)).toBeLessThan(2);
-  for (const box of await boxes(page, '#welcome button')) {
-    expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(56);
-  }
-  await test.info().attach('accueil', { body: await page.screenshot(), contentType: 'image/png' });
-
-  // Not walking yet: a finger on the forest does nothing.
-  await touch(cdp, drag([640, 300], [400, 200]));
-  expect(await view(page)).toMatchObject({ goal: home, active: false });
-
-  await page.getByRole('button', { name: 'Se promener' }).click();
-  await expect(welcome).toHaveClass(/away/);
   const walk = page.locator('#walk');
   const back = walk.getByRole('button', { name: 'Tout le paysage' });
   const hint = walk.locator('.hint');
   await expect(walk).toBeVisible();
   await expect(hint).toBeVisible();
   await expect(back).toBeHidden();
-  expect((await view(page)).active).toBe(true);
-  for (const box of await boxes(page, '#walk button')) {
-    expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(56);
-  }
-  // How to move at the top; the trail waits big at the bottom, its sign at its start.
-  const trail = page
-    .getByRole('button', { name: 'Commencer le sentier' })
-    .and(page.locator('#trail'));
-  await expect(trail.locator('.sign')).toHaveText('Commencerle sentier');
+  expect(await view(page)).toMatchObject({ goal: home, active: true });
+  // How to move at the top; the trail waits at the bottom, its sign on its left.
+  const trail = page.getByRole('button', { name: 'Chemin du progrès' }).and(page.locator('#trail'));
+  await expect(trail.locator('.sign')).toHaveText('Chemindu progrès');
   await expect
     .poll(async () => {
       const [path, sign] = await boxes(page, '#trail, #trail .sign');
       return [Math.round(viewport.height - path.y - path.height), sign.width > 150];
     })
-    .toEqual([16, true]);
+    .toEqual([12, true]);
+  await test.info().attach('accueil', { body: await page.screenshot(), contentType: 'image/png' });
   const [hintBox] = await boxes(page, '#walk .hint');
-  const [pathBox, signBox] = await boxes(page, '#trail, #trail .sign');
+  const [pathBox, signBox] = await boxes(page, '#trail, #trail .plank');
   const bar = await boxes(page, '#reserve, #seasons, #sound-toggle, #album-button');
   for (const box of [...bar, pathBox, signBox]) expect(apart(box, hintBox)).toBe(true);
+  // What can be touched is big enough: the reserve, the trail and its sign.
+  for (const box of [...bar, pathBox, signBox]) {
+    expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(56);
+  }
 
   // Pinch: zoom in, up to its limit and no further.
   await touch(
@@ -106,6 +90,7 @@ test('se promener dans la forêt : gestes dans leurs limites, retour au cadrage,
   // Once the child has moved, the hint has done its work: the whole painting takes its place.
   await expect(hint).toHaveCount(0);
   const [backBox] = await boxes(page, '#walk .whole');
+  expect(Math.min(backBox.width, backBox.height)).toBeGreaterThanOrEqual(56);
   for (const box of [...bar, pathBox, signBox]) expect(apart(box, backBox)).toBe(true);
 
   // One finger moves the view; far away, it stops at the edge of the painting.
@@ -156,10 +141,9 @@ test('se promener dans la forêt : gestes dans leurs limites, retour au cadrage,
   await page.mouse.wheel(0, -400);
   await expect.poll(async () => (await view(page)).goal.zoom).toBeGreaterThan(1.5);
 
-  // From the welcome card, a touch on the trail starts it; the view glides home.
+  // A touch on the trail starts it; the view glides home.
   await trail.click();
   await expect(walk).toHaveCount(0);
-  await expect(welcome).toHaveCount(0);
   await expect(page.locator('#question')).toBeVisible();
   expect(await view(page)).toMatchObject({ goal: home, active: false });
   await expect.poll(async () => (await view(page)).now).toEqual(home);

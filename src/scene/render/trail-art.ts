@@ -15,8 +15,8 @@ export interface Sprite {
 export type StoneState = 'ahead' | 'here' | 'crossed';
 
 /**
- * The trail drawn as a tiny diorama of the forest, at its size between two trails (at the
- * bottom of the screen); during a trail, it shows `1 / TRAIL_ZOOM` as big at the top.
+ * The trail drawn as a tiny diorama of the forest, at its size between two trails; during a
+ * trail, it shows `1 / TRAIL_ZOOM` as big, at the same place.
  */
 export interface TrailArt {
   /** The strip of land with its dirt path and the tree at the end. */
@@ -25,10 +25,13 @@ export interface TrailArt {
   stones: readonly (readonly [number, number])[];
   /** A stepping stone, centred on its place. */
   stone: Record<StoneState, Sprite>;
-  /** Where the sign stands on the strip, at the start of the path. */
-  start: readonly [number, number];
-  /** The wooden sign that starts a trail: the foot of its post, where its words go. */
+  /** The plot of grass of the sign, against the left end of the strip, as high as it. */
+  plot: Sprite;
+  /** The wooden sign that starts a trail: where it goes on its plot, where its words go. */
   sign: Sprite & {
+    left: number;
+    top: number;
+    /** The foot of its post, on the sprite. */
     foot: readonly [number, number];
     label: { x: number; y: number; width: number; height: number };
   };
@@ -48,8 +51,6 @@ const THICKNESS = 16;
 const TOP = 36;
 const BOTTOM = 29;
 const STONE_BOX = 40;
-/** Where the sign stands on the strip (x, z): on the grass at the back, before the first stone. */
-const START = [13, -13] as const;
 
 /** The path winds gently through the grass. */
 const wind = (x: number) => 5.5 * Math.sin(x / 34);
@@ -173,12 +174,8 @@ function ribbon(length: number, width: number, lift: number): THREE.BufferGeomet
   return geometry;
 }
 
-function pathSprite(stage: Stage, kit: Kit, stones: number) {
-  const tree = FIRST + (stones - 1) * GAP + TO_TREE;
-  const width = tree + 28;
-  const scene = new THREE.Scene();
-  lights(scene);
-  // A layer of grass over a block of earth, like a tile of the painting.
+/** A layer of grass over a block of earth, like a tile of the painting, `width` long from x = 0. */
+function land(kit: Kit, width: number): THREE.Mesh[] {
   const grass = kit.mesh(tile(width - 4, DEPTH, 16, 4), [
     kit.flat(paletteColor('Meadow', 0.25)),
     kit.flat(paletteColor('Meadow', 0.75)),
@@ -189,10 +186,30 @@ function pathSprite(stage: Stage, kit: Kit, stones: number) {
   ]);
   grass.position.x = width / 2;
   earth.position.set(width / 2, -2, 0);
+  return [grass, earth];
+}
+
+/** A piece of land `width` long seen like the painting, and where a point of its ground shows. */
+function landSprite(stage: Stage, scene: THREE.Scene, width: number) {
+  const at = new THREE.Vector3(width / 2, 0, 0);
+  const view = camera(at, PITCH, 0, [-width / 2, width / 2, TOP, BOTTOM]);
+  const size = [width * TRAIL_ZOOM, (TOP + BOTTOM) * TRAIL_ZOOM] as const;
+  return {
+    sprite: { url: stage.cutout(scene, view, ...size), width: size[0], height: size[1] },
+    onLand: (x: number, z: number) =>
+      [x * TRAIL_ZOOM, (TOP + z * Math.sin(PITCH)) * TRAIL_ZOOM] as const,
+  };
+}
+
+function pathSprite(stage: Stage, kit: Kit, stones: number) {
+  const tree = FIRST + (stones - 1) * GAP + TO_TREE;
+  const width = tree + 28;
+  const scene = new THREE.Scene();
+  lights(scene);
   // The dirt path, its rim a little wider and darker, from the left edge to the tree.
   const verge = kit.mesh(ribbon(tree, 24, 0.3), kit.flat(paletteColor('Earth', 0.35)));
   const dirt = kit.mesh(ribbon(tree, 18, 0.6), kit.flat(paletteColor('Earth', 0.08)));
-  scene.add(grass, earth, verge, dirt);
+  scene.add(...land(kit, width), verge, dirt);
 
   // Grass, flowers and a few bushes along both edges, away from the path, the same for a length.
   const rng = new Rng(stones * 7919 + 13);
@@ -206,8 +223,6 @@ function pathSprite(stage: Stage, kit: Kit, stones: number) {
       if (rng.next() < 0.3) continue;
       const z = wind(x) + side * (14 + rng.next() * 5);
       if (Math.abs(z) > DEPTH / 2 - 2.5 || Math.abs(x - tree) < 16) continue;
-      // The foot of the sign stays clear.
-      if (side < 0 && x < START[0] + 10) continue;
       const roll = rng.next();
       if (roll < 0.22) {
         const bloom = new THREE.Mesh(flower, petals[Math.floor(rng.next() * petals.length)]);
@@ -246,18 +261,12 @@ function pathSprite(stage: Stage, kit: Kit, stones: number) {
     kit.model('Bush_1_B', 13, tree + 8, 0, tz + 9, 0.8),
   );
 
-  const at = new THREE.Vector3(width / 2, 0, 0);
-  const view = camera(at, PITCH, 0, [-width / 2, width / 2, TOP, BOTTOM]);
-  const height = TOP + BOTTOM;
-  const url = stage.cutout(scene, view, width * TRAIL_ZOOM, height * TRAIL_ZOOM);
-  const onStrip = (x: number, z: number) =>
-    [x * TRAIL_ZOOM, (TOP + z * Math.sin(PITCH)) * TRAIL_ZOOM] as const;
+  const { sprite, onLand } = landSprite(stage, scene, width);
   return {
-    path: { url, width: width * TRAIL_ZOOM, height: height * TRAIL_ZOOM },
+    path: sprite,
     stones: Array.from({ length: stones }, (_, i) =>
-      onStrip(FIRST + i * GAP, wind(FIRST + i * GAP)),
+      onLand(FIRST + i * GAP, wind(FIRST + i * GAP)),
     ),
-    start: onStrip(START[0], START[1]),
   };
 }
 
@@ -297,16 +306,33 @@ function stoneSprites(stage: Stage, kit: Kit): Record<StoneState, Sprite> {
   return sprites;
 }
 
-// The sign, in world units: an arrow-shaped plank pointing along the path, on a post.
+// The sign, in world units: an arrow-shaped plank pointing to the path, low on its post.
 const PLANK_W = 112;
 const PLANK_TIP = 18;
 const PLANK_H = 40;
-const POST_X = 20;
-const POST_H = 34;
+const POST_X = PLANK_W / 2;
+const POST_H = 12;
 const SIGN_PITCH = (14 * Math.PI) / 180;
-const SIGN_BOX: [number, number, number, number] = [-70, 70, 44, 44];
+const SIGN_BOX: [number, number, number, number] = [-70, 70, 30, 30];
+/** Its plot of grass, as long as the plank, and where the post stands on it (x, z). */
+const PLOT = PLANK_W + PLANK_TIP;
+const POST_AT = [POST_X, 7] as const;
 
-function signSprite(stage: Stage, kit: Kit): TrailArt['sign'] {
+function plotSprite(stage: Stage, kit: Kit) {
+  const scene = new THREE.Scene();
+  lights(scene);
+  // The plank hides the back of the plot: a little grass at the front.
+  scene.add(
+    ...land(kit, PLOT),
+    kit.model('Grass_1_A', 15, 16, 0, 11, 0.7),
+    kit.model('Grass_2_B', 10, PLOT - 24, 0, 12, 1.3),
+  );
+  const { sprite, onLand } = landSprite(stage, scene, PLOT);
+  return { plot: sprite, stand: onLand(...POST_AT) };
+}
+
+/** The sign, its foot at `stand` on the plot. */
+function signSprite(stage: Stage, kit: Kit, stand: readonly [number, number]): TrailArt['sign'] {
   const scene = new THREE.Scene();
   lights(scene);
   const arrow = new THREE.Shape();
@@ -353,11 +379,14 @@ function signSprite(stage: Stage, kit: Kit): TrailArt['sign'] {
   // The front of the plank, short of the tip.
   const [left, top] = place(4, POST_H + PLANK_H - 2, 6.5);
   const [right, bottom] = place(PLANK_W - 2, POST_H + 2, 6.5);
+  const foot = place(POST_X, 0, -4);
   return {
     url,
     width,
     height,
-    foot: place(POST_X, 0, -4),
+    left: stand[0] - foot[0],
+    top: stand[1] - foot[1],
+    foot,
     label: { x: left, y: top, width: right - left, height: bottom - top },
   };
 }
@@ -366,10 +395,12 @@ function signSprite(stage: Stage, kit: Kit): TrailArt['sign'] {
 export function trailArt(stage: Stage, assets: AssetLibrary, stones: number): TrailArt {
   const kit = new Kit(assets);
   try {
+    const { plot, stand } = plotSprite(stage, kit);
     return {
       ...pathSprite(stage, kit, stones),
       stone: stoneSprites(stage, kit),
-      sign: signSprite(stage, kit),
+      plot,
+      sign: signSprite(stage, kit, stand),
     };
   } finally {
     kit.dispose();

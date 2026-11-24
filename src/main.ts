@@ -102,13 +102,12 @@ const ready = sceneOnly
           practice
             ? () => undefined
             : (data) => void writeAlbum(data).catch((error: unknown) => console.warn(error)),
-          // A notion alone starts on its first question; the game on the welcome card.
+          // A notion alone starts on its first question; the game on the landscape.
           !practice,
         );
         // During a question, the soundscape stays low and plays no calls.
         app.sound.quiet = () =>
           ![
-            'welcome',
             'walking',
             'seed',
             'shop',
