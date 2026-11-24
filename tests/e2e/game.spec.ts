@@ -174,25 +174,40 @@ test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt po
     expect(apart(box, pathBox) && apart(box, smallSign), other).toBe(true);
   }
 
-  // Leaves flying into the basket, then out of it: short, an observer counts them.
+  // Leaves flying into the basket, then out of it, and the praises: short, an observer counts them.
   await page.evaluate(() => {
-    const counter = globalThis as unknown as { flights: number };
+    const counter = globalThis as unknown as { flights: number; praises: number };
     counter.flights = 0;
+    counter.praises = 0;
     new MutationObserver((records) => {
       for (const record of records) {
+        // The heading may stay the same element and turn into the praise.
+        const { target } = record;
+        if (record.type === 'attributes' && target instanceof Element) {
+          if (target.matches('#question .praise')) counter.praises++;
+        }
         for (const node of record.addedNodes) {
           if (node instanceof Element && node.matches('.flying.leaf')) counter.flights++;
+          if (node instanceof Element && node.matches('#question .praise')) counter.praises++;
         }
       }
-    }).observe(globalThis.document.body, { childList: true, subtree: true });
+    }).observe(globalThis.document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['class'],
+    });
   });
   for (let stone = 0; stone < 10; stone++) {
     await expect(path.locator('.stone.crossed')).toHaveCount(stone);
     const exercise = await current(page);
     await driver(exercise.input).answer(page, exercise.input, exercise.answer);
-    await expect(card.locator('.praise')).toBeVisible();
     await expect.poll(async () => (await game(page)).stone, { timeout: 8000 }).toBe(stone + 1);
   }
+  // Each right answer was praised (1.1 s: under load, too short to catch on screen).
+  expect(
+    await page.evaluate(() => (globalThis as unknown as { praises: number }).praises),
+  ).toBeGreaterThanOrEqual(10);
   // The end of the trail, over the whole forest: the slate and the dimming are gone.
   const end = page.locator('#trail-end');
   await expect(end.locator('.praise')).toHaveText('Sentier terminé !');
@@ -227,9 +242,14 @@ test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt po
   await expect
     .poll(async () => {
       const [trail, plank] = await boxes(page, '#trail, #trail .sign');
-      return [Math.round(viewport.height - trail.y - trail.height), plank.width > 150];
+      return [
+        Math.round(viewport.height - trail.y - trail.height),
+        plank.width > 150,
+        // Back to its full size, its growth over.
+        trail.width > pathBox.width * 1.3,
+      ];
     })
-    .toEqual([12, true]);
+    .toEqual([12, true, true]);
   const [trailBox, signBox, firstStone] = await boxes(page, '#trail, #trail .sign, #trail .stone');
   expect(trailBox.width).toBeGreaterThan(pathBox.width * 1.3);
   // The sign stands on the grass of the trail, before the first stone, hardly higher than it;
