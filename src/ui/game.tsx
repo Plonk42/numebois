@@ -73,7 +73,7 @@ import {
 } from './drill';
 import { FinaleBanner, Frame, NextPainting, type NextChoice } from './finale';
 import { ParentMenu } from './parent-menu';
-import { Plume, type PlumeMood } from './plume';
+import { Plume, type Mood } from './character';
 import { RARE_ARRIVALS } from './rares';
 import { plural, Reserve, SeedIcon } from './reserve';
 import { SEASON_LABELS, SeasonPicker } from './seasons';
@@ -1016,9 +1016,9 @@ function Game(props: Props) {
   }
   // A golden seed: the slate steps aside, the forest lights up.
   const away = phase === 'seed';
-  let plume: PlumeMood = 'calm';
-  if (phase === 'right' || away) plume = 'cheer';
-  else if (hint) plume = 'talk';
+  let mood: Mood = 'calm';
+  if (phase === 'right' || away) mood = 'cheer';
+  else if (hint) mood = 'talk';
   /** The painting just framed, the last one of the Album. */
   const framed = phase === 'framing' || phase === 'next' ? album.at(-1) : undefined;
   return (
@@ -1146,7 +1146,8 @@ function Game(props: Props) {
               <p class="instruction">{exercise.instruction}</p>
             )
           }
-          plume={plume}
+          mood={mood}
+          squirrel={mode === 'challenge'}
           hint={hint}
           basket={basket}
           over={over}

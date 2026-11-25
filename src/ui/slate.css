@@ -175,8 +175,8 @@
   }
 }
 
-/* Plume, perched on the left edge of the slate: her model is drawn in the canvas (#26). */
-.plume {
+/* Plume (or the squirrel), perched on the left edge of the slate: the model is drawn in the canvas (#26). */
+.character {
   position: absolute;
   left: -108px;
   bottom: 16px;
@@ -186,7 +186,7 @@
   pointer-events: none;
   filter: drop-shadow(0 4px 6px rgba(0, 30, 20, 0.3));
 }
-.plume canvas {
+.character canvas {
   display: block;
   width: 100%;
   height: 100%;
@@ -595,7 +595,7 @@
   font-size: 38px;
   line-height: 44px;
 }
-.card .plume {
+.card .character {
   left: -94px;
   top: -88px;
   bottom: auto;
@@ -1015,39 +1015,6 @@
 /* The squirrel's offer (#45), after a trail ended well: refusable at once. */
 #squirrel {
   width: 560px;
-}
-#squirrel .squirrel {
-  position: absolute;
-  left: -70px;
-  top: -64px;
-  width: 120px;
-  height: 120px;
-  filter: drop-shadow(0 4px 6px rgba(0, 30, 20, 0.3));
-}
-.squirrel .tail {
-  fill: #d0793a;
-  stroke: #8a4a1e;
-  stroke-width: 2;
-}
-.squirrel .body {
-  fill: #c96d30;
-  stroke: #8a4a1e;
-  stroke-width: 2;
-  stroke-linejoin: round;
-}
-.squirrel .belly {
-  fill: #f3d2a8;
-}
-.squirrel .eye {
-  fill: #2f2014;
-}
-.squirrel .nut {
-  fill: #c98a4a;
-  stroke: #8a5a2b;
-  stroke-width: 1.5;
-}
-.squirrel .cap {
-  fill: #7a5230;
 }
 #squirrel .actions {
   justify-content: center;

@@ -1,7 +1,7 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useRef } from 'preact/hooks';
 import { Basket } from './basket';
-import { Plume, type PlumeMood } from './plume';
+import { Plume, Squirrel, type Mood } from './character';
 import './slate.css';
 
 export interface SlateHint {
@@ -14,7 +14,9 @@ export interface SlateHint {
 interface SlateProps {
   /** The instruction, or the praise after a right answer. */
   heading: ComponentChildren;
-  plume: PlumeMood;
+  mood: Mood;
+  /** Who stands by the slate: Plume, or the squirrel during a challenge. */
+  squirrel?: boolean;
   /** Plume's bubble, at the bottom of the work area: never under the finger. */
   hint: SlateHint | null;
   /** Steps aside while the forest grows. */
@@ -32,7 +34,7 @@ interface SlateProps {
  * The heading on top, the work area on the left with Plume's hints under it, the answer
  * zone at the bottom right, always in the same place.
  */
-export function Slate({ heading, plume, hint, away, basket, over, children }: SlateProps) {
+export function Slate({ heading, mood, squirrel, hint, away, basket, over, children }: SlateProps) {
   const next = useRef(hint?.onNext);
   next.current = hint?.onNext;
   const hasNext = next.current !== undefined;
@@ -50,7 +52,7 @@ export function Slate({ heading, plume, hint, away, basket, over, children }: Sl
 
   return (
     <section id="question" class={away ? 'away' : ''} aria-live="polite">
-      <Plume mood={plume} />
+      {squirrel ? <Squirrel mood={mood} /> : <Plume mood={mood} />}
       <Basket leaves={basket} pouring={false} />
       {over}
       <header>{heading}</header>

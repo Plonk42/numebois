@@ -4,8 +4,8 @@
  * everything into one GLB under `public/assets/` (committed, CC0: see LICENSES.md) and
  * writes the typed manifest `src/scene/assets.gen.ts`. The animals of
  * `src/scene/animal-catalog.ts` go the same way from the Quaternius zip, into their own GLB
- * and manifest (`src/scene/animals.gen.ts`). Plume, exported from Blender by `scripts/plume.py`,
- * is only optimised.
+ * and manifest (`src/scene/animals.gen.ts`). The characters (Plume, the squirrel), exported from
+ * Blender by `scripts/<name>.py`, are only optimised.
  */
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
@@ -62,7 +62,7 @@ import {
   type SwatchDef,
   type SwatchName,
 } from '../src/scene/atlas';
-import { PLUME_CLIPS, PLUME_FILE } from '../src/scene/plume-catalog';
+import { CHARACTER_CLIPS, CHARACTERS, type Character } from '../src/scene/characters';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT_DIR = join(ROOT, 'public', 'assets');
@@ -70,7 +70,6 @@ const OUT_FILE = 'kaykit.glb';
 const MANIFEST = join(ROOT, 'src', 'scene', 'assets.gen.ts');
 const ANIMAL_FILE = 'animals.glb';
 const ANIMAL_MANIFEST = join(ROOT, 'src', 'scene', 'animals.gen.ts');
-const PLUME_EXPORT = join(ROOT, 'assets-private', 'plume', 'export', 'Plume.glb');
 
 interface Geometry {
   positions: Float32Array<ArrayBuffer>;
@@ -680,35 +679,37 @@ async function main(): Promise<void> {
     .registerDependencies({ 'meshopt.encoder': MeshoptEncoder });
   await buildKayKit(io);
   await buildAnimals(io);
-  await buildPlume(io);
+  for (const character of CHARACTERS) await buildCharacter(io, character);
 }
 
-/** Plume, from her Blender export; the committed GLB stays as it is without it. */
-async function buildPlume(io: NodeIO): Promise<void> {
-  if (!existsSync(PLUME_EXPORT)) {
+/** A character, from its Blender export; the committed GLB stays as it is without it. */
+async function buildCharacter(io: NodeIO, { name, file }: Character): Promise<void> {
+  const exported = `${name[0].toUpperCase()}${name.slice(1)}.glb`;
+  const source = join(ROOT, 'assets-private', name, 'export', exported);
+  if (!existsSync(source)) {
     console.log(
-      `Export de Plume absent (lancer scripts/plume.py dans Blender) : public/${PLUME_FILE} inchangé.`,
+      `Export ${exported} absent (lancer scripts/${name}.py dans Blender) : public/${file} inchangé.`,
     );
     return;
   }
-  const doc = await io.read(PLUME_EXPORT);
+  const doc = await io.read(source);
   const clips = new Set(
     doc
       .getRoot()
       .listAnimations()
       .map((a) => a.getName()),
   );
-  const missing = PLUME_CLIPS.filter((clip) => !clips.has(clip));
-  if (missing.length > 0) throw new Error(`Plume: clips not found: ${missing.join(', ')}`);
-  // No resample: it flattens her slow breathing, one small step at a time.
+  const missing = CHARACTER_CLIPS.filter((clip) => !clips.has(clip));
+  if (missing.length > 0) throw new Error(`${name}: clips not found: ${missing.join(', ')}`);
+  // No resample: it flattens the slow breathing, one small step at a time.
   await doc.transform(prune(), dedup(), weld());
   // Each clip keeps only the bones it moves: a blink plays over the breathing.
   dropRestChannels(doc);
   await doc.transform(prune(), meshopt({ encoder: MeshoptEncoder, level: 'high' }));
   const glb = await io.writeBinary(doc);
   mkdirSync(OUT_DIR, { recursive: true });
-  writeFileSync(join(ROOT, 'public', PLUME_FILE), glb);
-  console.log(`Plume, ${(glb.byteLength / 1024).toFixed(0)} ko -> public/${PLUME_FILE}`);
+  writeFileSync(join(ROOT, 'public', file), glb);
+  console.log(`${exported}, ${(glb.byteLength / 1024).toFixed(0)} ko -> public/${file}`);
 }
 
 async function buildKayKit(io: NodeIO): Promise<void> {
