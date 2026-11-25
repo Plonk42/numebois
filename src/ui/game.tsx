@@ -323,7 +323,7 @@ function Game(props: Props) {
   const [page, setPage] = useState<AlbumEntry | null>(null);
   /** Where a change of season started: the screen stays as it was under the light. */
   const [turnFrom, setTurnFrom] = useState<Phase>('walking');
-  /** The drill in progress, its garland of right answers in a row, and how its last round ends. */
+  /** The drill in progress, its garland of right answers in the round, and how its last round ends. */
   const drill = useRef<Drill | null>(null);
   /** Whose questions the slate asks. */
   const [mode, setMode] = useState<Mode>('trail');
@@ -630,7 +630,10 @@ function Game(props: Props) {
   /** Another round after the end of one; after the pause offered, the round goes on. */
   const moreDrill = () => {
     if (phase !== 'break') return;
-    if (!pause) met.current.clear();
+    if (!pause) {
+      met.current.clear();
+      setGarland(0);
+    }
     show(drill.current!.ask());
   };
 
@@ -908,7 +911,6 @@ function Game(props: Props) {
       return;
     }
     note(achievements);
-    setGarland(0);
     setPhase('reveal');
     later(DRILL_REVEAL_MS, proceed);
   };

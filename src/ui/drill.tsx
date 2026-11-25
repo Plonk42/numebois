@@ -174,13 +174,10 @@ function FragileIcon() {
   );
 }
 
-/** Leaves on the garland at most: it stays full beyond. */
+/** Leaves on the garland at most: a round of right answers fills it. */
 export const GARLAND_LEAVES = 20;
 
-/**
- * A garland of leaves over the slate, a leaf per right answer in a row. After a mistake, it
- * starts again quietly.
- */
+/** A garland of leaves over the slate, a leaf per right answer of the round: it never loses one. */
 export function Garland({ leaves }: { leaves: number }) {
   const shown = Math.min(leaves, GARLAND_LEAVES);
   return (

@@ -58,12 +58,15 @@ test('la rafale : la table de 7 enchaînée sans interruption, une erreur revien
     expect((await game(page)).drilling).toBe(true);
     expect([exercise.a, exercise.b]).toContain(7);
     statements.push(exercise.statement);
+    // A leaf per right answer of the round so far: one missed in the first round, a new garland in the second.
+    if (i === missed + 1 || i === 19) await expect(garland).toHaveCount(i - 1);
+    if (i === 20) await expect(garland).toHaveCount(0);
     if (i === missed) {
       await driver(exercise.input).answer(page, exercise.input, wrong(exercise.answer));
-      // The answer shows a moment, without a hint, and the garland starts again.
+      // The answer shows a moment, without a hint, and the garland keeps all its leaves.
       await expect.poll(async () => (await game(page)).phase).toBe('reveal');
       await expect(page.locator('#question .answer.shown')).toHaveText(exercise.answer);
-      await expect(garland).toHaveCount(0);
+      await expect(garland).toHaveCount(missed);
     } else {
       await driver(exercise.input).answer(page, exercise.input, exercise.answer);
       await answered(page, exercise);
