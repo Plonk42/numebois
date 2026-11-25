@@ -142,6 +142,9 @@ describe('session', () => {
       facts: [{ fact, tries: 2, right: 2, fastDays: [98, 99], times: [900, 900] }],
       history: [],
       records: [],
+      settings: [],
+      automation: 1,
+      plays: [],
     });
     expect(session.conclude(complements, exercise, true, 900, false)).toEqual([
       { kind: 'acquired', skill: complements.id },

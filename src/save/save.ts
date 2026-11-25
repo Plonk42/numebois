@@ -5,6 +5,7 @@ import type { SessionSnapshot } from '../core/session';
 import type { TrailLength } from '../core/trail';
 import type { FactId, Skill, SkillId } from '../core/types';
 import { readDescription, type SceneDescription } from '../scene/description';
+import { readParentPart, type Recommended } from './parent';
 
 /**
  * Version of the save format, Album included. Free to change until the owner declares that
@@ -32,6 +33,8 @@ export interface SaveData extends SessionSnapshot {
   /** The painting in progress. */
   painting: SceneDescription;
   journal: PaintingJournal;
+  /** The drill the parent recommends, offered first by the stump (#47). */
+  recommended: Recommended | null;
 }
 
 export type ParsedSave = { ok: true; data: SaveData } | { ok: false; reason: string };
@@ -138,6 +141,9 @@ export function parseSave(json: string, skills: readonly Skill[]): ParsedSave {
   ) {
     return { ok: false, reason: 'Sauvegarde abîmée : des données manquent.' };
   }
+  // Saves written before the parent dashboard (#47) have its defaults.
+  const parent = readParentPart(value, skills);
+  if (!parent) return { ok: false, reason: 'Sauvegarde abîmée : des réglages sont illisibles.' };
   const levels = new Map(skills.map((skill) => [skill.id, skill.levels]));
   const facts = new Set(skills.flatMap((skill) => skill.facts?.all ?? []));
   return {
@@ -160,6 +166,7 @@ export function parseSave(json: string, skills: readonly Skill[]): ParsedSave {
       facts: value.facts.filter((f) => facts.has(f.fact)),
       history: value.history,
       records: (value.records ?? []).filter((r) => levels.has(r.skill)),
+      ...parent,
     },
   };
 }
@@ -194,6 +201,10 @@ export function practiceSave(
       facts: [],
       history: [],
       records: [],
+      settings: [],
+      automation: 1,
+      plays: [],
+      recommended: null,
     },
   };
 }

@@ -48,6 +48,7 @@ describe('sauvegarde', () => {
         trailLength: 'short',
         painting: PAINTING,
         journal: JOURNAL,
+        recommended: null,
       },
       new Date('2026-11-23T10:00:00Z'),
     );
@@ -62,6 +63,7 @@ describe('sauvegarde', () => {
       trailLength: 'short',
       painting: PAINTING,
       journal: JOURNAL,
+      recommended: null,
     });
     const restored = new Session(
       SKILLS,
@@ -87,6 +89,7 @@ describe('sauvegarde', () => {
         trailLength: 'normal',
         painting: PAINTING,
         journal: JOURNAL,
+        recommended: null,
       },
       new Date(),
     );
@@ -108,6 +111,7 @@ describe('sauvegarde', () => {
       trailLength: 'normal' as const,
       painting: PAINTING,
       journal: JOURNAL,
+      recommended: null,
     };
     const parsed = parseSave(serializeSave(data, new Date()), SKILLS);
     expect(parsed.ok && parsed.data.records).toEqual([
@@ -143,11 +147,15 @@ describe('sauvegarde', () => {
           facts: [],
           history: [],
           records: [],
+          settings: [],
+          automation: 1,
+          plays: [],
           leaves: 0,
           seeds: 0,
           trailLength: 'normal',
           painting: painting as typeof PAINTING,
           journal: journal as typeof JOURNAL,
+          recommended: null,
         },
         new Date(),
       );

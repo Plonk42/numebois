@@ -595,14 +595,16 @@
   text-shadow: 0 1px 0 rgba(255, 236, 200, 0.7);
 }
 
-/* Hidden parent menu, over everything. */
+/* Hidden parent dashboard, over everything: tabs, then a content that scrolls. */
 #parent-menu {
   position: fixed;
   top: 50%;
   left: 50%;
   z-index: 10;
   transform: translate(-50%, -50%);
-  width: 420px;
+  width: min(1000px, calc(100vw - 32px));
+  height: calc(100vh - 32px);
+  max-height: 760px;
   box-sizing: border-box;
   padding: 20px 24px;
   display: flex;
@@ -642,5 +644,88 @@
   background: #fff1bd;
 }
 #parent-menu .close {
+  flex: none;
   background: #f3ecdb;
+}
+#parent-menu header {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+#parent-menu header .tabs {
+  flex: 1;
+}
+#parent-menu .content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+#parent-menu .tab {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+#parent-menu h3 {
+  margin: 8px 0 0;
+  font-size: 20px;
+  color: #2f6b2a;
+}
+#parent-menu table {
+  width: 100%;
+  border-collapse: collapse;
+}
+#parent-menu th,
+#parent-menu td {
+  padding: 6px 8px;
+  text-align: left;
+  border-bottom: 1px solid #ece3cc;
+}
+#parent-menu .progress td:not(:first-child) {
+  white-space: nowrap;
+}
+/* The same columns in every domain. */
+#parent-menu .progress .skills {
+  table-layout: fixed;
+}
+#parent-menu .progress .skills td:first-child {
+  width: 46%;
+}
+#parent-menu .empty,
+#parent-menu .fragile {
+  color: #5a6e5f;
+}
+#parent-menu .notions td:first-child {
+  width: 34%;
+}
+#parent-menu .modes button,
+#parent-menu .levels button,
+#parent-menu .recommended button {
+  min-height: 48px;
+  padding: 0 10px;
+  font-size: 16px;
+}
+#parent-menu .levels {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+#parent-menu .levels button {
+  flex: none;
+  width: 48px;
+  font-size: 22px;
+}
+#parent-menu .levels .level {
+  min-width: 1.4em;
+  text-align: center;
+  font-weight: 700;
+}
+#parent-menu .levels button:disabled {
+  opacity: 0.35;
+}
+#parent-menu .recommended .choices {
+  flex-wrap: wrap;
+}
+#parent-menu .recommended button {
+  flex: none;
 }

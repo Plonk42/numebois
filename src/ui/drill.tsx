@@ -57,15 +57,17 @@ interface MenuProps {
   skills: readonly Skill[];
   /** « Mes faits fragiles » has something to offer. */
   fragile: boolean;
+  /** The drill the parent recommends, first (#47). */
+  recommended: { name: string; target: DrillTarget } | null;
   onPick(target: DrillTarget): void;
   onClose(): void;
 }
 
 /**
- * Where the drill starts: big entries, then the notion, then its group of facts when it has
- * some (« La table de 7 »).
+ * Where the drill starts: big entries (the parent's recommendation first), then the notion,
+ * then its group of facts when it has some (« La table de 7 »).
  */
-export function DrillMenu({ skills, fragile, onPick, onClose }: MenuProps) {
+export function DrillMenu({ skills, fragile, recommended, onPick, onClose }: MenuProps) {
   const [choosing, setChoosing] = useState(false);
   const [skill, setSkill] = useState<Skill | null>(null);
   const pick = (chosen: Skill) => {
@@ -106,6 +108,16 @@ export function DrillMenu({ skills, fragile, onPick, onClose }: MenuProps) {
   } else {
     body = (
       <div class="options entries">
+        {recommended && (
+          <button
+            type="button"
+            class="entry recommended"
+            onPointerDown={() => onPick(recommended.target)}
+          >
+            <span class="ribbon">Recommandé</span>
+            {recommended.name}
+          </button>
+        )}
         <button type="button" class="entry" onPointerDown={() => setChoosing(true)}>
           <ChooseIcon />
           Je choisis

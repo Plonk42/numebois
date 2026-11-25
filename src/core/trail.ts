@@ -1,5 +1,6 @@
 import { isAcquired, isDue, type SkillProgress } from './mastery';
 import type { Rng } from './rng';
+import { clampLevel, MAX_FOCUS, modeOf, type Settings, type SkillSetting } from './settings';
 import type { Skill, SkillId } from './types';
 
 export type TrailLength = 'short' | 'normal';
@@ -36,29 +37,40 @@ export interface TrailInput {
   recentRate: number | null;
   /** Response times clearly longer than usual: the trail is shortened. */
   slowing: boolean;
+  /** The parent's settings of the notions (#47); absent ones are on auto. */
+  settings: Settings;
   rng: Rng;
 }
 
-/** The trail of a session: fixed size, at most 3 notions in progress and one novelty. */
+/**
+ * The trail of a session: fixed size, at most 3 notions in progress and one novelty. The
+ * parent's settings come first: a closed notion never comes, an open one comes without its
+ * prerequisites, the notions in focus take at least half of the questions.
+ */
 export function composeTrail(input: TrailInput): TrailStep[] {
-  const { skills, progress, day, rng } = input;
+  const { progress, day, rng, settings } = input;
+  const skills = input.skills.filter((skill) => modeOf(settings, skill) !== 'closed');
   const size = TRAIL_QUESTIONS[input.slowing ? 'short' : input.length];
   const struggling = input.recentRate !== null && input.recentRate < LOW_RATE;
   const stage = (skill: Skill) => progress.get(skill.id)?.stage ?? 'discovery';
+  const focus = skills.filter((skill) => modeOf(settings, skill) === 'focus').slice(0, MAX_FOCUS);
+  const ready = (skill: Skill) =>
+    modeOf(settings, skill) === 'open' ||
+    skill.prerequisites.every((id) => isAcquired(progress.get(id)));
 
-  const active = skills.filter((skill) => stage(skill) === 'learning').slice(0, MAX_ACTIVE);
+  const learning = skills.filter((skill) => stage(skill) === 'learning' && !focus.includes(skill));
+  const active = [...focus, ...learning].slice(0, Math.max(MAX_ACTIVE, focus.length));
+  const discovery = skills.filter(
+    (skill) => stage(skill) === 'discovery' && !focus.includes(skill),
+  );
   const novelty =
     struggling || active.length >= MAX_ACTIVE
       ? undefined
-      : skills.find(
-          (skill) =>
-            stage(skill) === 'discovery' &&
-            skill.prerequisites.every((id) => isAcquired(progress.get(id))),
-        );
+      : (discovery.find((skill) => modeOf(settings, skill) === 'open') ?? discovery.find(ready));
   if (novelty) active.push(novelty);
   const acquired = skills.filter((skill) => isAcquired(progress.get(skill.id)));
   const reviews = acquired
-    .filter((skill) => isDue(progress.get(skill.id)!, day))
+    .filter((skill) => !focus.includes(skill) && isDue(progress.get(skill.id)!, day))
     .sort((a, b) => progress.get(a.id)!.due! - progress.get(b.id)!.due!)
     .slice(0, Math.floor(size * REVIEW_SHARE));
   // Everything acquired and nothing new to open: keep 3 acquired notions alive.
@@ -86,7 +98,25 @@ export function composeTrail(input: TrailInput): TrailStep[] {
     const at = Math.round(((i + 1) * core.length) / (reviews.length + 1));
     core.splice(at, 0, { skill: skill.id, role: 'review', easy: false });
   });
-  return [...warmup, ...core, easy('finish')];
+  return withFocus([...warmup, ...core, easy('finish')], focus);
+}
+
+/**
+ * The notions in focus take at least half of the trail: warmup, core and finish questions of
+ * other notions pass to them in turn, the novelty and the reviews stay.
+ */
+function withFocus(trail: TrailStep[], focus: readonly Skill[]): TrailStep[] {
+  if (focus.length === 0) return trail;
+  const ids = new Set(focus.map((skill) => skill.id));
+  let missing = Math.ceil(trail.length / 2) - trail.filter((step) => ids.has(step.skill)).length;
+  let turn = 0;
+  return trail.map((step) => {
+    if (missing <= 0 || ids.has(step.skill) || step.role === 'new' || step.role === 'review') {
+      return step;
+    }
+    missing--;
+    return { ...step, skill: focus[turn++ % focus.length].id };
+  });
 }
 
 function shuffled<T>(items: readonly T[], rng: Rng): T[] {
@@ -98,10 +128,14 @@ function shuffled<T>(items: readonly T[], rng: Rng): T[] {
   return copy;
 }
 
-/** The level to ask for a step, from the notion's progress at that time. */
-export function stepLevel(step: TrailStep, progress: SkillProgress | undefined): number {
+/** The level to ask for a step, from the notion's progress then, within the parent's range. */
+export function stepLevel(
+  step: TrailStep,
+  progress: SkillProgress | undefined,
+  setting: SkillSetting,
+): number {
   const level = progress?.level ?? 0;
-  return step.easy ? Math.max(0, level - 1) : level;
+  return clampLevel(step.easy ? Math.max(0, level - 1) : level, setting);
 }
 
 /**

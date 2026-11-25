@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { newProgress, type SkillProgress, type Stage } from '../../src/core/mastery';
 import { Rng } from '../../src/core/rng';
+import { changeSetting, defaultSetting, type SkillMode } from '../../src/core/settings';
 import {
   MAX_ACTIVE,
   TRAIL_QUESTIONS,
@@ -39,6 +40,7 @@ function trail(progress: [string, SkillProgress][], extra: Partial<TrailInput> =
     length: 'normal',
     recentRate: null,
     slowing: false,
+    settings: new Map(),
     rng: new Rng(1),
     ...extra,
   });
@@ -142,8 +144,93 @@ describe('sentier', () => {
 
   it('asks easy steps one level below', () => {
     const progress = { ...newProgress('d.a'), level: 2 };
-    expect(stepLevel({ skill: 'd.a', role: 'warmup', easy: true }, progress)).toBe(1);
-    expect(stepLevel({ skill: 'd.a', role: 'core', easy: false }, progress)).toBe(2);
-    expect(stepLevel({ skill: 'd.a', role: 'warmup', easy: true }, undefined)).toBe(0);
+    const all = defaultSetting(SKILLS[0]);
+    expect(stepLevel({ skill: 'd.a', role: 'warmup', easy: true }, progress, all)).toBe(1);
+    expect(stepLevel({ skill: 'd.a', role: 'core', easy: false }, progress, all)).toBe(2);
+    expect(stepLevel({ skill: 'd.a', role: 'warmup', easy: true }, undefined, all)).toBe(0);
+    // Within the levels the parent chose.
+    const middle = { ...all, minLevel: 1, maxLevel: 1 };
+    expect(stepLevel({ skill: 'd.a', role: 'core', easy: false }, progress, middle)).toBe(1);
+    expect(stepLevel({ skill: 'd.a', role: 'warmup', easy: true }, undefined, middle)).toBe(1);
+  });
+});
+
+describe('réglages du parent (#47)', () => {
+  const set = (entries: [string, SkillMode][]) => {
+    let settings = new Map();
+    for (const [id, mode] of entries) {
+      settings = changeSetting(
+        settings,
+        SKILLS.find((s) => s.id === id)!,
+        { mode },
+      );
+    }
+    return settings;
+  };
+  const seeds = Array.from({ length: 50 }, (_, i) => i);
+
+  it('never offers a closed notion, neither new nor in review', () => {
+    for (const seed of seeds) {
+      const steps = trail([at('d.a', 'acquired', { due: 5 }), at('d.b', 'learning')], {
+        settings: set([
+          ['d.a', 'closed'],
+          ['d.c', 'closed'],
+        ]),
+        rng: new Rng(seed),
+      });
+      expect(steps.map((s) => s.skill)).not.toContain('d.a');
+      expect(steps.map((s) => s.skill)).not.toContain('d.c');
+    }
+  });
+
+  it('brings an open notion at once, without its prerequisites', () => {
+    const steps = trail([], { settings: set([['d.e', 'open']]) });
+    expect(steps.filter((s) => s.role === 'new')).toEqual([
+      { skill: 'd.e', role: 'new', easy: false },
+    ]);
+  });
+
+  it('gives at least half of the trail to the notions in focus, two at most', () => {
+    const progress = [
+      at('d.a', 'learning'),
+      at('d.b', 'learning'),
+      at('d.c', 'acquired', { due: 5 }),
+      at('d.d', 'acquired', { due: 5 }),
+    ];
+    for (const seed of seeds) {
+      for (const length of ['short', 'normal'] as const) {
+        const focus = trail(progress, {
+          settings: set([['d.d', 'focus']]),
+          rng: new Rng(seed),
+          length,
+        });
+        const own = focus.filter((s) => s.skill === 'd.d').length;
+        expect(own).toBeGreaterThanOrEqual(Math.ceil(focus.length / 2));
+        expect(focus).toHaveLength(TRAIL_QUESTIONS[length]);
+      }
+    }
+    // A third one takes the place of the oldest.
+    const three = set([
+      ['d.a', 'focus'],
+      ['d.b', 'focus'],
+      ['d.c', 'focus'],
+    ]);
+    expect([...three.values()].filter((s) => s.mode === 'focus').map((s) => s.skill)).toEqual([
+      'd.b',
+      'd.c',
+    ]);
+    // A notion in focus starts even before its prerequisites.
+    expect(trail([], { settings: set([['d.e', 'focus']]) }).map((s) => s.skill)).toContain('d.e');
+  });
+
+  it('keeps the range ordered and within the levels of the notion', () => {
+    const d = SKILLS[0];
+    let settings = changeSetting(new Map(), d, { minLevel: 2 });
+    expect(settings.get('d.a')).toMatchObject({ minLevel: 2, maxLevel: 2 });
+    settings = changeSetting(settings, d, { maxLevel: 0 });
+    expect(settings.get('d.a')).toMatchObject({ minLevel: 0, maxLevel: 0 });
+    settings = changeSetting(settings, d, { maxLevel: 9 });
+    // Back to auto on the whole range: nothing kept.
+    expect(settings.has('d.a')).toBe(false);
   });
 });
