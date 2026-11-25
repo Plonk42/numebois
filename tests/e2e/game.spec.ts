@@ -107,26 +107,30 @@ test('une boucle jouable : questions, indices et feuilles', async ({ page }) => 
     }).observe(doc.body, { childList: true, subtree: true, attributes: true });
   });
   const basket = card.locator('.basket');
+  let earned = 0;
   for (let answer = 1; answer <= 4; answer++) {
     exercise = await current(page);
+    // Two leaves at the notion's record, one for a warmup (#141).
+    earned += (await game(page)).worth;
     await driver(exercise.input).answer(page, exercise.input, exercise.answer);
     await expect.poll(praises).toBe(answer);
     await expect(basket).toHaveAttribute(
       'aria-label',
-      `Panier : ${answer} feuille${answer > 1 ? 's' : ''}`,
+      `Panier : ${earned} feuille${earned > 1 ? 's' : ''}`,
     );
-    expect((await game(page)).leaves).toBe(answer);
-    await expect.poll(flights).toBe(answer);
+    expect((await game(page)).leaves).toBe(earned);
+    await expect.poll(flights).toBe(earned);
     if (answer === 1) {
       await test.info().attach('feuille', {
         body: await page.screenshot(),
         contentType: 'image/png',
       });
     }
-    await expect(basket.locator('b')).toHaveText(String(answer));
-    await expect(reserve).toHaveAttribute('aria-label', reserveLabel(0));
+    await expect(basket.locator('b')).toHaveText(String(earned));
+    await expect(reserve).toHaveAttribute('aria-label', reserveLabel(0, (await game(page)).seeds));
     await expect(card.locator('.praise')).toHaveCount(0);
   }
+  expect(earned).toBeGreaterThan(4);
   // The forest only changes at the end of the trail: the slate never stepped aside.
   expect((await game(page)).grown).toBe(0);
   await expect(card).not.toHaveClass(/away/);
@@ -201,9 +205,11 @@ test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt po
       attributeFilter: ['class'],
     });
   });
+  let earned = 0;
   for (let stone = 0; stone < 10; stone++) {
     await expect(path.locator('.stone.crossed')).toHaveCount(stone);
     const exercise = await current(page);
+    earned += (await game(page)).worth;
     await driver(exercise.input).answer(page, exercise.input, exercise.answer);
     await expect.poll(async () => (await game(page)).stone).toBe(stone + 1);
   }
@@ -212,21 +218,29 @@ test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt po
     await page.evaluate(() => (globalThis as unknown as { praises: number }).praises),
   ).toBeGreaterThanOrEqual(10);
   // The end of the trail, over the whole forest: the slate and the dimming are gone.
+  // Two leaves at the notion's record, a golden seed for each level climbed (#141).
+  const { seeds } = await game(page);
+  expect(earned).toBeGreaterThan(10);
+  expect(seeds).toBeGreaterThan(0);
   const end = page.locator('#trail-end');
   await expect(end.locator('.praise')).toHaveText('Sentier terminé !');
-  await expect(end).toContainText('Tu as gagné 10 feuilles.');
+  await expect(end).toContainText(`Tu as gagné ${earned} feuilles et `);
   await expect(card).toHaveCount(0);
   await expect(dim).not.toHaveClass(/on/);
   await expect(path.locator('.stone.crossed')).toHaveCount(10);
-  // Plume pours her basket into the reserve, leaf after leaf.
-  await expect(page.locator('#reserve')).toHaveAttribute('aria-label', reserveLabel(10), {
-    timeout: 15_000,
-  });
+  // Plume pours her basket into the reserve, by handfuls.
+  await expect(page.locator('#reserve')).toHaveAttribute(
+    'aria-label',
+    reserveLabel(earned, seeds),
+    {
+      timeout: 15_000,
+    },
+  );
   await expect(end.locator('.basket')).toHaveAttribute('aria-label', 'Panier : 0 feuille');
   await expect(end.locator('.basket.pouring')).toHaveCount(0);
   await expect
     .poll(() => page.evaluate(() => (globalThis as unknown as { flights: number }).flights))
-    .toBe(20);
+    .toBeGreaterThan(earned);
   const [endBox] = await boxes(page, '#trail-end');
   expect(endBox.y + endBox.height).toBeLessThanOrEqual(pathBox.y);
   expect(Math.abs(endBox.x + endBox.width / 2 - viewport.width / 2)).toBeLessThan(2);
@@ -275,8 +289,9 @@ test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt po
   await expect(shopCard).toBeVisible();
   await expect(page.locator('#walk')).toHaveCount(0);
   const shop = shopCard.locator('.articles');
-  const shoot = shop.getByRole('button', { name: 'Une pousse, 4 feuilles' });
+  const shoot = shop.getByRole('button', { name: /^Une pousse,/ });
   const doe = shop.getByRole('button', { name: 'Une biche, 2 graines dorées' });
+  await expect(shoot).toHaveAccessibleName('Une pousse, 4 feuilles');
   await expect(shoot).toBeEnabled();
   await expect(doe).toBeDisabled();
   await expect(doe).toContainText('Encore 3 pousses');
@@ -296,11 +311,14 @@ test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt po
   await page.locator('#reserve').click();
   await expect(shopCard).toBeVisible();
 
-  // Four leaves each: the child chooses among the glowing places, the element grows there,
-  // and passes a stage under a veil of light.
+  // Four leaves, then one more at each stage (#141): the child chooses among the glowing
+  // places, the element grows there, and passes a stage under a veil of light.
   const describe = () => page.evaluate(() => window.__numebois!.describe());
   expect(await describe()).toMatchObject({ seed: 3, stage: 0, elements: [], animals: [] });
+  let left = earned;
   for (let placed = 1; placed <= 2; placed++) {
+    const price = 3 + placed;
+    await expect(shoot).toHaveAccessibleName(`Une pousse, ${price} feuilles`);
     await shoot.click();
     await expect(shopCard).toHaveClass(/away/);
     const spots = page.getByRole('button', { name: 'Planter ici' });
@@ -314,10 +332,7 @@ test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt po
       expect(box.y + box.height).toBeLessThanOrEqual(viewport.height);
     }
     // Nothing is spent before the choice.
-    await expect(page.locator('#reserve')).toHaveAttribute(
-      'aria-label',
-      reserveLabel(10 - 4 * (placed - 1)),
-    );
+    await expect(page.locator('#reserve')).toHaveAttribute('aria-label', reserveLabel(left, seeds));
     if (placed === 1) {
       await test
         .info()
@@ -327,10 +342,8 @@ test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt po
     const slot = Number(await chosen.getAttribute('data-slot'));
     await chosen.tap();
     await expect(spots).toHaveCount(0);
-    await expect(page.locator('#reserve')).toHaveAttribute(
-      'aria-label',
-      reserveLabel(10 - 4 * placed),
-    );
+    left -= price;
+    await expect(page.locator('#reserve')).toHaveAttribute('aria-label', reserveLabel(left, seeds));
     expect((await describe()).elements.map((e) => e.slot).at(-1)).toBe(slot);
     expect((await describe()).elements).toHaveLength(placed);
     if (placed === 1) {
@@ -349,15 +362,12 @@ test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt po
   }
   // The probe follows the render a moment after the card comes back.
   await expect.poll(async () => (await game(page)).grown).toBe(2);
-  // What is still to earn, never what is missing.
-  await expect(shoot).toBeDisabled();
-  await expect(shoot).toContainText('Encore 2 feuilles');
+  await expect(shoot).toHaveAccessibleName('Une pousse, 6 feuilles');
   await expect(doe).toContainText('Encore 1 pousse');
 
-  // Nothing within reach: closed, the reserve rests; a touch on the top of the sign, above
-  // the strip, starts another trail.
+  // Closed, the reserve waits; a touch on the top of the sign, above the strip, starts another
+  // trail.
   await shopCard.getByRole('button', { name: 'Fermer' }).click();
-  await expect(page.locator('#reserve')).not.toHaveClass(/ready/);
   await page.locator('#trail .sign').click({ position: { x: 90, y: 12 } });
   await expect(sign).toHaveCount(0);
   await expect(card.locator('.instruction')).toBeVisible();
@@ -378,7 +388,7 @@ test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt po
   await page.reload();
   await page.evaluate(() => window.__numebois!.ready);
   expect(await describe()).toEqual(painting);
-  await expect(page.locator('#reserve')).toHaveAttribute('aria-label', reserveLabel(2));
+  await expect(page.locator('#reserve')).toHaveAttribute('aria-label', reserveLabel(left, seeds));
   expect(errors).toEqual([]);
 });
 
@@ -551,13 +561,15 @@ test('les saisons : l’automne acheté, l’enfant choisit la saison de son tab
       if (doc.querySelector('#shop.away') && !seen.includes('away')) seen.push('away');
     }).observe(doc.querySelector('#ui')!, { childList: true, subtree: true, attributes: true });
   });
+  // The trail may have brought golden seeds too (#141).
+  const seedsBefore = (await game(page)).seeds;
   await offer.click();
   await expect(autumn).toHaveAttribute('aria-pressed', 'true');
   await expect(end).not.toHaveClass(/away/);
   await expect(page.locator('#arrival')).toHaveCount(0);
   const seen = await page.evaluate(() => (window as unknown as { seen: string[] }).seen);
   expect(seen.sort()).toEqual(['away', 'L’automne arrive !'].sort());
-  expect((await game(page)).seeds).toBe(0);
+  expect((await game(page)).seeds).toBe(seedsBefore - 3);
   expect(await describe()).toMatchObject({ season: 'autumn', seasons: ['summer', 'autumn'] });
   await expect(picker.getByRole('button')).toHaveCount(2);
   await expect(end.locator('.articles').getByRole('button', { name: /^L’automne/ })).toHaveCount(0);
@@ -568,7 +580,7 @@ test('les saisons : l’automne acheté, l’enfant choisit la saison de son tab
   await expect(summer).toHaveAttribute('aria-pressed', 'true');
   await expect(end).not.toHaveClass(/away/);
   expect(await describe()).toMatchObject({ season: 'summer', seasons: ['summer', 'autumn'] });
-  expect((await game(page)).seeds).toBe(0);
+  expect((await game(page)).seeds).toBe(seedsBefore - 3);
 
   // During the walk, the bar stays clear of the other buttons.
   await end.getByRole('button', { name: 'Fermer' }).click();

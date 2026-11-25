@@ -11,11 +11,12 @@ test('un tableau complet : grand final, cadre, nouveau décor ; il reste vivant 
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('./?seed=3&name=');
   await page.evaluate(() => window.__numebois!.ready);
-  // One element is missing from the painting; the reserve pays for it after a short trail.
+  // One element is missing from the painting; at the last stage it costs more (#141): the
+  // reserve and a short trail pay for it.
   await loadSave(page, {
     version: 6,
     savedAt: '2026-11-23T10:00:00.000Z',
-    leaves: 0,
+    leaves: 10,
     seeds: 0,
     trailLength: 'short',
     painting: {
@@ -67,8 +68,9 @@ test('un tableau complet : grand final, cadre, nouveau décor ; il reste vivant 
       });
     }).observe(doc.body, { subtree: true, childList: true, characterData: true });
   });
+  const reserve = await game(page);
   await page.locator('#reserve').click();
-  await page.getByRole('button', { name: 'Une pousse, 4 feuilles' }).click();
+  await page.getByRole('button', { name: 'Une pousse, 15 feuilles' }).click();
   await page.getByRole('button', { name: 'Planter ici' }).first().tap();
   const describe = () => page.evaluate(() => window.__numebois!.describe());
   const finished = await describe();
@@ -135,7 +137,10 @@ test('un tableau complet : grand final, cadre, nouveau décor ; il reste vivant 
   expect(await describe()).toMatchObject({ biome: 'orchard', stage: 0, elements: [], animals: [] });
   await expect.poll(async () => (await game(page)).phase).toBe('walking');
   await expect(page.locator('#veil')).not.toHaveClass(/on/);
-  await expect(page.locator('#reserve')).toHaveAttribute('aria-label', reserveLabel(2));
+  await expect(page.locator('#reserve')).toHaveAttribute(
+    'aria-label',
+    reserveLabel(reserve.leaves - 15, reserve.seeds),
+  );
   await expect(page.locator('#album-button')).toBeVisible();
   const painting = await describe();
 

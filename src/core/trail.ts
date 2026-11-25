@@ -1,4 +1,4 @@
-import { isAcquired, isDue, type SkillProgress } from './mastery';
+import { bestLevel, isAcquired, isDue, type SkillProgress } from './mastery';
 import type { Rng } from './rng';
 import { clampLevel, MAX_FOCUS, modeOf, type Settings, type SkillSetting } from './settings';
 import type { Skill, SkillId } from './types';
@@ -136,6 +136,22 @@ export function stepLevel(
 ): number {
   const level = progress?.level ?? 0;
   return clampLevel(step.easy ? Math.max(0, level - 1) : level, setting);
+}
+
+/**
+ * A question at the notion's record, where the child works hardest: a notion being learnt, its
+ * novelty, a question back after a mistake, a review (#141). Never a warmup, a finish, an easy
+ * question, nor an acquired notion played again out of its review.
+ */
+export function atRecord(
+  step: TrailStep,
+  level: number,
+  progress: SkillProgress | undefined,
+  setting: SkillSetting,
+): boolean {
+  if (step.easy || step.role === 'warmup' || step.role === 'finish') return false;
+  if (isAcquired(progress) && step.role !== 'review') return false;
+  return level >= clampLevel(bestLevel(progress), setting);
 }
 
 /**

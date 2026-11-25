@@ -11,7 +11,8 @@ interface Props {
 /** Plume's basket, at her feet: each right answer of the trail sends a leaf into it. */
 export function Basket({ leaves, pouring }: Props) {
   const ref = useRef<HTMLDivElement>(null);
-  const [shown, flights] = useLanding('leaf', leaves, '#question .praise', ref);
+  // Two leaves at the notion's record (#141), one more for a flash bonus.
+  const [shown, flights] = useLanding('leaf', leaves, '#question .praise', ref, 3);
   return (
     <div
       ref={ref}

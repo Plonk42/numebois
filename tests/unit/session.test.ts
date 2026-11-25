@@ -1,11 +1,19 @@
 import { CLEARING } from './helpers';
 import { describe, expect, it } from 'vitest';
 import { nearNumbers, offerChoices } from '../../src/core/choices';
+import {
+  LEAVES_PER_ELEMENT,
+  LEAVES_PER_RIGHT_ANSWER,
+  leavesPerElement,
+} from '../../src/core/economy';
+import { newProgress, type SkillProgress } from '../../src/core/mastery';
 import { curriculum } from '../../src/core/registry';
 import { Rng } from '../../src/core/rng';
-import { Session } from '../../src/core/session';
-import { TRAIL_QUESTIONS } from '../../src/core/trail';
+import { Session, type Achievement } from '../../src/core/session';
+import { defaultSetting } from '../../src/core/settings';
+import { atRecord, TRAIL_QUESTIONS, type StepRole } from '../../src/core/trail';
 import { DOMAINS } from '../../src/domains';
+import { LAST_STAGE } from '../../src/scene/description';
 
 const SKILLS = curriculum(DOMAINS);
 
@@ -171,5 +179,83 @@ describe('session', () => {
       { kind: 'automated', fact },
     ]);
     expect(session.conclude(complements, exercise, true, 900, false)).toEqual([]);
+  });
+});
+
+describe('payer l’effort (#141)', () => {
+  const newSession = () =>
+    new Session(
+      SKILLS,
+      new Rng(4),
+      () => 100,
+      () => CLEARING,
+    );
+
+  /** Plays a trail: the leaves its right answers earn per question, and the levels reached. */
+  function earn(session: Session, right: boolean) {
+    session.startTrail();
+    let leaves = 0;
+    let questions = 0;
+    const levels: Achievement[] = [];
+    let previous;
+    do {
+      const { skill, exercise } = session.ask(previous);
+      questions++;
+      if (right) leaves += session.worth;
+      const achievements = session.conclude(skill, exercise, right, 2000, !right);
+      levels.push(...achievements.filter((a) => a.kind === 'level'));
+      previous = exercise;
+    } while (session.advance());
+    return { perQuestion: leaves / questions, levels };
+  }
+
+  it('pays a trail spoilt on purpose less than a trail at the child’s level, and no seed', () => {
+    const honest = newSession();
+    const sly = newSession();
+    for (let i = 0; i < 3; i++) {
+      earn(honest, true);
+      earn(sly, true);
+    }
+    // Mistakes on purpose until the trail gets easier.
+    earn(sly, false);
+    earn(sly, false);
+    const spoilt = earn(sly, true);
+    expect(sly.trail.filter((step) => step.role === 'warmup')).toHaveLength(3);
+    const fair = earn(honest, true);
+    expect(spoilt.levels).toEqual([]);
+    expect(spoilt.perQuestion).toBe(LEAVES_PER_RIGHT_ANSWER);
+    expect(fair.perQuestion).toBeGreaterThan(spoilt.perQuestion);
+  });
+
+  it('gives a golden seed for each level reached, once, even after going down and up', () => {
+    const session = newSession();
+    const complements = SKILLS.find((skill) => skill.id === 'mental-math.complements')!;
+    const exercise = complements.generate(new Rng(1), 0, CLEARING);
+    const levels = [true, true, true, false, false, false, true, true, true, true, true, true]
+      .flatMap((right) => session.learn(complements, exercise, right, 900))
+      .filter((a) => a.kind === 'level');
+    expect(levels).toEqual([
+      { kind: 'level', skill: complements.id, level: 1 },
+      { kind: 'level', skill: complements.id, level: 2 },
+    ]);
+    expect(session.progress.get(complements.id)).toMatchObject({ level: 2, best: 2 });
+  });
+
+  it('pays double at the record only, and asks more for an element as the painting grows', () => {
+    const setting = defaultSetting(SKILLS[0]);
+    const learning = { ...newProgress('a'), stage: 'learning', level: 2, best: 3 } as const;
+    const at = (role: StepRole, level: number, progress: SkillProgress = learning, easy = false) =>
+      atRecord({ skill: 'a', role, easy }, level, progress, setting);
+    expect(at('core', 3, { ...learning, level: 3 })).toBe(true);
+    expect(at('core', 2)).toBe(false);
+    expect(at('new', 0, newProgress('a'))).toBe(true);
+    expect(at('warmup', 3)).toBe(false);
+    expect(at('finish', 3)).toBe(false);
+    expect(at('core', 3, learning, true)).toBe(false);
+    const acquired = { ...learning, stage: 'acquired', level: 3 } as const;
+    expect(at('review', 3, acquired)).toBe(true);
+    expect(at('core', 3, acquired)).toBe(false);
+    expect(leavesPerElement(0)).toBe(LEAVES_PER_ELEMENT);
+    expect(leavesPerElement(LAST_STAGE)).toBeGreaterThan(leavesPerElement(6));
   });
 });

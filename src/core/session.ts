@@ -1,6 +1,7 @@
 import { CHOICE_SHARE, offerChoices } from './choices';
+import { LEAVES_AT_RECORD, LEAVES_PER_RIGHT_ANSWER } from './economy';
 import { isKnown, recordFact, newFact, type FactProgress } from './facts';
-import { isAcquired, newProgress, record, type SkillProgress } from './mastery';
+import { bestLevel, isAcquired, newProgress, record, type SkillProgress } from './mastery';
 import {
   addAttempt,
   formatKey,
@@ -10,7 +11,14 @@ import {
 } from './records';
 import type { Rng } from './rng';
 import { clampLevel, settingOf, type SkillSetting } from './settings';
-import { composeTrail, revisit, stepLevel, type TrailLength, type TrailStep } from './trail';
+import {
+  atRecord,
+  composeTrail,
+  revisit,
+  stepLevel,
+  type TrailLength,
+  type TrailStep,
+} from './trail';
 import type { Exercise, ExerciseContext, FactId, Skill, SkillId } from './types';
 
 /** Answers of the last trails used for the success rate. */
@@ -33,7 +41,10 @@ export interface Play {
 
 /** Something learnt with an answer: each brings golden seeds. */
 export type Achievement =
-  { kind: 'acquired'; skill: SkillId } | { kind: 'automated'; fact: FactId };
+  | { kind: 'acquired'; skill: SkillId }
+  | { kind: 'automated'; fact: FactId }
+  /** A level of the notion reached for the first time (#141). */
+  | { kind: 'level'; skill: SkillId; level: number };
 
 /**
  * The trails of a player, one after the other: composes them, asks their questions and
@@ -58,6 +69,8 @@ export class Session {
   stones = 0;
   /** Right first answers of the trail in progress. */
   results: boolean[] = [];
+  /** Leaves a right answer to the question asked earns: more at the notion's record (#141). */
+  worth = LEAVES_PER_RIGHT_ANSWER;
   private readonly byId: Map<SkillId, Skill>;
   private history: boolean[] = [];
   private extra = 0;
@@ -104,11 +117,12 @@ export class Session {
    */
   ask(previous?: Exercise): { skill: Skill; exercise: Exercise } {
     const skill = this.byId.get(this.step.skill)!;
-    const level = stepLevel(
-      this.step,
-      this.progress.get(skill.id),
-      settingOf(this.settings, skill),
-    );
+    const progress = this.progress.get(skill.id);
+    const setting = settingOf(this.settings, skill);
+    const level = stepLevel(this.step, progress, setting);
+    this.worth = atRecord(this.step, level, progress, setting)
+      ? LEAVES_AT_RECORD
+      : LEAVES_PER_RIGHT_ANSWER;
     // The statement alone may not change (« Quelle heure est-il ? » under a clock).
     const same = (exercise: Exercise) =>
       exercise.statement === previous?.statement && exercise.answer === previous.answer;
@@ -153,7 +167,13 @@ export class Session {
     const before = this.progress.get(skill.id) ?? newProgress(skill.id);
     const progress = { ...before, level: clampLevel(before.level, setting) };
     const recorded = record(progress, { right, day: this.today() }, setting.maxLevel + 1);
-    this.progress.set(skill.id, { ...recorded, level: clampLevel(recorded.level, setting) });
+    const level = clampLevel(recorded.level, setting);
+    const best = bestLevel(before);
+    this.progress.set(skill.id, { ...recorded, level, best: Math.max(best, level) });
+    // A level climbed by the child for the first time, never one the parent's range gave.
+    if (recorded.level > progress.level && level > best) {
+      achievements.push({ kind: 'level', skill: skill.id, level });
+    }
     if (!isAcquired(progress) && isAcquired(recorded)) {
       achievements.push({ kind: 'acquired', skill: skill.id });
     }

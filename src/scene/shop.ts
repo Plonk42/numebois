@@ -1,5 +1,5 @@
 import {
-  LEAVES_PER_ELEMENT,
+  leavesPerElement,
   SEEDS_PER_ANIMAL,
   SEEDS_PER_NIGHT,
   SEEDS_PER_RARE,
@@ -53,7 +53,7 @@ export function shopItems(description: SceneDescription): ShopItem[] {
   if (placed < MAX_ELEMENTS) {
     items.push({
       article: { kind: 'element' },
-      leaves: LEAVES_PER_ELEMENT,
+      leaves: leavesPerElement(description.stage),
       seeds: 0,
       elementsToGo: 0,
     });

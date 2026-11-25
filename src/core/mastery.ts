@@ -38,6 +38,13 @@ export interface SkillProgress {
   box: number;
   /** Day of the next review, once acquired and until anchored. */
   due: number | null;
+  /** Highest internal level ever reached: it never goes down (#141). */
+  best?: number;
+}
+
+/** The notion's record: its highest level, 0 before the first answer. */
+export function bestLevel(progress: SkillProgress | undefined): number {
+  return progress ? Math.max(progress.best ?? 0, progress.level) : 0;
 }
 
 export function newProgress(skill: SkillId): SkillProgress {
