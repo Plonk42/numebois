@@ -87,6 +87,10 @@ export function exerciseErrors(skill: Skill, exercise: Exercise, level: number):
   const words = sentenceLengths(exercise.statement).reduce((sum, n) => sum + n, 0);
   if (words > MAX_STATEMENT_WORDS) errors.push(`énoncé de ${words} mots : ${exercise.statement}`);
   if (FAILURE_WORDS.test(exercise.statement)) errors.push(`énoncé : mot d'échec`);
+  const { input, statement } = exercise;
+  if (input.kind === 'keypad' && input.inline && statement.split('?').length > 2) {
+    errors.push(`plusieurs « ? » où écrire la réponse : ${statement}`);
+  }
   for (const attempt of [1, 2] as const) {
     const hint = skill.hint(exercise, attempt);
     errors.push(...textErrors(`indice ${attempt}`, hint, MAX_BUBBLE_SENTENCES));

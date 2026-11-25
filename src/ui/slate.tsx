@@ -100,3 +100,29 @@ function statementSize(text: string): string {
 export function Statement({ text }: { text: string }) {
   return <p class={`statement ${statementSize(text)}`}>{text}</p>;
 }
+
+/**
+ * An operation with the answer written in it, as on a sheet: in place of its `?`, or after an
+ * `=` added at its end.
+ */
+export function Written({
+  text,
+  digits,
+  children,
+}: {
+  text: string;
+  digits: number;
+  children: ComponentChildren;
+}) {
+  const room = '0'.repeat(digits);
+  const blank = text.includes('?');
+  const [before, after = ''] = blank ? text.split('?') : [`${text}\u00a0=`];
+  const size = statementSize(blank ? text.replace('?', room) : `${text} = ${room}`);
+  return (
+    <p class={`statement written ${size}`} aria-label={text}>
+      {before.trim() && <span>{before.trim()}</span>}
+      {children}
+      {after.trim() && <span>{after.trim()}</span>}
+    </p>
+  );
+}

@@ -154,6 +154,14 @@ describe('registre', () => {
     expect(exerciseErrors({ ...notion, hint: () => long }, keypad, 0)).toContain(
       `indice 1 : ${long.length} caractères : ${long}`,
     );
+    const blanks = {
+      ...keypad,
+      statement: '? + ? = 10',
+      input: { kind: 'keypad' as const, maxDigits: 2, inline: true },
+    };
+    expect(exerciseErrors(notion, blanks, 0)).toContain(
+      'plusieurs « ? » où écrire la réponse : ? + ? = 10',
+    );
   });
 
   for (const [id, notion] of skillsById(DOMAINS)) {

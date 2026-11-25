@@ -11,27 +11,18 @@ export function grouped(entry: string): string {
   return entry.length > 3 ? `${entry.slice(0, -3)}\u202f${entry.slice(-3)}` : entry;
 }
 
-interface Props {
-  maxDigits: number;
-  /** The answer is checked: the keys wait. */
-  locked: boolean;
-  /** The entry is right: shown in green. */
-  right: boolean;
-  /** The expected answer, shown in place of the entry. */
-  shown: string | null;
-  onSubmit(answer: string): void;
-}
+type Key = (typeof KEYS)[number];
 
 /**
- * Number pad of the game, never the Android keyboard: reacts as soon as the finger
- * touches, and to the digit, Backspace and Enter keys.
+ * The entry typed on the keypad, and on the digit, Backspace and Enter keys: never the
+ * Android keyboard.
  */
-export function Keypad({ maxDigits, locked, right, shown, onSubmit }: Props) {
+export function useEntry(maxDigits: number, locked: boolean, onSubmit: (answer: string) => void) {
   const [entry, setEntry] = useState('');
   // Fast typing comes before the next render: read and write the latest entry here.
   const latest = useRef('');
 
-  const press = (key: (typeof KEYS)[number]) => {
+  const press = (key: Key) => {
     if (locked) return;
     const value = latest.current;
     if (key === 'submit') {
@@ -49,7 +40,7 @@ export function Keypad({ maxDigits, locked, right, shown, onSubmit }: Props) {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (/^\d$/.test(event.key)) pressRef.current(event.key as (typeof KEYS)[number]);
+      if (/^\d$/.test(event.key)) pressRef.current(event.key as Key);
       else if (event.key === 'Backspace') pressRef.current('erase');
       else if (event.key === 'Enter') pressRef.current('submit');
       else return;
@@ -59,34 +50,67 @@ export function Keypad({ maxDigits, locked, right, shown, onSubmit }: Props) {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
+  return { entry, press };
+}
+
+interface AnswerProps {
+  entry: string;
+  /** The entry is right: shown in green. */
+  right: boolean;
+  /** The expected answer, shown in place of the entry. */
+  shown: string | null;
+  /** In the operation, as wide as the longest answer: an empty box waits for it. */
+  inline?: { maxDigits: number };
+}
+
+/** Where the typed number is written. */
+export function Answer({ entry, right, shown, inline }: AnswerProps) {
   let state = '';
   if (right) state = ' right';
   else if (shown !== null) state = ' shown';
+  else if (inline) state = entry ? ' placed' : ' empty';
   return (
-    <>
-      <output class={`answer${state}`} aria-label={shown === null ? 'Ta réponse' : 'La réponse'}>
-        {grouped(shown ?? entry)}
-      </output>
-      <div class="keypad">
-        {KEYS.map((key) => {
-          const special = key === 'erase' || key === 'submit' ? SPECIAL[key] : null;
-          return (
-            <button
-              key={key}
-              type="button"
-              class={`key ${special ? key : 'digit'}`}
-              disabled={locked || (key === 'submit' && !entry)}
-              aria-label={special?.label ?? key}
-              onPointerDown={(event) => {
-                event.preventDefault();
-                press(key);
-              }}
-            >
-              {special?.text ?? key}
-            </button>
-          );
-        })}
-      </div>
-    </>
+    <output
+      class={`answer${inline ? ' inline' : ''}${state}`}
+      style={inline && `--digits: ${inline.maxDigits}`}
+      aria-label={shown === null ? 'Ta réponse' : 'La réponse'}
+    >
+      {grouped(shown ?? entry)}
+    </output>
+  );
+}
+
+/** Number pad of the game: reacts as soon as the finger touches. */
+export function Keypad({
+  entry,
+  locked,
+  press,
+}: {
+  entry: string;
+  /** The answer is checked: the keys wait. */
+  locked: boolean;
+  press(key: Key): void;
+}) {
+  return (
+    <div class="keypad">
+      {KEYS.map((key) => {
+        const special = key === 'erase' || key === 'submit' ? SPECIAL[key] : null;
+        return (
+          <button
+            key={key}
+            type="button"
+            class={`key ${special ? key : 'digit'}`}
+            disabled={locked || (key === 'submit' && !entry)}
+            aria-label={special?.label ?? key}
+            onPointerDown={(event) => {
+              event.preventDefault();
+              press(key);
+            }}
+          >
+            {special?.text ?? key}
+          </button>
+        );
+      })}
+    </div>
   );
 }

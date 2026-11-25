@@ -229,7 +229,7 @@ export function generateDecompose(rng: Rng, level: number): DecomposeExercise {
     instruction,
     statement,
     ...(figure && { figure }),
-    input: { kind: 'keypad', maxDigits: 4 },
+    input: { kind: 'keypad', maxDigits: 4, inline: show === 'sum' },
     answer: String(answer),
     value,
     ask,

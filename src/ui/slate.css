@@ -326,6 +326,40 @@
   border-color: #f2d46b;
   background: #fffbe6;
 }
+/* An operation written as on a sheet: the answer right after its `=` (or in place of its `?`). */
+.statement.written {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 0.3em;
+  font-variant-numeric: tabular-nums;
+}
+.statement.written span {
+  white-space: nowrap;
+}
+#question .answer.inline {
+  height: auto;
+  min-width: calc(var(--digits) * 0.6em + 0.8em);
+  padding: 0.08em 0.25em;
+  box-sizing: border-box;
+  border-width: 4px;
+  font-size: inherit;
+  line-height: inherit;
+}
+#question .answer.inline.empty {
+  border-style: dashed;
+  border-color: #c9b48f;
+  background: #fffdf7;
+}
+/* Keeps the height of a line in the empty box. */
+#question .answer.inline.empty::before {
+  content: '\200b';
+}
+#question .answer.inline.placed {
+  border-color: #8fb7d9;
+  background: #eef6fd;
+}
 #question .keypad {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

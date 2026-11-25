@@ -1,9 +1,9 @@
 import type { ComponentType } from 'preact';
 import type { Exercise, ExerciseInput, Figure } from '../../core/types';
-import { AnswerZone, Statement, Work } from '../slate';
+import { AnswerZone, Statement, Work, Written } from '../slate';
 import { Choice } from './choice';
 import { CompareSigns } from './compare';
-import { Keypad } from './keypad';
+import { Answer, Keypad, useEntry } from './keypad';
 import { NumberLineFigure, NumberLinePlace } from './number-line';
 import { BlocksFigure, PlaceValueFigure } from './place-value';
 
@@ -57,19 +57,45 @@ function Subject({ exercise }: { exercise: Exercise }) {
 }
 
 /**
+ * The keypad, and the number typed above it, or written in the operation as on a sheet.
+ */
+function Typed({
+  exercise,
+  input,
+  locked,
+  right,
+  shown,
+  onSubmit,
+}: WidgetProps<Extract<ExerciseInput, { kind: 'keypad' }>>) {
+  const { entry, press } = useEntry(input.maxDigits, locked, onSubmit);
+  const inline = input.inline ? { maxDigits: input.maxDigits } : undefined;
+  const answer = <Answer entry={entry} right={right} shown={shown} inline={inline} />;
+  return (
+    <>
+      {inline ? (
+        <Work wide>
+          <Written text={exercise.statement} digits={inline.maxDigits}>
+            {answer}
+          </Written>
+        </Work>
+      ) : (
+        <Subject exercise={exercise} />
+      )}
+      <AnswerZone>
+        {!inline && answer}
+        <Keypad entry={entry} locked={locked} press={press} />
+      </AnswerZone>
+    </>
+  );
+}
+
+/**
  * One widget per kind of input (a new kind does not compile without its widget). Each one
  * lays itself out on the slate: a `Work` (a clock, an operation…) and an `AnswerZone`, or a
  * `Work wide` that takes the whole width (a statement alone, a ruler…).
  */
 const WIDGETS: Widgets = {
-  keypad: ({ exercise, input, ...state }) => (
-    <>
-      <Subject exercise={exercise} />
-      <AnswerZone>
-        <Keypad maxDigits={input.maxDigits} {...state} />
-      </AnswerZone>
-    </>
-  ),
+  keypad: Typed,
   choice: ({ exercise, input, ...state }) => (
     <>
       <Subject exercise={exercise} />

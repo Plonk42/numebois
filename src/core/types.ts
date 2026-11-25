@@ -13,7 +13,12 @@ export interface NumberLine {
 
 /** How the child answers; the shared widget of the same name collects the answer. */
 export type ExerciseInput =
-  | { kind: 'keypad'; maxDigits: number }
+  | {
+      kind: 'keypad';
+      maxDigits: number;
+      /** Written in the operation, as on a sheet: in place of its `?`, or after an added `=`. */
+      inline?: boolean;
+    }
   | { kind: 'choice'; options: readonly string[] }
   /** `<`, `=` or `>` set between two numbers, changed at will, then confirmed. */
   | { kind: 'compare'; left: string; right: string }
