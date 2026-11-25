@@ -160,6 +160,8 @@ const SHOP_PHASES = new Set<Phase>(['shop', 'choosing', 'planting', 'adopting', 
 const FINALE_PHASES = new Set<Phase>(['finale', 'framing', 'next']);
 /** Time counted at most for one question in the parent dashboard. */
 const QUESTION_MS_MAX = 120_000;
+/** Answer times, the drill's pause and the challenges: the wall clock, that tests set. */
+const playClock = () => Date.now();
 
 /** The Album, then one of its paintings alive again (#34). */
 const ALBUM_PHASES = new Set<Phase>(['album', 'visiting']);
@@ -334,6 +336,8 @@ function Game(props: Props) {
   const met = useRef(new Map<FactId, Skill>());
   /** The challenge in progress, then how it ended. */
   const challenge = useRef<Challenge | null>(null);
+  /** Its end is counted once: the sun's tick may fire again before the next render. */
+  const challengeEnded = useRef(false);
   const [challengeEnd, setChallengeEnd] = useState<ChallengeResult | null>(null);
   const [, setTick] = useState(0);
   /** The squirrel's challenge, offered once per session after a trail ended well. */
@@ -347,7 +351,7 @@ function Game(props: Props) {
   const phaseNow = useRef(phase);
   phaseNow.current = phase;
   const timer = useRef(0);
-  const shownAt = useRef(performance.now());
+  const shownAt = useRef(playClock());
   const firstAnswerMs = useRef<number | null>(null);
   const [recommended, setRecommended] = useState(props.recommended);
   /** The play in progress, for the parent dashboard: questions, right first, time spent. */
@@ -357,7 +361,7 @@ function Game(props: Props) {
     t.questions++;
     if (right) t.right++;
     // A tablet forgotten on a question does not count for hours.
-    t.ms += Math.min(performance.now() - shownAt.current, QUESTION_MS_MAX);
+    t.ms += Math.min(Math.max(0, playClock() - shownAt.current), QUESTION_MS_MAX);
   };
   const logPlay = (kind: Mode) => {
     const t = tally.current;
@@ -501,7 +505,7 @@ function Game(props: Props) {
     setRound((r) => r + 1);
     setPhase('asking');
     setFlash(false);
-    shownAt.current = performance.now();
+    shownAt.current = playClock();
     firstAnswerMs.current = null;
   };
 
@@ -530,7 +534,7 @@ function Game(props: Props) {
     if (!free) return;
     if (!finished) {
       setPhase('asking');
-      shownAt.current = performance.now();
+      shownAt.current = playClock();
       return;
     }
     session.startTrail();
@@ -568,7 +572,7 @@ function Game(props: Props) {
     if (phase !== 'drill-menu') return;
     drill.current = new Drill(session, target, new Rng(rng.int(0, 2 ** 31)));
     tally.current = { questions: 0, right: 0, ms: 0 };
-    drillStart.current = performance.now();
+    drillStart.current = playClock();
     pauseOffered.current = false;
     met.current.clear();
     setMode('drill');
@@ -587,7 +591,7 @@ function Game(props: Props) {
       setPhase('break');
       return;
     }
-    if (!pauseOffered.current && performance.now() - drillStart.current >= DRILL_PAUSE_MS) {
+    if (!pauseOffered.current && playClock() - drillStart.current >= DRILL_PAUSE_MS) {
       pauseOffered.current = true;
       setPause(true);
       setPhase('break');
@@ -646,9 +650,9 @@ function Game(props: Props) {
       session.progress.get(skill.id)?.level ?? 0,
       session.attempts(skill.id, format),
     );
-    const now = () => performance.now();
     const rngOf = new Rng(rng.int(0, 2 ** 31));
-    challenge.current = new Challenge(session, skill, format, level, rngOf, now);
+    challenge.current = new Challenge(session, skill, format, level, rngOf, playClock);
+    challengeEnded.current = false;
     if (mode !== 'challenge') {
       tally.current = { questions: 0, right: 0, ms: 0 };
       setLeavesHere(0);
@@ -672,6 +676,8 @@ function Game(props: Props) {
 
   /** The basket is full of what it got: always good news, a golden seed for trying. */
   const finishChallenge = () => {
+    if (challengeEnded.current) return;
+    challengeEnded.current = true;
     const current = challenge.current!;
     current.pause();
     clearTimeout(timer.current);
@@ -859,7 +865,7 @@ function Game(props: Props) {
 
   const answer = (value: string) => {
     if (phase !== 'asking') return;
-    firstAnswerMs.current ??= performance.now() - shownAt.current;
+    firstAnswerMs.current ??= Math.max(0, playClock() - shownAt.current);
     if (drilling) {
       answerDrill(value, firstAnswerMs.current);
       return;

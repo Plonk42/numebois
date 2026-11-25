@@ -4,8 +4,9 @@ import { apart, boxes, current, driver, game, loadSave, reserveLabel, startTrail
 test('un tableau complet : grand final, cadre, nouveau décor ; il reste vivant dans l’Album', async ({
   page,
 }) => {
-  // A short trail, the last element, the grand finale, then the Album: about 3 minutes on CI.
-  test.setTimeout(360_000);
+  // A short trail, the last element, the grand finale, then the Album: about 3 minutes on CI,
+  // 6 on a loaded machine.
+  test.setTimeout(600_000);
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('./?seed=3');
@@ -40,10 +41,32 @@ test('un tableau complet : grand final, cadre, nouveau décor ; il reste vivant 
   for (let stone = 0; stone < stones; stone++) {
     const exercise = await current(page);
     await driver(exercise.input).answer(page, exercise.input, exercise.answer);
-    await expect.poll(async () => (await game(page)).stone, { timeout: 8000 }).toBe(stone + 1);
+    await expect.poll(async () => (await game(page)).stone).toBe(stone + 1);
   }
   await expect(page.locator('#reserve')).toHaveClass(/ready/, { timeout: 20_000 });
   await expect(page.locator('#album-button')).toHaveCount(0);
+  // The frame stays a few seconds: the page notes what it shows, whatever the machine's speed.
+  await page.evaluate(() => {
+    const doc = globalThis.document;
+    const box = (element: Element) => {
+      const { x, y, width, height } = element.getBoundingClientRect();
+      return { x, y, width, height };
+    };
+    new MutationObserver(() => {
+      const plaque = doc.querySelector('#frame .plaque');
+      const banner = doc.querySelector('#finale');
+      if (!plaque || !banner) return;
+      // Measured at rest, its entrance over.
+      for (const animation of doc.querySelector('#frame')!.getAnimations()) animation.finish();
+      Object.assign(globalThis, {
+        framing: {
+          plaque: plaque.textContent,
+          banner: banner.textContent,
+          apart: [box(plaque), box(banner)],
+        },
+      });
+    }).observe(doc.body, { subtree: true, childList: true, characterData: true });
+  });
   await page.locator('#reserve').click();
   await page.getByRole('button', { name: 'Une pousse, 4 feuilles' }).click();
   await page.getByRole('button', { name: 'Planter ici' }).first().tap();
@@ -54,7 +77,7 @@ test('un tableau complet : grand final, cadre, nouveau décor ; il reste vivant 
 
   // The grand finale over the whole painting, its sound, nothing to touch.
   const banner = page.locator('#finale');
-  await expect(banner).toHaveText('Ton tableau est terminé !', { timeout: 12_000 });
+  await expect(banner).toHaveText('Ton tableau est terminé !');
   // The probe follows the page after its paint.
   await expect.poll(async () => (await game(page)).phase).toBe('finale');
   await expect(page.locator('#shop')).toHaveCount(0);
@@ -66,21 +89,18 @@ test('un tableau complet : grand final, cadre, nouveau décor ; il reste vivant 
     .info()
     .attach('grand final', { body: await page.screenshot(), contentType: 'image/png' });
 
-  // Then the frame closes around it, with its plaque: it joins the Album. The frame stays a
-  // few seconds: everything is read in one round trip.
-  await expect(page.locator('#frame .plaque')).toContainText('La clairière', { timeout: 15_000 });
-  const framing = await page.evaluate(() => {
-    const doc = globalThis.document;
-    const box = (selector: string) => {
-      const { x, y, width, height } = doc.querySelector(selector)!.getBoundingClientRect();
-      return { x, y, width, height };
-    };
-    return {
-      plaque: doc.querySelector('#frame .plaque')!.textContent,
-      banner: doc.querySelector('#finale')!.textContent,
-      apart: [box('#frame .plaque'), box('#finale')],
-    };
-  });
+  // Then the frame closes around it, with its plaque: it joins the Album.
+  type Box = { x: number; y: number; width: number; height: number };
+  const noted = () =>
+    page.evaluate(
+      () =>
+        (globalThis as { framing?: { plaque: string; banner: string; apart: Box[] } }).framing ??
+        null,
+    );
+  await expect
+    .poll(async () => (await noted())?.banner, { timeout: 15_000 })
+    .toBe('Il rejoint ton album !');
+  const framing = (await noted())!;
   expect(framing.plaque).toMatch(/^La clairièreDu 1er janvier au \d+(er)? \p{L}+$/u);
   expect(framing.banner).toBe('Il rejoint ton album !');
   expect(apart(framing.apart[0], framing.apart[1])).toBe(true);
@@ -147,7 +167,7 @@ test('un tableau complet : grand final, cadre, nouveau décor ; il reste vivant 
   expect(await page.evaluate(() => window.__numebois!.trees())).toEqual(trees);
   expect(await page.evaluate(() => window.__numebois!.view().active)).toBe(true);
   await expect
-    .poll(() => page.evaluate(() => window.__numebois!.counters().fps), { timeout: 10_000 })
+    .poll(() => page.evaluate(() => window.__numebois!.counters().fps))
     .toBeGreaterThan(0);
   // The trail steps aside in the Album.
   await expect(page.locator('#trail')).toHaveClass(/aside/);

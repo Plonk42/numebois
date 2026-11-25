@@ -112,7 +112,8 @@ const ready = sceneOnly
         game = mountGame(
           document.querySelector<HTMLElement>('#ui')!,
           skills,
-          Date.now() >>> 0,
+          // `?seed=` also draws the same questions (tests); otherwise new ones each time.
+          params.has('seed') ? asked.seed : Date.now() >>> 0,
           {
             description: () => app.description,
             candidates: () => app.candidates(),

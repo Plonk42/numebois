@@ -202,7 +202,7 @@ test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt po
     await expect(path.locator('.stone.crossed')).toHaveCount(stone);
     const exercise = await current(page);
     await driver(exercise.input).answer(page, exercise.input, exercise.answer);
-    await expect.poll(async () => (await game(page)).stone, { timeout: 8000 }).toBe(stone + 1);
+    await expect.poll(async () => (await game(page)).stone).toBe(stone + 1);
   }
   // Each right answer was praised (1.1 s: under load, too short to catch on screen).
   expect(
@@ -230,7 +230,7 @@ test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt po
 
   // Then the forest is the child's: a walk, the reserve glows, the trail grows where it is,
   // its sign calling: a touch on it starts the next one.
-  await expect(end).toHaveCount(0, { timeout: 8000 });
+  await expect(end).toHaveCount(0);
   await expect(page.locator('#walk')).toBeVisible();
   await expect(page.locator('#walk button')).toHaveCount(0);
   expect((await game(page)).phase).toBe('walking');
@@ -335,13 +335,13 @@ test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt po
         body: await page.screenshot(),
         contentType: 'image/png',
       });
-      await expect(page.locator('#veil')).toHaveClass(/on/, { timeout: 8000 });
+      await expect(page.locator('#veil')).toHaveClass(/on/);
       await test.info().attach('palier', {
         body: await page.screenshot(),
         contentType: 'image/png',
       });
     }
-    await expect(shopCard).not.toHaveClass(/away/, { timeout: 12_000 });
+    await expect(shopCard).not.toHaveClass(/away/);
     expect(await describe()).toMatchObject({ stage: placed });
   }
   // The probe follows the render a moment after the card comes back.
@@ -415,7 +415,7 @@ test('la boutique : une biche achetée en graines dorées rejoint la prairie et 
   for (let stone = 0; stone < stones; stone++) {
     const exercise = await current(page);
     await driver(exercise.input).answer(page, exercise.input, exercise.answer);
-    await expect.poll(async () => (await game(page)).stone, { timeout: 8000 }).toBe(stone + 1);
+    await expect.poll(async () => (await game(page)).stone).toBe(stone + 1);
   }
   const end = page.locator('#shop');
   const shop = end.locator('.articles');
@@ -524,7 +524,7 @@ test('les saisons : l’automne acheté, l’enfant choisit la saison de son tab
   for (let stone = 0; stone < stones; stone++) {
     const exercise = await current(page);
     await driver(exercise.input).answer(page, exercise.input, exercise.answer);
-    await expect.poll(async () => (await game(page)).stone, { timeout: 8000 }).toBe(stone + 1);
+    await expect.poll(async () => (await game(page)).stone).toBe(stone + 1);
   }
   const end = page.locator('#shop');
   const offer = end
@@ -549,8 +549,8 @@ test('les saisons : l’automne acheté, l’enfant choisit la saison de son tab
     }).observe(doc.querySelector('#ui')!, { childList: true, subtree: true, attributes: true });
   });
   await offer.click();
-  await expect(autumn).toHaveAttribute('aria-pressed', 'true', { timeout: 12_000 });
-  await expect(end).not.toHaveClass(/away/, { timeout: 12_000 });
+  await expect(autumn).toHaveAttribute('aria-pressed', 'true');
+  await expect(end).not.toHaveClass(/away/);
   await expect(page.locator('#arrival')).toHaveCount(0);
   const seen = await page.evaluate(() => (window as unknown as { seen: string[] }).seen);
   expect(seen.sort()).toEqual(['away', 'L’automne arrive !'].sort());
@@ -562,8 +562,8 @@ test('les saisons : l’automne acheté, l’enfant choisit la saison de son tab
 
   // One touch on the bar: summer again, nothing else bought.
   await summer.click();
-  await expect(summer).toHaveAttribute('aria-pressed', 'true', { timeout: 12_000 });
-  await expect(end).not.toHaveClass(/away/, { timeout: 12_000 });
+  await expect(summer).toHaveAttribute('aria-pressed', 'true');
+  await expect(end).not.toHaveClass(/away/);
   expect(await describe()).toMatchObject({ season: 'summer', seasons: ['summer', 'autumn'] });
   expect((await game(page)).seeds).toBe(0);
 
@@ -599,8 +599,8 @@ test('les saisons : l’automne acheté, l’enfant choisit la saison de son tab
   // Between two trails, the season can change; the trail keeps waiting.
   await expect(picker.getByRole('button')).toHaveCount(2);
   await autumn.click();
-  await expect(autumn).toHaveAttribute('aria-pressed', 'true', { timeout: 12_000 });
-  await expect(autumn).toBeEnabled({ timeout: 12_000 });
+  await expect(autumn).toHaveAttribute('aria-pressed', 'true');
+  await expect(autumn).toBeEnabled();
   await expect(page.getByRole('button', { name: 'Chemin du progrès' })).toBeVisible();
   expect(await describe()).toMatchObject({ season: 'autumn', seasons: ['summer', 'autumn'] });
   // During a question, nothing else: the bar goes.
@@ -654,8 +654,8 @@ test('la nuit : achetée dans la boutique, choisie comme une cinquième saison (
   await page.locator('#reserve').click();
   await expect(offer).toBeEnabled();
   await offer.click();
-  await expect(moon).toHaveAttribute('aria-pressed', 'true', { timeout: 12_000 });
-  await expect(shop).not.toHaveClass(/away/, { timeout: 12_000 });
+  await expect(moon).toHaveAttribute('aria-pressed', 'true');
+  await expect(shop).not.toHaveClass(/away/);
   expect((await game(page)).seeds).toBe(0);
   expect(await describe()).toMatchObject({
     season: 'summer',
@@ -670,12 +670,12 @@ test('la nuit : achetée dans la boutique, choisie comme une cinquième saison (
   // Back to the day of summer, then the night again, from the bar.
   await shop.getByRole('button', { name: 'Fermer' }).click();
   await summer.click();
-  await expect(summer).toHaveAttribute('aria-pressed', 'true', { timeout: 12_000 });
-  await expect(summer).toBeEnabled({ timeout: 12_000 });
+  await expect(summer).toHaveAttribute('aria-pressed', 'true');
+  await expect(summer).toBeEnabled();
   expect(await describe()).toMatchObject({ season: 'summer', night: 'owned' });
   await moon.click();
-  await expect(moon).toHaveAttribute('aria-pressed', 'true', { timeout: 12_000 });
-  await expect(moon).toBeEnabled({ timeout: 12_000 });
+  await expect(moon).toHaveAttribute('aria-pressed', 'true');
+  await expect(moon).toBeEnabled();
   await expect(page.getByRole('button', { name: 'Chemin du progrès' })).toBeVisible();
 
   // The night stays in the painting, once written.

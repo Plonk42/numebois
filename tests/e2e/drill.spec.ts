@@ -5,9 +5,12 @@ import { answered, current, driver, game, loadSave, wrong } from './helpers';
 test('la rafale : la table de 7 enchaînée sans interruption, une erreur revient, puis la fin', async ({
   page,
 }) => {
-  test.setTimeout(360_000);
+  // 40 questions: about 2 minutes, 6 on a loaded machine.
+  test.setTimeout(600_000);
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
+  // The wall clock stands still: every answer comes at once.
+  await page.clock.setFixedTime(new Date('2026-11-25T10:00:00'));
   await page.goto('./?stage=0');
   await page.evaluate(() => window.__numebois!.ready);
   // The tables are under way, one fact often missed: « Mes faits fragiles » has it.
@@ -80,8 +83,8 @@ test('la rafale : la table de 7 enchaînée sans interruption, une erreur revien
       const facts = await pause.locator('.fact .label').allTextContents();
       expect(facts.length).toBeGreaterThan(0);
       for (const fact of facts) expect(fact).toMatch(/\b7\b/);
-      // Answered at once today: a leaf on the way to « by heart ».
-      expect(await pause.locator('.day.on').count()).toBeGreaterThan(0);
+      // Each fact ends the round right at once: a leaf today on the way to « by heart ».
+      await expect(pause.locator('.day.on')).toHaveCount(facts.length);
       if (i === 19) await pause.getByRole('button', { name: 'Encore !' }).click();
       else await pause.getByRole('button', { name: 'J’ai fini' }).click();
     }

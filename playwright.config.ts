@@ -8,6 +8,9 @@ export default defineConfig({
   testDir: 'tests/e2e',
   outputDir: 'test-results',
   timeout: 120_000,
+  // Waits on a state the page reaches by itself (praise, answer shown, golden seed): the
+  // outcome never depends on time, only how long a loaded machine takes to get there.
+  expect: { timeout: 15_000 },
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   workers: process.env.CI ? 2 : 4,
