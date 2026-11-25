@@ -384,8 +384,9 @@ Principe : le contenu grandit, mais la charge par session reste fixe. Tout est l
    - **niveaux** de chaque notion : le plus bas et le plus haut proposés, pour coller à ce qui est vu en classe (#47) ;
    - **devoirs de la semaine (quête, #54)** : un focus peut avoir une date de fin (voir « Pour l'enfant », point 6) ; s'y ajoutent, pour la notion, « Proposer l'astuce au prochain sentier » et « Proposer un défi » (l'écureuil le propose au prochain sentier, toujours refusable, seulement sur une notion maîtrisée) ;
    - **astuces** : chacune disponible ou non dans le Carnet (#54) ;
-   - les réglages sont dans la sauvegarde (exportés avec elle) et le sentier les respecte (`composeTrail`) ;
-   - autres actions : régler la longueur, la rafale recommandée (ruban « Recommandé » sur la souche) et le seuil d'automatisation (M2).
+   - les réglages sont dans la sauvegarde (exportés avec elle) et le sentier les respecte (`composeTrail`, `src/core/settings.ts`) : une notion fermée ne vient jamais (ni rafale ni défi), une ouverte arrive sans ses prérequis (avant les autres nouveautés), les notions en focus prennent au moins la moitié des questions (échauffement, cœur et fin ; la nouveauté et les révisions restent), une troisième en focus remplace la plus ancienne ; le niveau demandé et celui qui progresse restent dans la plage choisie, et une notion est acquise au plus haut de sa plage ;
+   - autres actions : régler la longueur, la rafale recommandée (entrée « Recommandé », en premier sur la carte de la souche) et le seuil d'automatisation (« Exigeant », « Normal », « Souple » : ×0,75, ×1, ×1,5 sur le temps d'une réponse rapide) ;
+   - réalisé (#47) : appui long sur la réserve, trois onglets « Suivi » (séances des 7 derniers jours avec du jeu : temps compté question par question, 2 minutes au plus chacune ; notions par domaine ; faits fragiles), « Notions » (réglage, plage de niveaux, rafale recommandée) et « Réglages ». Champs `settings`, `automation`, `plays` (60 dernières parties) et `recommended` de la sauvegarde, absents = valeurs par défaut.
 
 ## Jalons
 
@@ -832,3 +833,4 @@ Vérification : frontmatter YAML valide, `name` identique au nom du dossier, `de
 - 2026-11-24 : la course de la feuille (#44, voir la phase 8). Elle avance aux bonnes réponses seulement : une erreur ne fait ni avancer ni perdre de temps, et répondre au hasard n'aide pas.
 - 2026-11-24 : l'écureuil et le bonus éclair (#45, voir la phase 8) ; le panneau « Défi » était déjà venu avec #43.
 - 2026-11-25 : les éléments rares s'achètent (#46, décision du propriétaire) : lucioles, arc-en-ciel et castors quittent les paliers et entrent dans la boutique en graines dorées (`SEEDS_PER_RARE`), un à la fois, une fois ouverts ; `rares` s'ajoute à la description du tableau (absent = aucun, les sauvegardes restent lisibles). La boutique passe à 5 articles.
+- 2026-11-25 : tableau de bord parent (#47, voir « Pour le parent et le code », point 3). Le menu caché devient un espace parent à onglets ; réglages des notions, plage de niveaux, rafale recommandée et seuil d'automatisation, gardés dans la sauvegarde sans changer sa version.

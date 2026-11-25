@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { isoDate, today } from '../core/day';
 import { Challenge, challengeable, FLASH_MS, FLASH_SHARE, squirrelComes } from '../core/challenge';
 import { Drill, fragileFacts, type DrillTarget } from '../core/drill';
+import { modeOf, settingOf, type SkillSetting } from '../core/settings';
 import {
   LEAVES_PER_ELEMENT,
   LEAVES_PER_RIGHT_ANSWER,
@@ -31,6 +32,7 @@ import {
   type AlbumEntry,
   type ParsedAlbum,
 } from '../save/album';
+import type { Recommended } from '../save/parent';
 import { serializeSave, type PaintingJournal, type ParsedSave } from '../save/save';
 import type { AnimalName } from '../scene/animal-catalog';
 import { BIOMES, nextBiomes } from '../scene/biomes';
@@ -156,6 +158,9 @@ const TRAIL_PHASES = new Set<Phase>(['asking', 'right', 'reveal', 'seed']);
 const SHOP_PHASES = new Set<Phase>(['shop', 'choosing', 'planting', 'adopting', 'turning']);
 /** A complete painting: the grand finale, its frame, then the choice of the next one (#33). */
 const FINALE_PHASES = new Set<Phase>(['finale', 'framing', 'next']);
+/** Time counted at most for one question in the parent dashboard. */
+const QUESTION_MS_MAX = 120_000;
+
 /** The Album, then one of its paintings alive again (#34). */
 const ALBUM_PHASES = new Set<Phase>(['album', 'visiting']);
 
@@ -254,6 +259,8 @@ interface Props {
   rng: Rng;
   leaves: number;
   seeds: number;
+  /** The drill the parent recommends (#47). */
+  recommended: Recommended | null;
   journal: PaintingJournal;
   album: readonly AlbumEntry[];
   /** Why the save could not be read, if it could not. */
@@ -342,6 +349,21 @@ function Game(props: Props) {
   const timer = useRef(0);
   const shownAt = useRef(performance.now());
   const firstAnswerMs = useRef<number | null>(null);
+  const [recommended, setRecommended] = useState(props.recommended);
+  /** The play in progress, for the parent dashboard: questions, right first, time spent. */
+  const tally = useRef({ questions: 0, right: 0, ms: 0 });
+  const count = (right: boolean) => {
+    const t = tally.current;
+    t.questions++;
+    if (right) t.right++;
+    // A tablet forgotten on a question does not count for hours.
+    t.ms += Math.min(performance.now() - shownAt.current, QUESTION_MS_MAX);
+  };
+  const logPlay = (kind: Mode) => {
+    const t = tally.current;
+    if (t.questions > 0) session.addPlay({ day: today(), kind, ...t, ms: Math.round(t.ms) });
+    tally.current = { questions: 0, right: 0, ms: 0 };
+  };
 
   const walking = phase === 'walking';
   const browsing = ALBUM_PHASES.has(phase);
@@ -430,11 +452,12 @@ function Game(props: Props) {
         trailLength: session.length,
         painting: forest.description(),
         journal,
+        recommended,
       },
       new Date(),
     );
   // Every answer changes the phase or the reserve, every element the phase: the save follows.
-  useEffect(() => props.save(saveData()), [leaves, seeds, phase, length, journal]);
+  useEffect(() => props.save(saveData()), [leaves, seeds, phase, length, journal, recommended]);
   // The end of the trail: the basket empties into the reserve, then the forest is the child's.
   useEffect(() => {
     if (!done) return;
@@ -495,6 +518,7 @@ function Game(props: Props) {
       ask();
       return;
     }
+    logPlay('trail');
     setEnded('trail');
     setFinished(true);
     setDone(true);
@@ -510,6 +534,7 @@ function Game(props: Props) {
       return;
     }
     session.startTrail();
+    tally.current = { questions: 0, right: 0, ms: 0 };
     setFinished(false);
     setLeavesHere(0);
     setSeedsHere(0);
@@ -519,9 +544,21 @@ function Game(props: Props) {
   };
 
   /** The notions met so far that can be drilled: the stump waits for the first one. */
-  const drillable = props.skills.filter(
+  /** The notions the parent did not close (#47). */
+  const playable = props.skills.filter((s) => modeOf(session.settings, s) !== 'closed');
+  const drillable = playable.filter(
     (s) => s.facts && (session.progress.get(s.id)?.stage ?? 'discovery') !== 'discovery',
   );
+  /** The parent's recommendation, first on the stump's card. */
+  const recommendedEntry = (() => {
+    const target = recommended && playable.find((s) => s.id === recommended.skill);
+    if (!target) return null;
+    const group = target.facts?.groups?.find((g) => g.id === recommended.group);
+    return {
+      name: group?.name ?? target.name,
+      target: { kind: 'skill', skill: target.id, group: group?.id } as DrillTarget,
+    };
+  })();
   /** The Carnet's trees: the notions met with groups of facts, the most branches first. */
   const trees = drillable
     .filter((s) => s.facts!.groups)
@@ -530,6 +567,7 @@ function Game(props: Props) {
   const startDrill = (target: DrillTarget) => {
     if (phase !== 'drill-menu') return;
     drill.current = new Drill(session, target, new Rng(rng.int(0, 2 ** 31)));
+    tally.current = { questions: 0, right: 0, ms: 0 };
     drillStart.current = performance.now();
     pauseOffered.current = false;
     met.current.clear();
@@ -564,8 +602,19 @@ function Game(props: Props) {
     leave('drill');
   };
 
+  /** The parent changed the notions: a trail not begun yet is drawn again with them. */
+  const changeSettings = (settings: Map<SkillId, SkillSetting>) => {
+    session.settings = settings;
+    if (walking && !finished && session.index === 0 && tally.current.questions === 0) {
+      session.startTrail();
+      setQuestion(session.ask());
+    }
+    props.save(saveData());
+  };
+
   /** Back to the walk after a drill or a challenge: the basket pours into the reserve. */
   const leave = (from: Mode) => {
+    logPlay(from);
     setMode('trail');
     // The trail waiting keeps a question of its own.
     if (!finished) setQuestion(session.ask());
@@ -582,7 +631,7 @@ function Game(props: Props) {
   };
 
   /** The acquired notions with a challenge: the sign waits for the first one. */
-  const challenges = challengeable(props.skills, session.progress);
+  const challenges = challengeable(playable, session.progress);
 
   /** After a trail ended on right answers, once per session, the squirrel offers a challenge. */
   const offerChallenge = () => {
@@ -601,6 +650,7 @@ function Game(props: Props) {
     const rngOf = new Rng(rng.int(0, 2 ** 31));
     challenge.current = new Challenge(session, skill, format, level, rngOf, now);
     if (mode !== 'challenge') {
+      tally.current = { questions: 0, right: 0, ms: 0 };
       setLeavesHere(0);
       setSeedsHere(0);
       setBasket(0);
@@ -821,11 +871,13 @@ function Game(props: Props) {
     if (!skill.validate(exercise, value)) {
       setMistakes(mistakes + 1);
       if (mistakes + 1 >= 2) {
+        count(false);
         session.conclude(skill, exercise, false, firstAnswerMs.current, true);
         setPhase('reveal');
       }
       return;
     }
+    count(mistakes === 0);
     const achievements = session.conclude(
       skill,
       exercise,
@@ -840,6 +892,7 @@ function Game(props: Props) {
   /** One try in a drill: a missed answer shows a moment, then the next question comes. */
   const answerDrill = (value: string, ms: number) => {
     const right = skill.validate(exercise, value);
+    count(right);
     const achievements = drill.current!.conclude(skill, exercise, right, ms);
     const fact = skill.facts?.of(exercise);
     if (fact) met.current.set(fact, skill);
@@ -859,6 +912,7 @@ function Game(props: Props) {
     const current = challenge.current!;
     current.pause();
     const right = skill.validate(exercise, value);
+    count(right);
     const achievements = current.conclude(exercise, right, ms);
     if (right) {
       reward(achievements, CHALLENGE_RIGHT_MS);
@@ -1061,7 +1115,10 @@ function Game(props: Props) {
       {menu && (
         <ParentMenu
           skills={props.skills}
+          session={session}
+          day={today()}
           length={length}
+          recommended={recommended}
           problem={props.problem}
           exportSave={() => exportFile(saveData(), album)}
           quality={forest.quality}
@@ -1070,6 +1127,12 @@ function Game(props: Props) {
             session.length = value;
             setLength(value);
           }}
+          onSettings={changeSettings}
+          onAutomation={(factor) => {
+            session.automation = factor;
+            props.save(saveData());
+          }}
+          onRecommended={setRecommended}
           onClose={() => setMenu(false)}
         />
       )}
@@ -1144,6 +1207,7 @@ function Game(props: Props) {
           {phase === 'drill-menu' && (
             <DrillMenu
               skills={drillable}
+              recommended={recommendedEntry}
               fragile={fragileFacts(props.skills, session.facts).length > 0}
               onPick={startDrill}
               onClose={() => setPhase('walking')}
@@ -1276,10 +1340,17 @@ export function mountGame(
   session.startTrail();
   if (debug) {
     debug.progress = () => session.snapshot();
-    debug.step = () => ({
-      skill: session.step.skill,
-      level: stepLevel(session.step, session.progress.get(session.step.skill)),
-    });
+    debug.step = () => {
+      const skill = skills.find((s) => s.id === session.step.skill)!;
+      return {
+        skill: skill.id,
+        level: stepLevel(
+          session.step,
+          session.progress.get(skill.id),
+          settingOf(session.settings, skill),
+        ),
+      };
+    };
   }
   const probe: GameProbe = {
     exercise: null,
@@ -1308,6 +1379,7 @@ export function mountGame(
       rng={rng}
       leaves={saved?.ok ? saved.data.leaves : 0}
       seeds={saved?.ok ? saved.data.seeds : 0}
+      recommended={saved?.ok ? saved.data.recommended : null}
       journal={saved?.ok ? saved.data.journal : { started: today(), acquired: [], automated: [] }}
       album={album.ok ? album.entries : []}
       problem={problem}

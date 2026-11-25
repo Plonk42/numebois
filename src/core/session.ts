@@ -9,6 +9,7 @@ import {
   type ChallengeRecord,
 } from './records';
 import type { Rng } from './rng';
+import { clampLevel, settingOf, type SkillSetting } from './settings';
 import { composeTrail, revisit, stepLevel, type TrailLength, type TrailStep } from './trail';
 import type { Exercise, ExerciseContext, FactId, Skill, SkillId } from './types';
 
@@ -16,6 +17,19 @@ import type { Exercise, ExerciseContext, FactId, Skill, SkillId } from './types'
 const HISTORY = 30;
 /** Easy questions added at most when the last one ended with the answer shown. */
 const MAX_EXTRA = 2;
+/** Plays kept for the parent dashboard. */
+const PLAYS = 60;
+
+/** A trail, a drill or a challenge played, for the parent dashboard (#47). */
+export interface Play {
+  day: number;
+  kind: 'trail' | 'drill' | 'challenge';
+  /** Questions answered, and right at the first try. */
+  questions: number;
+  right: number;
+  /** Time spent, the pauses taken away. */
+  ms: number;
+}
 
 /** Something learnt with an answer: each brings golden seeds. */
 export type Achievement =
@@ -30,6 +44,12 @@ export class Session {
   readonly facts = new Map<FactId, FactProgress>();
   /** Challenges played, by notion and format (`records.ts`). */
   readonly records = new Map<string, ChallengeRecord>();
+  /** The parent's settings of the notions (#47). */
+  settings = new Map<SkillId, SkillSetting>();
+  /** Factor on the time of a fast answer for a fact to count towards automation (#47). */
+  automation = 1;
+  /** The last plays, oldest first. */
+  plays: Play[] = [];
   trail: TrailStep[] = [];
   index = 0;
   /** Stones of the path: the size of the trail when it was composed. */
@@ -62,6 +82,7 @@ export class Session {
           ? null
           : this.history.filter(Boolean).length / this.history.length,
       slowing: false,
+      settings: this.settings,
       rng: this.rng,
     });
     this.index = 0;
@@ -81,7 +102,11 @@ export class Session {
    */
   ask(previous?: Exercise): { skill: Skill; exercise: Exercise } {
     const skill = this.byId.get(this.step.skill)!;
-    const level = stepLevel(this.step, this.progress.get(skill.id));
+    const level = stepLevel(
+      this.step,
+      this.progress.get(skill.id),
+      settingOf(this.settings, skill),
+    );
     // The statement alone may not change (« Quelle heure est-il ? » under a clock).
     const same = (exercise: Exercise) =>
       exercise.statement === previous?.statement && exercise.answer === previous.answer;
@@ -122,22 +147,29 @@ export class Session {
   learn(skill: Skill, exercise: Exercise, right: boolean, ms: number): Achievement[] {
     const achievements: Achievement[] = [];
     const day = this.today();
-    const progress = this.progress.get(skill.id) ?? newProgress(skill.id);
-    const recorded = record(progress, { right, day }, skill.levels);
-    this.progress.set(skill.id, recorded);
+    // The level moves within the parent's range only.
+    const setting = settingOf(this.settings, skill);
+    const before = this.progress.get(skill.id) ?? newProgress(skill.id);
+    const progress = { ...before, level: clampLevel(before.level, setting) };
+    const recorded = record(progress, { right, day }, setting.maxLevel + 1);
+    this.progress.set(skill.id, { ...recorded, level: clampLevel(recorded.level, setting) });
     if (!isAcquired(progress) && isAcquired(recorded)) {
       achievements.push({ kind: 'acquired', skill: skill.id });
     }
     // A choice is recognised, not recalled: it never automates a fact.
     const fact = exercise.input.kind === 'choice' ? null : skill.facts?.of(exercise);
     if (fact) {
-      const before = this.facts.get(fact) ?? newFact(fact);
-      const after = recordFact(before, { right, ms, day }, skill.facts!.seconds);
+      const seen = this.facts.get(fact) ?? newFact(fact);
+      const after = recordFact(seen, { right, ms, day }, skill.facts!.seconds * this.automation);
       this.facts.set(fact, after);
-      if (!isAutomated(before) && isAutomated(after))
-        achievements.push({ kind: 'automated', fact });
+      if (!isAutomated(seen) && isAutomated(after)) achievements.push({ kind: 'automated', fact });
     }
     return achievements;
+  }
+
+  /** A trail, a drill or a challenge is over: the parent dashboard keeps it. */
+  addPlay(play: Play): void {
+    this.plays = [...this.plays, play].slice(-PLAYS);
   }
 
   /** Moves to the next step; false when the trail is over. */
@@ -162,6 +194,9 @@ export class Session {
       facts: [...this.facts.values()],
       history: [...this.history],
       records: [...this.records.values()],
+      settings: [...this.settings.values()],
+      automation: this.automation,
+      plays: [...this.plays],
     };
   }
 
@@ -173,6 +208,9 @@ export class Session {
     this.history = snapshot.history.slice(-HISTORY);
     this.records.clear();
     for (const r of snapshot.records) this.records.set(recordKey(r.skill, r.format), r);
+    this.settings = new Map(snapshot.settings.map((s) => [s.skill, s]));
+    this.automation = snapshot.automation;
+    this.plays = snapshot.plays.slice(-PLAYS);
   }
 
   /** The attempts of a notion's challenge in a format, the oldest first. */
@@ -196,4 +234,8 @@ export interface SessionSnapshot {
   history: boolean[];
   /** The challenges played, per notion and format. */
   records: ChallengeRecord[];
+  /** The parent's settings: notions not on auto or not on their whole range. */
+  settings: SkillSetting[];
+  automation: number;
+  plays: Play[];
 }

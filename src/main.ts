@@ -98,7 +98,15 @@ const ready = sceneOnly
           start: () => undefined,
           answer: () => undefined,
           give: () => undefined,
-          progress: () => ({ progress: [], facts: [], history: [], records: [] }),
+          progress: () => ({
+            progress: [],
+            facts: [],
+            history: [],
+            records: [],
+            settings: [],
+            automation: 1,
+            plays: [],
+          }),
           step: () => ({ skill: '', level: 0 }),
         };
         game = mountGame(

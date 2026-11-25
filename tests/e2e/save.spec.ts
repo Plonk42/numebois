@@ -19,6 +19,8 @@ async function openParentMenu(page: Page) {
   await page.waitForTimeout(1700);
   await page.mouse.up();
   await expect(page.locator('#parent-menu')).toBeVisible();
+  // It opens on the child's progress; the export and the import are in the settings.
+  await page.getByRole('button', { name: 'Réglages' }).click();
 }
 
 const reserveLabel = (leaves: number) =>
