@@ -5,7 +5,7 @@ import { Rng } from '../core/rng';
 import type { FactId, Skill } from '../core/types';
 import type { TrailArt } from '../scene/render/trail-art';
 import { Basket } from './basket';
-import { Plume } from './plume';
+import { Plume } from './character';
 import { LeafIcon } from './reserve';
 
 /** The name of the drill, written on its stump. */

@@ -1,16 +1,14 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
-import { PLUME_FILE, type PlumeClip } from './plume-catalog';
+import type { Character, CharacterClip } from './characters';
 import { screenPixelRatio } from './render/stage';
 
-export type PlumeMood = 'calm' | 'talk' | 'cheer';
+export type Mood = 'calm' | 'talk' | 'cheer';
 
-/** Size of Plume on the screen: CSS pixels per model unit (she is about one unit tall). */
-const PX_PER_UNIT = 110;
-/** Room under her feet, in CSS pixels: her toes come forward. */
+/** Room under the feet, in CSS pixels: the toes come forward. */
 const FEET_PX = 10;
-/** She turns a little towards the question, at her right. */
+/** Turned a little towards the question, at the right. */
 const YAW = 0.3;
 const PITCH = 0.16;
 /** A gesture comes in and out over the breathing in this time, in seconds. */
@@ -18,28 +16,37 @@ const BLEND = 0.15;
 /** Seconds between two blinks, in turn: never quite regular. */
 const BLINKS = [3.2, 4.6, 2.4, 5.1, 3.7];
 
+interface Rig {
+  model: THREE.Object3D;
+  mixer: THREE.AnimationMixer;
+  actions: Map<CharacterClip, THREE.AnimationAction>;
+}
+
 /**
- * Plume the owl in her own small canvas, shared by the slate and the end of the trail: she
- * breathes and blinks, tilts her head for a hint and hops for joy after a right answer. One
- * mesh and one material; she is drawn only while on the screen.
+ * The characters (Plume, the squirrel) in one small canvas of their own, shown in turn by the
+ * slate and the cards: they breathe and blink, tilt their head for a hint or an offer and hop
+ * for joy. One mesh and one material each, loaded the first time they are shown; drawn only
+ * while on the screen.
  */
-export class PlumeView {
+export class CharacterView {
   readonly canvas = document.createElement('canvas');
   private renderer: THREE.WebGLRenderer | null = null;
   private readonly scene = new THREE.Scene();
   private readonly camera = new THREE.OrthographicCamera();
-  private mixer: THREE.AnimationMixer | null = null;
-  private readonly actions = new Map<PlumeClip, THREE.AnimationAction>();
+  private readonly material = new THREE.MeshLambertMaterial({ vertexColors: true });
+  private readonly rigs = new Map<Character, Rig | 'loading'>();
+  private character: Character | null = null;
+  private rig: Rig | null = null;
   private host: HTMLElement | null = null;
-  private mood: PlumeMood = 'calm';
-  private gesture: { clip: PlumeClip; start: number } | null = null;
+  private mood: Mood = 'calm';
+  private gesture: { clip: CharacterClip; start: number } | null = null;
   private frame = 0;
   private last = 0;
   private time = 0;
   private blinkAt = BLINKS[0];
   private blinks = 0;
 
-  constructor() {
+  constructor(private readonly baseUrl: string) {
     this.camera.position.set(0, Math.sin(PITCH), Math.cos(PITCH)).multiplyScalar(10);
     this.camera.lookAt(0, 0, 0);
     this.camera.near = 1;
@@ -50,39 +57,58 @@ export class PlumeView {
     document.addEventListener('visibilitychange', () => this.run());
   }
 
-  async load(baseUrl: string): Promise<void> {
+  private async load(character: Character): Promise<void> {
+    this.rigs.set(character, 'loading');
     const loader = new GLTFLoader();
     loader.setMeshoptDecoder(MeshoptDecoder);
-    const gltf = await loader.loadAsync(baseUrl + PLUME_FILE);
-    this.ready(gltf.scene, gltf.animations);
+    try {
+      const gltf = await loader.loadAsync(this.baseUrl + character.file);
+      this.rigs.set(character, this.ready(gltf.scene, gltf.animations));
+    } catch (error) {
+      this.rigs.delete(character);
+      console.warn(character.name, error);
+      return;
+    }
+    if (this.character === character) this.show(character);
   }
 
-  private ready(model: THREE.Object3D, animations: THREE.AnimationClip[]): void {
+  private ready(model: THREE.Object3D, animations: THREE.AnimationClip[]): Rig {
     // Colours are in the vertices.
-    const material = new THREE.MeshLambertMaterial({ vertexColors: true });
     model.traverse((o) => {
       const mesh = o as THREE.SkinnedMesh;
       if (!mesh.isMesh) return;
       (mesh.material as THREE.Material).dispose();
-      mesh.material = material;
+      mesh.material = this.material;
       // Bounds of the rest pose: the hop would leave them.
       mesh.frustumCulled = false;
     });
     model.rotation.y = YAW;
-    this.scene.add(model);
-    this.mixer = new THREE.AnimationMixer(model);
+    const mixer = new THREE.AnimationMixer(model);
+    const actions = new Map<CharacterClip, THREE.AnimationAction>();
     for (const animation of animations) {
-      const action = this.mixer.clipAction(animation);
+      const action = mixer.clipAction(animation);
       action.play();
       action.setEffectiveWeight(0);
-      this.actions.set(animation.name as PlumeClip, action);
+      actions.set(animation.name as CharacterClip, action);
     }
-    this.canvas.classList.add('ready');
+    return { model, mixer, actions };
+  }
+
+  /** Puts `character` on the stage once loaded; the canvas is `ready` when it shows. */
+  private show(character: Character): void {
+    this.character = character;
+    const rig = this.rigs.get(character);
+    if (rig === undefined) void this.load(character);
+    const next = rig === undefined || rig === 'loading' ? null : rig;
+    if (this.rig && this.rig !== next) this.scene.remove(this.rig.model);
+    this.rig = next;
+    if (next) this.scene.add(next.model);
+    this.canvas.classList.toggle('ready', next !== null);
     this.run();
   }
 
-  /** Shows Plume in `host`, calm; the canvas fills it. */
-  attach(host: HTMLElement): void {
+  /** Shows `character` in `host`, calm; the canvas fills it. */
+  attach(host: HTMLElement, character: Character): void {
     this.host = host;
     host.append(this.canvas);
     this.mood = 'calm';
@@ -98,13 +124,14 @@ export class PlumeView {
     }
     this.renderer.setPixelRatio(Math.min(screenPixelRatio(), 2));
     this.renderer.setSize(width, height, false);
+    const unit = character.pxPerUnit;
     const camera = this.camera;
-    camera.left = -width / 2 / PX_PER_UNIT;
-    camera.right = width / 2 / PX_PER_UNIT;
-    camera.bottom = -FEET_PX / PX_PER_UNIT;
-    camera.top = (height - FEET_PX) / PX_PER_UNIT;
+    camera.left = -width / 2 / unit;
+    camera.right = width / 2 / unit;
+    camera.bottom = -FEET_PX / unit;
+    camera.top = (height - FEET_PX) / unit;
     camera.updateProjectionMatrix();
-    this.run();
+    this.show(character);
   }
 
   detach(host: HTMLElement): void {
@@ -114,8 +141,8 @@ export class PlumeView {
     this.run();
   }
 
-  /** Talking, she tilts her head; cheering, she hops. */
-  setMood(mood: PlumeMood): void {
+  /** Talking, a tilt of the head; cheering, a hop. */
+  setMood(mood: Mood): void {
     if (mood === this.mood) return;
     this.mood = mood;
     if (mood === 'talk') this.gesture = { clip: 'Tilt', start: this.time };
@@ -124,7 +151,7 @@ export class PlumeView {
 
   /** Draws while on the screen and the model is ready, never while the tab is hidden. */
   private run(): void {
-    const on = this.host !== null && this.mixer !== null && document.visibilityState === 'visible';
+    const on = this.host !== null && this.rig !== null && document.visibilityState === 'visible';
     if (on && !this.frame) {
       this.last = performance.now();
       this.frame = requestAnimationFrame(this.loop);
@@ -137,17 +164,17 @@ export class PlumeView {
   private readonly loop = (now: number) => {
     this.time += Math.min(0.1, (now - this.last) / 1000);
     this.last = now;
-    this.pose();
+    this.pose(this.rig!);
     this.renderer!.render(this.scene, this.camera);
     this.frame = requestAnimationFrame(this.loop);
   };
 
-  private pose(): void {
+  private pose({ actions, mixer }: Rig): void {
     const time = this.time;
     let gesture = 0;
-    for (const clip of ['Tilt', 'Cheer'] as const) this.actions.get(clip)!.setEffectiveWeight(0);
+    for (const clip of ['Tilt', 'Cheer'] as const) actions.get(clip)!.setEffectiveWeight(0);
     if (this.gesture) {
-      const action = this.actions.get(this.gesture.clip)!;
+      const action = actions.get(this.gesture.clip)!;
       const t = time - this.gesture.start;
       const duration = action.getClip().duration;
       if (t >= duration) {
@@ -158,16 +185,16 @@ export class PlumeView {
         action.setEffectiveWeight(gesture);
       }
     }
-    const idle = this.actions.get('Idle')!;
+    const idle = actions.get('Idle')!;
     idle.time = time % idle.getClip().duration;
     idle.setEffectiveWeight(1 - gesture);
-    if (time >= this.blinkAt + this.actions.get('Blink')!.getClip().duration) {
+    if (time >= this.blinkAt + actions.get('Blink')!.getClip().duration) {
       this.blinks++;
       this.blinkAt = time + BLINKS[this.blinks % BLINKS.length];
     }
-    const blink = this.actions.get('Blink')!;
+    const blink = actions.get('Blink')!;
     blink.time = Math.max(0, time - this.blinkAt);
     blink.setEffectiveWeight(time >= this.blinkAt ? 1 : 0);
-    this.mixer!.update(0);
+    mixer.update(0);
   }
 }

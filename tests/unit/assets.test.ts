@@ -18,7 +18,7 @@ import {
 } from '../../src/scene/atlas';
 import { boundsOf, triangleCount } from '../../src/scene/mesh-data';
 import { placeholderModel } from '../../src/scene/placeholders';
-import { PLUME_CLIPS, PLUME_FILE } from '../../src/scene/plume-catalog';
+import { CHARACTER_CLIPS, CHARACTERS } from '../../src/scene/characters';
 import { GENERATED_PROPS } from '../../src/scene/props';
 
 const swatches = Object.entries<SwatchDef>(SWATCHES);
@@ -249,25 +249,30 @@ describe('animal manifest', () => {
   });
 });
 
-describe('Plume', () => {
-  it('is one skinned mesh with her four clips, light enough to stay next to the question', () => {
-    const glb = readFileSync(`public/${PLUME_FILE}`);
-    expect(glb.toString('latin1', 0, 4)).toBe('glTF');
-    const json = JSON.parse(glb.toString('utf8', 20, 20 + glb.readUInt32LE(12))) as {
-      nodes: { mesh?: number; skin?: number }[];
-      meshes: { primitives: { indices: number }[] }[];
-      materials: unknown[];
-      animations: { name: string }[];
-      accessors: { count: number }[];
-    };
-    expect(json.animations.map((a) => a.name).sort()).toEqual([...PLUME_CLIPS].sort());
-    const bodies = json.nodes.filter((n) => n.mesh !== undefined);
-    expect(bodies).toHaveLength(1);
-    expect(bodies[0].skin).toBeDefined();
-    const primitives = json.meshes[bodies[0].mesh!].primitives;
-    expect(primitives).toHaveLength(1);
-    expect(json.materials).toHaveLength(1);
-    expect(json.accessors[primitives[0].indices].count / 3).toBeLessThan(3000);
-    expect(glb.byteLength).toBeLessThan(64 * 1024);
-  });
+describe('characters', () => {
+  // Triangles: the squirrel's bushy tail costs a thousand more than Plume.
+  const TRIANGLES = { plume: 3000, squirrel: 4000 };
+  it.each(CHARACTERS)(
+    '$name is one skinned mesh with the four clips, light enough to stay next to the question',
+    ({ name, file }) => {
+      const glb = readFileSync(`public/${file}`);
+      expect(glb.toString('latin1', 0, 4)).toBe('glTF');
+      const json = JSON.parse(glb.toString('utf8', 20, 20 + glb.readUInt32LE(12))) as {
+        nodes: { mesh?: number; skin?: number }[];
+        meshes: { primitives: { indices: number }[] }[];
+        materials: unknown[];
+        animations: { name: string }[];
+        accessors: { count: number }[];
+      };
+      expect(json.animations.map((a) => a.name).sort()).toEqual([...CHARACTER_CLIPS].sort());
+      const bodies = json.nodes.filter((n) => n.mesh !== undefined);
+      expect(bodies).toHaveLength(1);
+      expect(bodies[0].skin).toBeDefined();
+      const primitives = json.meshes[bodies[0].mesh!].primitives;
+      expect(primitives).toHaveLength(1);
+      expect(json.materials).toHaveLength(1);
+      expect(json.accessors[primitives[0].indices].count / 3).toBeLessThan(TRIANGLES[name]);
+      expect(glb.byteLength).toBeLessThan(64 * 1024);
+    },
+  );
 });

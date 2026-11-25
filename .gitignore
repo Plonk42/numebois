@@ -4,6 +4,7 @@ assets-private/
 !/public/assets/kaykit.glb
 !/public/assets/animals.glb
 !/public/assets/plume.glb
+!/public/assets/squirrel.glb
 !/public/assets/sounds/
 node_modules/
 dist/
