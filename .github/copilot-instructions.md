@@ -43,6 +43,7 @@ Numebois est un jeu web de maths pour un enfant de CE2 (8 ans, grande difficult�
 - Le jeu est une surprise pour l'enfant, qui le recevra prêt à l'emploi : ne jamais prévoir d'étape « observer l'enfant ». Le propriétaire valide en jouant à sa place.
 - Sauvegardes : compatibilité obligatoire une fois que le propriétaire a déclaré « l'enfant joue pour de vrai » (voir le workflow).
 - Lancer les commandes longues en mode synchrone et attendre leur fin. Ne jamais interroger une commande en arrière-plan avec `sleep` ou `tail`.
+- Un seul écrivain par fichier : un fichier modifié par les outils d'édition n'est jamais réécrit depuis le terminal (`prettier --write`, scripts de remplacement) dans la même étape ; formater une fois avant le commit, `git diff` à l'appui. Après un `git rebase`/`checkout`, relire le disque avant d'éditer. Conflit « le contenu du fichier est plus récent » : le disque fait foi (rétablir, jamais écraser).
 
 ## Tenir le plan et les personnalisations à jour
 
