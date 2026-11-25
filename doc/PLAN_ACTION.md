@@ -60,6 +60,11 @@ flowchart LR
    - **Rafale (#125) :** un fait pas encore su par cœur donne une feuille au plus une fois par jour (celle qui pousse sur l'arbre et tombe dans le panier) ; un fait déjà su par cœur n'en donne pas ; un fait qui devient su par cœur donne sa graine dorée (inchangé).
    - **Défi (#120, #126) :** les glands sont ceux de l'écureuil, un par bonne réponse, sans feuille dans le panier de Plume. Au premier défi du jour, l'écureuil remercie avec une graine dorée et échange ses glands contre autant de feuilles ; ensuite, on joue pour le record. Un rendez-vous, pas une série : rien n'est perdu si l'enfant ne vient pas.
    - Les prix en graines baissent ensuite avec la simulation des trois modes (#29).
+7. **Payer l'effort, pas la répétition (règle du propriétaire, 2026-11-25) :** l'enfant est débrouillard ; s'il trouve un moyen de gagner beaucoup en évitant le difficile, il le prendra. Les gains suivent la difficulté et la nouveauté ; répéter en boucle un exercice simple ne rapporte rien de plus. Aujourd'hui, rater exprès fait baisser la difficulté sans baisser le gain (3 erreurs de suite, sentier « en difficulté »). Proposition (#141, décision attendue ; bloquée par #122) :
+   - **record par notion** (`best`, plus haut niveau atteint, ne baisse jamais) ;
+   - **sentier :** deux feuilles pour une bonne réponse au record de la notion (cœur, nouveauté, retour d'une erreur, révision), une sinon (échauffement, fin, question facile, sous le record) ; rien ne baisse par rapport à aujourd'hui, le difficile reçoit un bonus ;
+   - **une graine dorée par cran franchi**, la première fois qu'une notion atteint un niveau : la graine suivante demande toujours un exercice plus dur ;
+   - **prix des pousses qui montent avec les paliers** (#29) ; pas de graine « par sentier terminé », qui paierait la répétition.
 
 Tickets : réserve et micro-retour (#22), boutique (#83), pose et paliers (#24), emplacement (#25), saisons (#82), nuit (#85), éléments rares (#46), calibrage (#29).
 
@@ -851,3 +856,4 @@ Vérification : frontmatter YAML valide, `name` identique au nom du dossier, `de
 - 2026-11-25 : le tour de la rafale se lit d'un coup d'œil (#131) : ses 20 pierres dessinées comme le sentier, une guirlande plus grande, et entre deux tours la branche jouée, où les feuilles du jour poussent, sans texte.
 - 2026-11-25 : la rafale commence sur son arbre (#130, variante A choisie par le propriétaire sur maquettes : l'arbre entier, un appui sur une branche lance la rafale). Le Carnet et son bouton disparaissent jusqu'aux astuces (M3). Maquettes de #132 validées ; pour #133, l'écran pendant le défi est validé, la fin est à simplifier.
 - 2026-11-25 : retours sur la rafale et les défis (M2). La guirlande compte les bonnes réponses du tour et ne recule plus (#129) ; la réponse essayée prend une couleur pêche après la 1re erreur (#121) ; l'écureuil attend que la boutique se ferme quand il y a quelque chose à acheter (#134 ; l'écureuil dans le paysage reste une piste, #139). Principe d'économie décidé, niveau « cible » (#124, « Boucle de progression », point 6).
+- 2026-11-25 : règle du propriétaire, payer l'effort et pas la répétition (« Boucle de progression », point 7) ; proposition dans #141 (record par notion, deux feuilles au record, une graine dorée par cran franchi, prix qui montent avec les paliers), qui bloque #29.

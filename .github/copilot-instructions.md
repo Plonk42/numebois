@@ -11,6 +11,7 @@ Numebois est un jeu web de maths pour un enfant de CE2 (8 ans, grande difficult�
 - Objectif n°1 : que l'enfant ait **envie** de revenir. Le **rendu du paysage passe avant tout** : un paysage de plus en plus riche et joli est sa motivation première.
 - Aucune punition : aucune ressource perdue, pas de série perdue, pas de compte à rebours, pas de classement, aucune formulation d'échec. Chronomètre seulement dans les défis, toujours refusables.
 - Progression : l'enfant accumule des feuilles (bonnes réponses) et des graines dorées (apprentissages) et les dépense quand il le décide, dans la boutique de fin de sentier ; les paliers avancent avec les éléments posés (plan, « Boucle de progression »).
+- Pas de ferme : l'enfant prendra tout raccourci rentable. Les gains suivent la difficulté et la nouveauté ; ni rater exprès, ni répéter le plus facile ne rapporte plus que travailler à son niveau.
 - Pendant une question, une seule chose à l'écran, rien qui distrait.
 - Le mot « leçon » n'apparaît pas dans le jeu (« Plume te montre une astuce ») ; les devoirs de la semaine sont des « quêtes ».
 - Réglages pédagogiques (notions et astuces disponibles, niveaux, focus, devoirs de la semaine, défi à proposer) : seulement dans le tableau de bord parent, sur la tablette. Jamais de processus programmatique (fichier de quête, activation par la date, mise à jour du jeu).
