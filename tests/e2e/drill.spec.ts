@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import type { Exercise } from '../../src/core/types';
-import { answered, current, driver, game, loadSave, wrong } from './helpers';
+import { answered, current, driver, game, loadSave, revealed, watchReveal, wrong } from './helpers';
 
 test('la rafale : la table de 7 enchaînée sans interruption, une erreur revient, puis la fin', async ({
   page,
@@ -62,10 +62,10 @@ test('la rafale : la table de 7 enchaînée sans interruption, une erreur revien
     if (i === missed + 1 || i === 19) await expect(garland).toHaveCount(i - 1);
     if (i === 20) await expect(garland).toHaveCount(0);
     if (i === missed) {
+      await watchReveal(page);
       await driver(exercise.input).answer(page, exercise.input, wrong(exercise.answer));
       // The answer shows a moment, without a hint, and the garland keeps all its leaves.
-      await expect.poll(async () => (await game(page)).phase).toBe('reveal');
-      await expect(page.locator('#question .answer.shown')).toHaveText(exercise.answer);
+      expect(await revealed(page)).toEqual({ answer: exercise.answer, hint: false });
       await expect(garland).toHaveCount(missed);
     } else {
       await driver(exercise.input).answer(page, exercise.input, exercise.answer);

@@ -229,6 +229,8 @@ export interface GameProbe {
   mode: Mode;
   /** The question asked is a flash bonus. */
   flash: boolean;
+  /** Questions shown so far: the same fact asked again is still another question. */
+  asked: number;
   stone: number;
   stones: number;
   role: StepRole | null;
@@ -398,6 +400,7 @@ function Game(props: Props) {
       mode,
       flash,
       drilling,
+      asked: round,
       stone: finished ? session.stones : session.stone,
       stones: session.stones,
       role: finished ? null : session.step.role,
@@ -1407,6 +1410,7 @@ export function mountGame(
     drilling: false,
     mode: 'trail',
     flash: false,
+    asked: 0,
     stone: 0,
     stones: session.stones,
     role: null,

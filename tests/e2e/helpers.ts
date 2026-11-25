@@ -11,6 +11,9 @@ export async function startTrail(page: Page) {
   await expect(page.locator('#question')).toBeVisible();
 }
 
+/** The number of the question each exercise was read at (`GameProbe.asked`). */
+const askedAt = new WeakMap<object, number>();
+
 /** The exercise on the slate, once it waits for an answer. */
 export async function current(page: Page) {
   // The stone counts as soon as the answer is right: the praised question stays a moment, locked.
@@ -19,20 +22,57 @@ export async function current(page: Page) {
     .locator('#question .statement')
     .evaluate((node) => node.getAttribute('aria-label') ?? node.textContent);
   await expect.poll(async () => (await game(page)).exercise?.statement).toBe(statement);
-  return (await game(page)).exercise!;
+  const { exercise, asked } = await game(page);
+  askedAt.set(exercise!, asked);
+  return exercise!;
 }
 
 /**
  * The answer to `exercise` was taken: in a drill or a challenge, the next question may come
- * before the probe shows anything else, so a different question counts too.
+ * before the probe shows anything else, and may be the same fact again, so a question asked
+ * after it counts too.
  */
 export async function answered(page: Page, exercise: { statement: string }) {
+  const asked = askedAt.get(exercise);
   await expect
     .poll(async () => {
       const now = await game(page);
-      return now.phase !== 'asking' || now.exercise?.statement !== exercise.statement;
+      if (now.phase !== 'asking') return true;
+      return asked === undefined
+        ? now.exercise?.statement !== exercise.statement
+        : now.asked !== asked;
     })
     .toBe(true);
+}
+
+/**
+ * In a drill or a challenge, the answer shown after a mistake stays under 2 s: an observer in
+ * the page keeps what it showed, however slow the runner. Call it before the wrong answer, then
+ * `revealed`.
+ */
+export async function watchReveal(page: Page) {
+  await page.evaluate(() => {
+    const doc = globalThis.document;
+    const seen = globalThis as unknown as { revealed: { answer: string; hint: boolean } | null };
+    seen.revealed = null;
+    const observer = new MutationObserver(() => {
+      const shown = doc.querySelector('#question .shown');
+      if (!shown) return;
+      seen.revealed = {
+        answer: shown.textContent ?? '',
+        hint: doc.querySelector('#question .hint') !== null,
+      };
+      observer.disconnect();
+    });
+    observer.observe(doc.body, { childList: true, subtree: true, attributes: true });
+  });
+}
+
+/** What the answer shown after the mistake looked like (`watchReveal`). */
+export async function revealed(page: Page) {
+  const read = () => page.evaluate(() => (globalThis as unknown as { revealed: unknown }).revealed);
+  await expect.poll(read).not.toBeNull();
+  return (await read()) as { answer: string; hint: boolean };
 }
 
 /** A wrong answer: the expected one with its last digit changed. */

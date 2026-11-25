@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { answered, current, driver, game, loadSave, wrong } from './helpers';
+import { answered, current, driver, game, loadSave, revealed, watchReveal, wrong } from './helpers';
 
 /** The tables acquired; the wall clock stands still: time passes only when `think` moves it. */
 async function tablesAcquired(page: Page) {
@@ -57,10 +57,10 @@ test('le panier de glands : 30 s sous le soleil, une erreur sans perte de temps,
     // Thinking time.
     await think(2000);
     if (i === 2) {
+      await watchReveal(page);
       await driver(exercise.input).answer(page, exercise.input, wrong(exercise.answer));
       // The answer shows a moment, without a hint; the sun waits.
-      await expect.poll(async () => (await game(page)).phase).toBe('reveal');
-      await expect(page.locator('#question .hint')).toHaveCount(0);
+      expect((await revealed(page)).hint).toBe(false);
     } else {
       await driver(exercise.input).answer(page, exercise.input, exercise.answer);
       await answered(page, exercise);
@@ -120,8 +120,9 @@ test('la course de la feuille : 10 bonnes réponses, puis la feuille fantôme re
     const exercise = await current(page);
     await think(1500);
     if (right === 4) {
+      await watchReveal(page);
       await driver(exercise.input).answer(page, exercise.input, wrong(exercise.answer));
-      await expect.poll(async () => (await game(page)).phase).toBe('reveal');
+      await revealed(page);
     }
     const again = await current(page);
     await driver(again.input).answer(page, again.input, again.answer);
