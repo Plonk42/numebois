@@ -17,7 +17,7 @@ async function take(offer: Locator, what: string, record?: string) {
 async function tablesAcquired(page: Page) {
   let now = new Date('2026-11-25T10:00:00').getTime();
   await page.clock.setFixedTime(now);
-  await page.goto('./?stage=0');
+  await page.goto('./?stage=0&name=');
   await page.evaluate(() => window.__numebois!.ready);
   await loadSave(page, {
     version: 6,

@@ -19,7 +19,7 @@ test('une boucle jouable : questions, indices et feuilles', async ({ page }) => 
     if (message.type() === 'error') errors.push(message.text());
   });
   page.on('pageerror', (error) => errors.push(error.message));
-  await page.goto('./?seed=3');
+  await page.goto('./?seed=3&name=');
   await page.evaluate(() => window.__numebois!.ready);
   await startTrail(page);
 
@@ -142,7 +142,7 @@ test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt po
   test.setTimeout(420_000);
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
-  await page.goto('./?seed=3');
+  await page.goto('./?seed=3&name=');
   await page.evaluate(() => window.__numebois!.ready);
   // Nothing in the reserve yet: it is a button all the same, and shows what there is to earn.
   const reserveButton = page.getByRole('button', { name: reserveLabel(0) });
@@ -389,7 +389,7 @@ test('la boutique : une biche achetée en graines dorées rejoint la prairie et 
   test.setTimeout(420_000);
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
-  await page.goto('./?seed=3');
+  await page.goto('./?seed=3&name=');
   await page.evaluate(() => window.__numebois!.ready);
   await loadSave(page, {
     version: 6,
@@ -493,7 +493,7 @@ test('les saisons : l’automne acheté, l’enfant choisit la saison de son tab
   test.setTimeout(420_000);
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
-  await page.goto('./?seed=3');
+  await page.goto('./?seed=3&name=');
   await page.evaluate(() => window.__numebois!.ready);
   await loadSave(page, {
     version: 6,
@@ -619,7 +619,7 @@ test('la nuit : achetée dans la boutique, choisie comme une cinquième saison (
   test.setTimeout(240_000);
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
-  await page.goto('./?seed=3');
+  await page.goto('./?seed=3&name=');
   await page.evaluate(() => window.__numebois!.ready);
   await loadSave(page, {
     version: 6,
@@ -709,7 +709,7 @@ test('comparer : le signe posé entre les deux nombres, changé, puis validé, s
 }) => {
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
-  await page.goto('./?stage=0');
+  await page.goto('./?stage=0&name=');
   await page.evaluate(() => window.__numebois!.ready);
   // A save where « comparer » is in progress: the trail warms up with it.
   await loadSave(page, {
@@ -820,7 +820,7 @@ test('une notion acquise : une graine dorée, seule à l’écran, rejoint la r�
 }) => {
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
-  await page.goto('./?stage=0');
+  await page.goto('./?stage=0&name=');
   await page.evaluate(() => window.__numebois!.ready);
   // « Écrire en chiffres » at its last level: one more right answer acquires it.
   const recent = Array.from({ length: 4 }, () => ({ level: 3, right: true, day: 1 }));
@@ -873,7 +873,7 @@ test('une notion acquise : une graine dorée, seule à l’écran, rejoint la r�
 test('l’ardoise tient le plus long énoncé avec la réponse montrée ; Entrée pour continuer', async ({
   page,
 }) => {
-  await page.goto('./?seed=3&time=1');
+  await page.goto('./?seed=3&time=1&name=');
   await page.evaluate(() => window.__numebois!.ready);
   await startTrail(page);
   const exercise = await current(page);

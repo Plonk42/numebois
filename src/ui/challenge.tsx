@@ -1,4 +1,5 @@
 import type { Offer } from '../core/challenge';
+import { named } from '../core/name';
 import type { Attempt, ChallengeFormat, Ending } from '../core/records';
 import { Basket } from './basket';
 import { Squirrel } from './character';
@@ -296,6 +297,8 @@ interface EndProps {
   acorns: number;
   /** The first challenge of the day: the squirrel exchanges its acorns and gives a golden seed. */
   gift: boolean;
+  /** The child's first name, empty when not given. */
+  name: string;
   /** Leaves of the challenge in Plume's basket. */
   basket: number;
   onMore(): void;
@@ -308,12 +311,12 @@ interface EndProps {
  * for its acorns (#120, #126).
  */
 export function ChallengeEnd(props: EndProps) {
-  const { format, attempt, ending, acorns: count, gift, basket, onMore, onStop } = props;
+  const { format, attempt, ending, acorns: count, gift, name, basket, onMore, onStop } = props;
   return (
     <section id="challenge-end" class="card" aria-live="polite">
       <Squirrel mood="cheer" />
       <Basket leaves={basket} pouring={false} />
-      <p class="praise">{ENDINGS[format.kind][ending]}</p>
+      <p class="praise">{named(ENDINGS[format.kind][ending], name)}</p>
       <div class="score" role="img" aria-label={scoreLabel(format, attempt.score)}>
         {format.kind === 'basket' ? (
           <svg viewBox="-80 -86 160 104" aria-hidden="true">

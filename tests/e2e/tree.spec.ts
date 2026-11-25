@@ -16,7 +16,7 @@ test('l’arbre de la rafale : une branche par table, une feuille par fait, la t
   test.setTimeout(120_000);
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
-  await page.goto('./?stage=0');
+  await page.goto('./?stage=0&name=');
   await page.evaluate(() => window.__numebois!.ready);
   // The table of 2 known by heart, 7 × 8 on its way (2 days out of 3).
   await loadSave(page, {
@@ -84,7 +84,7 @@ test('l’arbre de la rafale : une branche par table, une feuille par fait, la t
 });
 
 test('la souche n’ouvre rien pendant un sentier', async ({ page }) => {
-  await page.goto('./?stage=0');
+  await page.goto('./?stage=0&name=');
   await page.evaluate(() => window.__numebois!.ready);
   await loadSave(page, {
     version: 6,

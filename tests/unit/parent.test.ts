@@ -38,6 +38,7 @@ describe('tableau de bord parent (#47)', () => {
         painting: newPainting(1, 'summer', 'clearing'),
         journal: { started: 300, acquired: [], automated: [] },
         recommended: { skill: TABLES.id, group },
+        name: 'Zébulon',
       },
       new Date(),
     );
@@ -48,6 +49,7 @@ describe('tableau de bord parent (#47)', () => {
       longChallenges: true,
       plays: [{ day: 300, kind: 'trail', questions: 10, right: 8, ms: 240_000 }],
       recommended: { skill: TABLES.id, group },
+      name: 'Zébulon',
     });
     const restored = session();
     restored.restore(parsed.ok ? parsed.data : played.snapshot());
@@ -61,6 +63,7 @@ describe('tableau de bord parent (#47)', () => {
       longChallenges: false,
       plays: [],
       recommended: null,
+      name: '',
     });
     const top = TABLES.levels - 1;
     expect(
@@ -71,18 +74,22 @@ describe('tableau de bord parent (#47)', () => {
             { skill: TABLES.id, mode: 'open', minLevel: 0, maxLevel: top + 4 },
           ],
           recommended: { skill: TABLES.id, group: 'gone' },
+          name: '  <b>zébulon</b> 42 de la forêt enchantée ',
         },
         SKILLS,
       ),
     ).toMatchObject({
       settings: [{ skill: TABLES.id, mode: 'open', minLevel: 0, maxLevel: top }],
       recommended: null,
+      // Text only, bounded.
+      name: 'B zébulon b de la fo',
     });
     for (const broken of [
       { settings: [{ skill: TABLES.id, mode: 'sometimes', minLevel: 0, maxLevel: 0 }] },
       { settings: 'focus' },
       { automation: 3 },
       { longChallenges: 'yes' },
+      { name: 7 },
       { plays: [{ day: 1, kind: 'trail', questions: 2, right: 3, ms: 0 }] },
     ]) {
       expect(readParentPart(broken, SKILLS), JSON.stringify(broken)).toBeNull();

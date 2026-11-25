@@ -1,4 +1,5 @@
 import { useState } from 'preact/hooks';
+import { cleanName, MAX_NAME_LENGTH } from '../core/name';
 import type { Session } from '../core/session';
 import type { SkillSetting } from '../core/settings';
 import type { TrailLength } from '../core/trail';
@@ -24,6 +25,9 @@ interface Props {
   day: number;
   length: TrailLength;
   recommended: Recommended | null;
+  /** The child's first name (#138), empty when not given. */
+  name: string;
+  onName(name: string): void;
   /** Why the save could not be read at start, if it could not. */
   problem: string | null;
   exportSave(): string;
@@ -48,6 +52,8 @@ export function ParentMenu({
   day,
   length,
   recommended,
+  name,
+  onName,
   problem,
   exportSave,
   quality,
@@ -64,6 +70,7 @@ export function ParentMenu({
   const [{ chosen, current }, setQuality] = useState(quality);
   const [automation, setAutomation] = useState(session.automation);
   const [long, setLong] = useState(session.longChallenges);
+  const [typedName, setTypedName] = useState(name);
 
   const download = () => {
     const day = new Date().toISOString().slice(0, 10);
@@ -123,6 +130,22 @@ export function ParentMenu({
         )}
         {tab === 'settings' && (
           <div class="tab settings">
+            <label class="name">
+              Prénom de l’enfant, gardé sur la tablette (vide : Plume le demande au lancement)
+              <input
+                type="text"
+                value={typedName}
+                maxLength={MAX_NAME_LENGTH}
+                autocomplete="off"
+                spellcheck={false}
+                // Kept at each letter: the menu may close before the field loses focus.
+                onInput={(event) => {
+                  setTypedName(event.currentTarget.value);
+                  onName(cleanName(event.currentTarget.value));
+                }}
+                onBlur={() => setTypedName(cleanName(typedName))}
+              />
+            </label>
             <p>Longueur du sentier</p>
             <div class="choices">
               {(['short', 'normal'] as const).map((option) => (

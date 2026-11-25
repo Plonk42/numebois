@@ -36,7 +36,7 @@ test('le tableau de bord parent : suivi, rÃ©glage des notions, rafale recommandÃ
 }) => {
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
-  await page.goto('./?stage=0');
+  await page.goto('./?stage=0&name=');
   await page.evaluate(() => window.__numebois!.ready);
   const day = await page.evaluate(() =>
     Math.floor((Date.now() - new Date().getTimezoneOffset() * 60_000) / 86_400_000),

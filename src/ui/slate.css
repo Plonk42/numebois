@@ -668,6 +668,50 @@
   bottom: 104px;
   width: 520px;
 }
+/* The first name (#138): at the top, the tablet's keyboard takes the bottom half of the screen. */
+#naming {
+  top: 24px;
+  bottom: auto;
+  width: 600px;
+}
+#naming .character {
+  top: auto;
+  bottom: -40px;
+  left: -132px;
+}
+#naming form {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+#naming label {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 26px;
+  color: #2f4a3a;
+}
+#naming input {
+  height: 64px;
+  box-sizing: border-box;
+  padding: 0 18px;
+  border: 3px solid #cfe3c4;
+  border-radius: 18px;
+  background: #fff;
+  font: inherit;
+  font-size: 34px;
+  font-weight: 700;
+  text-align: center;
+  color: #2f4a3a;
+  outline: none;
+}
+#naming input:focus {
+  border-color: #8fcf6b;
+}
+#naming .actions button {
+  flex: 1;
+}
 /* The shop, opened from the reserve: a few big articles, one touch to buy, one to close. */
 #shop {
   width: auto;

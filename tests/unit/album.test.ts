@@ -90,6 +90,7 @@ describe('Album', () => {
         painting: newPainting(4, 'summer', 'orchard'),
         journal: { started: 20_411, acquired: [], automated: [] },
         recommended: null,
+        name: '',
       },
       new Date('2026-11-23T10:00:00Z'),
     );
