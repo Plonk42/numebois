@@ -343,6 +343,8 @@ function Game(props: Props) {
   /** The squirrel's challenge, offered once per session after a trail ended well. */
   const [offer, setOffer] = useState<Skill | null>(null);
   const offered = useRef(false);
+  /** The squirrel comes when the shop closes; another trail, drill or challenge sends it away. */
+  const squirrelWaits = useRef(false);
   /** The question asked is a flash bonus; one per trail at most. */
   const [flash, setFlash] = useState(false);
   const flashUsed = useRef(false);
@@ -468,7 +470,7 @@ function Game(props: Props) {
     if (basket === 0) {
       const id = window.setTimeout(() => {
         setDone(false);
-        if (ended === 'trail') offerChallenge();
+        if (ended === 'trail') afterTrail();
       }, DONE_MS);
       return () => clearTimeout(id);
     }
@@ -532,6 +534,7 @@ function Game(props: Props) {
   /** A touch on the trail: its first question is already drawn, a new trail draws its own. */
   const start = () => {
     if (!free) return;
+    squirrelWaits.current = false;
     if (!finished) {
       setPhase('asking');
       shownAt.current = playClock();
@@ -570,6 +573,7 @@ function Game(props: Props) {
 
   const startDrill = (target: DrillTarget) => {
     if (phase !== 'drill-menu') return;
+    squirrelWaits.current = false;
     drill.current = new Drill(session, target, new Rng(rng.int(0, 2 ** 31)));
     tally.current = { questions: 0, right: 0, ms: 0 };
     drillStart.current = playClock();
@@ -641,11 +645,24 @@ function Game(props: Props) {
   const challenges = challengeable(playable, session.progress);
 
   /** After a trail ended on right answers, once per session, the squirrel offers a challenge. */
-  const offerChallenge = () => {
+  const afterTrail = () => {
     if (offered.current || challenges.length === 0 || !squirrelComes(session.results)) return;
+    // Something to buy: the purchase comes first, the squirrel once the shop is closed (#134).
+    if (items.some((item) => canBuy(item, leaves, seeds))) squirrelWaits.current = true;
+    else offerChallenge();
+  };
+
+  const offerChallenge = () => {
+    squirrelWaits.current = false;
     offered.current = true;
     setOffer(rng.pick(challenges));
     setPhase('squirrel');
+  };
+
+  const closeShop = () => {
+    if (phase !== 'shop') return;
+    if (squirrelWaits.current) offerChallenge();
+    else setPhase('walking');
   };
 
   const startChallenge = (skill: Skill, format: ChallengeFormat) => {
@@ -654,6 +671,7 @@ function Game(props: Props) {
       session.attempts(skill.id, format),
     );
     const rngOf = new Rng(rng.int(0, 2 ** 31));
+    squirrelWaits.current = false;
     challenge.current = new Challenge(session, skill, format, level, rngOf, playClock);
     challengeEnded.current = false;
     if (mode !== 'challenge') {
@@ -1041,7 +1059,7 @@ function Game(props: Props) {
         ready={free && items.some((item) => canBuy(item, leaves, seeds))}
         onTap={() => {
           if (free) setPhase('shop');
-          else if (phase === 'shop') setPhase('walking');
+          else closeShop();
         }}
         // The same finger opened the shop when it touched: the parent menu takes its place.
         onLongPress={() => {
@@ -1242,7 +1260,7 @@ function Game(props: Props) {
                 onBuy={buy}
               />
               <div class="actions">
-                <button type="button" onPointerDown={() => setPhase('walking')}>
+                <button type="button" onPointerDown={closeShop}>
                   Fermer
                 </button>
               </div>

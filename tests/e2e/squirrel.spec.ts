@@ -54,8 +54,16 @@ test('l’écureuil propose un défi après un sentier réussi, une fois ; refus
   page.on('pageerror', (error) => errors.push(error.message));
   await tablesAcquired(page);
   await playTrail(page);
+  // A shoot within reach: the purchase first, the squirrel once the shop is closed (#134).
+  await expect(page.locator('#trail-end')).toHaveCount(0, { timeout: 30_000 });
+  expect((await game(page)).phase).toBe('walking');
   const offer = page.locator('#squirrel');
-  await expect(offer).toContainText('Un écureuil passe !', { timeout: 30_000 });
+  await expect(offer).toHaveCount(0);
+  await page.locator('#reserve').click();
+  await expect(page.locator('#shop')).toBeVisible();
+  await expect(offer).toHaveCount(0);
+  await page.locator('#shop').getByRole('button', { name: 'Fermer' }).click();
+  await expect(offer).toContainText('Un écureuil passe !');
   const before = await game(page);
   await offer.getByRole('button', { name: 'Non merci' }).click();
   await expect(offer).toHaveCount(0);
