@@ -1,3 +1,4 @@
+import { LEAVES_PER_RIGHT_ANSWER } from './economy';
 import { isAutomated, isKnown, isSure, type FactProgress } from './facts';
 import type { Rng } from './rng';
 import type { Achievement, Session } from './session';
@@ -44,6 +45,8 @@ export class Drill {
   readonly results: boolean[] = [];
   /** Questions asked so far. */
   asked = 0;
+  /** Leaves the last answer earned. */
+  earned = 0;
   private readonly missed: (Question & { at: number })[] = [];
   private hardRun = 0;
   private previous: Exercise | null = null;
@@ -79,14 +82,25 @@ export class Drill {
     return this.posed(question);
   }
 
-  /** The question is over: `right` at the only try, `ms` measured in silence. */
+  /**
+   * The question is over: `right` at the only try, `ms` measured in silence. A fact not known
+   * by heart yet gives a leaf (`earned`), once a day at most (#125).
+   */
   conclude(skill: Skill, exercise: Exercise, right: boolean, ms: number): Achievement[] {
     this.results.push(right);
     if (!right) {
       const at = this.asked - 1 + this.rng.pick(COMEBACK);
       this.missed.push({ skill, exercise, at });
     }
-    return this.session.practise(skill, exercise, right, ms);
+    const { facts } = this.session;
+    const fact = skill.facts!.of(exercise)!;
+    const day = this.session.today();
+    const before = facts.get(fact);
+    const pays = right && !isKnown(before) && before?.paid !== day;
+    this.earned = pays ? LEAVES_PER_RIGHT_ANSWER : 0;
+    const achievements = this.session.practise(skill, exercise, right, ms);
+    if (pays) facts.set(fact, { ...facts.get(fact)!, paid: day });
+    return achievements;
   }
 
   /** Right first answers over the last ones, 0 before the first. */

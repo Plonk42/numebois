@@ -51,6 +51,7 @@ test('la rafale : la table de 7 enchaînée sans interruption, une erreur revien
 
   const garland = page.locator('#question .garland .leaf');
   const statements: string[] = [];
+  const found = new Set<string>();
   const missed = 5;
   for (let i = 0; i < 40; i++) {
     const exercise = (await current(page)) as Exercise & { a: number; b: number };
@@ -67,6 +68,7 @@ test('la rafale : la table de 7 enchaînée sans interruption, une erreur revien
       expect(await revealed(page, exercise)).toEqual({ answer: exercise.answer, hint: false });
       await expect(garland).toHaveCount(missed);
     } else {
+      found.add([exercise.a, exercise.b].sort((x, y) => x - y).join('×'));
       await driver(exercise.input).answer(page, exercise.input, exercise.answer);
       await answered(page, exercise);
     }
@@ -104,8 +106,10 @@ test('la rafale : la table de 7 enchaînée sans interruption, une erreur revien
   await expect(page.locator('#trail-end')).toContainText('Belle récolte !');
   // Each handful of the pour waits for a frame of the landscape: slow on a loaded runner.
   await expect(page.locator('#trail-end')).toHaveCount(0, { timeout: 40_000 });
-  // A leaf for each right answer, poured from Plume's basket into the reserve.
-  expect(await game(page)).toMatchObject({ leaves: 39, basket: 0, drilling: false });
+  // A leaf for each fact found today, not for each answer (#125), poured from Plume's basket
+  // into the reserve.
+  expect(found.size).toBeLessThanOrEqual(9);
+  expect(await game(page)).toMatchObject({ leaves: found.size, basket: 0, drilling: false });
   // The trail still waits with its sign.
   await expect(page.getByRole('button', { name: 'Chemin du progrès' })).toBeVisible();
   expect(errors).toEqual([]);

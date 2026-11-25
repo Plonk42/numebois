@@ -18,6 +18,8 @@ export interface FactProgress {
   times: number[];
   /** Automated once: the child keeps it by heart, even after a mistake (#123). */
   known?: true;
+  /** Day the drill last gave a leaf for it: once a day at most (#125). */
+  paid?: number;
 }
 
 export function newFact(fact: FactId): FactProgress {
