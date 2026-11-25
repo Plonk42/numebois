@@ -117,11 +117,11 @@ test('le tableau de bord parent : suivi, réglage des notions, rafale recommand�
       automation: 1.5,
     });
 
-  // The stump offers the recommended drill first, with its ribbon.
+  // On the stump's tree, Plume makes the recommended branch glow (#130).
   await page.locator('#stump').click();
-  const recommended = page.locator('#drill-menu .entry.recommended');
-  await expect(recommended).toContainText('Recommandé');
-  await expect(recommended).toContainText('La table de 7');
+  const recommended = page.locator('#drill-tree [data-group="table-7"]');
+  await expect(recommended).toHaveClass(/glow/);
+  await expect(page.locator('#drill-tree .glow')).toHaveCount(1);
   await recommended.click();
   await expect.poll(async () => (await game(page)).mode).toBe('drill');
   const { exercise } = await game(page);

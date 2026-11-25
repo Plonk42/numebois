@@ -13,7 +13,7 @@ test('la rafale : la table de 7 enchaînée sans interruption, une erreur revien
   await page.clock.setFixedTime(new Date('2026-11-25T10:00:00'));
   await page.goto('./?stage=0');
   await page.evaluate(() => window.__numebois!.ready);
-  // The tables are under way, one fact often missed: « Mes faits fragiles » has it.
+  // The tables are under way, one fact often missed: Plume makes its branch glow.
   await loadSave(page, {
     version: 6,
     savedAt: '2026-11-23T10:00:00.000Z',
@@ -44,11 +44,10 @@ test('la rafale : la table de 7 enchaînée sans interruption, une erreur revien
   const stump = page.getByRole('button', { name: 'Rafale' });
   await expect(stump).toBeVisible();
   await stump.click();
-  const menu = page.locator('#drill-menu');
-  await expect(menu.getByRole('button', { name: 'Mes faits fragiles' })).toBeVisible();
-  await menu.getByRole('button', { name: 'Je choisis' }).click();
-  await menu.getByRole('button', { name: 'Les tables de multiplication' }).click();
-  await menu.getByRole('button', { name: 'La table de 7' }).click();
+  // The stump opens the tree: 6 × 8 is on the tables of 6 and 8, the 6 comes first.
+  const tree = page.locator('#drill-tree');
+  await expect(tree.locator('[data-group="table-6"]')).toHaveClass(/glow/);
+  await tree.getByRole('button', { name: 'La table de 7' }).click();
 
   const garland = page.locator('#question .garland .leaf');
   const statements: string[] = [];

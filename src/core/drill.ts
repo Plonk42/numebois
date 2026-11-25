@@ -4,8 +4,8 @@ import type { Achievement, Session } from './session';
 import type { Exercise, FactId, Skill, SkillId } from './types';
 
 /**
- * What a drill works on: the facts of a notion (« Je choisis », « Recommandé »), maybe one
- * group of them (« la table de 7 »), or the facts least automated (« Mes faits fragiles »).
+ * What a drill works on: the facts of a notion, maybe one group of them (a branch of its tree,
+ * « la table de 7 »), or the facts least automated.
  */
 export type DrillTarget = { kind: 'skill'; skill: SkillId; group?: string } | { kind: 'fragile' };
 
@@ -157,4 +157,44 @@ export function fragileFacts(
       rate(a.progress) - rate(b.progress),
   );
   return met.map(({ skill, fact }) => ({ skill, fact }));
+}
+
+/** A branch of a tree: a group of facts of a notion. */
+export interface Branch {
+  skill: SkillId;
+  group: string;
+}
+
+/**
+ * The branch Plume makes glow (#130): the parent's recommendation, else the branch with the
+ * most facts met and not known by heart yet, else the first one still to grow; never a branch
+ * in full bloom.
+ */
+export function suggestedBranch(
+  trees: readonly Skill[],
+  facts: ReadonlyMap<FactId, FactProgress>,
+  recommended: { skill: SkillId; group?: string } | null,
+): Branch | null {
+  const open = trees.flatMap((skill) =>
+    (skill.facts?.groups ?? [])
+      .filter((group) => group.facts.some((fact) => !isAutomated(facts.get(fact))))
+      .map((group) => ({
+        skill: skill.id,
+        group: group.id,
+        fragile: group.facts.filter((fact) => {
+          const progress = facts.get(fact);
+          return progress !== undefined && progress.tries > 0 && !isAutomated(progress);
+        }).length,
+      })),
+  );
+  const asked = recommended && open.filter((b) => b.skill === recommended.skill);
+  const pool = asked?.length ? asked : open;
+  const exact = pool.find((b) => b.group === recommended?.group);
+  const best =
+    exact ??
+    pool.reduce<(typeof pool)[number] | null>(
+      (top, b) => (top && top.fragile >= b.fragile ? top : b),
+      null,
+    );
+  return best && { skill: best.skill, group: best.group };
 }

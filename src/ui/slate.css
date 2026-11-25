@@ -757,18 +757,15 @@
   stroke-linejoin: round;
 }
 
-/* The drill (#40): where it starts, from the stump, big entries then the notion and its facts. */
-#drill-menu .options,
+/* The challenge's card: the notion, then a basket or a race. */
 #challenge-menu .options {
   align-self: stretch;
   display: grid;
   gap: 12px;
 }
-#drill-menu .entries,
 #challenge-menu .baskets {
   grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
 }
-#drill-menu .entry,
 #challenge-menu .entry {
   min-height: 132px;
   display: flex;
@@ -779,67 +776,206 @@
   font-size: 26px;
   border: 3px solid #cfe3c4;
 }
-/* The parent's recommendation: a gold ribbon above its name. */
-#drill-menu .entry.recommended {
-  border-color: #ffe27a;
-  box-shadow:
-    0 4px 0 #e2c35a,
-    0 0 16px 2px rgba(255, 226, 122, 0.7);
-}
-#drill-menu .entry .ribbon {
-  padding: 2px 14px;
-  border-radius: 999px;
-  font-size: 18px;
-  color: #6b4b00;
-  background: #ffe27a;
-}
-#drill-menu .entry svg,
 #challenge-menu .entry svg {
   width: 56px;
   height: 56px;
 }
-#drill-menu .entry .disc {
-  fill: #e6f2da;
-  stroke: #4e9a35;
-  stroke-width: 3;
-}
-#drill-menu .entry .mark,
-#drill-menu .entry .stem,
-#drill-menu .entry .soil {
-  fill: none;
-  stroke: #4e8a35;
-  stroke-width: 4;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-#drill-menu .entry .soil {
-  stroke: #b98a5a;
-}
-#drill-menu .entry .leaf {
-  fill: #f2d46b;
-  stroke: #b8901f;
-  stroke-width: 2;
-  stroke-linejoin: round;
-}
-#drill-menu .skills,
 #challenge-menu .skills {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   max-height: calc(100vh - 300px);
   overflow-y: auto;
 }
-#drill-menu .skills button,
 #challenge-menu .skills button {
   padding: 8px 12px;
   font-size: 22px;
   line-height: 28px;
 }
-#drill-menu .groups {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+
+/* The drill starts on its tree (#130): a branch per group of facts, one touch on it. */
+#drill-tree {
+  top: 76px;
+  bottom: auto;
+  width: min(1150px, calc(100vw - 130px));
+  height: calc(100vh - 92px);
+  padding: 12px 24px 14px;
+  gap: 6px;
 }
-#drill-menu .groups button {
-  padding: 4px 8px;
-  font-size: 20px;
-  line-height: 24px;
+#drill-tree .character {
+  left: -30px;
+  top: auto;
+  bottom: -12px;
+}
+#drill-tree .praise {
+  margin: 0;
+}
+#drill-tree .tabs {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+#drill-tree .tabs button {
+  min-height: 56px;
+  padding: 0 14px;
+  font-size: 18px;
+  color: #6b4a2b;
+  background: #f3e2c4;
+  box-shadow: 0 4px 0 #c9a46e;
+}
+#drill-tree .tabs button[aria-pressed='true'] {
+  color: #fff;
+  background: #8a5a33;
+  box-shadow: 0 4px 0 #5e3b1f;
+}
+#drill-tree .tree {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+/* Plume's word beside her, at the bottom left of the card, and the way out on the right. */
+#drill-tree .foot {
+  align-self: stretch;
+  padding-left: 110px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+#drill-tree .foot button {
+  min-width: 200px;
+}
+#drill-tree .bubble {
+  position: relative;
+  margin: 0;
+  padding: 12px 20px;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 4px 14px rgba(0, 30, 20, 0.2);
+  font-size: 24px;
+  line-height: 30px;
+  font-weight: 700;
+  color: #2f4a3a;
+  text-align: left;
+}
+#drill-tree .bubble::before {
+  content: '';
+  position: absolute;
+  left: -16px;
+  bottom: 20px;
+  border: 10px solid transparent;
+  border-right: 16px solid #fff;
+  border-left: 0;
+}
+.tree .trunk {
+  fill: #8a5a33;
+  stroke: #6a4224;
+  stroke-width: 3;
+}
+.tree .bark {
+  fill: none;
+  stroke: #6a4224;
+  stroke-width: 3;
+  stroke-linecap: round;
+  opacity: 0.6;
+}
+.tree .crown circle {
+  fill: #7cc46a;
+  stroke: #5fa64f;
+  stroke-width: 3;
+}
+.tree.bloom .crown circle {
+  fill: #f4c7d8;
+  stroke: #d99ab3;
+}
+.tree .branch {
+  cursor: pointer;
+}
+.tree .touch {
+  fill: transparent;
+}
+.tree .wood {
+  fill: none;
+  stroke: #8a5a33;
+  stroke-width: 16;
+  stroke-linecap: round;
+}
+.tree .wood-light {
+  fill: none;
+  stroke: #a87446;
+  stroke-width: 5;
+  stroke-linecap: round;
+  transform: translateY(-3px);
+}
+.tree .bud {
+  fill: #e4f1c6;
+  stroke: #a9c98a;
+  stroke-width: 2.5;
+}
+.tree .blade {
+  stroke-width: 1.4;
+  stroke-linejoin: round;
+}
+.tree .days-1 .blade {
+  fill: #bfe39a;
+  stroke: #8fbf6a;
+}
+.tree .days-2 .blade {
+  fill: #86c95f;
+  stroke: #5d9e3f;
+}
+.tree .days-3 .blade {
+  fill: #3f9a35;
+  stroke: #2c6e26;
+}
+.tree .flower circle {
+  fill: #fff3f8;
+  stroke: #f2a7c3;
+  stroke-width: 1;
+}
+.tree .flower .heart {
+  fill: #ffd85a;
+  stroke: none;
+}
+.tree .plank rect {
+  fill: #e2b77c;
+  stroke: #9c6b3a;
+  stroke-width: 4;
+}
+.tree .plank text {
+  text-anchor: middle;
+  font-weight: 800;
+  fill: #5a3a1c;
+}
+.tree .plank .small {
+  font-size: 15px;
+}
+.tree .plank .big {
+  font-size: 34px;
+}
+.tree .plank .name {
+  font-size: 22px;
+}
+.tree .bloom .plank rect {
+  fill: #f5d7e2;
+  stroke: #c9839f;
+}
+/* The branch Plume suggests: a warm glow and a few sparkles. */
+.tree path.halo {
+  fill: none;
+  stroke: #ffe27a;
+  stroke-width: 54;
+  stroke-linecap: round;
+  opacity: 0.55;
+  filter: blur(4px);
+}
+.tree rect.halo {
+  fill: #ffe27a;
+  opacity: 0.7;
+  filter: blur(5px);
+}
+.tree .sparkles path {
+  fill: #ffd23f;
+  stroke: #f0a92a;
+  stroke-width: 0.8;
 }
 
 /* A garland of leaves on the top of the frame of the slate: a leaf per right answer in a row. */
@@ -871,13 +1007,11 @@
 #drill-break {
   width: 560px;
 }
-#drill-menu .actions,
 #drill-break .actions,
 #challenge-menu .actions,
 #challenge-end .actions {
   justify-content: center;
 }
-#drill-menu .actions button,
 #drill-break .actions button,
 #challenge-menu .actions button,
 #challenge-end .actions button {

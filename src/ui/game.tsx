@@ -2,7 +2,7 @@ import { render, type ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { isoDate, today } from '../core/day';
 import { Challenge, challengeable, FLASH_MS, FLASH_SHARE, squirrelComes } from '../core/challenge';
-import { Drill, fragileFacts, type DrillTarget } from '../core/drill';
+import { Drill, suggestedBranch, type DrillTarget } from '../core/drill';
 import { modeOf, settingOf, type SkillSetting } from '../core/settings';
 import {
   LEAVES_PER_ACORN,
@@ -63,10 +63,9 @@ import {
   RaceBar,
   SquirrelOffer,
 } from './challenge';
-import { Carnet, CarnetButton } from './carnet';
 import {
   DrillBreak,
-  DrillMenu,
+  DrillTree,
   Garland,
   RoundPebbles,
   roundFacts,
@@ -155,8 +154,7 @@ type Phase =
   | 'framing'
   | 'next'
   | 'album'
-  | 'visiting'
-  | 'carnet';
+  | 'visiting';
 
 /** A trail or a drill in progress: the slate and its rewards. */
 const TRAIL_PHASES = new Set<Phase>(['asking', 'right', 'reveal', 'seed']);
@@ -559,25 +557,13 @@ function Game(props: Props) {
     ask();
   };
 
-  /** The notions met so far that can be drilled: the stump waits for the first one. */
   /** The notions the parent did not close (#47). */
   const playable = props.skills.filter((s) => modeOf(session.settings, s) !== 'closed');
-  const drillable = playable.filter(
-    (s) => s.facts && (session.progress.get(s.id)?.stage ?? 'discovery') !== 'discovery',
-  );
-  /** The parent's recommendation, first on the stump's card. */
-  const recommendedEntry = (() => {
-    const target = recommended && playable.find((s) => s.id === recommended.skill);
-    if (!target) return null;
-    const group = target.facts?.groups?.find((g) => g.id === recommended.group);
-    return {
-      name: group?.name ?? target.name,
-      target: { kind: 'skill', skill: target.id, group: group?.id } as DrillTarget,
-    };
-  })();
-  /** The Carnet's trees: the notions met with groups of facts, the most branches first. */
-  const trees = drillable
-    .filter((s) => s.facts!.groups)
+  /** The trees of the drill: the notions met with groups of facts, the most branches first. */
+  const trees = playable
+    .filter(
+      (s) => s.facts?.groups && (session.progress.get(s.id)?.stage ?? 'discovery') !== 'discovery',
+    )
     .sort((a, b) => b.facts!.groups!.length - a.facts!.groups!.length);
 
   const startDrill = (target: DrillTarget) => {
@@ -879,18 +865,6 @@ function Game(props: Props) {
     setPhase('walking');
   };
 
-  const openCarnet = () => {
-    if (!free) return;
-    forest.cover(true);
-    setPhase('carnet');
-  };
-
-  const closeCarnet = () => {
-    if (phase !== 'carnet') return;
-    forest.cover(false);
-    setPhase('walking');
-  };
-
   /** Plays the moments of a reward one after the other, then the next question. */
   const play = (steps: readonly Step[], i = 0) => {
     if (i === steps.length) {
@@ -1105,7 +1079,7 @@ function Game(props: Props) {
         onStart={waiting && !exploring ? start : undefined}
         aside={aside}
       />
-      {drillable.length > 0 && (
+      {trees.length > 0 && (
         <TuftButton
           id="stump"
           sprite={art?.stump}
@@ -1128,8 +1102,6 @@ function Game(props: Props) {
       {phase === 'choosing' && <Spots forest={forest} slots={spots} onPick={plant} />}
       {roaming && !done && <Walk away={viewAway} onRecenter={() => forest.recenter()} />}
       {free && album.length > 0 && <AlbumButton onOpen={openAlbum} />}
-      {free && trees.length > 0 && <CarnetButton below={album.length > 0} onOpen={openCarnet} />}
-      {phase === 'carnet' && <Carnet skills={trees} facts={session.facts} onClose={closeCarnet} />}
       {phase === 'album' && <AlbumGrid entries={album} onVisit={visit} onClose={closeAlbum} />}
       {phase === 'visiting' && page && (
         <AlbumPage entry={page} skills={props.skills} onBack={backToAlbum} />
@@ -1252,10 +1224,10 @@ function Game(props: Props) {
             />
           )}
           {phase === 'drill-menu' && (
-            <DrillMenu
-              skills={drillable}
-              recommended={recommendedEntry}
-              fragile={fragileFacts(props.skills, session.facts).length > 0}
+            <DrillTree
+              trees={trees}
+              facts={session.facts}
+              suggested={suggestedBranch(trees, session.facts, recommended)}
               onPick={startDrill}
               onClose={() => setPhase('walking')}
             />

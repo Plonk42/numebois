@@ -1,6 +1,13 @@
 import { CLEARING } from './helpers';
 import { describe, expect, it } from 'vitest';
-import { COMEBACK, Drill, DRILL_RATE, HARD_RUN, fragileFacts } from '../../src/core/drill';
+import {
+  COMEBACK,
+  Drill,
+  DRILL_RATE,
+  HARD_RUN,
+  fragileFacts,
+  suggestedBranch,
+} from '../../src/core/drill';
 import { isSure, newFact, type FactProgress } from '../../src/core/facts';
 import { curriculum } from '../../src/core/registry';
 import { Rng } from '../../src/core/rng';
@@ -130,6 +137,25 @@ describe('drill', () => {
     }
     expect(asked).toEqual(new Set([a, b, c]));
     expect(asked).not.toContain(d);
+  });
+
+  it('makes the parent’s branch glow, else the one with the most facts under way, never a full one', () => {
+    const facts = new Map<string, FactProgress>();
+    const table = (id: string) => products.facts!.groups!.find((group) => group.id === id)!.facts;
+    for (const fact of table('table-2')) facts.set(fact, automated(fact));
+    const underway = (fact: string) => facts.set(fact, { ...newFact(fact), tries: 2, right: 1 });
+    underway('times-tables.products:7x8');
+    underway('times-tables.products:6x7');
+    const branch = (group: string) => ({ skill: products.id, group });
+    // 6 × 7 and 7 × 8 both on the table of 7; one each on the tables of 6 and 8.
+    expect(suggestedBranch([products], facts, null)).toEqual(branch('table-7'));
+    expect(suggestedBranch([products], facts, branch('table-9'))).toEqual(branch('table-9'));
+    // The parent's branch already in bloom: the best one of the same notion.
+    expect(suggestedBranch([products], facts, branch('table-2'))).toEqual(branch('table-7'));
+    // Nothing met yet: the first branch still to grow.
+    expect(suggestedBranch([products], new Map(), null)).toEqual(branch('table-2'));
+    const all = new Map(products.facts!.all.map((fact) => [fact, automated(fact)]));
+    expect(suggestedBranch([products], all, null)).toBeNull();
   });
 
   it('feeds the mastery and the review of the notion', () => {

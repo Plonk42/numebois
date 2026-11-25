@@ -1,11 +1,12 @@
 import { useState } from 'preact/hooks';
-import type { DrillTarget } from '../core/drill';
+import type { Branch, DrillTarget } from '../core/drill';
 import { AUTOMATED_DAYS, isAutomated, type FactProgress } from '../core/facts';
 import { Rng } from '../core/rng';
 import type { FactId, Skill } from '../core/types';
 import type { TrailArt } from '../scene/render/trail-art';
 import { Basket } from './basket';
 import { Plume } from './character';
+import { FactTree } from './fact-tree';
 import { LeafIcon } from './reserve';
 
 /** The name of the drill, written on its stump. */
@@ -52,125 +53,59 @@ export function TuftButton({ id, sprite, name, onOpen }: TuftProps) {
   );
 }
 
-interface MenuProps {
-  /** The notions the child has met that can be drilled, in the order of the curriculum. */
-  skills: readonly Skill[];
-  /** « Mes faits fragiles » has something to offer. */
-  fragile: boolean;
-  /** The drill the parent recommends, first (#47). */
-  recommended: { name: string; target: DrillTarget } | null;
+interface TreeProps {
+  /** The notions met with groups of facts: a tree each. */
+  trees: readonly Skill[];
+  facts: ReadonlyMap<FactId, FactProgress>;
+  /** The branch Plume makes glow. */
+  suggested: Branch | null;
   onPick(target: DrillTarget): void;
   onClose(): void;
 }
 
 /**
- * Where the drill starts: big entries (the parent's recommendation first), then the notion,
- * then its group of facts when it has some (« La table de 7 »).
+ * Where the drill starts (#130): the tree of what is known by heart, a touch on a branch and
+ * its drill begins. Plume makes a branch glow; a tab per tree when there are several.
  */
-export function DrillMenu({ skills, fragile, recommended, onPick, onClose }: MenuProps) {
-  const [choosing, setChoosing] = useState(false);
-  const [skill, setSkill] = useState<Skill | null>(null);
-  const pick = (chosen: Skill) => {
-    if (chosen.facts?.groups) setSkill(chosen);
-    else onPick({ kind: 'skill', skill: chosen.id });
-  };
-  let title = 'Une rafale !';
-  let body;
-  if (skill) {
-    title = 'Lesquels ?';
-    body = (
-      <div class="options groups">
-        <button type="button" onPointerDown={() => onPick({ kind: 'skill', skill: skill.id })}>
-          Tout
-        </button>
-        {skill.facts!.groups!.map((group) => (
-          <button
-            key={group.id}
-            type="button"
-            onPointerDown={() => onPick({ kind: 'skill', skill: skill.id, group: group.id })}
-          >
-            {group.name}
-          </button>
-        ))}
-      </div>
-    );
-  } else if (choosing) {
-    title = 'Que veux-tu travailler ?';
-    body = (
-      <div class="options skills">
-        {skills.map((s) => (
-          <button key={s.id} type="button" onPointerDown={() => pick(s)}>
-            {s.name}
-          </button>
-        ))}
-      </div>
-    );
-  } else {
-    body = (
-      <div class="options entries">
-        {recommended && (
-          <button
-            type="button"
-            class="entry recommended"
-            onPointerDown={() => onPick(recommended.target)}
-          >
-            <span class="ribbon">Recommandé</span>
-            {recommended.name}
-          </button>
-        )}
-        <button type="button" class="entry" onPointerDown={() => setChoosing(true)}>
-          <ChooseIcon />
-          Je choisis
-        </button>
-        {fragile && (
-          <button type="button" class="entry" onPointerDown={() => onPick({ kind: 'fragile' })}>
-            <FragileIcon />
-            Mes faits fragiles
-          </button>
-        )}
-      </div>
-    );
-  }
-  const back = () => {
-    if (skill) setSkill(null);
-    else setChoosing(false);
-  };
+export function DrillTree({ trees, facts, suggested, onPick, onClose }: TreeProps) {
+  const [shown, setShown] = useState(
+    trees.find((skill) => skill.id === suggested?.skill) ?? trees[0],
+  );
+  const glow = suggested?.skill === shown.id ? suggested.group : null;
   return (
-    <section id="drill-menu" class="card">
-      <Plume mood="calm" />
-      <p class="praise">{title}</p>
-      {body}
-      <div class="actions">
-        {(choosing || skill) && (
-          <button type="button" onPointerDown={back}>
-            Retour
-          </button>
-        )}
+    <section id="drill-tree" class="card" aria-label={DRILL_NAME}>
+      <Plume mood="talk" />
+      {trees.length > 1 ? (
+        <div class="tabs">
+          {trees.map((skill) => (
+            <button
+              key={skill.id}
+              type="button"
+              aria-pressed={skill === shown}
+              onPointerDown={() => setShown(skill)}
+            >
+              {skill.name}
+            </button>
+          ))}
+        </div>
+      ) : (
+        <p class="praise">{shown.name}</p>
+      )}
+      <FactTree
+        skill={shown}
+        facts={facts}
+        glow={glow}
+        onPick={(group) => onPick({ kind: 'skill', skill: shown.id, group: group.id })}
+      />
+      <div class="foot">
+        <p class="bubble">
+          {glow ? 'Choisis une branche. Celle qui brille t’attend\u00a0!' : 'Choisis une branche.'}
+        </p>
         <button type="button" onPointerDown={onClose}>
           Fermer
         </button>
       </div>
     </section>
-  );
-}
-
-function ChooseIcon() {
-  return (
-    <svg viewBox="0 0 48 48" aria-hidden="true">
-      <circle class="disc" cx="24" cy="24" r="20" />
-      <path class="mark" d="M15 25l6 6 12-14" />
-    </svg>
-  );
-}
-
-function FragileIcon() {
-  return (
-    <svg viewBox="0 0 48 48" aria-hidden="true">
-      <path class="soil" d="M8 40h32" />
-      <path class="stem" d="M24 40V22" />
-      <path class="leaf" d="M24 28c-8 1-13-4-14-12 8-1 13 4 14 12z" />
-      <path class="leaf" d="M24 22c1-8 6-13 14-13 0 8-5 13-14 13z" />
-    </svg>
   );
 }
 
