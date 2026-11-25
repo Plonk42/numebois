@@ -7,6 +7,8 @@ interface Props {
   /** Drawn with the models of the forest; nothing shows while they load. */
   art: TrailArt | null;
   stones: number;
+  /** Painted on its sign: the trail's name, or the drill's for a round. */
+  name?: string;
   /** The stone in progress; all stones are crossed when it equals `stones`. */
   current: number;
   /** Between two trails, the trail waits big, its sign calling: a touch starts it. */
@@ -21,14 +23,14 @@ interface Props {
  * a tree: the end is always in sight. Small during a trail; between two trails, bigger: the
  * way on.
  */
-export function TrailPath({ art, stones, current, onStart, aside }: Props) {
-  const label = onStart ? TRAIL_NAME : `Pierre ${Math.min(current + 1, stones)} sur ${stones}`;
+export function TrailPath({ art, stones, name = TRAIL_NAME, current, onStart, aside }: Props) {
+  const label = onStart ? name : `Pierre ${Math.min(current + 1, stones)} sur ${stones}`;
   let place = 'small';
   if (onStart) place = 'start';
   else if (aside) place = 'aside';
   if (!art) return <div id="trail" class={place} role="img" aria-label={label} />;
   const { path, sign } = art;
-  const [first, ...rest] = TRAIL_NAME.split(' ');
+  const [first, ...rest] = name.split(' ');
   return (
     <div
       id="trail"

@@ -45,6 +45,8 @@ export const TRAIL_ZOOM = 1.35;
 // Spacing of the stones, in world units (CSS pixels during a trail).
 const FIRST = 30;
 const GAP = 46;
+/** The stones never stretch further: a round of the drill (20 stones) stays on the screen. */
+const REACH = 650;
 const TO_TREE = 42;
 /** Grass left of the start of the path, for the sign, and where its post stands there (x, z). */
 const SIGN_ROOM = 127;
@@ -215,7 +217,8 @@ function patch(kit: Kit, radius: number, lift: number, material: THREE.Material)
 }
 
 function pathSprite(stage: Stage, kit: Kit, stones: number) {
-  const tree = FIRST + (stones - 1) * GAP + TO_TREE;
+  const gap = Math.min(GAP, REACH / Math.max(1, stones - 1));
+  const tree = FIRST + (stones - 1) * gap + TO_TREE;
   const width = SIGN_ROOM + tree + 28;
   const scene = new THREE.Scene();
   lights(scene);
@@ -289,7 +292,7 @@ function pathSprite(stage: Stage, kit: Kit, stones: number) {
   return {
     path: sprite,
     stones: Array.from({ length: stones }, (_, i) =>
-      onLand(SIGN_ROOM + FIRST + i * GAP, wind(FIRST + i * GAP)),
+      onLand(SIGN_ROOM + FIRST + i * gap, wind(FIRST + i * gap)),
     ),
     stand: onLand(...POST_AT),
   };

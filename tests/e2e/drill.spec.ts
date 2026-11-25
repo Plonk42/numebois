@@ -73,20 +73,27 @@ test('la rafale : la table de 7 enchaînée sans interruption, une erreur revien
     await expect(page.locator('#question .hint')).toHaveCount(0);
     if (i === 3) {
       await expect(garland).toHaveCount(4);
-      // The end of the round in sight: 20 pebbles, 4 crossed.
-      await expect(page.locator('#drill-round .pebble')).toHaveCount(20);
-      await expect(page.locator('#drill-round .pebble.crossed')).toHaveCount(4);
+      // The end of the round in sight, drawn like the trail: 20 stones, 4 crossed (#131).
+      const round = page.locator('#trail');
+      await expect(round).toHaveAttribute('aria-label', 'Pierre 5 sur 20');
+      await expect(round.locator('.stone')).toHaveCount(20);
+      await expect(round.locator('.stone.crossed')).toHaveCount(4);
+      await expect(round.locator('.sign')).toContainText('Rafale');
     }
-    // A round of 20: the facts met and their leaves, then another round or the end.
+    // A round of 20: the branch of the table of 7 without a word, today's leaves growing on it.
     if (i === 19 || i === 39) {
       const pause = page.locator('#drill-break');
-      await expect(pause).toContainText(`${i + 1} questions !`);
-      await expect(page.locator('#drill-round')).toHaveCount(0);
-      const facts = await pause.locator('.fact .label').allTextContents();
-      expect(facts.length).toBeGreaterThan(0);
-      for (const fact of facts) expect(fact).toMatch(/\b7\b/);
-      // Each fact ends the round right at once: a leaf today on the way to « by heart ».
-      await expect(pause.locator('.day.on')).toHaveCount(facts.length);
+      await expect(pause.locator('[data-group="table-7"] .leaf')).toHaveCount(9);
+      await expect(pause.locator('p')).toHaveCount(0);
+      await expect(page.locator('#trail')).toHaveClass(/aside/);
+      // The facts found at once today, under the fixed clock: most of the table.
+      expect(await pause.locator('.leaf.grew').count()).toBeGreaterThan(4);
+      if (i === 19) {
+        await test.info().attach('fin du tour', {
+          body: await page.screenshot(),
+          contentType: 'image/png',
+        });
+      }
       if (i === 19) await pause.getByRole('button', { name: 'Encore !' }).click();
       else await pause.getByRole('button', { name: 'J’ai fini' }).click();
     }

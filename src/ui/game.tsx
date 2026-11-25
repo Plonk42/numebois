@@ -25,7 +25,7 @@ import {
 } from '../core/records';
 import { Session, type Achievement, type SessionSnapshot } from '../core/session';
 import { stepLevel, type StepRole, type TrailLength } from '../core/trail';
-import type { Exercise, FactId, Skill, SkillId } from '../core/types';
+import type { Exercise, Skill, SkillId } from '../core/types';
 import { QUESTS } from '../quests';
 import {
   exportFile,
@@ -63,15 +63,7 @@ import {
   RaceBar,
   SquirrelOffer,
 } from './challenge';
-import {
-  DrillBreak,
-  DrillTree,
-  Garland,
-  RoundPebbles,
-  roundFacts,
-  TuftButton,
-  DRILL_NAME,
-} from './drill';
+import { DrillBreak, DrillTree, Garland, TuftButton, DRILL_NAME } from './drill';
 import { FinaleBanner, Frame, NextPainting, type NextChoice } from './finale';
 import { ParentMenu } from './parent-menu';
 import { Plume, type Mood } from './character';
@@ -338,8 +330,8 @@ function Game(props: Props) {
   const [pause, setPause] = useState(false);
   const drillStart = useRef(0);
   const pauseOffered = useRef(false);
-  /** The facts met in the round, shown with their progress at its end. */
-  const met = useRef(new Map<FactId, Skill>());
+  /** The stones of a round of the drill, drawn like the trail's (#131). */
+  const [drillArt, setDrillArt] = useState<TrailArt | null>(null);
   /** The challenge in progress, then how it ended. */
   const challenge = useRef<Challenge | null>(null);
   /** Its end is counted once: the sun's tick may fire again before the next render. */
@@ -573,7 +565,7 @@ function Game(props: Props) {
     tally.current = { questions: 0, right: 0, ms: 0 };
     drillStart.current = playClock();
     pauseOffered.current = false;
-    met.current.clear();
+    setDrillArt(forest.trailArt(DRILL_ROUND));
     setMode('drill');
     setGarland(0);
     setLeavesHere(0);
@@ -629,10 +621,7 @@ function Game(props: Props) {
   /** Another round after the end of one; after the pause offered, the round goes on. */
   const moreDrill = () => {
     if (phase !== 'break') return;
-    if (!pause) {
-      met.current.clear();
-      setGarland(0);
-    }
+    if (!pause) setGarland(0);
     show(drill.current!.ask());
   };
 
@@ -914,8 +903,6 @@ function Game(props: Props) {
     const right = skill.validate(exercise, value);
     count(right);
     const achievements = drill.current!.conclude(skill, exercise, right, ms);
-    const fact = skill.facts?.of(exercise);
-    if (fact) met.current.set(fact, skill);
     if (right) {
       setGarland((g) => g + 1);
       reward(achievements, DRILL_RIGHT_MS);
@@ -1014,6 +1001,16 @@ function Game(props: Props) {
   const exploring = waiting && viewAway;
   // During a drill or a challenge, the trail has nothing to show: out of sight.
   const aside = (!waiting && !onTrail && !done) || exploring || mode !== 'trail';
+  let trailStone = finished ? session.stones : session.stone;
+  if (waiting) trailStone = 0;
+  else if (drilling && drill.current) trailStone = roundCrossed(drill.current);
+  /** The branch of the drill, between two rounds, with today's leaves. */
+  const roundBranch = ({ target }: Drill) => {
+    if (target.kind !== 'skill') return null;
+    const groups = trees.find((s) => s.id === target.skill)?.facts?.groups;
+    const group = groups?.find((g) => g.id === target.group);
+    return group ? { group, facts: session.facts, today: today() } : null;
+  };
   let over: ComponentChildren = null;
   if (drilling) over = <Garland leaves={garland} />;
   else if (flash && mode === 'trail') over = <FlashBadge />;
@@ -1073,11 +1070,12 @@ function Game(props: Props) {
         />
       )}
       <TrailPath
-        art={art}
-        stones={session.stones}
-        current={waiting ? 0 : finished ? session.stones : session.stone}
+        art={drilling ? drillArt : art}
+        stones={drilling ? DRILL_ROUND : session.stones}
+        current={trailStone}
+        name={drilling ? DRILL_NAME : undefined}
         onStart={waiting && !exploring ? start : undefined}
-        aside={aside}
+        aside={drilling ? !onTrail : aside}
       />
       {trees.length > 0 && (
         <TuftButton
@@ -1095,7 +1093,6 @@ function Game(props: Props) {
           onOpen={free && !exploring ? () => setPhase('challenge-menu') : undefined}
         />
       )}
-      {drilling && onTrail && drill.current && <DrillPebbles drill={drill.current} />}
       {/* During a question, the forest dims: one thing at a time. */}
       <div id="dim" class={onTrail && !away ? 'on' : ''} />
       {gift && phase === 'seed' && <SeedGift {...gift} />}
@@ -1234,9 +1231,8 @@ function Game(props: Props) {
           )}
           {phase === 'break' && drill.current && (
             <DrillBreak
-              asked={drill.current.asked}
               basket={basket}
-              facts={roundFacts(met.current, session.facts)}
+              branch={roundBranch(drill.current)}
               pause={pause}
               onMore={moreDrill}
               onStop={stopDrill}
@@ -1264,11 +1260,10 @@ function Game(props: Props) {
   );
 }
 
-/** The pebbles of the round in progress: the question asked, crossed once answered. */
-function DrillPebbles({ drill }: { drill: Drill }) {
+/** The stones of the round in progress crossed so far: the question asked, once answered. */
+function roundCrossed(drill: Drill): number {
   const index = (drill.asked - 1) % DRILL_ROUND;
-  const answered = drill.results.length === drill.asked;
-  return <RoundPebbles of={DRILL_ROUND} crossed={index + (answered ? 1 : 0)} />;
+  return index + (drill.results.length === drill.asked ? 1 : 0);
 }
 
 /** A golden seed, big in the middle of the forest, before it flies to the reserve. */

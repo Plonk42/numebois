@@ -1,12 +1,11 @@
 import { useState } from 'preact/hooks';
 import type { Branch, DrillTarget } from '../core/drill';
-import { AUTOMATED_DAYS, isAutomated, type FactProgress } from '../core/facts';
-import { Rng } from '../core/rng';
-import type { FactId, Skill } from '../core/types';
+import type { FactProgress } from '../core/facts';
+import type { FactGroup, FactId, Skill } from '../core/types';
 import type { TrailArt } from '../scene/render/trail-art';
 import { Basket } from './basket';
 import { Plume } from './character';
-import { FactTree } from './fact-tree';
+import { FactBranch, FactTree } from './fact-tree';
 import { LeafIcon } from './reserve';
 
 /** The name of the drill, written on its stump. */
@@ -126,62 +125,11 @@ export function Garland({ leaves }: { leaves: number }) {
   );
 }
 
-interface RoundProps {
-  /** Questions of the round, answered or not. */
-  of: number;
-  /** Answered so far in the round. */
-  crossed: number;
-}
-
-/** The end of the round always in sight, at the bottom: a pebble per question. */
-export function RoundPebbles({ of, crossed }: RoundProps) {
-  return (
-    <div id="drill-round" role="img" aria-label={`Question ${Math.min(crossed + 1, of)} sur ${of}`}>
-      {Array.from({ length: of }, (_, i) => {
-        let state = 'ahead';
-        if (i < crossed) state = 'crossed';
-        else if (i === crossed) state = 'here';
-        return <span key={i} class={`pebble ${state}`} />;
-      })}
-    </div>
-  );
-}
-
-/** A fact met in the round, and how far it is from being known by heart. */
-export interface RoundFact {
-  fact: FactId;
-  /** How it is written: « 7 × 8 », « Le double de 6 ». */
-  label: string;
-  /** Days it came at once, up to `AUTOMATED_DAYS`. */
-  days: number;
-  automated: boolean;
-}
-
-/** The facts met in a round, in the order of their notions. */
-export function roundFacts(
-  met: ReadonlyMap<FactId, Skill>,
-  progress: ReadonlyMap<FactId, FactProgress>,
-): RoundFact[] {
-  return [...met]
-    .sort(
-      ([a, sa], [b, sb]) =>
-        sa.id.localeCompare(sb.id) || sa.facts!.all.indexOf(a) - sb.facts!.all.indexOf(b),
-    )
-    .map(([fact, skill]) => ({
-      fact,
-      label: skill.facts!.exercise(fact, new Rng(0)).statement,
-      days: Math.min(progress.get(fact)?.fastDays.length ?? 0, AUTOMATED_DAYS),
-      automated: isAutomated(progress.get(fact)),
-    }));
-}
-
 interface BreakProps {
-  /** Questions of the drill so far. */
-  asked: number;
   /** Leaves of the drill in Plume's basket. */
   basket: number;
-  /** The facts of the round and their way to « by heart ». */
-  facts: readonly RoundFact[];
+  /** The branch of the round, its leaves of today growing; none for a drill without one. */
+  branch: { group: FactGroup; facts: ReadonlyMap<FactId, FactProgress>; today: number } | null;
   /** Plume offers a pause rather than another round. */
   pause: boolean;
   onMore(): void;
@@ -189,37 +137,16 @@ interface BreakProps {
 }
 
 /**
- * Between two rounds of the drill: the facts met and their leaves (one per day it came at
- * once, three: known by heart), then another round or the end; after a while, Plume offers a
- * pause.
+ * Between two rounds of the drill (#131): the branch just played, where today's leaves grow one
+ * by one, then another round or the end, without a word; after a while, Plume offers a pause.
  */
-export function DrillBreak({ asked, basket, facts, pause, onMore, onStop }: BreakProps) {
+export function DrillBreak({ basket, branch, pause, onMore, onStop }: BreakProps) {
   return (
     <section id="drill-break" class="card">
       <Plume mood="cheer" />
       <Basket leaves={basket} pouring={false} />
-      <p class="praise">{pause ? 'Tu as bien travaillé !' : `${asked} questions !`}</p>
-      {facts.length > 0 && (
-        <>
-          <ul class="facts">
-            {facts.map(({ fact, label, days, automated }) => (
-              <li key={fact} class={automated ? 'fact known' : 'fact'}>
-                <span class="label">{label}</span>
-                <span class="days" aria-label={`${days} sur ${AUTOMATED_DAYS}`}>
-                  {Array.from({ length: AUTOMATED_DAYS }, (_, i) => (
-                    <span key={i} class={i < days ? 'day on' : 'day'}>
-                      <LeafIcon />
-                    </span>
-                  ))}
-                </span>
-              </li>
-            ))}
-          </ul>
-          <p class="legend">Une feuille par jour où tu le trouves tout de suite.</p>
-          <p class="legend">Trois feuilles : tu le sais par cœur !</p>
-        </>
-      )}
-      <p class="instruction">{pause ? 'Et si tu faisais une pause ?' : 'Tu en veux encore ?'}</p>
+      {pause && <p class="instruction">Et si tu faisais une pause ?</p>}
+      {branch && <FactBranch {...branch} />}
       <div class="actions">
         <button type="button" class="next" onPointerDown={onMore}>
           {pause ? 'Je continue' : 'Encore !'}
