@@ -20,7 +20,7 @@ export const ORCHARD: Biome = {
     "colline de l'est",
     'grande floraison',
     'champs fleuris',
-    'moulin',
+    'grands champs',
     "colline de l'ouest",
     'fruits',
     'fête des fleurs',

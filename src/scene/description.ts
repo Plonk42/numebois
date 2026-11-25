@@ -76,9 +76,10 @@ export type SeasonChoice = Season | 'night';
 
 /**
  * Rare elements, bought in golden seeds for the whole painting (#46): fireflies, a rainbow
- * over the widest fall, and in the clearing the beavers, who fill their lake.
+ * over the widest fall, and the great element of each décor: the beavers, who fill their lake
+ * in the clearing, the windmill of the orchard, the balloon of the sky islands.
  */
-export const RARE_NAMES = ['fireflies', 'rainbow', 'beavers'] as const;
+export const RARE_NAMES = ['fireflies', 'rainbow', 'beavers', 'windmill', 'balloon'] as const;
 export type RareName = (typeof RARE_NAMES)[number];
 
 /**
@@ -94,10 +95,12 @@ export const RARE_OFFERS: Record<BiomeId, readonly { rare: RareName; stage: Stag
   orchard: [
     { rare: 'fireflies', stage: 4 },
     { rare: 'rainbow', stage: 6 },
+    { rare: 'windmill', stage: 8 },
   ],
   sky: [
     { rare: 'fireflies', stage: 4 },
     { rare: 'rainbow', stage: 8 },
+    { rare: 'balloon', stage: 8 },
   ],
 };
 

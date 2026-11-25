@@ -29,7 +29,7 @@ export const SKY: Biome = {
     'grande cascade',
     'chapelet d’îles',
     'île perchée',
-    'montgolfière',
+    'grand archipel',
   ],
   // Wind and birds of the heights from the start, the falls from the spring (2); fewer insects
   // and no woodpecker so high up.

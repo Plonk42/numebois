@@ -135,21 +135,25 @@ describe('orchard: stages and grand moments', () => {
     }
   });
 
-  it('announces the windmill and the great blossom the stage before, then shows them', () => {
+  it('announces the great blossom the stage before, and the windmill while it is sold', () => {
     for (const seed of [0, 7, 19]) {
       const at = (stage: Stage) => createOrchard(seed, stage);
       const labels = (stage: Stage) => at(stage).announcements.map((a) => a.label);
       expect(labels(5)).toEqual(['blossom']);
-      expect(labels(7)).toEqual(['windmill']);
-      expect(at(7).spinners).toEqual([]);
-      // A little house on the summit first, which the windmill replaces.
-      expect(at(3).staticModels.map((m) => m.model)).not.toContain('Cottage');
-      expect(at(4).staticModels.map((m) => m.model)).toContain('Cottage');
-      expect(at(7).staticModels.map((m) => m.model)).toContain('Cottage');
-      expect(at(8).staticModels.map((m) => m.model)).not.toContain('Cottage');
-      for (const stage of [8, 9, LAST_STAGE] as Stage[]) {
-        expect(at(stage).spinners.map((s) => s.model)).toEqual(['Windmill_Sails']);
-        expect(at(stage).staticModels.map((m) => m.model)).toContain('Windmill');
+      expect(labels(7)).toEqual([]);
+      const models = (terrain: ReturnType<typeof at>) => terrain.staticModels.map((m) => m.model);
+      // A little house on the summit, which the windmill replaces once bought (#46).
+      expect(models(at(3))).not.toContain('Cottage');
+      expect(models(at(4))).toContain('Cottage');
+      for (const stage of [8, LAST_STAGE] as Stage[]) {
+        expect(labels(stage)).toEqual(['windmill']);
+        expect(at(stage).spinners).toEqual([]);
+        expect(models(at(stage))).toContain('Cottage');
+        const bought = createOrchard(seed, stage, ['windmill']);
+        expect(bought.announcements).toEqual([]);
+        expect(bought.spinners.map((s) => s.model)).toEqual(['Windmill_Sails']);
+        expect(models(bought)).toContain('Windmill');
+        expect(models(bought)).not.toContain('Cottage');
       }
       const pink = (stage: Stage) =>
         compose(scene(seed, stage, 'spring', { fill: 1 })).planting.trees.filter((t) =>
@@ -166,7 +170,7 @@ describe('orchard: stages and grand moments', () => {
 
   it('brings effects no earlier décor had', () => {
     for (const effect of ORCHARD.effects) expect(BIOMES.clearing.effects).not.toContain(effect);
-    expect(createOrchard(3, LAST_STAGE).spinners.length).toBeGreaterThan(0);
+    expect(createOrchard(3, LAST_STAGE, ['windmill']).spinners.length).toBeGreaterThan(0);
   });
 });
 

@@ -151,16 +151,20 @@ describe('sky islands: stages and grand moments', () => {
     }
   });
 
-  it('announces the suspension bridge, the cascade and the balloon the stage before', () => {
+  it('announces the suspension bridge and the cascade the stage before, the balloon while sold', () => {
     for (const seed of [0, 7, 19]) {
       const at = (stage: Stage) => createSkyIslands(seed, stage);
       const labels = (stage: Stage) => at(stage).announcements.map((a) => a.label);
       expect(labels(5)).toEqual(['bridge']);
       expect(labels(7)).toEqual(['cascade']);
-      expect(labels(10)).toEqual(['balloon']);
-      for (const stage of [0, 6, 8, 11] as Stage[]) expect(labels(stage)).toEqual([]);
-      expect(at(10).drifters).toEqual([]);
-      expect(at(LAST_STAGE).drifters.map((d) => d.model)).toEqual(['balloon']);
+      for (const stage of [0, 6] as Stage[]) expect(labels(stage)).toEqual([]);
+      for (const stage of [8, LAST_STAGE] as Stage[]) {
+        expect(labels(stage)).toEqual(['balloon']);
+        expect(at(stage).drifters).toEqual([]);
+        const bought = createSkyIslands(seed, stage, ['balloon']);
+        expect(bought.announcements).toEqual([]);
+        expect(bought.drifters.map((d) => d.model)).toEqual(['balloon']);
+      }
     }
   });
 
@@ -169,7 +173,7 @@ describe('sky islands: stages and grand moments', () => {
       expect(BIOMES.clearing.effects).not.toContain(effect);
       expect(BIOMES.orchard.effects).not.toContain(effect);
     }
-    const final = createSkyIslands(3, LAST_STAGE);
+    const final = createSkyIslands(3, LAST_STAGE, ['balloon']);
     // The sea of clouds, with the main stream falling into it.
     expect(final.cloudSea).toBe(CLOUD_SEA);
     expect(final.waterfalls.filter((f) => !f.splash)).toHaveLength(1);

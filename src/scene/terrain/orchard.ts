@@ -1,6 +1,13 @@
 import { Rng, valueNoise2 } from '../../core/rng';
 import { swatchUV, type SwatchName } from '../atlas';
-import { LAST_STAGE, STAGES, type PerStage, type Stage } from '../description';
+import {
+  LAST_STAGE,
+  STAGES,
+  rareStage,
+  type PerStage,
+  type RareName,
+  type Stage,
+} from '../description';
 import type { MeshWriter } from '../mesh-data';
 import {
   WATER_FALL,
@@ -44,11 +51,13 @@ const WALL = 0.35;
 const MAX_EDGE_TREES = 20;
 const WINDMILL_SCALE = 6.5;
 const COTTAGE_SCALE = 3;
+/** Stage from which the shop sells the windmill, which takes the place of the little house. */
+const WINDMILL_STAGE = rareStage('orchard', 'windmill')!;
 
 // One value per stage. The diorama grows like the clearing; the hills rise terrace by
 // terrace out of the meadow (main hill first, the east one at 5, the west one at 9), the
-// strips are planted from the middle outwards, the whole orchard blossoms at 6, the
-// windmill takes the place of the little house on the summit at 8, fruits come at 10.
+// strips are planted from the middle outwards, the whole orchard blossoms at 6, fruits come
+// at 10. The little house stands on the summit from 4 until the child buys the windmill.
 const ORCHARD_BY_STAGE = {
   hx: [13.5, 15.5, 17.5, 19, 21, 22.5, 24, 25.5, 27, 28.5, 29.3, 30],
   hz: [10.5, 12, 14.5, 18.5, 20, 21.25, 22.25, 23.5, 24.5, 25.5, 26.3, 27],
@@ -63,9 +72,8 @@ const ORCHARD_BY_STAGE = {
   /** The brook springs by the summit and falls from terrace to terrace down to the pond. */
   brook: [0, 0, 0, 0.42, 0.46, 0.5, 0.54, 0.58, 0.62, 0.66, 0.7, 0.74],
   cover: [0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.08, 1.15, 1.22, 1.3, 1.35, 1.4],
-  /** A little house on the summit first; the windmill takes its place. */
-  cottage: [false, false, false, false, true, true, true, true, false, false, false, false],
-  windmill: [false, false, false, false, false, false, false, false, true, true, true, true],
+  /** A little house on the summit, until the windmill takes its place. */
+  cottage: [false, false, false, false, true, true, true, true, true, true, true, true],
   blossom: [false, false, false, false, false, false, true, true, true, true, true, true],
   fruit: [false, false, false, false, false, false, false, false, false, false, true, true],
 } satisfies Record<string, PerStage<number> | PerStage<boolean>>;
@@ -355,7 +363,7 @@ function waterOf(seed: number): [number, number][] {
   let water = waterCache.get(seed);
   if (!water) {
     water = STAGES.filter((stage) => ORCHARD_BY_STAGE.brook[stage] > 0).flatMap((stage) =>
-      new Orchard(seed, stage, false).waterPoints(),
+      new Orchard(seed, stage, false, false).waterPoints(),
     );
     waterCache.set(seed, water);
   }
@@ -498,6 +506,8 @@ class Orchard implements Terrain {
   constructor(
     private readonly seed: number,
     private readonly stage: Stage,
+    /** The child bought the windmill (#46). */
+    windmill: boolean,
     /** Without its scenery, a terrain only answers questions about its ground and water. */
     scenery = true,
   ) {
@@ -518,7 +528,9 @@ class Orchard implements Terrain {
     const { x, z } = this.layout.pond;
     const radius = r.pond[stage];
     this.pond = { x, z, radius, level: this.meadow(x, z) - 0.3 };
-    this.windmill = revealAt(r.windmill, stage);
+    // Once sold, sparkles turn around the little house until the child brings the windmill.
+    if (windmill) this.windmill = 'shown';
+    else this.windmill = stage >= WINDMILL_STAGE ? 'announced' : 'waiting';
     this.blossom = revealAt(r.blossom, stage);
     this.brook();
     if (scenery) this.compose();
@@ -827,7 +839,7 @@ class Orchard implements Terrain {
       fruit: fruit ? 'PetalRed' : undefined,
     });
 
-    // The windmill on the summit, announced by sparkles the stage before.
+    // The windmill on the summit, announced by sparkles while it is sold.
     const main = hills[0];
     const top = { x: main.x, z: main.z + 0.8 };
     if (this.windmill === 'shown') {
@@ -849,7 +861,7 @@ class Orchard implements Terrain {
         radius: 2.5,
       });
     }
-    if (ORCHARD_BY_STAGE.cottage[this.stage]) {
+    if (ORCHARD_BY_STAGE.cottage[this.stage] && this.windmill !== 'shown') {
       this.staticModels.push({
         model: 'Cottage',
         x: top.x,
@@ -895,7 +907,10 @@ class Orchard implements Terrain {
     const rng = new Rng(this.seed).fork('forest');
     const final = outlineOf(LAST_STAGE);
     // Drawn in the final painting, so a tree stays from one stage to the next.
-    const last = this.stage === LAST_STAGE ? this : new Orchard(this.seed, LAST_STAGE, false);
+    const last =
+      this.stage === LAST_STAGE && this.windmill === 'shown'
+        ? this
+        : new Orchard(this.seed, LAST_STAGE, true, false);
     const placed: { x: number; z: number }[] = [this.layout.hero];
     const spots: TreeSpot[] = [];
     for (let attempt = 0; attempt < 4000; attempt++) {
@@ -955,7 +970,8 @@ class Orchard implements Terrain {
     }
     const main = this.layout.hills[0];
     if (this.rim(main.x, main.z) < 0.97) {
-      const lift = this.windmill === 'shown' ? 1.6 * WINDMILL_SCALE : 1.5;
+      // Room for the windmill once sold: buying it does not move the camera.
+      const lift = this.windmill === 'waiting' ? 1.5 : 1.6 * WINDMILL_SCALE;
       points.push([main.x, this.height(main.x, main.z) + lift, main.z]);
     }
     const { hero } = this.layout;
@@ -1091,6 +1107,10 @@ class Orchard implements Terrain {
   }
 }
 
-export function createOrchard(seed: number, stage: Stage): Terrain {
-  return new Orchard(seed, stage);
+export function createOrchard(
+  seed: number,
+  stage: Stage,
+  rares: readonly RareName[] = [],
+): Terrain {
+  return new Orchard(seed, stage, rares.includes('windmill'));
 }
