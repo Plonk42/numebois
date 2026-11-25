@@ -7,8 +7,9 @@ const SIGNS = ['<', '=', '>'] as const;
 
 /**
  * Two numbers apart with an empty place between them: a touch on a sign sets it there, the
- * child may change it, then confirms. A sign already tried stays dimmed, never red. Keyboard:
- * the sign itself or 1 to 3, Backspace, Enter.
+ * child may change it, then confirms. A sign tried stays between the numbers in a soft colour
+ * until another one is set, and dimmed among the signs, never red. Keyboard: the sign itself
+ * or 1 to 3, Backspace, Enter.
  */
 export function CompareSigns({
   exercise,
@@ -21,12 +22,15 @@ export function CompareSigns({
   const [placed, setPlaced] = useState<string | null>(null);
   const [tried, setTried] = useState<readonly string[]>([]);
   const [last, setLast] = useState<string | null>(null);
+  // The sign just tried, between the numbers until the child touches the signs again.
+  const [sent, setSent] = useState<string | null>(null);
   // A sign then Enter typed before the next render: read the latest one here.
   const latest = useRef<string | null>(null);
   const place = (sign: string | null) => {
     if (locked || (sign !== null && tried.includes(sign))) return;
     latest.current = sign;
     setPlaced(sign);
+    setSent(null);
   };
   const submit = () => {
     const sign = latest.current;
@@ -34,6 +38,7 @@ export function CompareSigns({
     latest.current = null;
     setPlaced(null);
     setLast(sign);
+    setSent(sign);
     setTried([...tried, sign]);
     onSubmit(sign);
   };
@@ -53,8 +58,10 @@ export function CompareSigns({
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  let between = placed;
-  let state = placed ? 'placed' : 'empty';
+  let between = placed ?? sent;
+  let state = 'empty';
+  if (placed) state = 'placed';
+  else if (sent) state = 'tried';
   if (right) [between, state] = [last, 'right'];
   else if (shown !== null) [between, state] = [shown, 'shown'];
   return (

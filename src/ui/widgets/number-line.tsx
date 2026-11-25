@@ -97,6 +97,7 @@ export function NumberLinePlace({
   onSubmit,
 }: WidgetProps<{ kind: 'number-line'; line: NumberLine }>) {
   const [picked, setPicked] = useState<number | null>(null);
+  const [sent, setSent] = useState<number | null>(null);
   const latest = useRef<number | null>(null);
   const svg = useRef<SVGSVGElement>(null);
   const pick = (value: number) => {
@@ -108,7 +109,9 @@ export function NumberLinePlace({
     return closestTick(line, ((event.clientX - box.left) / box.width) * WIDE, WIDE);
   };
   const submit = () => {
-    if (!locked && latest.current !== null) onSubmit(String(latest.current));
+    if (locked || latest.current === null) return;
+    setSent(latest.current);
+    onSubmit(String(latest.current));
   };
   const keys = useRef({ locked, submit });
   keys.current = { locked, submit };
@@ -130,7 +133,12 @@ export function NumberLinePlace({
 
   const pins: LineProps['pins'] = [];
   if (shown !== null) pins.push({ value: Number(shown), state: 'shown' });
-  else if (picked !== null) pins.push({ value: picked, state: right ? 'right' : 'placed' });
+  else if (picked !== null) {
+    let state = 'placed';
+    if (right) state = 'right';
+    else if (picked === sent) state = 'tried';
+    pins.push({ value: picked, state });
+  }
   return (
     <>
       <Work wide>

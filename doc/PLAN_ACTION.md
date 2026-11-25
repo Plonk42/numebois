@@ -446,7 +446,7 @@ Dépend de 0. En parallèle de la phase R.
 2. `rng.ts`, `expr.ts`.
 3. `mastery.ts` (cycle de vie, maîtrise sur les 10 dernières réponses, Leitner) et `facts.ts` (pour chaque fait : réussites, temps de réponse, état d'automatisation).
 4. `trail.ts` : sentier à budget fixe, au plus 3 notions en cours, révision ≤ 25 %, au plus une nouveauté, adaptation au taux de réussite et aux temps de réponse.
-5. Indices progressifs : 1re erreur → méthode ; 2e erreur → réponse et méthode, et une question proche revient plus tard. Une erreur ne fait jamais perdre de ressource.
+5. Indices progressifs : 1re erreur → méthode ; 2e erreur → réponse et méthode, et une question proche revient plus tard. Une erreur ne fait jamais perdre de ressource. Après la 1re erreur, la réponse essayée (case du pavé, signe de « comparer », repère de la droite graduée) prend une couleur pêche douce, jamais rouge, jusqu'à ce que l'enfant la change (#121, couleur choisie par le propriétaire) ; au QCM, le choix essayé est grisé.
 6. Modules `numbers`, `mental-math`, `times-tables` (avec faits) et `word-problems` (premiers modèles).
 
 ## Phase 2 : interface de base

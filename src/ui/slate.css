@@ -15,6 +15,9 @@
 
 /* Between the reserve and the sound button, over the trail, small at the bottom. */
 #question {
+  /* An answer tried, not right yet (#121): soft and warm, never red. */
+  --tried: #efab7c;
+  --tried-pale: #fdefe4;
   position: fixed;
   top: 12px;
   left: 50%;
@@ -326,6 +329,16 @@
   border-color: #f2d46b;
   background: #fffbe6;
 }
+/* Until the child changes the answer tried. */
+#question .answer.tried,
+#question .answer.inline.tried,
+.comparison .between.tried {
+  border: 4px solid var(--tried);
+  background: var(--tried-pale);
+}
+#question .answer.tried:not(.inline) {
+  border-width: 3px;
+}
 /* An operation written as on a sheet: the answer right after its `=` (or in place of its `?`). */
 .statement.written {
   display: flex;
@@ -516,6 +529,9 @@
 }
 .number-line .pin.shown path {
   fill: #f2c33a;
+}
+.number-line .pin.tried path {
+  fill: var(--tried);
 }
 .number-line.place {
   touch-action: none;

@@ -1,4 +1,5 @@
 import type { ComponentType } from 'preact';
+import { useState } from 'preact/hooks';
 import type { Exercise, ExerciseInput, Figure } from '../../core/types';
 import { AnswerZone, Statement, Work, Written } from '../slate';
 import { Choice } from './choice';
@@ -67,9 +68,14 @@ function Typed({
   shown,
   onSubmit,
 }: WidgetProps<Extract<ExerciseInput, { kind: 'keypad' }>>) {
-  const { entry, press } = useEntry(input.maxDigits, locked, onSubmit);
+  const [sent, setSent] = useState<string | null>(null);
+  const { entry, press } = useEntry(input.maxDigits, locked, (value) => {
+    setSent(value);
+    onSubmit(value);
+  });
+  const tried = !right && shown === null && entry === sent;
   const inline = input.inline ? { maxDigits: input.maxDigits } : undefined;
-  const answer = <Answer entry={entry} right={right} shown={shown} inline={inline} />;
+  const answer = <Answer entry={entry} right={right} shown={shown} tried={tried} inline={inline} />;
   return (
     <>
       {inline ? (

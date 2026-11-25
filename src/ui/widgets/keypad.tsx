@@ -59,15 +59,18 @@ interface AnswerProps {
   right: boolean;
   /** The expected answer, shown in place of the entry. */
   shown: string | null;
+  /** The entry is the one just tried, not right yet: a soft colour until it changes. */
+  tried?: boolean;
   /** In the operation, as wide as the longest answer: an empty box waits for it. */
   inline?: { maxDigits: number };
 }
 
 /** Where the typed number is written. */
-export function Answer({ entry, right, shown, inline }: AnswerProps) {
+export function Answer({ entry, right, shown, tried, inline }: AnswerProps) {
   let state = '';
   if (right) state = ' right';
   else if (shown !== null) state = ' shown';
+  else if (tried) state = ' tried';
   else if (inline) state = entry ? ' placed' : ' empty';
   return (
     <output

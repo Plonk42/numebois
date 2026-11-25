@@ -53,6 +53,8 @@ test('une boucle jouable : questions, indices et feuilles', async ({ page }) => 
   await expect(card.locator('.hint')).toContainText('Presque !');
   await expect(card.locator('.hint')).toContainText('Un chiffre par rang');
   await expect(plume).toHaveClass(/talk/);
+  // The answer tried keeps a soft colour, never red, until the child changes it.
+  await expect(card.locator('.answer.tried')).toBeVisible();
   // The keys do not move under the finger when the hint appears.
   expect(await five.boundingBox()).toEqual(before);
   await expectSlateLayout(page);
@@ -60,6 +62,7 @@ test('une boucle jouable : questions, indices et feuilles', async ({ page }) => 
 
   // Second mistake, with the keyboard: the answer and its method, then the next question.
   await page.keyboard.press('Backspace');
+  await expect(card.locator('.answer.tried')).toHaveCount(0);
   await page.keyboard.type(String((Number(exercise.answer.at(-1)) + 2) % 10));
   await page.keyboard.press('Enter');
   await expect(card.locator('.hint')).toContainText('On regarde ensemble.');
@@ -748,12 +751,15 @@ test('comparer : le signe posé entre les deux nombres, changé, puis validé, s
   await submit.click();
   await expect(card.locator('.hint')).toContainText('Presque !');
   await expect(card.getByRole('button', { name: wrongSign, exact: true })).toHaveClass(/tried/);
-  await expect(between).toHaveText('');
+  // The sign tried stays between the numbers, in a soft colour, until another one is set.
+  await expect(between).toHaveText(wrongSign);
+  await expect(between).toHaveClass(/tried/);
   await expectSlateLayout(page);
   await test.info().attach('comparer', { body: await page.screenshot(), contentType: 'image/png' });
   // The keyboard too: the sign itself, then Enter.
   await page.keyboard.press(exercise.answer);
   await expect(between).toHaveText(exercise.answer);
+  await expect(between).toHaveClass(/placed/);
   // The praise is short and the runner sometimes slow: an observer keeps that it showed.
   await page.evaluate(() => {
     const doc = globalThis.document;
