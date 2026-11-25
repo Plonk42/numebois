@@ -390,6 +390,36 @@
 .rare-icon .cut {
   fill: #e0b67e;
 }
+.rare-icon .tower {
+  fill: #f1e3c4;
+  stroke: #a2845a;
+  stroke-width: 2;
+}
+.rare-icon .roof {
+  fill: #c8553d;
+}
+.rare-icon .sail {
+  fill: #fffaf0;
+  stroke: #8a6a44;
+  stroke-width: 1.5;
+}
+.rare-icon .hub {
+  fill: #6e4826;
+}
+.rare-icon .envelope {
+  fill: #e8584f;
+}
+.rare-icon .stripe {
+  fill: #f4d04a;
+}
+.rare-icon .rope {
+  fill: none;
+  stroke: #6e4826;
+  stroke-width: 2;
+}
+.rare-icon .gondola {
+  fill: #9a6a3e;
+}
 
 /* A walk in the forest: the forest everywhere; at the top centre, once the view has left it,
    the whole forest again. */

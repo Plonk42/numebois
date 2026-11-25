@@ -206,10 +206,14 @@ describe('boutique de la forêt', () => {
       seeds: SEEDS_PER_RARE,
       elementsToGo: 0,
     });
-    // The orchard and the sky have no beavers.
-    for (const biome of ['orchard', 'sky'] as const) {
+    // The orchard sells its windmill, the sky its balloon, after the rainbow.
+    for (const [biome, great] of [
+      ['orchard', 'windmill'],
+      ['sky', 'balloon'],
+    ] as const) {
       const all = { ...painting(MAX_ELEMENTS, demoAnimals(biome, LAST_STAGE)), biome };
-      expect(names({ ...all, rares: ['fireflies', 'rainbow'] })).toEqual([]);
+      expect(names({ ...all, rares: ['fireflies', 'rainbow'] })).toEqual([great]);
+      expect(names({ ...all, rares: demoRares(biome, LAST_STAGE) })).toEqual([]);
     }
   });
 });

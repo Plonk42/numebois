@@ -43,8 +43,20 @@ test('les éléments rares : les castors achetés en graines dorées remplissent
   await expect(beavers.locator('svg.rare-icon')).toBeVisible();
   await expect(shop.getByRole('button', { name: /^Des lucioles/ })).toHaveCount(0);
 
+  // The announcement is short and the page busy under the veil: an observer keeps what showed.
+  await page.evaluate(() => {
+    const doc = globalThis.document;
+    const seen: string[] = [];
+    Object.assign(window, { seen });
+    new MutationObserver(() => {
+      const text = doc.querySelector('#arrival')?.textContent;
+      if (text && !seen.includes(text)) seen.push(text);
+    }).observe(doc.body, { childList: true, subtree: true, characterData: true });
+  });
   await beavers.click();
-  await expect(page.locator('#arrival')).toHaveText('Les castors arrivent !');
+  await expect
+    .poll(() => page.evaluate(() => (window as unknown as { seen: string[] }).seen))
+    .toEqual(['Les castors arrivent !']);
   await expect
     .poll(async () => (await describe()).rares)
     .toEqual(['fireflies', 'rainbow', 'beavers']);

@@ -1,6 +1,13 @@
 import { Rng, valueNoise2 } from '../../core/rng';
 import { swatchUV } from '../atlas';
-import { LAST_STAGE, STAGES, type PerStage, type Stage } from '../description';
+import {
+  LAST_STAGE,
+  STAGES,
+  rareStage,
+  type PerStage,
+  type RareName,
+  type Stage,
+} from '../description';
 import { MeshWriter } from '../mesh-data';
 import {
   WATER_FALL,
@@ -67,15 +74,17 @@ const BACKBONE = {
 >;
 
 // The spring of the main island and its fall into the clouds (2), the great suspension bridge
-// (6), the cascade over three tiers (8), the balloon (11).
+// (6), the cascade over three tiers (8); the balloon comes when the child buys it.
 const SKY_BY_STAGE = {
   pond: [0, 0, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3, 3.1],
   stream: [0, 0, 0.36, 0.38, 0.4, 0.42, 0.44, 0.46, 0.5, 0.52, 0.54, 0.56],
   cover: [0.55, 0.62, 0.7, 0.8, 0.88, 0.95, 1.02, 1.08, 1.14, 1.2, 1.26, 1.3],
   suspension: [false, false, false, false, false, false, true, true, true, true, true, true],
   cascade: [false, false, false, false, false, false, false, false, true, true, true, true],
-  balloon: [false, false, false, false, false, false, false, false, false, false, false, true],
 } satisfies Record<string, PerStage<number> | PerStage<boolean>>;
+
+/** Stage from which the shop sells the balloon, which drifts between the islands. */
+const BALLOON_STAGE = rareStage('sky', 'balloon')!;
 
 /**
  * The isles, in the order they come out of the clouds, each hanging by an island already
@@ -616,7 +625,7 @@ function keptInView(seed: number): Sights {
   if (!kept) {
     kept = { water: [], falls: [], anchors: [] };
     for (const stage of STAGES) {
-      const terrain = new SkyIslands(seed, stage, false);
+      const terrain = new SkyIslands(seed, stage, false, false);
       kept.water.push(...terrain.waterPoints());
       kept.falls.push(...terrain.voidPoints());
       kept.anchors.push(...terrain.anchorPoints());
@@ -677,7 +686,7 @@ export function slotsOf(seed: number): readonly SlotDef[] {
   if (cached) return cached;
   const layout = layoutOf(seed);
   const rng = new Rng(seed).fork('slots');
-  const final = new SkyIslands(seed, LAST_STAGE, false);
+  const final = new SkyIslands(seed, LAST_STAGE, false, false);
   const candidates: SlotDef[] = [];
   for (const island of layout.islands) {
     if (island.places === 'none') continue;
@@ -762,6 +771,8 @@ class SkyIslands implements Terrain {
   constructor(
     private readonly seed: number,
     private readonly stage: Stage,
+    /** The child bought the balloon (#46). */
+    private readonly balloon: boolean,
     /** Without its scenery, a terrain only answers questions about its ground and water. */
     scenery = true,
   ) {
@@ -1125,8 +1136,11 @@ class SkyIslands implements Terrain {
         radius: 3.5,
       });
     }
+    // Once sold, sparkles wait where the balloon will come in, until the child brings it.
     const balloon = this.balloonLoop();
-    if (revealAt(SKY_BY_STAGE.balloon, this.stage) === 'announced') {
+    if (this.balloon) {
+      this.drifters.push(balloon);
+    } else if (this.stage >= BALLOON_STAGE) {
       this.announcements.push({
         label: 'balloon',
         x: balloon.x + balloon.rx,
@@ -1134,8 +1148,6 @@ class SkyIslands implements Terrain {
         z: balloon.z,
         radius: 1.6,
       });
-    } else if (SKY_BY_STAGE.balloon[this.stage]) {
-      this.drifters.push(balloon);
     }
 
     this.forest();
@@ -1162,7 +1174,8 @@ class SkyIslands implements Terrain {
     const { islands, hero } = this.layout;
     const slots = slotsOf(this.seed);
     // Drawn in the final painting, so a tree stays from one stage to the next.
-    const last = this.stage === LAST_STAGE ? this : new SkyIslands(this.seed, LAST_STAGE, false);
+    const last =
+      this.stage === LAST_STAGE ? this : new SkyIslands(this.seed, LAST_STAGE, false, false);
     const placed: { x: number; z: number }[] = [hero];
     const { pastures } = this.layout;
     const spots: TreeSpot[] = [];
@@ -1227,7 +1240,9 @@ class SkyIslands implements Terrain {
       }
       points.push([island.x * m, level + island.dome + 5, island.z]);
     }
-    for (const d of this.drifters) {
+    // Room for the balloon once sold: buying it does not move the camera.
+    const drifting = this.stage >= BALLOON_STAGE ? [this.balloonLoop()] : this.drifters;
+    for (const d of drifting) {
       points.push([d.x - d.rx, d.y + 3, d.z], [d.x + d.rx, d.y + 3, d.z]);
     }
     const { hero } = this.layout;
@@ -1387,6 +1402,10 @@ class SkyIslands implements Terrain {
   }
 }
 
-export function createSkyIslands(seed: number, stage: Stage): Terrain {
-  return new SkyIslands(seed, stage);
+export function createSkyIslands(
+  seed: number,
+  stage: Stage,
+  rares: readonly RareName[] = [],
+): Terrain {
+  return new SkyIslands(seed, stage, rares.includes('balloon'));
 }

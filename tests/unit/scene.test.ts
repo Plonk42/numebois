@@ -673,9 +673,15 @@ describe('slots and grand moments', () => {
             terrain.waterfalls.some((fall) => fall.splash),
             label,
           ).toBe(true);
-        } else {
+        } else if (rare === 'beavers') {
           expect(BIOMES[biome].terrain(3, stage, []).dam, label).toBeNull();
           expect(terrain.dam, label).not.toBeNull();
+        } else if (rare === 'windmill') {
+          expect(BIOMES[biome].terrain(3, stage, []).spinners, label).toEqual([]);
+          expect(terrain.spinners, label).not.toEqual([]);
+        } else {
+          expect(BIOMES[biome].terrain(3, stage, []).drifters, label).toEqual([]);
+          expect(terrain.drifters, label).not.toEqual([]);
         }
       }
     }
