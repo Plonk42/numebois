@@ -83,6 +83,12 @@ export function addAttempt(record: ChallengeRecord, attempt: Attempt): Challenge
   return { ...record, attempts: [...record.attempts, attempt].slice(-KEPT_ATTEMPTS) };
 }
 
+/** No challenge played yet on this day: the squirrel's gift waits for it (#126). */
+export function firstOfDay(records: Iterable<ChallengeRecord>, day: number): boolean {
+  for (const record of records) if (record.attempts.some((a) => a.day === day)) return false;
+  return true;
+}
+
 /**
  * Why the end is a good one, from the best news down: the first try, a record, the goal
  * reached, better than the last time, or simply played. Never a failure.

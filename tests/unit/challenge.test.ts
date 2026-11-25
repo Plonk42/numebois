@@ -6,6 +6,7 @@ import {
   addAttempt,
   challengeLevel,
   ending,
+  firstOfDay,
   goal,
   KEPT_ATTEMPTS,
   trend,
@@ -143,5 +144,17 @@ describe('challenges', () => {
     }
     expect(record.attempts).toHaveLength(KEPT_ATTEMPTS);
     expect(record.attempts[0].score).toBe(4);
+  });
+
+  it('keep the squirrel gift for the first challenge of the day, whatever the notion', () => {
+    const day = (d: number): Attempt => ({ day: d, score: 3, rate: 1, level: 3 });
+    const records = [
+      { skill: 'times-tables.products', format: 'basket-30', attempts: [day(4), day(6)] },
+      { skill: 'mental-math.add', format: 'race-10', attempts: [day(7)] },
+    ];
+    expect(firstOfDay([], 7)).toBe(true);
+    expect(firstOfDay(records, 7)).toBe(false);
+    expect(firstOfDay(records, 6)).toBe(false);
+    expect(firstOfDay(records, 8)).toBe(true);
   });
 });

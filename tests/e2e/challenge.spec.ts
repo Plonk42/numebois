@@ -69,12 +69,17 @@ test('le panier de glands : 30 s sous le soleil, une erreur sans perte de temps,
   await expect(bar.locator('.acorns')).toHaveAccessibleName('3 glands');
   await current(page);
   // A right answer may also teach something (a golden seed of its own): counted from here.
+  // The acorns are the squirrel's: no leaf in Plume's basket during the challenge (#120).
   const { seeds } = await game(page);
+  expect(await game(page)).toMatchObject({ leaves: 0, basket: 0 });
   // The sun sets: the basket is full of what it got.
   await think(31_000);
   const end = page.locator('#challenge-end');
   await expect(end).toContainText('Ton premier panier !');
-  await expect(end).toContainText('3 glands dans ton panier.');
+  await expect(end).toContainText('3 glands dans le panier de l’écureuil.');
+  // The first challenge of the day: the acorns exchanged for leaves, and a golden seed.
+  await expect(end).toContainText('Il t’échange ses glands contre 3 feuilles');
+  await expect(end).toContainText('une graine dorée');
   await expect(end).toContainText('La prochaine fois, vise 4 glands.');
   expect(await game(page)).toMatchObject({ seeds: seeds + 1, leaves: 3 });
   await end.getByRole('button', { name: 'J’ai fini' }).click();
@@ -86,6 +91,14 @@ test('le panier de glands : 30 s sous le soleil, une erreur sans perte de temps,
   await expect(menu.getByRole('button', { name: /30 secondes/ })).toContainText(
     'Record : 3 glands',
   );
+  // Another one the same day: played for the record, without a word of a gift (#126).
+  await menu.getByRole('button', { name: /30 secondes/ }).click();
+  await current(page);
+  await think(31_000);
+  await expect(end).toContainText('Bravo pour ce défi !');
+  await expect(end).not.toContainText('graine');
+  await expect(end).toContainText('Demain, l’écureuil échangera de nouveau ses glands.');
+  expect(await game(page)).toMatchObject({ seeds: seeds + 1, leaves: 3 });
   expect(errors).toEqual([]);
 });
 

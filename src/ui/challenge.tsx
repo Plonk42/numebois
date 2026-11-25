@@ -211,14 +211,31 @@ interface EndProps {
   ending: Ending;
   /** What to aim at next time. */
   next: number;
+  /** The squirrel's acorns of the challenge. */
+  acorns: number;
+  /** The first challenge of the day: the squirrel exchanges its acorns and gives a golden seed. */
+  gift: boolean;
   /** Leaves of the challenge in Plume's basket. */
   basket: number;
   onMore(): void;
   onStop(): void;
 }
 
-/** The end of a challenge, always good news: the score, a golden seed, the next goal. */
-export function ChallengeEnd({ format, attempt, ending, next, basket, onMore, onStop }: EndProps) {
+/**
+ * The end of a challenge, always good news: the score and the next goal; at the first challenge
+ * of the day, the squirrel's acorns exchanged for leaves, and a golden seed (#120, #126).
+ */
+export function ChallengeEnd({
+  format,
+  attempt,
+  ending,
+  next,
+  acorns: count,
+  gift,
+  basket,
+  onMore,
+  onStop,
+}: EndProps) {
   return (
     <section id="challenge-end" class="card" aria-live="polite">
       <Squirrel mood="cheer" />
@@ -226,16 +243,26 @@ export function ChallengeEnd({ format, attempt, ending, next, basket, onMore, on
       <p class="praise">{ENDINGS[format.kind][ending]}</p>
       {format.kind === 'basket' ? (
         <p class="instruction">
-          <AcornIcon /> {acorns(attempt.score)} dans ton panier.
+          <AcornIcon /> {acorns(attempt.score)} dans le panier de l’écureuil.
         </p>
       ) : (
         <p class="instruction">
           <LeafIcon /> {format.questions} questions en {duration(attempt.score)}.
         </p>
       )}
-      <p class="instruction">
-        <SeedIcon /> Une graine dorée pour ton défi !
-      </p>
+      {gift ? (
+        <p class="instruction">
+          {count > 0 && (
+            <>
+              <LeafIcon /> Il t’échange ses glands contre {plural(count, 'feuille', 'feuilles')}
+              {' et '}
+            </>
+          )}
+          <SeedIcon /> {count > 0 ? 't’offre' : 'Il t’offre'} une graine dorée !
+        </p>
+      ) : (
+        <p class="legend">Demain, l’écureuil échangera de nouveau ses glands.</p>
+      )}
       <p class="legend">La prochaine fois, vise {scoreLabel(format, next)}.</p>
       <div class="actions">
         <button type="button" class="next" onPointerDown={onMore}>

@@ -5,6 +5,7 @@ import { Challenge, challengeable, FLASH_MS, FLASH_SHARE, squirrelComes } from '
 import { Drill, fragileFacts, type DrillTarget } from '../core/drill';
 import { modeOf, settingOf, type SkillSetting } from '../core/settings';
 import {
+  LEAVES_PER_ACORN,
   LEAVES_PER_ELEMENT,
   LEAVES_PER_RIGHT_ANSWER,
   SEEDS_PER_ACHIEVEMENT,
@@ -16,6 +17,7 @@ import {
   bestOf,
   challengeLevel,
   ending,
+  firstOfDay,
   goal,
   type Attempt,
   type ChallengeFormat,
@@ -127,6 +129,10 @@ interface ChallengeResult {
   attempt: Attempt;
   ending: Ending;
   next: number;
+  /** The squirrel's acorns of the challenge. */
+  acorns: number;
+  /** The first challenge of the day: the squirrel exchanges its acorns and gives a golden seed. */
+  gift: boolean;
 }
 
 type Phase =
@@ -708,16 +714,26 @@ function Game(props: Props) {
     } = current;
     const before = session.attempts(id, format);
     const attempt = current.attempt(today());
+    const gift = firstOfDay(session.records.values(), attempt.day);
+    const acorns = current.results.filter(Boolean).length;
     session.addAttempt(id, format, attempt);
     setChallengeEnd({
       format,
       attempt,
       ending: ending(format, before, attempt),
       next: goal(format, session.attempts(id, format))!,
+      acorns,
+      gift,
     });
-    setSeeds((s) => s + SEEDS_PER_CHALLENGE);
-    setSeedsHere((s) => s + SEEDS_PER_CHALLENGE);
-    forest.reward('seed');
+    if (gift) {
+      const won = acorns * LEAVES_PER_ACORN;
+      setLeaves((l) => l + won);
+      setLeavesHere((h) => h + won);
+      setBasket((b) => b + won);
+      setSeeds((s) => s + SEEDS_PER_CHALLENGE);
+      setSeedsHere((s) => s + SEEDS_PER_CHALLENGE);
+      forest.reward('seed');
+    }
     setPhase('challenge-end');
   };
 
@@ -971,7 +987,8 @@ function Game(props: Props) {
     setPraise(bonus > 0 ? 'Éclair !' : rng.pick(PRAISES));
     setPhase('right');
     forest.reward('right');
-    const earned = LEAVES_PER_RIGHT_ANSWER + bonus;
+    // In a challenge, an acorn in the squirrel's basket instead: leaves come at its end (#120).
+    const earned = mode === 'challenge' ? 0 : LEAVES_PER_RIGHT_ANSWER + bonus;
     setLeaves(leaves + earned);
     setLeavesHere(leavesHere + earned);
     setBasket(basket + earned);
@@ -1329,6 +1346,7 @@ function TrailDone({ title, leaves, seeds, basket }: TrailDoneProps) {
   if (leaves > 0 && seeds > 0) {
     earned = `Tu as gagné ${plural(leaves, 'feuille', 'feuilles')} et ${plural(seeds, 'graine dorée', 'graines dorées')}.`;
   } else if (leaves > 0) earned = `Tu as gagné ${plural(leaves, 'feuille', 'feuilles')}.`;
+  else if (seeds > 0) earned = `Tu as gagné ${plural(seeds, 'graine dorée', 'graines dorées')}.`;
   return (
     <section id="trail-end" class="card" aria-live="polite">
       <Plume mood="cheer" />
