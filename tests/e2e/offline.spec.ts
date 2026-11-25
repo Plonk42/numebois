@@ -6,7 +6,7 @@ test('installable et utilisable sans réseau après une première visite', async
 }) => {
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
-  await page.goto('./?seed=3&time=1');
+  await page.goto('./?seed=3&time=1&name=');
   await page.evaluate(() => window.__numebois!.ready);
 
   const manifest = await page.evaluate(async () => {

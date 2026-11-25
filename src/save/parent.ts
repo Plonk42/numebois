@@ -1,3 +1,4 @@
+import { cleanName } from '../core/name';
 import type { Play } from '../core/session';
 import { SKILL_MODES, type SkillMode, type SkillSetting } from '../core/settings';
 import type { Skill } from '../core/types';
@@ -19,6 +20,8 @@ export interface ParentPart {
   longChallenges: boolean;
   plays: Play[];
   recommended: Recommended | null;
+  /** The child's first name (#138), empty when not given. */
+  name: string;
 }
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
@@ -75,8 +78,10 @@ export function readParentPart(
     longChallenges = false,
     plays = [],
     recommended = null,
+    name = '',
   } = value;
   if (!Array.isArray(settings) || !Array.isArray(plays) || !plays.every(isPlay)) return null;
+  if (typeof name !== 'string') return null;
   if (!AUTOMATION_FACTORS.includes(automation as (typeof AUTOMATION_FACTORS)[number])) return null;
   if (typeof longChallenges !== 'boolean') return null;
   if (recommended !== null && (!isObject(recommended) || typeof recommended.skill !== 'string')) {
@@ -94,6 +99,7 @@ export function readParentPart(
     longChallenges,
     plays,
     recommended: readRecommended(recommended, byId),
+    name: cleanName(name),
   };
 }
 

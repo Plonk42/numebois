@@ -22,7 +22,7 @@ test('toucher le paysage : animaux et arbres réagissent pendant la promenade, j
   test.setTimeout(120_000);
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
-  await page.goto('./?seed=3');
+  await page.goto('./?seed=3&name=');
   await page.evaluate(() => window.__numebois!.ready);
   await loadSave(page, {
     version: 6,

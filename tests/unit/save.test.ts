@@ -49,6 +49,7 @@ describe('sauvegarde', () => {
         painting: PAINTING,
         journal: JOURNAL,
         recommended: null,
+        name: '',
       },
       new Date('2026-11-23T10:00:00Z'),
     );
@@ -64,6 +65,7 @@ describe('sauvegarde', () => {
       painting: PAINTING,
       journal: JOURNAL,
       recommended: null,
+      name: '',
     });
     const restored = new Session(
       SKILLS,
@@ -90,6 +92,7 @@ describe('sauvegarde', () => {
         painting: PAINTING,
         journal: JOURNAL,
         recommended: null,
+        name: '',
       },
       new Date(),
     );
@@ -112,6 +115,7 @@ describe('sauvegarde', () => {
       painting: PAINTING,
       journal: JOURNAL,
       recommended: null,
+      name: '',
     };
     const parsed = parseSave(serializeSave(data, new Date()), SKILLS);
     expect(parsed.ok && parsed.data.records).toEqual([
@@ -157,6 +161,7 @@ describe('sauvegarde', () => {
           painting: painting as typeof PAINTING,
           journal: journal as typeof JOURNAL,
           recommended: null,
+          name: '',
         },
         new Date(),
       );

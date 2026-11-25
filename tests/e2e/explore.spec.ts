@@ -41,7 +41,7 @@ test('se promener dans la forêt : gestes dans leurs limites, retour au cadrage,
   test.setTimeout(180_000);
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
-  await page.goto('./?seed=3');
+  await page.goto('./?seed=3&name=');
   await page.evaluate(() => window.__numebois!.ready);
   const cdp = await page.context().newCDPSession(page);
   const home = { yaw: 0, pitch: 0, zoom: 1, x: 0, z: 0 };

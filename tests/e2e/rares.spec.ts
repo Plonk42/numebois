@@ -6,7 +6,7 @@ test('les éléments rares : les castors achetés en graines dorées remplissent
 }) => {
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
-  await page.goto('./?seed=3');
+  await page.goto('./?seed=3&name=');
   await page.evaluate(() => window.__numebois!.ready);
   // Stage 7, the fireflies and the rainbow already there: the beavers are on sale.
   await loadSave(page, {

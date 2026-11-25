@@ -157,6 +157,8 @@ const ready = sceneOnly
           // A notion alone starts on its first question; the game on the landscape.
           !practice,
           debug,
+          // `?name=` gives the first name without asking it (tests, captures; empty: none).
+          { ask: !unsaved && !params.has('name'), given: params.get('name') },
         );
         if (sandbox)
           mountSandboxPanel(
@@ -168,6 +170,7 @@ const ready = sceneOnly
         // During a question, the soundscape stays low and plays no calls.
         app.sound.quiet = () =>
           ![
+            'naming',
             'walking',
             'seed',
             'drill-menu',
@@ -211,6 +214,7 @@ window.__numebois = {
 mountSoundButton(app.sound);
 
 window.addEventListener('keydown', (event) => {
+  if (event.target instanceof HTMLInputElement) return;
   if (event.key === 'g' || event.key === 'G') app.grow();
 });
 

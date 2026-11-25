@@ -23,7 +23,7 @@ async function playTrail(page: Page, missed: number | null = null) {
 }
 
 async function tablesAcquired(page: Page) {
-  await page.goto('./?stage=0');
+  await page.goto('./?stage=0&name=');
   await page.evaluate(() => window.__numebois!.ready);
   await loadSave(page, {
     version: 6,

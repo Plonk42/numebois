@@ -11,7 +11,7 @@ test('la rafale : la table de 7 enchaînée sans interruption, une erreur revien
   page.on('pageerror', (error) => errors.push(error.message));
   // The wall clock stands still: every answer comes at once.
   await page.clock.setFixedTime(new Date('2026-11-25T10:00:00'));
-  await page.goto('./?stage=0');
+  await page.goto('./?stage=0&name=');
   await page.evaluate(() => window.__numebois!.ready);
   // The tables are under way, one fact often missed: Plume makes its branch glow.
   await loadSave(page, {

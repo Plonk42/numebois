@@ -26,7 +26,7 @@ test('la progression et la réserve survivent au rechargement ; export et import
 }) => {
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
-  await page.goto('./?seed=3');
+  await page.goto('./?seed=3&name=');
   await page.evaluate(() => window.__numebois!.ready);
   await startTrail(page);
   const reserve = page.locator('#reserve');

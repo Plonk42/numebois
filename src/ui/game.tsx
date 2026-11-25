@@ -10,6 +10,7 @@ import {
   squirrelComes,
 } from '../core/challenge';
 import { Drill, suggestedBranch, type DrillTarget } from '../core/drill';
+import { cleanName, named } from '../core/name';
 import { modeOf, settingOf, type SkillSetting } from '../core/settings';
 import {
   LEAVES_PER_ACORN,
@@ -70,6 +71,7 @@ import {
 } from './challenge';
 import { DrillBreak, DrillTree, Garland, TuftButton, DRILL_NAME } from './drill';
 import { FinaleBanner, Frame, NextPainting, type NextChoice } from './finale';
+import { Naming } from './naming';
 import { ParentMenu } from './parent-menu';
 import { Plume, type Mood } from './character';
 import { RARE_ARRIVALS } from './rares';
@@ -100,6 +102,8 @@ const FRAMED_MS = 3500;
 /** Time for the light to cover the scene before a painting is built under it (#veil). */
 const COVER_MS = 750;
 const PRAISES = ['Bravo !', 'Super !', 'Oui !', 'Bien vu !', 'Génial !'];
+/** « Bonjour, Prénom ! » at the top of the landscape when the game opens. */
+const GREETING_MS = 2500;
 /** In a drill, the next question comes quickly; a missed answer shows a moment. */
 const DRILL_RIGHT_MS = 400;
 const DRILL_REVEAL_MS = 1800;
@@ -131,6 +135,7 @@ interface ChallengeResult {
 }
 
 type Phase =
+  | 'naming'
   | 'walking'
   | 'asking'
   | 'right'
@@ -275,6 +280,10 @@ interface Props {
   probe: GameProbe;
   /** Opens on the landscape, between two trails, rather than on the first question. */
   home: boolean;
+  /** The child's first name, empty when not given. */
+  name: string;
+  /** Plume asks the first name first. */
+  askName: boolean;
   debug?: GameDebug;
 }
 
@@ -306,9 +315,13 @@ function Game(props: Props) {
   const [mistakes, setMistakes] = useState(0);
   const [phase, setPhase] = useState<Phase>(() => {
     if (isComplete(forest.description())) return 'finale';
+    if (props.askName) return 'naming';
     return props.home ? 'walking' : 'asking';
   });
   const [praise, setPraise] = useState(PRAISES[0]);
+  const [name, setName] = useState(props.name);
+  /** « Bonjour, Prénom ! » shows a moment when the game opens, once the landscape is there. */
+  const [greeting, setGreeting] = useState(false);
   const [menu, setMenu] = useState(false);
   const [length, setLength] = useState<TrailLength>(session.length);
   const [art, setArt] = useState<TrailArt | null>(null);
@@ -444,6 +457,19 @@ function Game(props: Props) {
     document.addEventListener('visibilitychange', onVisibility);
     return () => document.removeEventListener('visibilitychange', onVisibility);
   }, [mode]);
+  useEffect(() => {
+    if (phase !== 'walking' || !name) return;
+    let live = true;
+    void forest.ready.then(() => live && setGreeting(true));
+    return () => {
+      live = false;
+    };
+  }, []);
+  useEffect(() => {
+    if (!greeting) return;
+    const id = window.setTimeout(() => setGreeting(false), GREETING_MS);
+    return () => clearTimeout(id);
+  }, [greeting]);
   // A painting completed before the game stopped: its grand finale, or the next one to choose.
   useEffect(() => {
     if (!isComplete(forest.description())) return;
@@ -463,11 +489,15 @@ function Game(props: Props) {
         painting: forest.description(),
         journal,
         recommended,
+        name,
       },
       new Date(),
     );
   // Every answer changes the phase or the reserve, every element the phase: the save follows.
-  useEffect(() => props.save(saveData()), [leaves, seeds, phase, length, journal, recommended]);
+  useEffect(
+    () => props.save(saveData()),
+    [leaves, seeds, phase, length, journal, recommended, name],
+  );
   // The end of the trail: the basket empties into the reserve, then the forest is the child's.
   useEffect(() => {
     if (!done) return;
@@ -1112,7 +1142,23 @@ function Game(props: Props) {
       {phase === 'visiting' && page && (
         <AlbumPage entry={page} skills={props.skills} onBack={backToAlbum} />
       )}
-      {(phase === 'finale' || phase === 'framing') && <FinaleBanner framed={phase === 'framing'} />}
+      {(phase === 'finale' || phase === 'framing') && (
+        <FinaleBanner framed={phase === 'framing'} name={name} />
+      )}
+      {phase === 'naming' && (
+        <Naming
+          onDone={(given) => {
+            setName(given);
+            setGreeting(given !== '');
+            setPhase('walking');
+          }}
+        />
+      )}
+      {greeting && free && !viewAway && (
+        <section id="greeting" aria-live="polite">
+          <p class="title">{named('Bonjour !', name)}</p>
+        </section>
+      )}
       {framed && (
         <Frame
           description={framed.description}
@@ -1143,6 +1189,8 @@ function Game(props: Props) {
           day={today()}
           length={length}
           recommended={recommended}
+          name={name}
+          onName={setName}
           problem={props.problem}
           exportSave={() => exportFile(saveData(), album)}
           quality={forest.quality}
@@ -1195,7 +1243,7 @@ function Game(props: Props) {
         <>
           {done && (
             <TrailDone
-              title={DONE_TITLES[ended]}
+              title={named(DONE_TITLES[ended], name)}
               leaves={leavesHere}
               seeds={seedsHere}
               basket={basket}
@@ -1221,6 +1269,7 @@ function Game(props: Props) {
           {phase === 'challenge-end' && challengeEnd && (
             <ChallengeEnd
               {...challengeEnd}
+              name={name}
               basket={basket}
               onMore={() => {
                 const { skill: s, format } = challenge.current!;
@@ -1355,6 +1404,8 @@ export function mountGame(
   writeAlbum: (json: string) => void,
   home = true,
   debug?: GameDebug,
+  /** `ask`: Plume asks the first name while there is none; `given` replaces the saved one. */
+  naming: { ask: boolean; given: string | null } = { ask: false, given: null },
 ) {
   const rng = new Rng(seed);
   const session = new Session(skills, rng.fork('trail'), today, () => ({
@@ -1379,13 +1430,18 @@ export function mountGame(
       };
     };
   }
+  const name = cleanName(naming.given ?? (saved?.ok ? saved.data.name : ''));
+  // Not on a save that could not be read: nothing would keep it.
+  const askName = naming.ask && home && saved?.ok !== false && name === '';
+  let phase: Phase = home ? 'walking' : 'asking';
+  if (askName) phase = 'naming';
   const probe: GameProbe = {
     exercise: null,
     leaves: 0,
     seeds: 0,
     basket: 0,
     grown: 0,
-    phase: home ? 'walking' : 'asking',
+    phase,
     drilling: false,
     mode: 'trail',
     flash: false,
@@ -1416,6 +1472,8 @@ export function mountGame(
       saveAlbum={problem ? () => undefined : (entries) => writeAlbum(serializeAlbum(entries))}
       probe={probe}
       home={home}
+      name={name}
+      askName={askName}
       debug={debug}
     />,
     root,

@@ -1,4 +1,5 @@
 import { dayLabel } from '../core/day';
+import { named } from '../core/name';
 import { BIOMES } from '../scene/biomes';
 import type { SceneDescription } from '../scene/description';
 
@@ -9,10 +10,12 @@ export function datesLabel(started: number, finished: number): string {
 }
 
 /** A short line at the bottom during the grand finale, the forest all around it. */
-export function FinaleBanner({ framed }: { framed: boolean }) {
+export function FinaleBanner({ framed, name }: { framed: boolean; name: string }) {
   return (
     <section id="finale" class={framed ? 'framed' : ''} aria-live="polite">
-      <p class="title">{framed ? 'Il rejoint ton album !' : 'Ton tableau est terminé !'}</p>
+      <p class="title">
+        {framed ? 'Il rejoint ton album !' : named('Ton tableau est terminé !', name)}
+      </p>
     </section>
   );
 }

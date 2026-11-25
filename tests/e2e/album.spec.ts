@@ -9,7 +9,7 @@ test('un tableau complet : grand final, cadre, nouveau décor ; il reste vivant 
   test.setTimeout(600_000);
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
-  await page.goto('./?seed=3');
+  await page.goto('./?seed=3&name=');
   await page.evaluate(() => window.__numebois!.ready);
   // One element is missing from the painting; the reserve pays for it after a short trail.
   await loadSave(page, {
