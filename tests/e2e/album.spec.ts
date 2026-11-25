@@ -44,7 +44,8 @@ test('un tableau complet : grand final, cadre, nouveau décor ; il reste vivant 
     await driver(exercise.input).answer(page, exercise.input, exercise.answer);
     await expect.poll(async () => (await game(page)).stone).toBe(stone + 1);
   }
-  await expect(page.locator('#reserve')).toHaveClass(/ready/, { timeout: 20_000 });
+  // Each handful of the pour waits for a frame of the full painting: about 2.5 s on CI.
+  await expect(page.locator('#reserve')).toHaveClass(/ready/, { timeout: 60_000 });
   await expect(page.locator('#album-button')).toHaveCount(0);
   // The frame stays a few seconds: the page notes what it shows, whatever the machine's speed.
   await page.evaluate(() => {
