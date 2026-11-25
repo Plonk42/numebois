@@ -68,10 +68,14 @@ export async function watchReveal(page: Page) {
   });
 }
 
-/** What the answer shown after the mistake looked like (`watchReveal`). */
-export async function revealed(page: Page) {
+/**
+ * What the answer shown after the mistake to `exercise` looked like (`watchReveal`), once the
+ * probe has caught up with the page: the next `current` reads the next question.
+ */
+export async function revealed(page: Page, exercise: { statement: string }) {
   const read = () => page.evaluate(() => (globalThis as unknown as { revealed: unknown }).revealed);
   await expect.poll(read).not.toBeNull();
+  await answered(page, exercise);
   return (await read()) as { answer: string; hint: boolean };
 }
 

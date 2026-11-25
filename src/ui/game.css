@@ -619,7 +619,8 @@
 .tuft span {
   position: absolute;
   text-align: center;
-  font-size: 19px;
+  white-space: nowrap;
+  font-size: 17px;
   font-weight: 800;
   color: #4f2c14;
   text-shadow: 0 1px 0 rgba(255, 236, 200, 0.7);

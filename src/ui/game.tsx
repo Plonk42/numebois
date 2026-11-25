@@ -115,7 +115,7 @@ const CHALLENGE_TICK_MS = 250;
 type Mode = 'trail' | 'drill' | 'challenge';
 const DONE_TITLES: Record<Mode, string> = {
   trail: 'Sentier terminé !',
-  drill: 'Rafale terminée !',
+  drill: 'Belle récolte !',
   challenge: 'Défi terminé !',
 };
 
@@ -280,7 +280,7 @@ interface Props {
 
 /** Why golden seeds came: the first thing learnt. */
 function giftReason(achievement: Achievement, skill: Skill): string {
-  if (achievement.kind === 'automated') return 'Tu connais ce calcul par cœur.';
+  if (achievement.kind === 'automated') return 'Celle-là, tu la sais par cœur !';
   return `Tu as appris : ${skill.name.charAt(0).toLowerCase()}${skill.name.slice(1)}.`;
 }
 
@@ -1313,7 +1313,7 @@ function Walk({ away, onRecenter }: WalkProps) {
 }
 
 interface TrailDoneProps {
-  /** « Sentier terminé ! » or « Rafale terminée ! ». */
+  /** « Sentier terminé ! », « Belle récolte ! » or « Défi terminé ! ». */
   title: string;
   /** Earned on this trail. */
   leaves: number;

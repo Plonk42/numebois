@@ -43,7 +43,7 @@ test('l’arbre de la rafale : une branche par table, une feuille par fait, la t
   });
   // No Carnet any more: the tree is behind the stump.
   await expect(page.getByRole('button', { name: 'Carnet' })).toHaveCount(0);
-  const stump = page.getByRole('button', { name: 'Rafale' });
+  const stump = page.getByRole('button', { name: 'Par cœur' });
   await stump.click();
   const tree = page.locator('#drill-tree');
   await expect(tree).toBeVisible();

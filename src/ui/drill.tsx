@@ -9,7 +9,7 @@ import { FactBranch, FactTree } from './fact-tree';
 import { LeafIcon } from './reserve';
 
 /** The name of the drill, written on its stump. */
-export const DRILL_NAME = 'Rafale';
+export const DRILL_NAME = 'Par cœur';
 
 interface TuftProps {
   id: string;

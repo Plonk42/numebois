@@ -41,7 +41,7 @@ test('la rafale : la table de 7 enchaînée sans interruption, une erreur revien
     ],
     history: [],
   });
-  const stump = page.getByRole('button', { name: 'Rafale' });
+  const stump = page.getByRole('button', { name: 'Par cœur' });
   await expect(stump).toBeVisible();
   await stump.click();
   // The stump opens the tree: 6 × 8 is on the tables of 6 and 8, the 6 comes first.
@@ -64,7 +64,7 @@ test('la rafale : la table de 7 enchaînée sans interruption, une erreur revien
       await watchReveal(page);
       await driver(exercise.input).answer(page, exercise.input, wrong(exercise.answer));
       // The answer shows a moment, without a hint, and the garland keeps all its leaves.
-      expect(await revealed(page)).toEqual({ answer: exercise.answer, hint: false });
+      expect(await revealed(page, exercise)).toEqual({ answer: exercise.answer, hint: false });
       await expect(garland).toHaveCount(missed);
     } else {
       await driver(exercise.input).answer(page, exercise.input, exercise.answer);
@@ -78,7 +78,7 @@ test('la rafale : la table de 7 enchaînée sans interruption, une erreur revien
       await expect(round).toHaveAttribute('aria-label', 'Pierre 5 sur 20');
       await expect(round.locator('.stone')).toHaveCount(20);
       await expect(round.locator('.stone.crossed')).toHaveCount(4);
-      await expect(round.locator('.sign')).toContainText('Rafale');
+      await expect(round.locator('.sign')).toContainText(/Par\s*cœur/);
     }
     // A round of 20: the branch of the table of 7 without a word, today's leaves growing on it.
     if (i === 19 || i === 39) {
@@ -101,7 +101,7 @@ test('la rafale : la table de 7 enchaînée sans interruption, une erreur revien
   // The missed question came back 2 or 3 questions later.
   expect([missed + 2, missed + 3]).toContain(statements.indexOf(statements[missed], missed + 1));
 
-  await expect(page.locator('#trail-end')).toContainText('Rafale terminée !');
+  await expect(page.locator('#trail-end')).toContainText('Belle récolte !');
   // Each handful of the pour waits for a frame of the landscape: slow on a loaded runner.
   await expect(page.locator('#trail-end')).toHaveCount(0, { timeout: 40_000 });
   // A leaf for each right answer, poured from Plume's basket into the reserve.

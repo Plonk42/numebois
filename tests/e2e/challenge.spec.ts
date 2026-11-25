@@ -74,7 +74,7 @@ test('le panier de glands : 30 s sous le soleil, une erreur sans perte de temps,
       await watchReveal(page);
       await driver(exercise.input).answer(page, exercise.input, wrong(exercise.answer));
       // The answer shows a moment, without a hint; the sun waits.
-      expect((await revealed(page)).hint).toBe(false);
+      expect((await revealed(page, exercise)).hint).toBe(false);
     } else {
       await driver(exercise.input).answer(page, exercise.input, exercise.answer);
       await answered(page, exercise);
@@ -136,7 +136,7 @@ test('la course de la feuille : 10 bonnes réponses, puis la feuille fantôme re
     if (right === 4) {
       await watchReveal(page);
       await driver(exercise.input).answer(page, exercise.input, wrong(exercise.answer));
-      await revealed(page);
+      await revealed(page, exercise);
     }
     const again = await current(page);
     await driver(again.input).answer(page, again.input, again.answer);
