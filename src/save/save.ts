@@ -83,7 +83,8 @@ function isFact(value: unknown): value is FactProgress {
     isCount(value.tries) &&
     isCount(value.right) &&
     isList(value.fastDays, isDay) &&
-    isList(value.times, (t): t is number => typeof t === 'number' && t >= 0)
+    isList(value.times, (t): t is number => typeof t === 'number' && t >= 0) &&
+    (value.known === undefined || value.known === true)
   );
 }
 

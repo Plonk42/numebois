@@ -16,6 +16,8 @@ export interface FactProgress {
   fastDays: number[];
   /** Last response times, in milliseconds. */
   times: number[];
+  /** Automated once: the child keeps it by heart, even after a mistake (#123). */
+  known?: true;
 }
 
 export function newFact(fact: FactId): FactProgress {
@@ -34,23 +36,37 @@ export function recordFact(
   else if (fast && !fastDays.includes(answer.day)) {
     fastDays = [...fastDays, answer.day].slice(-AUTOMATED_DAYS);
   }
-  return {
+  const after = {
     ...progress,
     tries: progress.tries + 1,
     right: progress.right + (answer.right ? 1 : 0),
     fastDays,
     times: [...progress.times, answer.ms].slice(-TIMES),
   };
+  return isKnown(after) ? { ...after, known: true } : after;
 }
 
+/** For the engine: automated now, lost by a mistake until it is again. */
 export function isAutomated(progress: FactProgress | undefined): boolean {
   return progress !== undefined && progress.fastDays.length >= AUTOMATED_DAYS;
 }
 
-/** Seen, not automated, and often missed: for the parent dashboard. */
+/** For the child: automated once, by heart for good (Carnet, golden seed). */
+export function isKnown(progress: FactProgress | undefined): boolean {
+  return progress?.known === true || isAutomated(progress);
+}
+
+/** Known by heart once, then missed: to consolidate. */
+export function isSlipping(progress: FactProgress | undefined): boolean {
+  return isKnown(progress) && !isAutomated(progress);
+}
+
+/** Seen, not automated, and often missed or slipping: for the parent dashboard. */
 export function isFragile(progress: FactProgress): boolean {
   return (
-    progress.tries > 0 && !isAutomated(progress) && progress.right / progress.tries < FRAGILE_RATE
+    progress.tries > 0 &&
+    !isAutomated(progress) &&
+    (isSlipping(progress) || progress.right / progress.tries < FRAGILE_RATE)
   );
 }
 
@@ -63,7 +79,9 @@ export function isSure(progress: FactProgress | undefined): boolean {
   if (progress === undefined) return false;
   return (
     isAutomated(progress) ||
-    (progress.tries >= SURE_TRIES && progress.right / progress.tries >= SURE_RATE)
+    (!isSlipping(progress) &&
+      progress.tries >= SURE_TRIES &&
+      progress.right / progress.tries >= SURE_RATE)
   );
 }
 
