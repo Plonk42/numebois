@@ -8,7 +8,7 @@ applyTo: "src/ui/**, src/scene/**, src/domains/**/lessons/**, src/domains/**/pro
 ## Textes
 
 - Phrases courtes : 12 mots au maximum par phrase, deux phrases et une ligne de calcul au maximum par bulle (3 lignes, 120 caractères), énoncés de problème de 25 mots au maximum (vérifié par les tests de contenu, `exerciseErrors`).
-- Vocabulaire de CE2, sans jargon. Tutoiement. Chiffres en chiffres (« 24 glands »), sans abréviation inhabituelle.
+- L'enfant a un très bon vocabulaire (propriétaire) : des mots justes et précis, sans jargon, ni scolaires ou d'adulte (« travailler », « recommandé »), ni enfantins (pas de mots de tout-petit, de diminutifs ni de ton bébé). Tutoiement. Chiffres en chiffres (« 24 glands »), sans abréviation inhabituelle.
 - Le jeu a plusieurs décors (clairière, verger…) : dans les textes du jeu, parler du « paysage », pas de la « forêt » (demande du propriétaire).
 - Pas de synthèse vocale : le texte doit se lire d'un coup d'œil, en gros caractères.
 - Les énoncés parlent du décor en cours (glands, cabane, ruisseau, moulin…) et de ses habitants.
