@@ -5,6 +5,8 @@ import { useLayoutEffect, useRef, useState } from 'preact/hooks';
 /** Hold the reserve this long to open the parent menu. */
 const LONG_PRESS_MS = 1500;
 const FLIGHT_MS = 750;
+/** Leaves earned together fly one after the other, this far apart. */
+const FLIGHT_GAP_MS = 180;
 
 export function LeafIcon() {
   return (
@@ -44,6 +46,7 @@ interface Flight {
   from: DOMRect;
   /** The count once it has landed. */
   value: number;
+  delay: number;
 }
 
 /** A leaf or a seed flying from where it was earned to its counter, then gone. */
@@ -65,7 +68,12 @@ function Flying({ flight, to, onLanded }: { flight: Flight; to: Element; onLande
         { transform: `translate(${mx}px, ${my}px) scale(1.5) rotate(20deg)`, opacity: 1 },
         { transform: `translate(${x1}px, ${y1}px) scale(0.9) rotate(0deg)`, opacity: 1 },
       ],
-      { duration: FLIGHT_MS, easing: 'cubic-bezier(0.4, 0, 0.6, 1)' },
+      {
+        duration: FLIGHT_MS,
+        delay: flight.delay,
+        fill: 'backwards',
+        easing: 'cubic-bezier(0.4, 0, 0.6, 1)',
+      },
     );
     animation.onfinish = onLanded;
     return () => animation.cancel();
@@ -79,24 +87,38 @@ function Flying({ flight, to, onLanded }: { flight: Flight; to: Element; onLande
 
 /**
  * A count fed by flights: when it grows, a leaf or a seed flies from `source` to `target` and
- * the shown count follows when it lands; spent, or nowhere to fly from, it follows at once.
+ * the shown count follows when it lands; spent, or nowhere to fly from, it follows at once. Up
+ * to `most` of them fly for a count that grows by several at once.
  */
 export function useLanding(
   kind: Flight['kind'],
   value: number,
   source: string,
   target: RefObject<Element | null>,
+  most = 1,
 ) {
   const [shown, setShown] = useState(value);
   const [flights, setFlights] = useState<Flight[]>([]);
   const nextId = useRef(0);
   const latest = useRef(value);
   useLayoutEffect(() => {
-    const grew = value > latest.current;
+    const before = latest.current;
     latest.current = value;
-    const from = grew ? document.querySelector(source)?.getBoundingClientRect() : undefined;
-    if (from) setFlights((list) => [...list, { id: nextId.current++, kind, from, value }]);
-    else setShown(value);
+    const from =
+      value > before ? document.querySelector(source)?.getBoundingClientRect() : undefined;
+    if (!from) {
+      setShown(value);
+      return;
+    }
+    const count = Math.min(value - before, most);
+    const landing = Array.from({ length: count }, (_, i) => ({
+      id: nextId.current++,
+      kind,
+      from,
+      value: i === count - 1 ? value : before + i + 1,
+      delay: i * FLIGHT_GAP_MS,
+    }));
+    setFlights((list) => [...list, ...landing]);
   }, [value]);
   // Fixed over the whole screen, out of the slate or the card, which move.
   const flying = createPortal(

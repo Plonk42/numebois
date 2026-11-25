@@ -14,8 +14,8 @@ import { cleanName, named } from '../core/name';
 import { modeOf, settingOf, type SkillSetting } from '../core/settings';
 import {
   LEAVES_PER_ACORN,
-  LEAVES_PER_ELEMENT,
   LEAVES_PER_RIGHT_ANSWER,
+  leavesPerElement,
   SEEDS_PER_ACHIEVEMENT,
   SEEDS_PER_CHALLENGE,
   LEAVES_PER_FLASH,
@@ -233,6 +233,8 @@ export interface GameProbe {
   stone: number;
   stones: number;
   role: StepRole | null;
+  /** Leaves a right answer to the trail's question earns, a flash bonus aside (#141). */
+  worth: number;
 }
 
 /** Shortcuts of the sandbox (`?sandbox`), wired by the game. */
@@ -290,7 +292,9 @@ interface Props {
 /** Why golden seeds came: the first thing learnt. */
 function giftReason(achievement: Achievement, skill: Skill): string {
   if (achievement.kind === 'automated') return 'Celle-là, tu la sais par cœur !';
-  return `Tu as appris : ${skill.name.charAt(0).toLowerCase()}${skill.name.slice(1)}.`;
+  const name = `${skill.name.charAt(0).toLowerCase()}${skill.name.slice(1)}`;
+  if (achievement.kind === 'level') return `Tu montes d’un cran : ${name}.`;
+  return `Tu as appris : ${name}.`;
 }
 
 /**
@@ -412,6 +416,7 @@ function Game(props: Props) {
       stone: finished ? session.stones : session.stone,
       stones: session.stones,
       role: finished ? null : session.step.role,
+      worth: session.worth,
     });
   });
   useEffect(() => {
@@ -800,7 +805,7 @@ function Game(props: Props) {
   const plant = (slot: number) => {
     if (phase !== 'choosing') return;
     setSpots([]);
-    setLeaves(leaves - LEAVES_PER_ELEMENT);
+    setLeaves(leaves - leavesPerElement(forest.description().stage));
     setPhase('planting');
     void forest.plant(slot, today()).then(() => {
       setGrown((g) => g + 1);
@@ -987,7 +992,8 @@ function Game(props: Props) {
     setPhase('right');
     forest.reward('right');
     // In a challenge, an acorn in the squirrel's basket instead: leaves come at its end (#120).
-    const earned = mode === 'challenge' ? 0 : LEAVES_PER_RIGHT_ANSWER + bonus;
+    const worth = drilling ? LEAVES_PER_RIGHT_ANSWER : session.worth;
+    const earned = mode === 'challenge' ? 0 : worth + bonus;
     setLeaves(leaves + earned);
     setLeavesHere(leavesHere + earned);
     setBasket(basket + earned);
@@ -1449,6 +1455,7 @@ export function mountGame(
     stone: 0,
     stones: session.stones,
     role: null,
+    worth: 0,
   };
   let problem: string | null = null;
   if (saved && !saved.ok) {

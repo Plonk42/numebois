@@ -66,6 +66,7 @@ function isProgress(value: unknown): value is SkillProgress {
     typeof value.skill === 'string' &&
     STAGES.includes(value.stage as Stage) &&
     isCount(value.level) &&
+    (value.best === undefined || isCount(value.best)) &&
     isCount(value.box) &&
     (value.due === null || isDay(value.due)) &&
     isList(
