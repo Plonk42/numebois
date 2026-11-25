@@ -16,6 +16,7 @@ import {
   ending,
   firstOfDay,
   goal,
+  GOAL_MS_PER_QUESTION,
   KEPT_ATTEMPTS,
   trend,
   type Attempt,
@@ -124,6 +125,22 @@ describe('challenges', () => {
     expect(goal(BASKET, [])).toBeNull();
     expect(goal(BASKET, attempts(4, 20, 9, 11, 10))).toBe(11);
     expect(goal(RACE, attempts(30_000, 24_000, 26_000))).toBe(25_000);
+  });
+
+  it('never aim faster than one answer in 1.5 s, unless the child already is (#127)', () => {
+    expect(GOAL_MS_PER_QUESTION).toBe(1500);
+    let races = attempts(20_000);
+    let baskets = attempts(14);
+    for (let i = 0; i < 20; i++) {
+      // Each attempt reaches the goal.
+      races = [...races, ...attempts(goal(RACE, races)!)];
+      baskets = [...baskets, ...attempts(goal(BASKET, baskets)!)];
+    }
+    expect(goal(RACE, races)).toBe(15_000);
+    expect(goal(BASKET, baskets)).toBe(20);
+    // Faster than the floor already: keep up, no further step.
+    expect(goal(RACE, attempts(12_000, 12_000, 12_000))).toBe(12_000);
+    expect(goal(BASKET, attempts(24, 24, 24))).toBe(24);
   });
 
   it('follow the trend of the last 3 attempts', () => {

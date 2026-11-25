@@ -32,6 +32,8 @@ export const RECENT_ATTEMPTS = 3;
 export const GUARD_RATE = 0.5;
 /** The race's goal: this much faster than the recent median. */
 const RACE_STEP_MS = 1000;
+/** A goal never asks for more than one answer in this time (#127). */
+export const GOAL_MS_PER_QUESTION = 1500;
 
 export function formatKey(format: ChallengeFormat): string {
   return format.kind === 'basket' ? `basket-${format.seconds}` : `race-${format.questions}`;
@@ -56,15 +58,19 @@ function median(values: readonly number[]): number {
 }
 
 /**
- * Just above the recent median (one more acorn, a second faster), never a distant record;
- * null before the first attempt.
+ * Just above the recent median (one more acorn, a second faster), never a distant record nor
+ * faster than one answer in `GOAL_MS_PER_QUESTION`, unless the median already is; null before
+ * the first attempt.
  */
 export function goal(format: ChallengeFormat, attempts: readonly Attempt[]): number | null {
   if (attempts.length === 0) return null;
   const recent = median(attempts.slice(-RECENT_ATTEMPTS).map((attempt) => attempt.score));
-  return format.kind === 'basket'
-    ? Math.floor(recent) + 1
-    : Math.max(0, Math.round(recent) - RACE_STEP_MS);
+  if (format.kind === 'basket') {
+    const most = Math.floor((format.seconds * 1000) / GOAL_MS_PER_QUESTION);
+    return Math.max(Math.floor(recent), Math.min(most, Math.floor(recent) + 1));
+  }
+  const least = format.questions * GOAL_MS_PER_QUESTION;
+  return Math.min(Math.round(recent), Math.max(least, Math.round(recent) - RACE_STEP_MS));
 }
 
 export type Trend = 'better' | 'steady' | 'lower';
