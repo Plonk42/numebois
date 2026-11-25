@@ -145,28 +145,34 @@ export class Session {
     return achievements;
   }
 
-  /** Records an answer, of a trail or a drill, in the progress of its notion and fact. */
+  /** Records a trail answer in the mastery of its notion (stage, level, reviews), then its fact. */
   learn(skill: Skill, exercise: Exercise, right: boolean, ms: number): Achievement[] {
     const achievements: Achievement[] = [];
-    const day = this.today();
     // The level moves within the parent's range only.
     const setting = settingOf(this.settings, skill);
     const before = this.progress.get(skill.id) ?? newProgress(skill.id);
     const progress = { ...before, level: clampLevel(before.level, setting) };
-    const recorded = record(progress, { right, day }, setting.maxLevel + 1);
+    const recorded = record(progress, { right, day: this.today() }, setting.maxLevel + 1);
     this.progress.set(skill.id, { ...recorded, level: clampLevel(recorded.level, setting) });
     if (!isAcquired(progress) && isAcquired(recorded)) {
       achievements.push({ kind: 'acquired', skill: skill.id });
     }
+    return [...achievements, ...this.practise(skill, exercise, right, ms)];
+  }
+
+  /**
+   * Records an answer in its fact only (by heart, response time): a drill or a challenge never
+   * moves a notion, whose mastery plays out on the trail (#122).
+   */
+  practise(skill: Skill, exercise: Exercise, right: boolean, ms: number): Achievement[] {
     // A choice is recognised, not recalled: it never automates a fact.
     const fact = exercise.input.kind === 'choice' ? null : skill.facts?.of(exercise);
-    if (fact) {
-      const seen = this.facts.get(fact) ?? newFact(fact);
-      const after = recordFact(seen, { right, ms, day }, skill.facts!.seconds * this.automation);
-      this.facts.set(fact, after);
-      if (!isKnown(seen) && isKnown(after)) achievements.push({ kind: 'automated', fact });
-    }
-    return achievements;
+    if (!fact) return [];
+    const seen = this.facts.get(fact) ?? newFact(fact);
+    const day = this.today();
+    const after = recordFact(seen, { right, ms, day }, skill.facts!.seconds * this.automation);
+    this.facts.set(fact, after);
+    return !isKnown(seen) && isKnown(after) ? [{ kind: 'automated', fact }] : [];
   }
 
   /** A trail, a drill or a challenge is over: the parent dashboard keeps it. */

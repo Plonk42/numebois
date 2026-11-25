@@ -9,6 +9,7 @@ import {
   suggestedBranch,
 } from '../../src/core/drill';
 import { isSure, newFact, type FactProgress } from '../../src/core/facts';
+import type { SkillProgress } from '../../src/core/mastery';
 import { curriculum } from '../../src/core/registry';
 import { Rng } from '../../src/core/rng';
 import { Session } from '../../src/core/session';
@@ -159,20 +160,36 @@ describe('drill', () => {
     expect(suggestedBranch([products], all, null)).toBeNull();
   });
 
-  it('feeds the mastery and the review of the notion', () => {
+  it('feeds the facts only, never the mastery of the notion (#122)', () => {
     const player = session();
-    player.progress.set(complements.id, {
+    const drill = new Drill(
+      player,
+      { kind: 'skill', skill: products.id, group: 'table-2' },
+      new Rng(3),
+    );
+    const achievements = Array.from({ length: 60 }, () => {
+      const { skill, exercise } = drill.ask();
+      return drill.conclude(skill, exercise, true, 2000);
+    }).flat();
+    expect(achievements.some((a) => a.kind === 'acquired')).toBe(false);
+    expect(player.progress.get(products.id)).toBeUndefined();
+    const table2 = products.facts!.groups!.find((group) => group.id === 'table-2')!.facts;
+    const tries = table2.reduce((sum, fact) => sum + (player.facts.get(fact)?.tries ?? 0), 0);
+    expect(tries).toBe(60);
+    // An acquired notion due for review keeps its review for the trail.
+    const due: SkillProgress = {
       skill: complements.id,
       stage: 'acquired',
-      level: complements.levels - 1,
+      level: 3,
       recent: [],
       box: 0,
       due: 100,
-    });
-    const drill = new Drill(player, { kind: 'skill', skill: complements.id }, new Rng(3));
-    const { skill, exercise } = drill.ask();
-    drill.conclude(skill, exercise, true, 2000);
-    expect(player.progress.get(complements.id)).toMatchObject({ stage: 'maintenance', box: 1 });
+    };
+    player.progress.set(complements.id, due);
+    const again = new Drill(player, { kind: 'skill', skill: complements.id }, new Rng(3));
+    const { skill, exercise } = again.ask();
+    again.conclude(skill, exercise, false, 2000);
+    expect(player.progress.get(complements.id)).toEqual(due);
   });
 
   it('asks a fact known by heart then missed as a hard one (#123)', () => {

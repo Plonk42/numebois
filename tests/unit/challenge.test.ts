@@ -79,8 +79,9 @@ describe('challenges', () => {
     expect(challenge.results).toHaveLength(15);
     expect(challenge.remaining()).toBe(0);
     expect(challenge.attempt(100)).toEqual({ day: 100, score: 12, rate: 12 / 15, level: 4 });
-    // The answers count for the notion like any other.
-    expect(session.progress.get(products.id)!.recent).toHaveLength(10);
+    // The answers count for the facts only (#122).
+    const tries = [...session.facts.values()].reduce((sum, fact) => sum + fact.tries, 0);
+    expect(tries).toBe(15);
   });
 
   it('run the race over its questions, its time without the pauses', () => {
@@ -106,6 +107,17 @@ describe('challenges', () => {
     challenge.conclude(challenge.ask(), true, 1000);
     expect(challenge.over).toBe(true);
     expect(challenge.attempt(100).rate).toBeCloseTo(10 / 12);
+  });
+
+  it('never move the notion, whatever the mistakes, but record its facts (#122)', () => {
+    const session = player();
+    const before = session.progress.get(products.id);
+    const challenge = new Challenge(session, products, RACE, 4, new Rng(3), () => 0);
+    for (let i = 0; i < 10; i++) challenge.conclude(challenge.ask(), false, 4000);
+    expect(session.progress.get(products.id)).toEqual(before);
+    const facts = [...session.facts.values()];
+    expect(facts.reduce((sum, fact) => sum + fact.tries, 0)).toBe(10);
+    expect(facts.every((fact) => fact.right === 0 && fact.times.includes(4000))).toBe(true);
   });
 
   it('aim just above the recent median', () => {

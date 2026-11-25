@@ -36,7 +36,8 @@ interface Question {
 /**
  * Facts known by heart, one after the other until they come at once, without a budget: hard
  * facts mixed with sure ones to keep about 80 % right, a missed one coming back 2 or 3
- * questions later. The answers go to the progress of the session (mastery, review, facts).
+ * questions later. The answers go to the facts only: the mastery of a notion plays out on the
+ * trail (#122).
  */
 export class Drill {
   /** Right first answers, in order. */
@@ -85,7 +86,7 @@ export class Drill {
       const at = this.asked - 1 + this.rng.pick(COMEBACK);
       this.missed.push({ skill, exercise, at });
     }
-    return this.session.learn(skill, exercise, right, ms);
+    return this.session.practise(skill, exercise, right, ms);
   }
 
   /** Right first answers over the last ones, 0 before the first. */

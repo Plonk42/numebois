@@ -135,7 +135,7 @@ export class Challenge {
   /** One answer: right or not, `ms` until it came. */
   conclude(exercise: Exercise, right: boolean, ms: number): Achievement[] {
     this.results.push(right);
-    return this.session.learn(this.skill, exercise, right, ms);
+    return this.session.practise(this.skill, exercise, right, ms);
   }
 
   /** The challenge as played: acorns in the basket, or the race's time. */
