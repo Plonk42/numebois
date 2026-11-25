@@ -25,7 +25,14 @@ const MODE_LABELS: Record<SkillMode, string> = {
 /** Days of play shown, the most recent first. */
 const DAYS_SHOWN = 7;
 
+const KIND_LABELS: Record<Play['kind'], string> = {
+  trail: 'Sentier',
+  drill: 'Rafale',
+  challenge: 'Défi',
+};
+
 const percent = (rate: number) => `${Math.round(rate * 100)} %`;
+const seconds = (ms: number) => `${(ms / 1000).toFixed(1).replace('.', ',')} s`;
 
 /** The notions of the game grouped by domain, in the order of the registry. */
 function byDomain(skills: readonly Skill[]): { name: string; skills: Skill[] }[] {
@@ -63,9 +70,22 @@ function playDays(plays: readonly Play[]) {
     .map(([day, total]) => ({ day, ...total }));
 }
 
+/** Questions, time per question and success of each mode over the plays kept (#128). */
+function playModes(plays: readonly Play[]) {
+  return (Object.keys(KIND_LABELS) as Play['kind'][]).flatMap((kind) => {
+    const of = plays.filter((play) => play.kind === kind);
+    const questions = of.reduce((sum, play) => sum + play.questions, 0);
+    if (questions === 0) return [];
+    const right = of.reduce((sum, play) => sum + play.right, 0);
+    const ms = of.reduce((sum, play) => sum + play.ms, 0);
+    return [{ kind, questions, right, ms }];
+  });
+}
+
 /** Progress of the child, domain by domain then notion by notion, and the last days of play. */
 export function Progress({ session, day }: { session: Session; day: number }) {
   const days = playDays(session.plays);
+  const modes = playModes(session.plays);
   const fragile = session.skills.flatMap((skill) =>
     (skill.facts?.all ?? [])
       .filter((fact) => {
@@ -100,6 +120,31 @@ export function Progress({ session, day }: { session: Session; day: number }) {
             ))}
           </tbody>
         </table>
+      )}
+      {modes.length > 0 && (
+        <>
+          <h3>Par mode</h3>
+          <table class="per-mode">
+            <thead>
+              <tr>
+                <th>Mode</th>
+                <th>Questions</th>
+                <th>Par question</th>
+                <th>Réussite</th>
+              </tr>
+            </thead>
+            <tbody>
+              {modes.map((m) => (
+                <tr key={m.kind} data-kind={m.kind}>
+                  <td>{KIND_LABELS[m.kind]}</td>
+                  <td>{m.questions}</td>
+                  <td>{seconds(m.ms / m.questions)}</td>
+                  <td>{percent(m.right / m.questions)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
       )}
       {byDomain(session.skills).map((domain) => (
         <section key={domain.name}>
