@@ -15,6 +15,39 @@ export function challengeable(
   return skills.filter((skill) => skill.challenge && isAcquired(progress.get(skill.id)));
 }
 
+/** The formats the squirrel offers (#132): baskets of 30 s and 1 min, the race of 10. */
+export const OFFERED_FORMATS: readonly ChallengeFormat[] = [
+  { kind: 'basket', seconds: 30 },
+  { kind: 'race', questions: 10 },
+  { kind: 'basket', seconds: 60 },
+];
+/** The long ones, offered too once the parent opens them. */
+export const LONG_FORMATS: readonly ChallengeFormat[] = [
+  { kind: 'basket', seconds: 90 },
+  { kind: 'race', questions: 20 },
+];
+
+export interface Offer {
+  skill: Skill;
+  format: ChallengeFormat;
+}
+
+/**
+ * Every challenge the squirrel can offer, notions and formats taking turns: two offers in a row
+ * differ in notion (when there are several) and in format.
+ */
+export function offers(skills: readonly Skill[], long: boolean): Offer[] {
+  const formats = long ? [...OFFERED_FORMATS, ...LONG_FORMATS] : OFFERED_FORMATS;
+  const [n, m] = [skills.length, formats.length];
+  const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
+  const cycle = (n * m) / gcd(n, m);
+  // Each cycle meets every notion and format together once; the next one shifts the formats.
+  return Array.from({ length: n * m }, (_, k) => ({
+    skill: skills[k % n],
+    format: formats[(k + Math.floor(k / cycle)) % m],
+  }));
+}
+
 /** Right answers in a row at the end of a trail before the squirrel offers a challenge. */
 export const SQUIRREL_AFTER_RIGHT = 3;
 

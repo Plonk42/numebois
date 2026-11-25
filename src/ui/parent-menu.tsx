@@ -32,6 +32,8 @@ interface Props {
   onLength(length: TrailLength): void;
   onSettings(settings: Map<SkillId, SkillSetting>): void;
   onAutomation(factor: number): void;
+  /** The squirrel offers the long challenges too (#132). */
+  onLongChallenges(open: boolean): void;
   onRecommended(recommended: Recommended | null): void;
   onClose(): void;
 }
@@ -53,6 +55,7 @@ export function ParentMenu({
   onLength,
   onSettings,
   onAutomation,
+  onLongChallenges,
   onRecommended,
   onClose,
 }: Props) {
@@ -60,6 +63,7 @@ export function ParentMenu({
   const [message, setMessage] = useState(problem);
   const [{ chosen, current }, setQuality] = useState(quality);
   const [automation, setAutomation] = useState(session.automation);
+  const [long, setLong] = useState(session.longChallenges);
 
   const download = () => {
     const day = new Date().toISOString().slice(0, 10);
@@ -145,6 +149,22 @@ export function ParentMenu({
                   }}
                 >
                   {AUTOMATION_LABELS[option]}
+                </button>
+              ))}
+            </div>
+            <p>Défis longs : panier de 1 min 30, course de 20 questions</p>
+            <div class="choices">
+              {[false, true].map((option) => (
+                <button
+                  key={String(option)}
+                  type="button"
+                  aria-pressed={long === option}
+                  onPointerDown={() => {
+                    setLong(option);
+                    onLongChallenges(option);
+                  }}
+                >
+                  {option ? 'Proposés' : 'Non proposés'}
                 </button>
               ))}
             </div>

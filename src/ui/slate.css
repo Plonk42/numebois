@@ -757,38 +757,125 @@
   stroke-linejoin: round;
 }
 
-/* The challenge's card: the notion, then a basket or a race. */
-#challenge-menu .options {
-  align-self: stretch;
-  display: grid;
-  gap: 12px;
+/* The squirrel offers one challenge (#132), from its sign or after a trail: a picture, the
+   notion and the record, then « D’accord ! », « Un autre » or « Non merci ». */
+.card.offer {
+  width: 780px;
 }
-#challenge-menu .baskets {
-  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+.offer .offer-body {
+  margin: 6px 0 4px;
+  display: flex;
+  align-items: center;
+  gap: 22px;
 }
-#challenge-menu .entry {
-  min-height: 132px;
+.offer .picture {
+  width: 250px;
+  height: 150px;
+  border-radius: 22px;
+  background: linear-gradient(#cfeaff, #fff3d6);
+  box-shadow: inset 0 0 0 3px #f0e2c2;
+}
+.offer .what {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+}
+.offer .what b {
+  font-size: 32px;
+  line-height: 40px;
+  color: #2f4a3a;
+}
+.offer .what span {
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 700;
+  color: #5a6e5f;
+}
+.offer .what .record {
+  margin-top: 8px;
+  display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 6px;
-  font-size: 26px;
-  border: 3px solid #cfe3c4;
+  gap: 8px;
+  color: #6b4a2b;
 }
-#challenge-menu .entry svg {
-  width: 56px;
-  height: 56px;
+.offer .record svg {
+  width: 70px;
+  height: 40px;
 }
-#challenge-menu .skills {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  max-height: calc(100vh - 300px);
-  overflow-y: auto;
+.offer .actions button {
+  flex: 1;
 }
-#challenge-menu .skills button {
-  padding: 8px 12px;
-  font-size: 22px;
-  line-height: 28px;
+.offer .actions .next {
+  flex: 1.4;
+}
+.picture .sky {
+  fill: none;
+  stroke: #fff6d6;
+  stroke-width: 8;
+  stroke-dasharray: 1 14;
+  stroke-linecap: round;
+}
+.picture .glow {
+  fill: #ffe27a;
+  opacity: 0.5;
+}
+.picture .sun {
+  fill: #ffd85a;
+  stroke: #e2a42a;
+  stroke-width: 3;
+}
+.picture .wicker {
+  fill: #d39a5a;
+  stroke: #8a5a2b;
+  stroke-width: 3;
+}
+.picture .handle {
+  fill: none;
+  stroke: #8a5a2b;
+  stroke-width: 5;
+}
+.picture .track {
+  fill: none;
+  stroke: #e3d3b0;
+  stroke-width: 14;
+  stroke-linecap: round;
+}
+.picture .pole {
+  stroke: #8a5a2b;
+  stroke-width: 4;
+}
+.picture .flag {
+  fill: #ffd85a;
+  stroke: #e2a42a;
+  stroke-width: 2;
+}
+.picture .runner {
+  fill: #6dbb4f;
+  stroke: #3f8a35;
+  stroke-width: 0.6;
+}
+.offer .ghost,
+.picture .ghost {
+  fill: #fff8d0;
+  stroke: #e2c35a;
+  stroke-width: 0.6;
+  stroke-dasharray: 2 2;
+}
+.acorn .nut {
+  fill: #c98b45;
+  stroke: #7a4a1e;
+  stroke-width: 1.6;
+}
+.acorn .cap {
+  fill: #8a5a2b;
+  stroke: #5a3a1e;
+  stroke-width: 1.6;
+}
+.acorn .stem {
+  stroke: #5a3a1e;
+  stroke-width: 2.4;
+  stroke-linecap: round;
 }
 
 /* The drill starts on its tree (#130): a branch per group of facts, one touch on it. */
@@ -1046,12 +1133,10 @@
   }
 }
 #drill-break .actions,
-#challenge-menu .actions,
 #challenge-end .actions {
   justify-content: center;
 }
 #drill-break .actions button,
-#challenge-menu .actions button,
 #challenge-end .actions button {
   min-width: 220px;
 }
@@ -1063,21 +1148,6 @@
 
 /* The challenges (#43): the sun crosses the sky over the slate, warmer towards the end, never
    red; the acorns of the basket only go up. */
-#challenge-menu .record {
-  font-size: 17px;
-  font-weight: 400;
-  color: #5a6e5f;
-}
-.sun-icon .rays {
-  stroke: #f2b33a;
-  stroke-width: 3.5;
-  stroke-linecap: round;
-}
-.sun-icon .disc {
-  fill: #ffd85a;
-  stroke: #e2a42a;
-  stroke-width: 2;
-}
 .acorn-icon {
   width: 28px;
   height: 28px;
@@ -1150,25 +1220,6 @@
 #challenge-end {
   width: 560px;
 }
-#challenge-menu .kind {
-  align-self: stretch;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 21px;
-  font-weight: 700;
-  color: #2f4a3a;
-}
-#challenge-menu .kind svg {
-  width: 32px;
-  height: 32px;
-}
-#challenge-menu .races {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-#challenge-menu .entry {
-  min-height: 88px;
-}
 .challenge-bar.race .track {
   stroke: #e3d3b0;
   stroke-width: 8;
@@ -1195,21 +1246,6 @@
   width: 26px;
   height: 26px;
   vertical-align: -5px;
-}
-
-/* The squirrel's offer (#45), after a trail ended well: refusable at once. */
-#squirrel {
-  width: 560px;
-}
-#squirrel .actions {
-  justify-content: center;
-}
-#squirrel .actions button {
-  min-width: 220px;
-}
-#squirrel .legend {
-  font-size: 18px;
-  color: #5a6e5f;
 }
 
 /* A flash question, discreet on the frame of the slate: no time shown. */

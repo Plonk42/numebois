@@ -105,6 +105,7 @@ const ready = sceneOnly
             records: [],
             settings: [],
             automation: 1,
+            longChallenges: false,
             plays: [],
           }),
           step: () => ({ skill: '', level: 0 }),

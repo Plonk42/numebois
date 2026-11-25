@@ -144,6 +144,7 @@ describe('session', () => {
       records: [],
       settings: [],
       automation: 1,
+      longChallenges: false,
       plays: [],
     });
     expect(session.conclude(complements, exercise, true, 900, false)).toEqual([

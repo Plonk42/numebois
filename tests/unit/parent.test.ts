@@ -26,6 +26,7 @@ describe('tableau de bord parent (#47)', () => {
     const played = session();
     played.settings = changeSetting(new Map(), TABLES, { mode: 'focus', maxLevel: 1 });
     played.automation = 1.5;
+    played.longChallenges = true;
     played.addPlay({ day: 300, kind: 'trail', questions: 10, right: 8, ms: 240_000 });
     const group = TABLES.facts!.groups![0].id;
     const json = serializeSave(
@@ -44,6 +45,7 @@ describe('tableau de bord parent (#47)', () => {
     expect(parsed.ok && parsed.data).toMatchObject({
       settings: [{ skill: TABLES.id, mode: 'focus', minLevel: 0, maxLevel: 1 }],
       automation: 1.5,
+      longChallenges: true,
       plays: [{ day: 300, kind: 'trail', questions: 10, right: 8, ms: 240_000 }],
       recommended: { skill: TABLES.id, group },
     });
@@ -56,6 +58,7 @@ describe('tableau de bord parent (#47)', () => {
     expect(readParentPart({}, SKILLS)).toEqual({
       settings: [],
       automation: 1,
+      longChallenges: false,
       plays: [],
       recommended: null,
     });
@@ -79,6 +82,7 @@ describe('tableau de bord parent (#47)', () => {
       { settings: [{ skill: TABLES.id, mode: 'sometimes', minLevel: 0, maxLevel: 0 }] },
       { settings: 'focus' },
       { automation: 3 },
+      { longChallenges: 'yes' },
       { plays: [{ day: 1, kind: 'trail', questions: 2, right: 3, ms: 0 }] },
     ]) {
       expect(readParentPart(broken, SKILLS), JSON.stringify(broken)).toBeNull();

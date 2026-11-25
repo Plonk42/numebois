@@ -48,6 +48,8 @@ export class Session {
   settings = new Map<SkillId, SkillSetting>();
   /** Factor on the time of a fast answer for a fact to count towards automation (#47). */
   automation = 1;
+  /** The parent opened the long challenges: the basket of 1 min 30 and the race of 20 (#132). */
+  longChallenges = false;
   /** The last plays, oldest first. */
   plays: Play[] = [];
   trail: TrailStep[] = [];
@@ -196,6 +198,7 @@ export class Session {
       records: [...this.records.values()],
       settings: [...this.settings.values()],
       automation: this.automation,
+      longChallenges: this.longChallenges,
       plays: [...this.plays],
     };
   }
@@ -210,6 +213,7 @@ export class Session {
     for (const r of snapshot.records) this.records.set(recordKey(r.skill, r.format), r);
     this.settings = new Map(snapshot.settings.map((s) => [s.skill, s]));
     this.automation = snapshot.automation;
+    this.longChallenges = snapshot.longChallenges;
     this.plays = snapshot.plays.slice(-PLAYS);
   }
 
@@ -237,5 +241,6 @@ export interface SessionSnapshot {
   /** The parent's settings: notions not on auto or not on their whole range. */
   settings: SkillSetting[];
   automation: number;
+  longChallenges: boolean;
   plays: Play[];
 }

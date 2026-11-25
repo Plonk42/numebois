@@ -203,6 +203,7 @@ export function practiceSave(
       records: [],
       settings: [],
       automation: 1,
+      longChallenges: false,
       plays: [],
       recommended: null,
     },

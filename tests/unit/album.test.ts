@@ -82,6 +82,7 @@ describe('Album', () => {
         records: [],
         settings: [],
         automation: 1,
+        longChallenges: false,
         plays: [],
         leaves: 2,
         seeds: 1,

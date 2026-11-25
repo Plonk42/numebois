@@ -15,6 +15,8 @@ export interface Recommended {
 export interface ParentPart {
   settings: SkillSetting[];
   automation: number;
+  /** The long challenges opened (#132). */
+  longChallenges: boolean;
   plays: Play[];
   recommended: Recommended | null;
 }
@@ -67,9 +69,16 @@ export function readParentPart(
   skills: readonly Skill[],
 ): ParentPart | null {
   const byId = new Map(skills.map((skill) => [skill.id, skill]));
-  const { settings = [], automation = 1, plays = [], recommended = null } = value;
+  const {
+    settings = [],
+    automation = 1,
+    longChallenges = false,
+    plays = [],
+    recommended = null,
+  } = value;
   if (!Array.isArray(settings) || !Array.isArray(plays) || !plays.every(isPlay)) return null;
   if (!AUTOMATION_FACTORS.includes(automation as (typeof AUTOMATION_FACTORS)[number])) return null;
+  if (typeof longChallenges !== 'boolean') return null;
   if (recommended !== null && (!isObject(recommended) || typeof recommended.skill !== 'string')) {
     return null;
   }
@@ -82,6 +91,7 @@ export function readParentPart(
   return {
     settings: read as SkillSetting[],
     automation: automation as number,
+    longChallenges,
     plays,
     recommended: readRecommended(recommended, byId),
   };
