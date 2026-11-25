@@ -1,6 +1,7 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useRef } from 'preact/hooks';
 import { Basket } from './basket';
+import { AcornBasket } from './challenge';
 import { Plume, Squirrel, type Mood } from './character';
 import './slate.css';
 
@@ -23,6 +24,8 @@ interface SlateProps {
   away: boolean;
   /** Leaves of the trail in Plume's basket. */
   basket: number;
+  /** During a basket of acorns, the squirrel's acorns instead (#133). */
+  acorns?: number;
   /** On the top of its frame: the garland of a drill, the sun of a challenge. */
   over?: ComponentChildren;
   /** The widget: its `Work` and `AnswerZone`. */
@@ -34,7 +37,8 @@ interface SlateProps {
  * The heading on top, the work area on the left with Plume's hints under it, the answer
  * zone at the bottom right, always in the same place.
  */
-export function Slate({ heading, mood, squirrel, hint, away, basket, over, children }: SlateProps) {
+export function Slate(props: SlateProps) {
+  const { heading, mood, squirrel, hint, away, basket, acorns, over, children } = props;
   const next = useRef(hint?.onNext);
   next.current = hint?.onNext;
   const hasNext = next.current !== undefined;
@@ -53,7 +57,11 @@ export function Slate({ heading, mood, squirrel, hint, away, basket, over, child
   return (
     <section id="question" class={away ? 'away' : ''} aria-live="polite">
       {squirrel ? <Squirrel mood={mood} /> : <Plume mood={mood} />}
-      <Basket leaves={basket} pouring={false} />
+      {acorns === undefined ? (
+        <Basket leaves={basket} pouring={false} />
+      ) : (
+        <AcornBasket count={acorns} />
+      )}
       {over}
       <header>{heading}</header>
       <div class="bench">

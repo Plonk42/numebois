@@ -178,56 +178,94 @@ export function AcornIcon() {
 interface BarProps {
   /** Time gone, from 0 to 1. */
   time: number;
-  acorns: number;
 }
 
 /**
- * The time of the basket as a sun crossing the sky over the slate, warmer towards the end:
- * no red, no number, no beep. The acorns only ever go up.
+ * The time of the basket as a big sun crossing the sky over the slate (#133), warmer towards
+ * the end: no red, no number, no beep.
  */
-export function ChallengeBar({ time, acorns: count }: BarProps) {
-  const x = 30 + time * 540;
-  const y = 44 - Math.sin(Math.PI * time) * 30;
+export function ChallengeBar({ time }: BarProps) {
+  const x = 40 + time * 720;
+  const y = 94 - Math.sin(Math.PI * time) * 52;
   return (
     <div class="challenge-bar">
-      <svg viewBox="0 0 600 56" aria-hidden="true">
-        <path class="sky" d="M30 44Q300-16 570 44" />
+      <svg viewBox="0 0 800 116" aria-hidden="true">
+        <defs>
+          <linearGradient id="sky-band" x1="0" x2="1">
+            <stop offset="0" stop-color="#d8efff" />
+            <stop offset="0.7" stop-color="#fff1c9" />
+            <stop offset="1" stop-color="#ffd9a8" />
+          </linearGradient>
+        </defs>
+        <path class="sky" d="M6 112 Q400 -34 794 112z" />
+        <path class="course" d="M40 98 Q400 -10 760 98" />
+        <path
+          class="hills"
+          d="M6 112 q50-24 100 0 q55-26 110 0 M584 112 q55-26 110 0 q50-24 100 0"
+        />
         <g class={time > 0.8 ? 'sun evening' : 'sun'} transform={`translate(${x} ${y})`}>
-          <circle class="glow" r="17" />
-          <circle class="disc" r="11" />
+          <circle class="glow" r="34" />
+          {[0, 45, 90, 135, 180, 225, 270, 315].map((a) => (
+            <path key={a} class="ray" d="M0-28v-9" transform={`rotate(${a})`} />
+          ))}
+          <circle class="disc" r="21" />
         </g>
       </svg>
-      <span class="acorns" aria-label={acorns(count)}>
-        <AcornIcon />
-        <b key={count}>{count}</b>
-      </span>
+    </div>
+  );
+}
+
+/** The squirrel's basket at its feet during a challenge: the only count, and it only goes up. */
+export function AcornBasket({ count }: { count: number }) {
+  return (
+    <div class="acorn-basket" role="img" aria-label={acorns(count)}>
+      <svg viewBox="-60 -70 120 110" aria-hidden="true">
+        <path class="wicker" d="M-46 0h92l-12 38h-68z" />
+        <path class="handle" d="M-36 0c0-34 72-34 72 0" />
+        <AcornPile count={Math.min(count, 10)} />
+      </svg>
+      {count > 0 && <b key={count}>{count}</b>}
     </div>
   );
 }
 
 interface RaceProps {
+  /** Stones of the path, a question each. */
+  stones: number;
   /** The child's leaf: right answers over the questions of the race, from 0 to 1. */
   leaf: number;
   /** The ghost leaf replaying the best time, from 0 to 1; null before the first race. */
   ghost: number | null;
 }
 
-/** The race as two leaves along a path over the slate: the child's, and the ghost of the best. */
-export function RaceBar({ leaf, ghost }: RaceProps) {
-  const at = (t: number) => 30 + t * 540;
+/**
+ * The race over the slate (#133): a path of stones to the flag, the child's leaf in green and
+ * the ghost leaf of the record in gold, both big enough to tell apart at a glance.
+ */
+export function RaceBar({ stones, leaf, ghost }: RaceProps) {
+  const at = (t: number) => 40 + t * 700;
   return (
     <div class="challenge-bar race">
-      <svg viewBox="0 0 600 56" aria-hidden="true">
-        <path class="track" d="M30 30H570" />
-        <circle class="finish" cx="570" cy="30" r="8" />
-        {ghost !== null && (
-          <g class="ghost" transform={`translate(${at(ghost)} 30)`}>
-            <path d="M-11 7C-11-5-3-12 11-12 11 0 3 7-11 7z" />
-          </g>
-        )}
-        <g class="runner" transform={`translate(${at(leaf)} 30)`}>
-          <path d="M-13 8C-13-6-4-14 13-14 13 0 4 8-13 8z" />
+      <svg viewBox="0 0 800 116" aria-hidden="true">
+        <path class="track" d="M24 80 H776" />
+        {Array.from({ length: stones }, (_, k) => (
+          <ellipse
+            key={k}
+            class={(k + 1) / stones <= leaf ? 'stone crossed' : 'stone'}
+            cx={at((k + 1) / stones)}
+            cy={80}
+            rx={18}
+            ry={8}
+          />
+        ))}
+        <g transform="translate(762 76)">
+          <path class="pole" d="M0 0v-56" />
+          <path class="flag" d="M0-56l30 9-30 9z" />
         </g>
+        {ghost !== null && (
+          <path class="ghost" transform={`translate(${at(ghost)} 66) scale(2.6)`} d={LEAF_SHAPE} />
+        )}
+        <path class="runner" transform={`translate(${at(leaf)} 66) scale(3)`} d={LEAF_SHAPE} />
       </svg>
     </div>
   );
@@ -237,14 +275,14 @@ const ENDINGS: Record<ChallengeFormat['kind'], Record<Ending, string>> = {
   basket: {
     first: 'Ton premier panier !',
     record: 'Nouveau record !',
-    goal: 'Objectif atteint !',
+    goal: 'Plus que d’habitude !',
     better: 'Plus que la dernière fois !',
     played: 'Bravo pour ce défi !',
   },
   race: {
     first: 'Ta première course !',
     record: 'Nouveau record !',
-    goal: 'Objectif atteint !',
+    goal: 'Plus vite que d’habitude !',
     better: 'Plus vite que la dernière fois !',
     played: 'Bravo pour cette course !',
   },
@@ -254,8 +292,6 @@ interface EndProps {
   format: ChallengeFormat;
   attempt: Attempt;
   ending: Ending;
-  /** What to aim at next time. */
-  next: number;
   /** The squirrel's acorns of the challenge. */
   acorns: number;
   /** The first challenge of the day: the squirrel exchanges its acorns and gives a golden seed. */
@@ -267,48 +303,45 @@ interface EndProps {
 }
 
 /**
- * The end of a challenge, always good news: the score and the next goal; at the first challenge
- * of the day, the squirrel's acorns exchanged for leaves, and a golden seed (#120, #126).
+ * The end of a challenge (#133), always good news and short: the good news, the acorns in a
+ * pile or the time of the race, and at the first challenge of the day what the squirrel gives
+ * for its acorns (#120, #126).
  */
-export function ChallengeEnd({
-  format,
-  attempt,
-  ending,
-  next,
-  acorns: count,
-  gift,
-  basket,
-  onMore,
-  onStop,
-}: EndProps) {
+export function ChallengeEnd(props: EndProps) {
+  const { format, attempt, ending, acorns: count, gift, basket, onMore, onStop } = props;
   return (
     <section id="challenge-end" class="card" aria-live="polite">
       <Squirrel mood="cheer" />
       <Basket leaves={basket} pouring={false} />
       <p class="praise">{ENDINGS[format.kind][ending]}</p>
-      {format.kind === 'basket' ? (
-        <p class="instruction">
-          <AcornIcon /> {acorns(attempt.score)} dans le panier de l’écureuil.
-        </p>
-      ) : (
-        <p class="instruction">
-          <LeafIcon /> {format.questions} questions en {duration(attempt.score)}.
-        </p>
-      )}
-      {gift ? (
-        <p class="instruction">
+      <div class="score" role="img" aria-label={scoreLabel(format, attempt.score)}>
+        {format.kind === 'basket' ? (
+          <svg viewBox="-80 -86 160 104" aria-hidden="true">
+            <AcornPile count={Math.min(attempt.score, 14)} scale={1.4} />
+          </svg>
+        ) : (
+          <svg viewBox="-16 -16 32 26" aria-hidden="true">
+            <path class="runner" d={LEAF_SHAPE} />
+          </svg>
+        )}
+        <b>{format.kind === 'basket' ? attempt.score : duration(attempt.score)}</b>
+      </div>
+      {gift && (
+        <p
+          class="gift"
+          role="img"
+          aria-label={`${plural(count, 'feuille', 'feuilles')} et une graine dorée`}
+        >
           {count > 0 && (
-            <>
-              <LeafIcon /> Il t’échange ses glands contre {plural(count, 'feuille', 'feuilles')}
-              {' et '}
-            </>
+            <span>
+              <LeafIcon /> +{count}
+            </span>
           )}
-          <SeedIcon /> {count > 0 ? 't’offre' : 'Il t’offre'} une graine dorée !
+          <span>
+            <SeedIcon /> +1
+          </span>
         </p>
-      ) : (
-        <p class="legend">Demain, l’écureuil échangera de nouveau ses glands.</p>
       )}
-      <p class="legend">La prochaine fois, vise {scoreLabel(format, next)}.</p>
       <div class="actions">
         <button type="button" class="next" onPointerDown={onMore}>
           Encore un défi

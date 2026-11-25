@@ -80,7 +80,10 @@ test('le panier de glands : 30 s sous le soleil, une erreur sans perte de temps,
       await answered(page, exercise);
     }
   }
-  await expect(bar.locator('.acorns')).toHaveAccessibleName('3 glands');
+  // One count only, the squirrel's basket by the slate (#133); the sun has no number.
+  await expect(page.locator('#question .acorn-basket')).toHaveAccessibleName('3 glands');
+  await expect(page.locator('#question .basket')).toHaveCount(0);
+  await expect(bar).toHaveText('');
   await current(page);
   // A right answer may also teach something (a golden seed of its own): counted from here.
   // The acorns are the squirrel's: no leaf in Plume's basket during the challenge (#120).
@@ -90,11 +93,12 @@ test('le panier de glands : 30 s sous le soleil, une erreur sans perte de temps,
   await think(31_000);
   const end = page.locator('#challenge-end');
   await expect(end).toContainText('Ton premier panier !');
-  await expect(end).toContainText('3 glands dans le panier de l’écureuil.');
+  await expect(end.locator('.score')).toHaveAccessibleName('3 glands');
   // The first challenge of the day: the acorns exchanged for leaves, and a golden seed.
-  await expect(end).toContainText('Il t’échange ses glands contre 3 feuilles');
-  await expect(end).toContainText('une graine dorée');
-  await expect(end).toContainText('La prochaine fois, vise 4 glands.');
+  await expect(end.locator('.gift')).toHaveAccessibleName('3 feuilles et une graine dorée');
+  await expect(end.locator('.gift')).toHaveText(/\+3\s*\+1/);
+  // Short: the good news is the only sentence.
+  await expect(end.locator('p')).toHaveCount(2);
   expect(await game(page)).toMatchObject({ seeds: seeds + 1, leaves: 3 });
   await end.getByRole('button', { name: 'J’ai fini' }).click();
   await expect(page.locator('#trail-end')).toContainText('Défi terminé !');
@@ -107,8 +111,7 @@ test('le panier de glands : 30 s sous le soleil, une erreur sans perte de temps,
   await current(page);
   await think(31_000);
   await expect(end).toContainText('Bravo pour ce défi !');
-  await expect(end).not.toContainText('graine');
-  await expect(end).toContainText('Demain, l’écureuil échangera de nouveau ses glands.');
+  await expect(end.locator('.gift')).toHaveCount(0);
   expect(await game(page)).toMatchObject({ seeds: seeds + 1, leaves: 3 });
   expect(errors).toEqual([]);
 });
@@ -143,11 +146,11 @@ test('la course de la feuille : 10 bonnes réponses, puis la feuille fantôme re
   const end = page.locator('#challenge-end');
   await expect(end).toContainText('Ta première course !');
   // 10 × 1,5 s of thinking, on the clock of the test (the pauses: tests/unit/challenge.test.ts).
-  await expect(end).toContainText(/10 questions en 15\s+s\./);
-  await expect(end).toContainText(/vise \d+\s+s\./);
+  await expect(end.locator('.score')).toHaveText(/^15\s+s$/);
   // Another race: the ghost leaf of the record runs along.
   await end.getByRole('button', { name: 'Encore un défi' }).click();
   await current(page);
   await expect(page.locator('#question .challenge-bar .ghost')).toHaveCount(1);
+  await expect(page.locator('#question .challenge-bar .stone')).toHaveCount(10);
   expect(errors).toEqual([]);
 });

@@ -1140,14 +1140,8 @@
 #challenge-end .actions button {
   min-width: 220px;
 }
-#challenge-end .legend {
-  font-size: 18px;
-  line-height: 22px;
-  color: #5a6e5f;
-}
-
-/* The challenges (#43): the sun crosses the sky over the slate, warmer towards the end, never
-   red; the acorns of the basket only go up. */
+/* The challenges (#43, #133): a big sun crosses the sky over the slate, warmer towards the end,
+   never red; the race runs on stones to a flag; the squirrel's acorns only go up. */
 .acorn-icon {
   width: 28px;
   height: 28px;
@@ -1168,84 +1162,171 @@
   stroke-width: 2;
   stroke-linecap: round;
 }
+/* The sky or the path over the slate: the slate steps down to leave them room. */
+#question:has(.challenge-bar) {
+  top: 112px;
+  height: min(676px, calc(100vh - 124px));
+}
 .challenge-bar {
   position: absolute;
-  left: 40px;
-  right: 40px;
-  top: -22px;
-  height: 56px;
+  left: 20px;
+  right: 20px;
+  top: -102px;
+  height: 116px;
   pointer-events: none;
 }
 .challenge-bar > svg {
-  width: calc(100% - 96px);
+  width: 100%;
   height: 100%;
 }
 .challenge-bar .sky {
+  fill: url(#sky-band);
+  stroke: #f0dca6;
+  stroke-width: 3;
+}
+.challenge-bar .course {
   fill: none;
-  stroke: #f6e3a8;
-  stroke-width: 4;
-  stroke-dasharray: 2 10;
+  stroke: #fff6d6;
+  stroke-width: 10;
   stroke-linecap: round;
+  stroke-dasharray: 1 18;
+}
+.challenge-bar .hills {
+  fill: #9fd07f;
+  stroke: #6fae54;
+  stroke-width: 3;
 }
 .challenge-bar .sun .glow {
-  fill: rgba(255, 226, 122, 0.45);
+  fill: #ffe27a;
+  opacity: 0.45;
+}
+.challenge-bar .sun .ray {
+  stroke: #f0b52a;
+  stroke-width: 4.5;
+  stroke-linecap: round;
 }
 .challenge-bar .sun .disc {
   fill: #ffd85a;
   stroke: #e2a42a;
-  stroke-width: 2;
+  stroke-width: 3;
 }
 .challenge-bar .sun.evening .disc {
   fill: #ffb45a;
   stroke: #e28a2a;
 }
-.challenge-bar .acorns {
-  position: absolute;
-  right: 0;
-  top: 10px;
-  padding: 2px 12px 2px 6px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  border-radius: 18px;
-  background: #fff;
-  box-shadow: 0 2px 6px rgba(0, 30, 20, 0.2);
-  font-size: 26px;
-  font-variant-numeric: tabular-nums;
-  color: #6b4a2b;
-}
-.challenge-bar .acorns b {
-  animation: leaf-pop 0.4s cubic-bezier(0.3, 1.7, 0.5, 1);
-}
-#challenge-end {
-  width: 560px;
+.challenge-bar .sun.evening .ray {
+  stroke: #e8953a;
 }
 .challenge-bar.race .track {
   stroke: #e3d3b0;
-  stroke-width: 8;
+  stroke-width: 24;
   stroke-linecap: round;
 }
-.challenge-bar.race .finish {
+.challenge-bar.race .stone {
+  fill: #efe4cc;
+  stroke: #b8a27a;
+  stroke-width: 2;
+}
+.challenge-bar.race .stone.crossed {
+  fill: #cfe3b8;
+}
+.challenge-bar.race .pole {
+  stroke: #8a5a2b;
+  stroke-width: 5;
+}
+.challenge-bar.race .flag {
   fill: #ffd85a;
   stroke: #e2a42a;
   stroke-width: 2;
 }
-.challenge-bar.race .runner path {
+.challenge-bar .runner,
+#challenge-end .runner {
   fill: #6dbb4f;
   stroke: #3f8a35;
-  stroke-width: 2;
+  stroke-width: 1.2;
 }
-.challenge-bar.race .ghost path {
-  fill: rgba(255, 255, 255, 0.7);
-  stroke: #b8c7b0;
-  stroke-width: 2;
-  stroke-dasharray: 3 3;
+/* The record of the race: a golden leaf, dashed, clearly not the child's. */
+.challenge-bar .ghost {
+  fill: #fff8d0;
+  stroke: #d9b440;
+  stroke-width: 1.4;
+  stroke-dasharray: 2 1.6;
+}
+/* The squirrel's basket, where Plume's stands during a trail: the only count of the basket. */
+.acorn-basket {
+  position: absolute;
+  left: -150px;
+  bottom: 4px;
+  z-index: 2;
+  width: 110px;
+  height: 100px;
+  pointer-events: none;
+  filter: drop-shadow(0 3px 4px rgba(0, 30, 20, 0.3));
+}
+.acorn-basket svg {
+  width: 100%;
+  height: 100%;
+}
+.acorn-basket .wicker,
+#challenge-end .wicker {
+  fill: #d39a5a;
+  stroke: #8a5a2b;
+  stroke-width: 3;
+}
+.acorn-basket .handle {
+  fill: none;
+  stroke: #8a5a2b;
+  stroke-width: 5;
+}
+.acorn-basket b {
+  position: absolute;
+  right: -10px;
+  bottom: 0;
+  min-width: 44px;
+  height: 44px;
+  padding: 0 8px;
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(0, 30, 20, 0.25);
+  font-size: 28px;
+  font-variant-numeric: tabular-nums;
+  color: #6b4a2b;
+  animation: leaf-pop 0.4s cubic-bezier(0.3, 1.7, 0.5, 1);
+}
+/* The end: the good news, the acorns in a pile or the time, what the squirrel gives. */
+#challenge-end {
+  width: 560px;
+}
+#challenge-end .score {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+}
+#challenge-end .score svg {
+  height: 110px;
+}
+#challenge-end .score b {
+  font-size: 54px;
+  line-height: 60px;
+  color: #6b4a2b;
+  font-variant-numeric: tabular-nums;
+}
+#challenge-end .gift {
+  margin: 0;
+  display: flex;
+  gap: 24px;
+  font-size: 30px;
+  font-weight: 800;
+  color: #2f4a3a;
 }
 #challenge-end .seed-icon,
 #challenge-end .leaf-icon {
-  width: 26px;
-  height: 26px;
-  vertical-align: -5px;
+  width: 34px;
+  height: 34px;
+  vertical-align: -7px;
 }
 
 /* A flash question, discreet on the frame of the slate: no time shown. */

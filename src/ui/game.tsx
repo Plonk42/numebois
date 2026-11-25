@@ -25,7 +25,6 @@ import {
   challengeLevel,
   ending,
   firstOfDay,
-  goal,
   type Attempt,
   type ChallengeFormat,
   type Ending,
@@ -125,7 +124,6 @@ interface ChallengeResult {
   format: ChallengeFormat;
   attempt: Attempt;
   ending: Ending;
-  next: number;
   /** The squirrel's acorns of the challenge. */
   acorns: number;
   /** The first challenge of the day: the squirrel exchanges its acorns and gives a golden seed. */
@@ -707,7 +705,6 @@ function Game(props: Props) {
       format,
       attempt,
       ending: ending(format, before, attempt),
-      next: goal(format, session.attempts(id, format))!,
       acorns,
       gift,
     });
@@ -1020,6 +1017,8 @@ function Game(props: Props) {
     return group ? { group, facts: session.facts, today: today() } : null;
   };
   let over: ComponentChildren = null;
+  /** During a basket, the squirrel's acorns stand by the slate instead of Plume's leaves. */
+  let acornCount: number | undefined;
   if (drilling) over = <Garland leaves={garland} />;
   else if (flash && mode === 'trail') over = <FlashBadge />;
   else if (mode === 'challenge' && challenge.current) {
@@ -1028,11 +1027,13 @@ function Game(props: Props) {
     const right = results.filter(Boolean).length;
     if (format.kind === 'basket') {
       const total = format.seconds * 1000;
-      over = <ChallengeBar time={1 - current.remaining() / total} acorns={right} />;
+      over = <ChallengeBar time={1 - current.remaining() / total} />;
+      acornCount = right;
     } else {
       const best = bestOf(format, session.attempts(current.skill.id, format));
       over = (
         <RaceBar
+          stones={format.questions}
           leaf={right / format.questions}
           ghost={best && Math.min(1, current.elapsed() / best.score)}
         />
@@ -1175,6 +1176,7 @@ function Game(props: Props) {
           }
           mood={mood}
           squirrel={mode === 'challenge'}
+          acorns={acornCount}
           hint={hint}
           basket={basket}
           over={over}
