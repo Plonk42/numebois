@@ -1,4 +1,4 @@
-import { isAutomated, isSure, type FactProgress } from './facts';
+import { isAutomated, isKnown, isSure, type FactProgress } from './facts';
 import type { Rng } from './rng';
 import type { Achievement, Session } from './session';
 import type { Exercise, FactId, Skill, SkillId } from './types';
@@ -177,7 +177,7 @@ export function suggestedBranch(
 ): Branch | null {
   const open = trees.flatMap((skill) =>
     (skill.facts?.groups ?? [])
-      .filter((group) => group.facts.some((fact) => !isAutomated(facts.get(fact))))
+      .filter((group) => group.facts.some((fact) => !isKnown(facts.get(fact))))
       .map((group) => ({
         skill: skill.id,
         group: group.id,

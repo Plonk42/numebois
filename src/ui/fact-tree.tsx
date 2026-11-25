@@ -1,15 +1,15 @@
-import { AUTOMATED_DAYS, isAutomated, type FactProgress } from '../core/facts';
+import { AUTOMATED_DAYS, isKnown, type FactProgress } from '../core/facts';
 import type { FactGroup, FactId, Skill } from '../core/types';
 
 /** How far a fact is from « by heart »: 0 to `AUTOMATED_DAYS` leaves. */
 function daysOf(progress: FactProgress | undefined): number {
-  if (isAutomated(progress)) return AUTOMATED_DAYS;
+  if (isKnown(progress)) return AUTOMATED_DAYS;
   return Math.min(progress?.fastDays.length ?? 0, AUTOMATED_DAYS - 1);
 }
 
 /** A group in full bloom: all its facts known by heart. */
 export function blooms(group: FactGroup, facts: ReadonlyMap<FactId, FactProgress>): boolean {
-  return group.facts.every((fact) => isAutomated(facts.get(fact)));
+  return group.facts.every((fact) => isKnown(facts.get(fact)));
 }
 
 // The tree in its own units, drawn at about one pixel per unit: a trunk in the middle,

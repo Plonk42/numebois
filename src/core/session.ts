@@ -1,5 +1,5 @@
 import { CHOICE_SHARE, offerChoices } from './choices';
-import { isAutomated, recordFact, newFact, type FactProgress } from './facts';
+import { isKnown, recordFact, newFact, type FactProgress } from './facts';
 import { isAcquired, newProgress, record, type SkillProgress } from './mastery';
 import {
   addAttempt,
@@ -164,7 +164,7 @@ export class Session {
       const seen = this.facts.get(fact) ?? newFact(fact);
       const after = recordFact(seen, { right, ms, day }, skill.facts!.seconds * this.automation);
       this.facts.set(fact, after);
-      if (!isAutomated(seen) && isAutomated(after)) achievements.push({ kind: 'automated', fact });
+      if (!isKnown(seen) && isKnown(after)) achievements.push({ kind: 'automated', fact });
     }
     return achievements;
   }

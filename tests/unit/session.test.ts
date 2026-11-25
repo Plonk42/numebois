@@ -116,6 +116,25 @@ describe('session', () => {
     expect(nearNumbers(4).filter((n) => n > 9)).toEqual([40]);
   });
 
+  it('gives the golden seed of a fact once, even if it is missed then automated again (#123)', () => {
+    let today = 100;
+    const session = new Session(
+      SKILLS,
+      new Rng(1),
+      () => today,
+      () => CLEARING,
+    );
+    const complements = SKILLS.find((skill) => skill.id === 'mental-math.complements')!;
+    const exercise = complements.generate(new Rng(1), 0, CLEARING);
+    const fact = complements.facts!.of(exercise)!;
+    const learnt = (right: boolean) =>
+      session.learn(complements, exercise, right, 900).filter((a) => a.kind === 'automated');
+    expect([0, 1, 2, 3].flatMap(() => (today++, learnt(true)))).toHaveLength(1);
+    expect(learnt(false)).toEqual([]);
+    expect(session.facts.get(fact)).toMatchObject({ fastDays: [], known: true });
+    expect([0, 1, 2, 3].flatMap(() => (today++, learnt(true)))).toEqual([]);
+  });
+
   it('reports a notion acquired and a fact automated, once', () => {
     const session = new Session(
       SKILLS,

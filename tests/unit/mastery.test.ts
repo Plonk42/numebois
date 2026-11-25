@@ -4,6 +4,9 @@ import {
   allAutomated,
   isAutomated,
   isFragile,
+  isKnown,
+  isSlipping,
+  isSure,
   newFact,
   recordFact,
   type FactProgress,
@@ -137,6 +140,27 @@ describe('automatisation des faits', () => {
     const missed = recordFact(slow, answer(false, 1000, 3), 3);
     expect(missed.fastDays).toEqual([]);
     expect(missed).toMatchObject({ tries: 4, right: 3, times: [1000, 5000, 1000, 1000] });
+  });
+
+  it('keeps a fact known by heart after a mistake, to consolidate (#123)', () => {
+    const known = fact([
+      [true, 1000, 0],
+      [true, 1000, 1],
+      [true, 1000, 2],
+    ]);
+    expect(known.known).toBe(true);
+    const missed = recordFact(known, answer(false, 1000, 3), 3);
+    expect(missed).toMatchObject({ fastDays: [], known: true });
+    expect(isKnown(missed)).toBe(true);
+    expect(isAutomated(missed)).toBe(false);
+    expect(isSlipping(missed)).toBe(true);
+    expect(isFragile(missed)).toBe(true);
+    expect(isSure(missed)).toBe(false);
+    // Saves written before #123: an automated fact without the flag.
+    const older = { ...known };
+    delete older.known;
+    expect(isKnown(older)).toBe(true);
+    expect(isSlipping(older)).toBe(false);
   });
 
   it('finds fragile facts and automated notions', () => {

@@ -14,6 +14,7 @@ import { Rng } from '../../src/core/rng';
 import { Session } from '../../src/core/session';
 import type { Exercise } from '../../src/core/types';
 import { DOMAINS } from '../../src/domains';
+import { blooms } from '../../src/ui/fact-tree';
 
 const SKILLS = curriculum(DOMAINS);
 const products = SKILLS.find((skill) => skill.id === 'times-tables.products')!;
@@ -172,6 +173,44 @@ describe('drill', () => {
     const { skill, exercise } = drill.ask();
     drill.conclude(skill, exercise, true, 2000);
     expect(player.progress.get(complements.id)).toMatchObject({ stage: 'maintenance', box: 1 });
+  });
+
+  it('asks a fact known by heart then missed as a hard one (#123)', () => {
+    const [slipped, ...rest] = TABLE_7;
+    for (let seed = 0; seed < 10; seed++) {
+      const player = session();
+      for (const fact of rest) player.facts.set(fact, automated(fact));
+      player.facts.set(slipped, {
+        ...automated(slipped),
+        tries: 10,
+        right: 9,
+        fastDays: [],
+        known: true,
+      });
+      const drill = new Drill(
+        player,
+        { kind: 'skill', skill: products.id, group: 'table-7' },
+        new Rng(seed),
+      );
+      const counts = new Map<string, number>();
+      for (let i = 0; i < 12; i++) {
+        const { skill, exercise } = drill.ask();
+        const fact = skill.facts!.of(exercise)!;
+        counts.set(fact, (counts.get(fact) ?? 0) + 1);
+        drill.conclude(skill, exercise, true, 9000);
+      }
+      const others = rest.map((fact) => counts.get(fact) ?? 0);
+      expect(counts.get(slipped)).toBeGreaterThan(Math.max(...others));
+    }
+    // In the Carnet, the branch stays in bloom and Plume never makes it glow.
+    const facts = new Map(TABLE_7.map((fact) => [fact, automated(fact)]));
+    facts.set(slipped, { ...automated(slipped), fastDays: [], known: true });
+    const table7 = products.facts!.groups!.find((group) => group.id === 'table-7')!;
+    expect(blooms(table7, facts)).toBe(true);
+    expect(suggestedBranch([products], facts, null)).not.toEqual({
+      skill: products.id,
+      group: 'table-7',
+    });
   });
 
   it('plays only notions with facts, known by heart', () => {
