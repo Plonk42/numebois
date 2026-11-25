@@ -149,6 +149,7 @@ describe('sauvegarde', () => {
           records: [],
           settings: [],
           automation: 1,
+          longChallenges: false,
           plays: [],
           leaves: 0,
           seeds: 0,

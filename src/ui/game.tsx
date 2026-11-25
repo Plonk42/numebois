@@ -1,7 +1,14 @@
 import { render, type ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { isoDate, today } from '../core/day';
-import { Challenge, challengeable, FLASH_MS, FLASH_SHARE, squirrelComes } from '../core/challenge';
+import {
+  Challenge,
+  challengeable,
+  FLASH_MS,
+  FLASH_SHARE,
+  offers,
+  squirrelComes,
+} from '../core/challenge';
 import { Drill, suggestedBranch, type DrillTarget } from '../core/drill';
 import { modeOf, settingOf, type SkillSetting } from '../core/settings';
 import {
@@ -58,10 +65,9 @@ import {
   CHALLENGE_NAME,
   ChallengeBar,
   ChallengeEnd,
-  ChallengeMenu,
+  ChallengeOffer,
   FlashBadge,
   RaceBar,
-  SquirrelOffer,
 } from './challenge';
 import { DrillBreak, DrillTree, Garland, TuftButton, DRILL_NAME } from './drill';
 import { FinaleBanner, Frame, NextPainting, type NextChoice } from './finale';
@@ -338,8 +344,9 @@ function Game(props: Props) {
   const challengeEnded = useRef(false);
   const [challengeEnd, setChallengeEnd] = useState<ChallengeResult | null>(null);
   const [, setTick] = useState(0);
-  /** The squirrel's challenge, offered once per session after a trail ended well. */
-  const [offer, setOffer] = useState<Skill | null>(null);
+  /** Where the squirrel's offers are: they take turns, from one opening to the next (#132). */
+  const [offerAt, setOfferAt] = useState(() => rng.int(0, 999));
+  /** The squirrel passes once per session after a trail ended well. */
   const offered = useRef(false);
   /** The squirrel comes when the shop closes; another trail, drill or challenge sends it away. */
   const squirrelWaits = useRef(false);
@@ -627,6 +634,8 @@ function Game(props: Props) {
 
   /** The acquired notions with a challenge: the sign waits for the first one. */
   const challenges = challengeable(playable, session.progress);
+  const offerList = offers(challenges, session.longChallenges);
+  const offer = offerList.length > 0 ? offerList[offerAt % offerList.length] : null;
 
   /** After a trail ended on right answers, once per session, the squirrel offers a challenge. */
   const afterTrail = () => {
@@ -639,7 +648,6 @@ function Game(props: Props) {
   const offerChallenge = () => {
     squirrelWaits.current = false;
     offered.current = true;
-    setOffer(rng.pick(challenges));
     setPhase('squirrel');
   };
 
@@ -1147,6 +1155,10 @@ function Game(props: Props) {
             session.automation = factor;
             props.save(saveData());
           }}
+          onLongChallenges={(open) => {
+            session.longChallenges = open;
+            props.save(saveData());
+          }}
           onRecommended={setRecommended}
           onClose={() => setMenu(false)}
         />
@@ -1187,23 +1199,21 @@ function Game(props: Props) {
               basket={basket}
             />
           )}
-          {phase === 'squirrel' && offer && (
-            <SquirrelOffer
-              skill={offer}
+          {(phase === 'squirrel' || phase === 'challenge-menu') && offer && (
+            <ChallengeOffer
+              id={phase === 'squirrel' ? 'squirrel' : 'challenge-offer'}
+              title={phase === 'squirrel' ? 'Un écureuil passe !' : 'Un défi avec l’écureuil ?'}
+              offer={offer}
+              best={
+                bestOf(offer.format, session.attempts(offer.skill.id, offer.format))?.score ?? null
+              }
+              more={offerList.length > 1}
               onAccept={() => {
-                if (phase === 'squirrel') startChallenge(offer, { kind: 'basket', seconds: 30 });
+                setOfferAt((at) => at + 1);
+                startChallenge(offer.skill, offer.format);
               }}
+              onAnother={() => setOfferAt((at) => at + 1)}
               onDecline={() => setPhase('walking')}
-            />
-          )}
-          {phase === 'challenge-menu' && (
-            <ChallengeMenu
-              skills={challenges}
-              best={(s, format) => bestOf(format, session.attempts(s.id, format))?.score ?? null}
-              onStart={(s, format) => {
-                if (phase === 'challenge-menu') startChallenge(s, format);
-              }}
-              onClose={() => setPhase('walking')}
             />
           )}
           {phase === 'challenge-end' && challengeEnd && (

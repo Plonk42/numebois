@@ -14,7 +14,12 @@ async function openDashboard(page: Page) {
 const saved = (page: Page) =>
   page.evaluate(
     () =>
-      new Promise<{ settings: unknown[]; recommended: unknown; automation: number }>((resolve) => {
+      new Promise<{
+        settings: unknown[];
+        recommended: unknown;
+        automation: number;
+        longChallenges: boolean;
+      }>((resolve) => {
         const request = indexedDB.open('numebois', 1);
         request.onsuccess = () => {
           const get = request.result.transaction('kv').objectStore('kv').get('numebois:save');
@@ -98,15 +103,20 @@ test('le tableau de bord parent : suivi, réglage des notions, rafale recommand�
   expect(box.y).toBeGreaterThanOrEqual(0);
   expect(box.y + box.height).toBeLessThanOrEqual(viewport.height);
 
-  // The speed asked for a fact known by heart, in the settings.
+  // The speed asked for a fact known by heart and the long challenges (#132), in the settings.
   await menu.getByRole('button', { name: 'Réglages' }).click();
   await menu.getByRole('button', { name: 'Souple' }).click();
+  await expect(menu.getByRole('button', { name: 'Non proposés' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await menu.getByRole('button', { name: 'Proposés', exact: true }).click();
   await menu.getByRole('button', { name: 'Fermer' }).click();
   await expect(menu).toHaveCount(0);
   await expect
     .poll(async () => {
-      const { settings, recommended, automation } = await saved(page);
-      return { settings, recommended, automation };
+      const { settings, recommended, automation, longChallenges } = await saved(page);
+      return { settings, recommended, automation, longChallenges };
     })
     .toEqual({
       settings: [
@@ -115,6 +125,7 @@ test('le tableau de bord parent : suivi, réglage des notions, rafale recommand�
       ],
       recommended: { skill: 'times-tables.products', group: 'table-7' },
       automation: 1.5,
+      longChallenges: true,
     });
 
   // On the stump's tree, Plume makes the recommended branch glow (#130).

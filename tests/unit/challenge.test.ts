@@ -1,6 +1,14 @@
 import { CLEARING } from './helpers';
 import { describe, expect, it } from 'vitest';
-import { Challenge, challengeable, squirrelComes } from '../../src/core/challenge';
+import {
+  Challenge,
+  challengeable,
+  LONG_FORMATS,
+  OFFERED_FORMATS,
+  offers,
+  squirrelComes,
+} from '../../src/core/challenge';
+import { formatKey } from '../../src/core/records';
 import { curriculum } from '../../src/core/registry';
 import {
   addAttempt,
@@ -129,6 +137,30 @@ describe('challenges', () => {
     expect(challengeLevel(4, [{ day: 1, score: 3, rate: 0.6, level: 4 }])).toBe(4);
     expect(challengeLevel(4, [{ day: 1, score: 3, rate: 0.4, level: 4 }])).toBe(3);
     expect(challengeLevel(4, [{ day: 1, score: 3, rate: 0.4, level: 0 }])).toBe(0);
+  });
+
+  it('take turns in the squirrel’s offers: every notion in every format, two in a row never alike', () => {
+    const sums = SKILLS.find((skill) => skill.id === 'mental-math.sums')!;
+    for (const [skills, long] of [
+      [[products], false],
+      [[products, sums], false],
+      [[products, sums], true],
+    ] as const) {
+      const list = offers(skills, long);
+      const formats = long ? [...OFFERED_FORMATS, ...LONG_FORMATS] : OFFERED_FORMATS;
+      const key = ({ skill, format }: (typeof list)[number]) => `${skill.id}|${formatKey(format)}`;
+      expect(new Set(list.map(key)).size).toBe(skills.length * formats.length);
+      list.forEach((offer, i) => {
+        const next = list[(i + 1) % list.length];
+        expect(formatKey(next.format)).not.toBe(formatKey(offer.format));
+        if (skills.length > 1) expect(next.skill).not.toBe(offer.skill);
+      });
+    }
+    expect(offers([products], false).map(({ format }) => formatKey(format))).toEqual([
+      'basket-30',
+      'race-10',
+      'basket-60',
+    ]);
   });
 
   it('bring the squirrel only after a trail ending on right answers', () => {

@@ -1,5 +1,17 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { answered, current, driver, game, loadSave, revealed, watchReveal, wrong } from './helpers';
+
+/** Asks the squirrel for another challenge until it offers `what`, the record shown, then accepts. */
+async function take(offer: Locator, what: string, record?: string) {
+  for (let i = 0; i < 6 && !(await offer.innerText()).includes(what); i++) {
+    const before = await offer.innerText();
+    await offer.getByRole('button', { name: 'Un autre' }).click();
+    await expect(offer).not.toHaveText(before);
+  }
+  await expect(offer).toContainText(what);
+  if (record) await expect(offer.locator('.record')).toHaveText(record);
+  await offer.getByRole('button', { name: 'D’accord !' }).click();
+}
 
 /** The tables acquired; the wall clock stands still: time passes only when `think` moves it. */
 async function tablesAcquired(page: Page) {
@@ -42,13 +54,15 @@ test('le panier de glands : 30 s sous le soleil, une erreur sans perte de temps,
   const think = await tablesAcquired(page);
   const sign = page.getByRole('button', { name: 'Défi' });
   await sign.click();
-  const menu = page.locator('#challenge-menu');
-  await expect(menu).toContainText('Le panier de glands');
-  // Always refusable.
-  await menu.getByRole('button', { name: 'Pas maintenant' }).click();
-  await expect(menu).toHaveCount(0);
+  // The squirrel offers one challenge (#132): always refusable.
+  const offer = page.locator('#challenge-offer');
+  await expect(offer).toContainText('Un défi avec l’écureuil ?');
+  await expect(offer).toContainText('Les tables de multiplication');
+  await expect(offer.locator('.record')).toHaveCount(0);
+  await offer.getByRole('button', { name: 'Non merci' }).click();
+  await expect(offer).toHaveCount(0);
   await sign.click();
-  await menu.getByRole('button', { name: /30 secondes/ }).click();
+  await take(offer, '30 secondes');
 
   const bar = page.locator('#question .challenge-bar');
   for (let i = 0; i < 4; i++) {
@@ -86,13 +100,10 @@ test('le panier de glands : 30 s sous le soleil, une erreur sans perte de temps,
   await expect(page.locator('#trail-end')).toContainText('Défi terminé !');
   await expect(page.locator('#trail-end')).toHaveCount(0, { timeout: 40_000 });
   expect(await game(page)).toMatchObject({ mode: 'trail', phase: 'walking', basket: 0 });
-  // The record is kept for next time.
+  // The record is kept for next time; another one the same day is played for the record,
+  // without a word of a gift (#126).
   await sign.click();
-  await expect(menu.getByRole('button', { name: /30 secondes/ })).toContainText(
-    'Record : 3 glands',
-  );
-  // Another one the same day: played for the record, without a word of a gift (#126).
-  await menu.getByRole('button', { name: /30 secondes/ }).click();
+  await take(offer, '30 secondes', 'Record : 3 glands');
   await current(page);
   await think(31_000);
   await expect(end).toContainText('Bravo pour ce défi !');
@@ -110,7 +121,7 @@ test('la course de la feuille : 10 bonnes réponses, puis la feuille fantôme re
   page.on('pageerror', (error) => errors.push(error.message));
   const think = await tablesAcquired(page);
   await page.getByRole('button', { name: 'Défi' }).click();
-  await page.locator('#challenge-menu').getByRole('button', { name: '10 questions' }).click();
+  await take(page.locator('#challenge-offer'), '10 questions');
   const runner = page.locator('#question .challenge-bar.race .runner');
   await expect(runner).toHaveCount(1);
   // No ghost before the first race.

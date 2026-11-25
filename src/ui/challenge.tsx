@@ -1,6 +1,5 @@
-import { useState } from 'preact/hooks';
+import type { Offer } from '../core/challenge';
 import type { Attempt, ChallengeFormat, Ending } from '../core/records';
-import type { Skill } from '../core/types';
 import { Basket } from './basket';
 import { Squirrel } from './character';
 import { LeafIcon, plural, SeedIcon } from './reserve';
@@ -8,10 +7,7 @@ import { LeafIcon, plural, SeedIcon } from './reserve';
 /** The name of the challenges, written on their sign. */
 export const CHALLENGE_NAME = 'Défi';
 
-/** The baskets offered, in seconds, and the races, in questions. */
-export const BASKET_SECONDS = [30, 60, 90] as const;
-export const RACE_QUESTIONS = [10, 20] as const;
-const DURATIONS: Record<(typeof BASKET_SECONDS)[number], string> = {
+const DURATIONS: Record<30 | 60 | 90, string> = {
   30: '30 secondes',
   60: '1 minute',
   90: '1 minute 30',
@@ -32,90 +28,139 @@ export function duration(ms: number): string {
 export const scoreLabel = (format: ChallengeFormat, score: number) =>
   format.kind === 'basket' ? acorns(score) : duration(score);
 
-interface MenuProps {
-  /** The notions acquired that have a challenge. */
-  skills: readonly Skill[];
-  /** The best score in a format, null before the first attempt. */
-  best(skill: Skill, format: ChallengeFormat): number | null;
-  onStart(skill: Skill, format: ChallengeFormat): void;
-  onClose(): void;
+/** How an offer is named: « Le panier de glands », « 30 secondes ». */
+function formatLabel(format: ChallengeFormat): [string, string] {
+  return format.kind === 'basket'
+    ? ['Le panier de glands', DURATIONS[format.seconds]]
+    : ['La course de la feuille', `${format.questions} questions`];
 }
 
-/** Where a challenge starts, always refusable: the notion, then a basket or a race. */
-export function ChallengeMenu({ skills, best, onStart, onClose }: MenuProps) {
-  const [skill, setSkill] = useState<Skill | null>(skills.length === 1 ? skills[0] : null);
-  let body;
-  if (!skill) {
-    body = (
-      <>
-        <p class="praise">Un défi ?</p>
-        <div class="options skills">
-          {skills.map((s) => (
-            <button key={s.id} type="button" onPointerDown={() => setSkill(s)}>
-              {s.name}
-            </button>
-          ))}
-        </div>
-      </>
-    );
-  } else {
-    const entry = (format: ChallengeFormat, label: string) => {
-      const record = best(skill, format);
-      return (
-        <button
-          key={label}
-          type="button"
-          class="entry"
-          onPointerDown={() => onStart(skill, format)}
-        >
-          {label}
-          {record !== null && <span class="record">Record : {scoreLabel(format, record)}</span>}
-        </button>
-      );
-    };
-    body = (
-      <>
-        <p class="praise">{skill.name}</p>
-        <p class="kind">
-          <SunIcon /> Le panier de glands : remplis-le avant la fin du soleil.
-        </p>
-        <div class="options baskets">
-          {BASKET_SECONDS.map((seconds) => entry({ kind: 'basket', seconds }, DURATIONS[seconds]))}
-        </div>
-        <p class="kind">
-          <LeafIcon /> La course de la feuille : va plus vite que ta feuille fantôme.
-        </p>
-        <div class="options races">
-          {RACE_QUESTIONS.map((questions) =>
-            entry({ kind: 'race', questions }, `${questions} questions`),
+interface OfferProps {
+  id: string;
+  /** « Un défi avec l’écureuil ? » from the sign, « Un écureuil passe ! » after a trail. */
+  title: string;
+  offer: Offer;
+  /** The best score of the notion in the format, null before the first time. */
+  best: number | null;
+  /** Another offer is there: « Un autre ». */
+  more: boolean;
+  onAccept(): void;
+  onAnother(): void;
+  onDecline(): void;
+}
+
+/**
+ * The squirrel offers one challenge (#132): its picture, its notion and its record, then
+ * « D’accord ! », « Un autre » or « Non merci »; refusing never costs anything.
+ */
+export function ChallengeOffer(props: OfferProps) {
+  const { id, title, offer, best, more, onAccept, onAnother, onDecline } = props;
+  const { skill, format } = offer;
+  const [name, length] = formatLabel(format);
+  return (
+    <section id={id} class="card offer" aria-live="polite">
+      <Squirrel mood="talk" />
+      <p class="praise">{title}</p>
+      <div class="offer-body">
+        {format.kind === 'basket' ? <BasketPicture /> : <RacePicture />}
+        <div class="what">
+          <b>{name}</b>
+          <span>{length}</span>
+          <span>{skill.name}</span>
+          {best !== null && (
+            <span class="record">
+              {format.kind === 'basket' ? (
+                <svg viewBox="-44 -40 88 50" aria-hidden="true">
+                  <AcornPile count={Math.min(best, 7)} scale={0.8} />
+                </svg>
+              ) : (
+                <svg viewBox="-14 -14 28 24" aria-hidden="true">
+                  <path class="ghost" d={LEAF_SHAPE} />
+                </svg>
+              )}
+              Record : {scoreLabel(format, best)}
+            </span>
           )}
         </div>
-      </>
-    );
-  }
-  return (
-    <section id="challenge-menu" class="card">
-      <Squirrel mood="calm" />
-      {body}
+      </div>
       <div class="actions">
-        {skill && skills.length > 1 && (
-          <button type="button" onPointerDown={() => setSkill(null)}>
-            Retour
+        <button type="button" class="next" onPointerDown={onAccept}>
+          D’accord !
+        </button>
+        {more && (
+          <button type="button" onPointerDown={onAnother}>
+            Un autre
           </button>
         )}
-        <button type="button" onPointerDown={onClose}>
-          Pas maintenant
+        <button type="button" onPointerDown={onDecline}>
+          Non merci
         </button>
       </div>
     </section>
   );
 }
 
-function SunIcon() {
+const LEAF_SHAPE = 'M-11 7C-11-5-3-12 11-12 11 0 3 7-11 7z';
+
+/** An acorn drawn around its centre, about 22 units wide. */
+function Acorn({ x, y, scale }: { x: number; y: number; scale: number }) {
   return (
-    <svg class="sun-icon" viewBox="0 0 48 48" aria-hidden="true">
-      <path class="rays" d="M24 3v7M24 38v7M3 24h7M38 24h7M9 9l5 5M34 34l5 5M9 39l5-5M34 14l5-5" />
-      <circle class="disc" cx="24" cy="24" r="10" />
+    <g class="acorn" transform={`translate(${x} ${y}) scale(${scale})`}>
+      <path class="nut" d="M-9 0h18c0 9-4.5 15-9 16.5C-4.5 15-9 9-9 0z" />
+      <path class="cap" d="M-11 0c0-6 5-9 11-9s11 3 11 9z" />
+      <path class="stem" d="M0-9v-4" />
+    </g>
+  );
+}
+
+/** A pile of acorns, rows getting shorter upwards, its base centred on 0. */
+export function AcornPile({ count, scale = 1 }: { count: number; scale?: number }) {
+  const acorns: { x: number; y: number }[] = [];
+  for (let row = 0, left = count; left > 0; row++) {
+    const inRow = Math.min(left, Math.max(1, 5 - row));
+    for (let k = 0; k < inRow; k++) {
+      acorns.push({ x: (k - (inRow - 1) / 2) * 22 * scale, y: -row * 17 * scale });
+    }
+    left -= inRow;
+  }
+  return (
+    <>
+      {acorns.map(({ x, y }, i) => (
+        <Acorn key={i} x={x} y={y} scale={scale} />
+      ))}
+    </>
+  );
+}
+
+/** The basket under the sun: the sun crosses the sky while the basket fills. */
+function BasketPicture() {
+  return (
+    <svg class="picture" viewBox="0 0 250 150" aria-hidden="true">
+      <path class="sky" d="M30 120 Q125 -10 220 120" />
+      <g transform="translate(70 62)">
+        <circle class="glow" r="26" />
+        <circle class="sun" r="17" />
+      </g>
+      <g transform="translate(150 96)">
+        <path class="wicker" d="M-40 0h80l-10 40h-60z" />
+        <path class="handle" d="M-30 0c0-30 60-30 60 0" />
+        <AcornPile count={6} scale={0.9} />
+      </g>
+    </svg>
+  );
+}
+
+/** The race: the child's leaf ahead of the ghost leaf, towards the flag. */
+function RacePicture() {
+  return (
+    <svg class="picture" viewBox="0 0 250 150" aria-hidden="true">
+      <path class="track" d="M20 110 C80 60 170 130 230 70" />
+      <g transform="translate(226 62)">
+        <path class="pole" d="M0 0v-40" />
+        <path class="flag" d="M0-40l26 8-26 8z" />
+      </g>
+      <path class="ghost" transform="translate(150 98) scale(2.4)" d={LEAF_SHAPE} />
+      <path class="runner" transform="translate(96 92) scale(2.8)" d={LEAF_SHAPE} />
     </svg>
   );
 }
@@ -270,32 +315,6 @@ export function ChallengeEnd({
         </button>
         <button type="button" onPointerDown={onStop}>
           J’ai fini
-        </button>
-      </div>
-    </section>
-  );
-}
-
-interface OfferProps {
-  skill: Skill;
-  onAccept(): void;
-  onDecline(): void;
-}
-
-/** After a trail ended on right answers, once per session: a squirrel offers a challenge. */
-export function SquirrelOffer({ skill, onAccept, onDecline }: OfferProps) {
-  return (
-    <section id="squirrel" class="card" aria-live="polite">
-      <Squirrel mood="talk" />
-      <p class="praise">Un écureuil passe !</p>
-      <p class="instruction">{'Il te propose le panier de glands de 30\u00a0secondes.'}</p>
-      <p class="legend">{skill.name}</p>
-      <div class="actions">
-        <button type="button" class="next" onPointerDown={onAccept}>
-          D’accord !
-        </button>
-        <button type="button" onPointerDown={onDecline}>
-          Non merci
         </button>
       </div>
     </section>
