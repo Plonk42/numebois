@@ -1,6 +1,7 @@
 import { Rng, valueNoise2 } from '../../core/rng';
 import type { ModelName } from '../asset-catalog';
 import { swatchUV } from '../atlas';
+import { HANG, ROPE_OVER, sagAt } from '../cableway';
 import {
   LAST_STAGE,
   STAGES,
@@ -28,6 +29,7 @@ import {
   smoothstep,
   type Announcement,
   type BankPath,
+  type Cableway,
   type Drifter,
   type Pond,
   type Reveal,
@@ -51,8 +53,22 @@ const TARN = 1.6;
 /** Snow covers the peaks above this height, in every season. */
 const SNOW_LINE = 11.5;
 const MAX_EDGE_TREES = 22;
-/** Stage from which the shop sells the eagles. */
-const EAGLES_STAGE = rareStage('mountain', 'eagles')!;
+/** Stage from which the shop sells the cable car (#154). */
+const CABLECAR_STAGE = rareStage('mountain', 'cablecar')!;
+/** The eagles come by themselves with this stage. */
+const EAGLES_STAGE = 9;
+/** Tallest pylon of the cable car, from the ground to its ropes. */
+const TALLEST_PYLON = 15;
+/** Points around a cabin, to find the highest ground under it. */
+const AROUND_CABIN: readonly (readonly [number, number])[] = [
+  [0, 0],
+  [0.9, 0],
+  [-0.9, 0],
+  [0, 0.9],
+  [0, -0.9],
+];
+/** From the great peak's summit to its top station, towards the camera, in shares of its radius. */
+const TOP_STATION = 0.3;
 
 // One value per stage. The diorama widens around a gorge: rock ledges rise one after another
 // around the pool at its foot, steep peaks and needles stand behind and beside them. Three
@@ -556,7 +572,9 @@ export function layoutOf(seed: number): Layout {
     waterCache.delete(seed);
     slotCache.delete(seed);
     forestCache.delete(seed);
-    if (roomy(slotsOf(seed))) return layout;
+    cablewayCache.delete(seed);
+    // Every place fits, and the cable car finds its line.
+    if (roomy(slotsOf(seed)) && cablewayOf(seed)) return layout;
   }
   const fallback = first ?? drawOnce(seed, 0);
   layouts.set(seed, fallback);
@@ -742,6 +760,97 @@ export function slotsOf(seed: number): readonly SlotDef[] {
   return slots;
 }
 
+/** Where the cable car stands: its bottom station, its pylons, its top station. */
+export interface CablewayPlan {
+  bottom: [number, number];
+  pylons: [number, number][];
+  top: [number, number];
+}
+
+const cablewayCache = new Map<number, CablewayPlan | null>();
+
+/**
+ * The cable car of a seed, in the final layout like the places: its bottom station on the floor
+ * beside the pool, a pylon on each ledge its line crosses, its top station under the summit of
+ * the great peak. The first candidate whose cabins clear the ground, and the trees of the
+ * places by far, at every stage that sells it; null if none does.
+ */
+export function cablewayOf(seed: number): CablewayPlan | null {
+  const cached = cablewayCache.get(seed);
+  if (cached !== undefined) return cached;
+  const layout = layoutOf(seed);
+  const slots = slotsOf(seed);
+  const main = layout.peaks.main;
+  const top: [number, number] = [main.x, main.z + main.r * TOP_STATION];
+  // The ledges and the peaks only rise: the first stage that sells it and the last will do.
+  const grounds = [CABLECAR_STAGE, LAST_STAGE].map((s) => new Mountain(seed, s, false, false));
+  const radius = MOUNTAIN_BY_STAGE.pool[LAST_STAGE];
+  const [px, pz] = [layout.pool.x, layout.pool.z + radius - 0.9];
+  const free = (x: number, z: number, room: number) =>
+    offWater(seed, x, z) && slots.every((s) => Math.hypot(s.x - x, s.z - z) >= room);
+  let plan: CablewayPlan | null = null;
+  search: for (const reach of [2.5, 4, 5.5, 7]) {
+    // Beside the pool, out of the way of its overflow at the front.
+    for (const angle of [80, 100, 60, 120, 40, 140]) {
+      for (const side of [layout.mirror, -layout.mirror]) {
+        const a = (angle * Math.PI) / 180;
+        const bottom: [number, number] = [
+          px + side * Math.sin(a) * (radius + reach),
+          pz + Math.cos(a) * (radius + reach),
+        ];
+        const on = standing(layout, ...bottom);
+        if (!on || on.ledge || !free(...bottom, 3.2)) continue;
+        if (rimValue(layout, outlineOf(CABLECAR_STAGE), ...bottom) > 0.8) continue;
+        const candidate = { bottom, pylons: pylonsOn(layout, bottom, top, free), top };
+        if (grounds.every((g) => g.clears(candidate, slots))) {
+          plan = candidate;
+          break search;
+        }
+      }
+    }
+  }
+  cablewayCache.set(seed, plan);
+  return plan;
+}
+
+/**
+ * Pylons along the line: one on the floor before the cliff of the first ledge it climbs
+ * onto, then one on each ledge near its brink, where they find room.
+ */
+function pylonsOn(
+  layout: Layout,
+  [bx, bz]: [number, number],
+  [tx, tz]: [number, number],
+  free: (x: number, z: number, room: number) => boolean,
+): [number, number][] {
+  const steps = 100;
+  const at = (i: number): [number, number] => [
+    bx + ((tx - bx) * i) / steps,
+    bz + ((tz - bz) * i) / steps,
+  ];
+  const on = Array.from(
+    { length: steps },
+    (_, i) => standing(layout, ...at(i))?.ledge?.name ?? null,
+  );
+  const pylons: [number, number][] = [];
+  // Last free place on the floor, a little before the first cliff.
+  const cliff = on.findIndex((name, i) => i > 0 && name !== null);
+  for (let i = cliff - 5; i > 3 && cliff > 0; i--) {
+    if (on[i] === null && free(...at(i), 2)) {
+      pylons.push(at(i));
+      break;
+    }
+  }
+  for (const name of ['middle', 'hanging'] as const) {
+    const ledge = layout.ledges[name];
+    const i = on.findIndex(
+      (n, k) => n === name && ledgeDistance(ledge, ...at(k)) < 0.85 && free(...at(k), 2),
+    );
+    if (i >= 0) pylons.push(at(i));
+  }
+  return pylons;
+}
+
 const forestCache = new Map<number, TreeSpot[]>();
 /** Ledge each pine stands on: it shows once that ledge has risen. */
 const forestLedges = new WeakMap<TreeSpot, Ledge | null>();
@@ -760,6 +869,8 @@ function forestOf(seed: number): readonly TreeSpot[] {
   const last = new Mountain(seed, LAST_STAGE, true, false);
   const placed: { x: number; z: number }[] = [];
   const slots = slotsOf(seed);
+  const plan = cablewayOf(seed);
+  const cable = plan ? [plan.bottom, ...plan.pylons, plan.top] : null;
   const spots: TreeSpot[] = [];
   for (let attempt = 0; attempt < 4000; attempt++) {
     const x = rng.range(-final.hx, final.hx);
@@ -770,6 +881,11 @@ function forestOf(seed: number): readonly TreeSpot[] {
     if (rimValue(layout, final, x, z) > 0.93) continue;
     if (slots.some((s) => Math.hypot(s.x - x, s.z - z) < 2)) continue;
     if (placed.some((p) => Math.hypot(p.x - x, p.z - z) < 2.2)) continue;
+    // Room under the cable car's line and around its stations, bought or not.
+    if (cable && distanceToPath(cable, x, z).distance < 2.4) continue;
+    if (cable && [cable[0], cable.at(-1)!].some(([cx, cz]) => Math.hypot(cx - x, cz - z) < 4)) {
+      continue;
+    }
     const on = standing(layout, x, z);
     if (!on || !offWater(seed, x, z)) continue;
     // The fronts of the low ledges and the grass of the floor stay open pastures for the
@@ -867,15 +983,16 @@ class Mountain implements Terrain {
   private readonly basins: Basin[];
   private readonly cascade: Reveal;
   private readonly peak: Reveal;
-  private readonly eagles: Reveal;
+  private readonly cablecar: Reveal;
+  cableway: Cableway | null = null;
   private readonly runs: Run[] = [];
   private readonly drops: Drop[] = [];
 
   constructor(
     private readonly seed: number,
     private readonly stage: Stage,
-    /** The child bought the eagles (#46). */
-    eagles: boolean,
+    /** The child bought the cable car (#154). */
+    cablecar: boolean,
     /** Without its scenery, a terrain only answers questions about its ground and water. */
     scenery = true,
   ) {
@@ -892,8 +1009,8 @@ class Mountain implements Terrain {
     };
     this.cascade = revealAt(r.cascade, stage);
     this.peak = revealAt(r.peak, stage);
-    if (eagles) this.eagles = 'shown';
-    else this.eagles = stage >= EAGLES_STAGE ? 'announced' : 'waiting';
+    if (cablecar) this.cablecar = 'shown';
+    else this.cablecar = stage >= CABLECAR_STAGE ? 'announced' : 'waiting';
     // The pool grows away from the middle ledge, so the fall always lands in it.
     const { pool } = this.layout;
     const radius = r.pool[stage];
@@ -969,6 +1086,78 @@ class Mountain implements Terrain {
         return [x, y, z] as [number, number, number];
       })
       .sort((a, b) => b[1] - a[1]);
+  }
+
+  /**
+   * The cable car's supports at this stage, the ropes over the ground of each: the pylons rise
+   * as high as their spans need to clear the ground, and the trees of the places by far.
+   */
+  private supportsOf(plan: CablewayPlan, slots: readonly SlotDef[]): Cableway['supports'] {
+    const at = ([x, z]: [number, number], over: number) => {
+      const ground = this.height(x, z);
+      return { x, y: ground + over, z, ground };
+    };
+    const supports = [
+      at(plan.bottom, ROPE_OVER.bottom),
+      ...plan.pylons.map((p) => at(p, ROPE_OVER.pylon)),
+      at(plan.top, ROPE_OVER.top),
+    ];
+    const last = supports.length - 1;
+    for (let pass = 0; pass < 4; pass++) {
+      for (let k = 0; k < last; k++) {
+        const [a, b] = [supports[k], supports[k + 1]];
+        // How much higher each end must be for the cabins to clear this span.
+        let raiseA = 0;
+        let raiseB = 0;
+        for (const [t, deficit] of this.deficits(a, b, plan, slots)) {
+          if (k === 0) raiseB = Math.max(raiseB, deficit / t);
+          else if (k + 1 === last) raiseA = Math.max(raiseA, deficit / (1 - t));
+          else [raiseA, raiseB] = [Math.max(raiseA, deficit), Math.max(raiseB, deficit)];
+        }
+        if (k > 0) supports[k] = { ...a, y: a.y + raiseA };
+        if (k + 1 < last) supports[k + 1] = { ...b, y: b.y + raiseB };
+      }
+    }
+    return supports;
+  }
+
+  /** Along a span, where its cabins pass too low: [share of the span, height missing]. */
+  private deficits(
+    a: Cableway['supports'][number],
+    b: Cableway['supports'][number],
+    plan: CablewayPlan,
+    slots: readonly SlotDef[],
+  ): [number, number][] {
+    const out: [number, number][] = [];
+    const span = Math.hypot(b.x - a.x, b.z - a.z);
+    for (let i = 1; i < 16; i++) {
+      const t = i / 16;
+      const x = a.x + (b.x - a.x) * t;
+      const z = a.z + (b.z - a.z) * t;
+      // In a station, a cabin is under its roof.
+      if ([plan.bottom, plan.top].some(([sx, sz]) => Math.hypot(x - sx, z - sz) < 2)) continue;
+      const y = a.y + (b.y - a.y) * t - sagAt(span, t);
+      let under = -Infinity;
+      for (const [dx, dz] of AROUND_CABIN) under = Math.max(under, this.height(x + dx, z + dz));
+      const near = slots.filter((s) => Math.hypot(s.x - x, s.z - z) < 2.2);
+      const tree = near.some((s) => s.kind === 'tree') ? 4 : near.length > 0 ? 1.8 : 0;
+      const deficit = under + tree + 0.5 + HANG - y;
+      if (deficit > 0) out.push([t, deficit + 0.2]);
+    }
+    return out;
+  }
+
+  /** The cabins clear everything with pylons no taller than the tallest. */
+  clears(plan: CablewayPlan, slots: readonly SlotDef[]): boolean {
+    const supports = this.supportsOf(plan, slots);
+    if (
+      supports.some((s, i) => i > 0 && i < supports.length - 1 && s.y - s.ground > TALLEST_PYLON)
+    ) {
+      return false;
+    }
+    return supports.every(
+      (a, k) => k === 0 || this.deficits(supports[k - 1], a, plan, slots).length === 0,
+    );
   }
 
   private peakHeight(p: Peak, x: number, z: number): number {
@@ -1319,11 +1508,10 @@ class Mountain implements Terrain {
     if (this.peak === 'announced') {
       this.announcements.push({ label: 'peak', x: main.x, y: top(main) + 2, z: main.z, radius: 4 });
     }
-    // The eagles circle over the great peak once bought and land on the summits in turn,
-    // sparkles while they are sold.
+    // From their stage, the eagles circle over the great peak and land on the summits in turn.
     if (main.height[this.stage] > 0) {
       const y = main.height[this.stage] + 3;
-      if (this.eagles === 'shown') {
+      if (this.stage >= EAGLES_STAGE) {
         const perches = this.summits();
         this.drifters.push(
           {
@@ -1349,9 +1537,16 @@ class Mountain implements Terrain {
             perches,
           },
         );
-      } else if (this.eagles === 'announced') {
-        this.announcements.push({ label: 'eagles', x: main.x, y, z: main.z + 5, radius: 4 });
       }
+    }
+
+    // The cable car once bought, sparkles at its bottom station while it is sold.
+    const plan = this.cablecar === 'waiting' ? null : cablewayOf(this.seed);
+    if (plan && this.cablecar === 'shown')
+      this.cableway = { supports: this.supportsOf(plan, slotsOf(this.seed)) };
+    else if (plan) {
+      const [x, z] = plan.bottom;
+      this.announcements.push({ label: 'cablecar', x, y: this.height(x, z) + 2, z, radius: 3 });
     }
 
     for (const p of this.basins) {
@@ -1447,7 +1642,7 @@ class Mountain implements Terrain {
     for (const p of this.peaks) {
       if (this.rim(p.x, p.z) > 0.97) continue;
       // Room for the eagles over the great peak once sold: buying them does not move the camera.
-      const lift = p.name === 'main' && this.eagles !== 'waiting' ? 6 : 1;
+      const lift = p.name === 'main' && this.stage >= EAGLES_STAGE ? 6 : 1;
       points.push([p.x, this.peakHeight(p, p.x, p.z) + lift, p.z]);
     }
     return {
@@ -1587,5 +1782,5 @@ export function createMountain(
   stage: Stage,
   rares: readonly RareName[] = [],
 ): Terrain {
-  return new Mountain(seed, stage, rares.includes('eagles'));
+  return new Mountain(seed, stage, rares.includes('cablecar'));
 }

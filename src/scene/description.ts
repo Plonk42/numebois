@@ -97,11 +97,11 @@ export const RARE_NAMES = [
   'beavers',
   'windmill',
   'balloon',
-  'eagles',
+  'cablecar',
 ] as const;
 export type RareName = (typeof RARE_NAMES)[number];
 /** The great element of each décor, the climax of the painting: dearer, shown apart in the shop. */
-export const GRAND_RARES: readonly RareName[] = ['beavers', 'windmill', 'balloon', 'eagles'];
+export const GRAND_RARES: readonly RareName[] = ['beavers', 'windmill', 'balloon', 'cablecar'];
 
 /**
  * The rare elements of each décor, each open from a stage: the rainbow needs a fall landing
@@ -126,7 +126,7 @@ export const RARE_OFFERS: Record<BiomeId, readonly { rare: RareName; stage: Stag
   mountain: [
     { rare: 'fireflies', stage: 4 },
     { rare: 'rainbow', stage: 6 },
-    { rare: 'eagles', stage: 8 },
+    { rare: 'cablecar', stage: 8 },
   ],
 };
 

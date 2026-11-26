@@ -27,7 +27,14 @@ import {
 import { BACKDROP_TRIANGLES } from '../../src/scene/render/backdrop';
 import { QUALITY } from '../../src/scene/render/quality';
 import { ambienceFor } from '../../src/scene/render/richness';
-import { createMountain, hidesWater, layoutOf, slotsOf } from '../../src/scene/terrain/mountain';
+import { cabin, cabinAt, cablewayMesh, HANG } from '../../src/scene/cableway';
+import {
+  cablewayOf,
+  createMountain,
+  hidesWater,
+  layoutOf,
+  slotsOf,
+} from '../../src/scene/terrain/mountain';
 import type { Terrain } from '../../src/scene/terrain/types';
 import { SEASONS, type Season } from '../../src/scene/trees/builder';
 import { buildForestBuffers } from '../../src/scene/trees/forest';
@@ -74,6 +81,8 @@ function sceneTriangles(description: SceneDescription): number {
     (sum, d) => sum + triangleCount(GENERATED_DRIFTERS[d.model]()),
     0,
   );
+  const { cableway } = composition.terrain;
+  const cable = cableway ? triangleCount(cablewayMesh(cableway)) + 2 * triangleCount(cabin()) : 0;
   return (
     parts.ground +
     parts.water +
@@ -82,6 +91,7 @@ function sceneTriangles(description: SceneDescription): number {
     forest.writer.triangles +
     herdTriangles(herd) +
     drifters +
+    cable +
     MAX_EFFECT_TRIANGLES +
     BACKDROP_TRIANGLES
   );
@@ -124,6 +134,77 @@ function poolFall(terrain: Terrain) {
   return terrain.waterfalls.filter((f) => f.splash).sort((a, b) => off(a) - off(b))[0];
 }
 
+describe('mountain: the cable car', () => {
+  it('finds its line for every seed, its cabins clear of the ground and of the trees', () => {
+    for (let seed = 0; seed < 40; seed++) {
+      const plan = cablewayOf(seed);
+      expect(plan, `seed ${seed}`).not.toBeNull();
+      for (const stage of [8, 9, 10, LAST_STAGE] as Stage[]) {
+        const terrain = createMountain(seed, stage, ['cablecar']);
+        const { supports } = terrain.cableway!;
+        const label = `seed ${seed}, stage ${stage}`;
+        // From beside the pool up to the great peak, each support higher than the bottom one.
+        expect(supports.length, label).toBeGreaterThanOrEqual(2);
+        expect(supports.at(-1)!.y, label).toBeGreaterThan(supports[0].y + 10);
+        for (const s of supports) expect(s.y, label).toBeGreaterThan(s.ground);
+        // No tree of the forest under the line.
+        for (const tree of terrain.treeSpots) {
+          for (const index of [0, 1]) {
+            for (let t = 0; t < 60; t += 0.5) {
+              const cab = cabinAt(terrain.cableway!, index, t);
+              if (Math.hypot(cab.x - tree.x, cab.z - tree.z) > 1.2) continue;
+              expect(cab.y - HANG, `${label}, cabin ${index} at ${t} s`).toBeGreaterThan(
+                terrain.surfaceAt(tree.x, tree.z)!.y + 3,
+              );
+            }
+          }
+        }
+      }
+    }
+  });
+
+  it('runs its two cabins in turn, smoothly, one up while the other comes down', () => {
+    const { cableway } = createMountain(7, LAST_STAGE, ['cablecar']);
+    const bottom = cableway!.supports[0];
+    const top = cableway!.supports.at(-1)!;
+    let previous = [cabinAt(cableway!, 0, 0), cabinAt(cableway!, 1, 0)];
+    const waits = new Set<string>();
+    let crossings = 0;
+    for (let f = 1; f <= 30 * 120; f++) {
+      const now = [cabinAt(cableway!, 0, f / 30), cabinAt(cableway!, 1, f / 30)];
+      for (const i of [0, 1]) {
+        const step = Math.hypot(
+          now[i].x - previous[i].x,
+          now[i].y - previous[i].y,
+          now[i].z - previous[i].z,
+        );
+        expect(step, `${f / 30} s`).toBeLessThan(0.2);
+      }
+      // One waits in a station while the other waits in the other one; they cross between.
+      const along = (p: { x: number; z: number }) =>
+        ((p.x - bottom.x) * (top.x - bottom.x) + (p.z - bottom.z) * (top.z - bottom.z)) /
+        Math.hypot(top.x - bottom.x, top.z - bottom.z);
+      // Waiting: not moving at all.
+      const still = now.map(
+        (p, i) => p.x === previous[i].x && p.y === previous[i].y && p.z === previous[i].z,
+      );
+      expect(still[1], `${f / 30} s`).toBe(still[0]);
+      if (still[0]) {
+        const up = along(now[0]) > along(now[1]);
+        waits.add(up ? 'top' : 'bottom');
+        expect(Math.min(along(now[0]), along(now[1])), `${f / 30} s`).toBeLessThan(1);
+        expect(Math.max(along(now[0]), along(now[1])), `${f / 30} s`).toBeGreaterThan(
+          along(top) - 1,
+        );
+      }
+      if (Math.abs(along(now[0]) - along(now[1])) < 0.3) crossings++;
+      previous = now;
+    }
+    expect([...waits].sort()).toEqual(['bottom', 'top']);
+    expect(crossings).toBeGreaterThan(0);
+  });
+});
+
 describe('mountain: stages and grand moments', () => {
   it('grows at every stage: larger, higher peaks, one more fall with each torrent ledge', () => {
     for (let seed = 0; seed < 6; seed++) {
@@ -154,13 +235,13 @@ describe('mountain: stages and grand moments', () => {
     }
   });
 
-  it('announces the cascade and the great peak the stage before, the eagles while sold', () => {
+  it('announces the cascade and the great peak the stage before, the cable car while sold', () => {
     for (const seed of [0, 7, 19]) {
       const at = (stage: Stage) => createMountain(seed, stage);
       const labels = (stage: Stage) => at(stage).announcements.map((a) => a.label);
       expect(labels(5)).toEqual(['cascade']);
-      expect(labels(9)).toEqual(['eagles']);
-      expect(labels(10)).toEqual(['peak', 'eagles']);
+      expect(labels(9)).toEqual(['cablecar']);
+      expect(labels(10)).toEqual(['peak', 'cablecar']);
       for (const stage of [0, 4, 6, 7] as Stage[]) expect(labels(stage)).toEqual([]);
       // The great cascade: the hanging valley rises high, its tall falls wrapped in spray.
       const tallest = (stage: Stage) =>
@@ -172,12 +253,21 @@ describe('mountain: stages and grand moments', () => {
       expect(tallest(6)).toBeGreaterThan(tallest(5) + 2);
       expect(at(5).waterfalls.some((f) => f.spray)).toBe(false);
       expect(at(6).waterfalls.some((f) => f.spray)).toBe(true);
+      // The eagles come by themselves at 9.
+      expect(at(8).drifters).toEqual([]);
+      for (const stage of [9, LAST_STAGE] as Stage[]) {
+        expect(at(stage).drifters.map((d) => d.model)).toEqual(['eagle', 'eagle']);
+      }
       for (const stage of [8, LAST_STAGE] as Stage[]) {
-        expect(labels(stage)).toContain('eagles');
-        expect(at(stage).drifters).toEqual([]);
-        const bought = createMountain(seed, stage, ['eagles']);
-        expect(bought.announcements.map((a) => a.label)).not.toContain('eagles');
-        expect(bought.drifters.map((d) => d.model)).toEqual(['eagle', 'eagle']);
+        expect(labels(stage)).toContain('cablecar');
+        expect(at(stage).cableway).toBeNull();
+        const bought = createMountain(seed, stage, ['cablecar']);
+        expect(bought.announcements.map((a) => a.label)).not.toContain('cablecar');
+        expect(bought.cableway).not.toBeNull();
+        // Buying it moves nothing else.
+        expect(bought.slots).toEqual(at(stage).slots);
+        expect(bought.treeSpots).toEqual(at(stage).treeSpots);
+        expect(bought.frame).toEqual(at(stage).frame);
       }
     }
   });
@@ -191,7 +281,7 @@ describe('mountain: stages and grand moments', () => {
     let tarns = 0;
     for (let seed = 0; seed < 40; seed++) {
       const { tarn, joins } = layoutOf(seed);
-      const final = createMountain(seed, LAST_STAGE, ['eagles']);
+      const final = createMountain(seed, LAST_STAGE, ['cablecar']);
       // The side torrents fall onto the middle ledge and join the main stream there, each at
       // its own place; or one keeps to its side and ends in a tarn on its back ledge.
       const feet = final.waterfalls.filter((f) => f.splash).map((f) => f.foot[1].toFixed(3));

@@ -7,7 +7,7 @@ export const RARE_LABELS: Record<RareName, string> = {
   beavers: 'Des castors',
   windmill: 'Un moulin',
   balloon: 'Une montgolfière',
-  eagles: 'Des aigles',
+  cablecar: 'Un téléphérique',
 };
 
 /** Shown while the rare element comes into the painting. */
@@ -17,7 +17,7 @@ export const RARE_ARRIVALS: Record<RareName, string> = {
   beavers: 'Les castors arrivent !',
   windmill: 'Le moulin arrive !',
   balloon: 'La montgolfière arrive !',
-  eagles: 'Les aigles arrivent !',
+  cablecar: 'Le téléphérique arrive !',
 };
 
 const BANDS = ['#e8584f', '#f39a3c', '#f4d04a', '#69b85a', '#4f8fd8'];
@@ -88,26 +88,21 @@ const SHAPES: Record<RareName, JSX.Element> = {
       <rect class="gondola" x="26" y="52" width="12" height="8" rx="2" />
     </>
   ),
-  eagles: (
+  cablecar: (
     <>
-      <path class="peak" d="M4 60l18-26 8 9 10-17 20 34z" />
-      <path class="snowcap" d="M35.3 34L40 26l4.7 8-2.4-1.6-2.3 2.4-2.3-2.4z" />
-      {[
-        [20, 14, 1.1],
-        [51, 12, 0.75],
-      ].map(([x, y, k]) => (
-        <path
-          key={x}
-          class="eagle"
-          transform={`translate(${x} ${y}) scale(${k})`}
-          d="M-14 0c5-4 10-4 14 1 4-5 9-5 14-1-5 0-9 2-14 6-5-4-9-6-14-6z"
-        />
-      ))}
+      <path class="peak" d="M18 62l24-44 20 44z" />
+      <path class="snowcap" d="M36 29l6-11 6 11-3-2-3 3-3-3z" />
+      <path class="cable" d="M2 52L56 8M6 56L60 12" />
+      <path class="hanger" d="M23 36v6M41 22v6" />
+      <rect class="cabin" x="16" y="41" width="14" height="12" rx="2" />
+      <rect class="pane" x="18" y="43.5" width="10" height="4" />
+      <rect class="cabin" x="34" y="27" width="14" height="12" rx="2" />
+      <rect class="pane" x="36" y="29.5" width="10" height="4" />
     </>
   ),
 };
 
-/** A rare element in one picture: fireflies at night, a rainbow, the beavers' dam, a windmill, a balloon, eagles. */
+/** A rare element in one picture: fireflies at night, a rainbow, the beavers' dam, a windmill, a balloon, a cable car. */
 export function RareIcon({ rare }: { rare: RareName }) {
   return (
     <svg class={`rare-icon ${rare}`} viewBox="0 0 64 64" aria-hidden="true">

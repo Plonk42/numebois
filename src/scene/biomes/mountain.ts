@@ -4,13 +4,20 @@ import type { Biome } from './types';
 /**
  * The mountain of the torrents (#136): a high-mountain gorge. Rock ledges rise around a pool,
  * steep snowy peaks and needles behind and beside them; three torrents fall from ledge to
- * ledge, meet and fall together into the pool, the great cascade in its spray, the eagles.
+ * ledge, meet and fall together into the pool, the great cascade in its spray, the eagles; a
+ * cable car climbs to the great peak.
  */
 export const MOUNTAIN: Biome = {
   id: 'mountain',
   name: 'La montagne des torrents',
   terrain: createMountain,
-  effects: ['pics enneigés', 'torrents qui se rejoignent', 'embruns', 'aigles qui planent'],
+  effects: [
+    'pics enneigés',
+    'torrents qui se rejoignent',
+    'embruns',
+    'aigles qui planent',
+    'téléphérique',
+  ],
   stageNames: [
     'premier torrent',
     'replat suspendu',
@@ -21,7 +28,7 @@ export const MOUNTAIN: Biome = {
     'grande cascade',
     'troisième torrent',
     'pic de l’ouest',
-    'cascades de l’est',
+    'les aigles',
     'pic de l’est',
     'sommet',
   ],

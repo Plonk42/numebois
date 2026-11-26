@@ -441,8 +441,21 @@
 .rare-icon .snowcap {
   fill: #fbfdff;
 }
-.rare-icon .eagle {
-  fill: #6e4826;
+.rare-icon .cable {
+  fill: none;
+  stroke: #4a3a30;
+  stroke-width: 1.5;
+}
+.rare-icon .hanger {
+  fill: none;
+  stroke: #4a3a30;
+  stroke-width: 2;
+}
+.rare-icon .cabin {
+  fill: #d8483f;
+}
+.rare-icon .pane {
+  fill: #cfe8f6;
 }
 
 /* A walk in the forest: the forest everywhere; at the top centre, once the view has left it,
