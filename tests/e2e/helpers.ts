@@ -1,4 +1,5 @@
 import { expect, type Page } from '@playwright/test';
+import { onDial, parseTime, timeText, type TimeOfDay } from '../../src/core/time';
 import type { ExerciseInput } from '../../src/core/types';
 
 export async function game(page: Page) {
@@ -185,6 +186,53 @@ const DRIVERS: { [K in ExerciseInput['kind']]: Driver<Extract<ExerciseInput, { k
             (shift) => expected.slice(0, -1) + String((Number(expected.at(-1)) + shift) % 10),
           )
         : [],
+  },
+  time: {
+    async answer(page, input, value) {
+      const time = parseTime(value)!;
+      const pad = (n = 0) => String(n).padStart(2, '0');
+      const parts = [String(time.hours), pad(time.minutes), pad(time.seconds)];
+      const boxes = ['Heures', 'Minutes', 'Secondes'].slice(0, input.seconds ? 3 : 2);
+      // A touch on a box empties it, then the digits are written in it.
+      for (const [i, name] of boxes.entries()) {
+        await page
+          .locator('#question .time-entry')
+          .getByRole('button', { name, exact: true })
+          .dispatchEvent('pointerdown');
+        await page.keyboard.type(parts[i]);
+      }
+      await page.keyboard.press('Enter');
+    },
+    wrongs: (_, expected) => {
+      const time = parseTime(expected)!;
+      return [
+        timeText({ ...time, hours: (time.hours + 1) % 24 }),
+        timeText({ ...time, minutes: (time.minutes + 5) % 60 }),
+      ];
+    },
+  },
+  clock: {
+    // The arrows turn the hands from where they are: by `step` minutes, or by an hour.
+    async answer(page, { step }, value) {
+      const clock = page.locator('#question .clock.set');
+      const onFace = ({ hours, minutes }: TimeOfDay) => (hours % 12) * 60 + minutes;
+      const from = onFace(parseTime((await clock.getAttribute('data-time'))!)!);
+      const gap = onFace(parseTime(value)!) - from;
+      const hours = Math.trunc(gap / 60);
+      const minutes = (gap - hours * 60) / step;
+      for (let i = 0; i < Math.abs(hours); i++) {
+        await page.keyboard.press(hours > 0 ? 'ArrowUp' : 'ArrowDown');
+      }
+      for (let i = 0; i < Math.abs(minutes); i++) {
+        await page.keyboard.press(minutes > 0 ? 'ArrowRight' : 'ArrowLeft');
+      }
+      await expect(clock).toHaveAttribute('data-time', value);
+      await page.keyboard.press('Enter');
+    },
+    wrongs: (_, expected) => {
+      const { hours, minutes } = parseTime(expected)!;
+      return [timeText(onDial(hours + 1, minutes)), timeText(onDial(hours, (minutes + 5) % 60))];
+    },
   },
 };
 

@@ -3,11 +3,13 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import type { Exercise, ExerciseInput, Figure } from '../../core/types';
 import { AnswerZone, Statement, Work, Written } from '../slate';
 import { Choice } from './choice';
+import { ClockFigure, ClockSet } from './clock';
 import { ColumnOperation } from './column-operation';
 import { CompareSigns } from './compare';
 import { Answer, Keypad, useEntry } from './keypad';
 import { NumberLineFigure, NumberLinePlace } from './number-line';
 import { BlocksFigure, DotsFigure, PlaceValueFigure } from './place-value';
+import { TimeEntry } from './time-entry';
 
 /** What every widget receives; the validation and the hints come from the domain. */
 export interface WidgetProps<I extends ExerciseInput = ExerciseInput> {
@@ -47,6 +49,9 @@ const FIGURES: Figures = {
   ),
   'place-value': ({ figure }) => <PlaceValueFigure digits={figure.digits} />,
   dots: ({ figure }) => <DotsFigure rows={figure.rows} columns={figure.columns} />,
+  clock: ({ figure: { hours, minutes, seconds } }) => (
+    <ClockFigure hours={hours} minutes={minutes} seconds={seconds} />
+  ),
 };
 
 /** A figure to look at: a number line, base-ten blocks, a place-value table. */
@@ -160,6 +165,15 @@ const WIDGETS: Widgets = {
   compare: CompareSigns,
   'number-line': NumberLinePlace,
   column: ColumnOperation,
+  time: ({ exercise, ...props }) => (
+    <>
+      <Subject exercise={exercise} />
+      <AnswerZone>
+        <TimeEntry exercise={exercise} {...props} />
+      </AnswerZone>
+    </>
+  ),
+  clock: ClockSet,
 };
 
 /** The widget of the exercise's input. */

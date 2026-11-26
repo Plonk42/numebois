@@ -526,6 +526,7 @@ Dépend de 1 et 2. Les sous-phases sont indépendantes entre elles. Chaque ateli
 1. Horloge SVG : en lecture, réponse en hh:mm ; en réglage, il fait glisser les aiguilles. La grande entraîne la petite, avec un pas d'1 ou de 5 minutes.
 2. Niveaux : heures piles, demies, quarts, 5 en 5, minute près. Matin et après-midi (14 h ↔ 2 h).
 3. Frise des durées, h/min/s, calendrier du mois.
+4. Réalisé (#55) : domaine `time` (« L’heure et les durées »). Notation de l'école de l'enfant (propriétaire) : « 14h10 », sans espace, et « 3h45min20s » avec les secondes (`timeText`/`parseTime`, `src/core/time.ts`). `time.read-clock` (« Lire l’heure », 7 niveaux : piles, demies, quarts, 5 en 5, minute près, puis « C’est l’après-midi. » où l'on attend 14h10, enfin les secondes sur la trotteuse ; défi oui, rafale non) : figure `clock`, saisie `time` (`TimeEntry` : une case par unité, les heures en orange comme la petite aiguille, les minutes en bleu comme la grande, la trotteuse en vert ; un appui sur une case la vide, le curseur passe seul à la case suivante quand elle est pleine ou qu'une heure de 3 à 9 est écrite). Sans moment de la journée dit, 3h45 et 15h45 sont justes. `time.set-clock` (« Placer les aiguilles », 6 niveaux, les mêmes sans les secondes, 14h10 se place sur 2h10) : saisie `clock` (`ClockSet`, partant de 12h00 : la grande aiguille tourne par pas de 5 minutes, d'1 minute au niveau « minute près », et entraîne la petite ; la petite, prise près du centre, saute d'heure en heure ; calcul pur dans `src/ui/widgets/dial.ts`).
 
 ### 5c. `units` et `measures`
 
@@ -719,7 +720,7 @@ Vérification : frontmatter YAML valide, `name` identique au nom du dossier, `de
 4. Changement de palier : aujourd'hui le tableau est reconstruit d'un coup. Animer la transition (le tableau qui s'étend, la montagne qui monte, l'eau qui arrive) serait un moment fort : à concevoir.
 5. Taille du tableau : au dernier palier la caméra est nettement plus loin qu'avant, donc les fleurs et les petits détails sont plus petits à l'écran (entre 1,5 et 2 fois, estimé sur les captures, pas mesuré). Lisibilité et fluidité à vérifier sur la vraie tablette (ticket #3).
 6. Tranché (propriétaire, 2026-11-26) : à l'école de l'enfant, la retenue d'une multiplication posée va « à côté, dans le sac à retenue » (#49).
-7. Notation de l'heure attendue (« 14 h 10 », « 14:10 » ou « 2 h 10 de l'après-midi ») : réglable par exercice.
+7. Tranché (propriétaire, 2026-11-26) : l'heure s'écrit « 14h10 », et « 3h45min20s » avec les secondes (#55).
 8. Fractions vues en classe : liste des dénominateurs.
 9. Seuil d'automatisation (environ 3 s) : à ajuster après quelques sessions réelles, grâce au tableau de bord.
 10. Durée cible d'un tableau (environ 40 minutes de jeu) et longueur du sentier (10 pierres) : à ajuster selon l'attention réelle de l'enfant. Les deux réglages sont centralisés. Prix, gains de graines dorées et catalogue de la clairière : calibrés par simulation (#29, 2026-11-26), à revoir après M3 et M4 (questions plus longues : un poids d'effort par notion) avec une nouvelle séance du propriétaire ; ce qui reste aux paliers (lucioles, arc-en-ciel) et ce qui s'achète (#46).

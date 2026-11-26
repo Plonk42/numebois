@@ -1,3 +1,4 @@
+import { parseTime } from './time';
 import type { Exercise, ExerciseInput, Skill } from './types';
 
 /** Content rules for the child (child-ux instructions), checked on every generated exercise. */
@@ -48,6 +49,27 @@ const ANSWER_FITS: {
       .map((column) => column.digit)
       .reverse()
       .join(''),
+  time: (input, answer) => {
+    const time = parseTime(answer);
+    return (
+      time !== null &&
+      time.hours <= 23 &&
+      time.minutes <= 59 &&
+      (time.seconds ?? 0) <= 59 &&
+      (time.seconds !== undefined) === input.seconds
+    );
+  },
+  clock: ({ step }, answer) => {
+    const time = parseTime(answer);
+    return (
+      time !== null &&
+      time.seconds === undefined &&
+      time.hours >= 1 &&
+      time.hours <= 12 &&
+      time.minutes <= 59 &&
+      time.minutes % step === 0
+    );
+  },
 };
 
 function inputErrors(input: ExerciseInput, answer: string): string[] {

@@ -11,7 +11,7 @@ export function grouped(entry: string): string {
   return entry.length > 3 ? `${entry.slice(0, -3)}\u202f${entry.slice(-3)}` : entry;
 }
 
-type Key = (typeof KEYS)[number];
+export type Key = (typeof KEYS)[number];
 
 /**
  * The entry typed on the keypad, and on the digit, Backspace and Enter keys: never the

@@ -63,7 +63,11 @@ export type ExerciseInput =
       mode: ColumnMode;
       /** Absent: already set out (a demo of Plume). */
       setup?: ColumnSetup;
-    };
+    }
+  /** A time written in its boxes, hours then minutes (then seconds): « 14h10 » (`timeText`). */
+  | { kind: 'time'; seconds: boolean }
+  /** The hands of a clock set with the finger, the minute hand by `step` minutes: « 3h45 ». */
+  | { kind: 'clock'; step: 1 | 5 };
 
 /** What the child looks at without touching it, under the statement (one component per kind). */
 export type Figure =
@@ -73,7 +77,9 @@ export type Figure =
   /** A place-value table, one column per rank down to the units, a digit in each. */
   | { kind: 'place-value'; digits: readonly number[] }
   /** `rows × columns` as a grid of dots: `rows` rows of `columns` dots. */
-  | { kind: 'dots'; rows: number; columns: number };
+  | { kind: 'dots'; rows: number; columns: number }
+  /** A clock to read, `hours` from 0 to 23; the second hand when `seconds` is given. */
+  | { kind: 'clock'; hours: number; minutes: number; seconds?: number };
 
 export interface Exercise {
   skill: SkillId;
