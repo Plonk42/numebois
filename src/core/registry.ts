@@ -1,3 +1,4 @@
+import { bubbleErrors, exerciseErrors } from './content';
 import type { Domain, Exercise, Lesson, Quest, Skill, SkillFacts, SkillId } from './types';
 
 /** Content limits checked by the tests (plan, « Pour le parent et le code »). */
@@ -102,13 +103,44 @@ function lessonErrors(domains: readonly Domain[], skills: ReadonlyMap<SkillId, S
   for (const lesson of domains.flatMap((domain) => domain.lessons ?? [])) {
     if (ids.has(lesson.id)) errors.push(`astuce en double : ${lesson.id}`);
     ids.add(lesson.id);
-    if (!skills.has(lesson.skill)) errors.push(`${lesson.id} : notion inconnue ${lesson.skill}`);
-    if (!lesson.id.startsWith(`${lesson.skill}/`)) {
-      errors.push(`${lesson.id} n'est pas préfixée par ${lesson.skill}/`);
+    errors.push(...lessonContentErrors(lesson, skills));
+  }
+  return errors;
+}
+
+/**
+ * What is wrong with a lesson (empty when valid): an existing notion, at most 6 steps, texts
+ * of Plume's bubble, exercises valid for their notion, checks at one of its levels.
+ */
+export function lessonContentErrors(lesson: Lesson, skills: ReadonlyMap<SkillId, Skill>): string[] {
+  const errors: string[] = [];
+  const skill = skills.get(lesson.skill);
+  if (!skill) errors.push(`${lesson.id} : notion inconnue ${lesson.skill}`);
+  if (!lesson.id.startsWith(`${lesson.skill}/`)) {
+    errors.push(`${lesson.id} n'est pas préfixée par ${lesson.skill}/`);
+  }
+  if (lesson.steps.length === 0 || lesson.steps.length > MAX_LESSON_STEPS) {
+    errors.push(`${lesson.id} : ${lesson.steps.length} étapes (1 à ${MAX_LESSON_STEPS})`);
+  }
+  for (const step of lesson.steps) {
+    if (step.kind === 'check') {
+      if (
+        skill &&
+        !(Number.isInteger(step.level) && step.level >= 0 && step.level < skill.levels)
+      ) {
+        errors.push(`${lesson.id} : niveau ${step.level} hors de ${skill.id}`);
+      }
+      continue;
     }
-    if (lesson.steps.length === 0 || lesson.steps.length > MAX_LESSON_STEPS) {
-      errors.push(`${lesson.id} : ${lesson.steps.length} étapes (1 à ${MAX_LESSON_STEPS})`);
-    }
+    errors.push(...bubbleErrors(lesson.id, step.text));
+    const exercise = step.kind === 'explain' ? step.demo : step.exercise;
+    if (!exercise) continue;
+    const own = skills.get(exercise.skill);
+    if (!own) errors.push(`${lesson.id} : notion inconnue ${exercise.skill}`);
+    else
+      errors.push(
+        ...exerciseErrors(own, exercise, exercise.level).map((e) => `${lesson.id} : ${e}`),
+      );
   }
   return errors;
 }

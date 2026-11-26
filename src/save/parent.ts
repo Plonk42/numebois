@@ -22,6 +22,8 @@ export interface ParentPart {
   recommended: Recommended | null;
   /** The child's first name (#138), empty when not given. */
   name: string;
+  /** The astuces seen to the end, in the Carnet (#50), in the order they came. */
+  notebook: string[];
 }
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
@@ -79,9 +81,11 @@ export function readParentPart(
     plays = [],
     recommended = null,
     name = '',
+    notebook = [],
   } = value;
   if (!Array.isArray(settings) || !Array.isArray(plays) || !plays.every(isPlay)) return null;
   if (typeof name !== 'string') return null;
+  if (!Array.isArray(notebook) || !notebook.every((id) => typeof id === 'string')) return null;
   if (!AUTOMATION_FACTORS.includes(automation as (typeof AUTOMATION_FACTORS)[number])) return null;
   if (typeof longChallenges !== 'boolean') return null;
   if (recommended !== null && (!isObject(recommended) || typeof recommended.skill !== 'string')) {
@@ -100,6 +104,7 @@ export function readParentPart(
     plays,
     recommended: readRecommended(recommended, byId),
     name: cleanName(name),
+    notebook: notebook as string[],
   };
 }
 

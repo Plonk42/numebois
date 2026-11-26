@@ -37,6 +37,8 @@ export interface SaveData extends SessionSnapshot {
   recommended: Recommended | null;
   /** The child's first name, kept on the tablet only (#138); empty when not given. */
   name: string;
+  /** The astuces seen to the end, in the Carnet (#50). */
+  notebook: string[];
 }
 
 export type ParsedSave = { ok: true; data: SaveData } | { ok: false; reason: string };
@@ -212,6 +214,7 @@ export function practiceSave(
       plays: [],
       recommended: null,
       name: '',
+      notebook: [],
     },
   };
 }

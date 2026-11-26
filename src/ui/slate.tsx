@@ -6,8 +6,8 @@ import { Plume, Squirrel, type Mood } from './character';
 import './slate.css';
 
 export interface SlateHint {
-  title: string;
-  text: string;
+  title?: string;
+  text?: string;
   /** After the answer is shown: the button that goes on (also the Enter key). */
   onNext?: () => void;
 }
@@ -68,8 +68,8 @@ export function Slate(props: SlateProps) {
         {children}
         {hint && (
           <div class="hint">
-            <strong>{hint.title}</strong>
-            <span>{hint.text}</span>
+            {hint.title && <strong>{hint.title}</strong>}
+            {hint.text && <span>{hint.text}</span>}
             {hint.onNext && (
               <button type="button" class="next" onPointerDown={hint.onNext}>
                 Suivant

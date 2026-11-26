@@ -1,10 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { OFFERED_CHOICES, offerChoices } from '../../src/core/choices';
 import { exerciseErrors } from '../../src/core/content';
-import { questErrors, registryErrors, skillsById } from '../../src/core/registry';
+import {
+  lessonContentErrors,
+  questErrors,
+  registryErrors,
+  skillsById,
+} from '../../src/core/registry';
 import { Rng } from '../../src/core/rng';
 import type { Domain, Quest, Skill } from '../../src/core/types';
 import { DOMAINS } from '../../src/domains';
+import { TRY_LESSON } from '../../src/domains/column-arithmetic/lessons/essai';
 import { QUESTS } from '../../src/quests';
 import { BIOMES } from '../../src/scene/biomes';
 import { BIOME_IDS } from '../../src/scene/description';
@@ -72,9 +78,14 @@ describe('registre', () => {
             id: 'a.x/long',
             skill: 'a.x',
             title: 'L',
-            steps: Array(7).fill({ kind: 'check', count: 2 }),
+            steps: Array(7).fill({ kind: 'check', count: 2, level: 0 }),
           },
-          { id: 'a.z/lost', skill: 'a.z', title: 'L', steps: [{ kind: 'check', count: 2 }] },
+          {
+            id: 'a.z/lost',
+            skill: 'a.z',
+            title: 'L',
+            steps: [{ kind: 'check', count: 2, level: 0 }],
+          },
         ],
       },
     ]);
@@ -85,6 +96,30 @@ describe('registre', () => {
       'a.x : groupe g vide',
       'a.x/long : 7 étapes (1 à 6)',
       'a.z/lost : notion inconnue a.z',
+    ]);
+  });
+
+  it('checks the texts, exercises and levels of an astuce, the trial one included', () => {
+    const skills = skillsById(DOMAINS);
+    expect(lessonContentErrors(TRY_LESSON, skills)).toEqual([]);
+    const [, , typed] = TRY_LESSON.steps;
+    const errors = lessonContentErrors(
+      {
+        ...TRY_LESSON,
+        steps: [
+          { kind: 'explain', text: 'Si tu rates, ce n’est pas grave du tout.' },
+          typed.kind === 'explain'
+            ? { ...typed, demo: { ...typed.demo!, skill: 'gone.x' } }
+            : typed,
+          { kind: 'check', count: 2, level: 9 },
+        ],
+      },
+      skills,
+    );
+    expect(errors).toEqual([
+      `${TRY_LESSON.id} : mot d'échec : Si tu rates, ce n’est pas grave du tout.`,
+      `${TRY_LESSON.id} : notion inconnue gone.x`,
+      `${TRY_LESSON.id} : niveau 9 hors de column-arithmetic.add`,
     ]);
   });
 

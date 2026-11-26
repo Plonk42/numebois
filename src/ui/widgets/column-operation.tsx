@@ -17,6 +17,9 @@ interface Spot {
 const RANKS = ['U', 'D', 'C', 'M'];
 const NAMES = ['unités', 'dizaines', 'centaines', 'milliers'];
 const keyOf = (spot: Spot) => `${spot.kind}${spot.column}`;
+/** A demo writes a digit once the column is read, its carry soon after. */
+const DEMO_DIGIT_MS = 2400;
+const DEMO_CARRY_MS = 900;
 
 /** Where the cursor goes, from the units: the digit of each column, then its carry. */
 function spotsOf(columns: readonly Column[]): Spot[] {
@@ -61,8 +64,11 @@ export function ColumnOperation({
   shown,
   onSubmit,
   onSlip,
+  demo = false,
 }: WidgetProps<ColumnInput>) {
-  const { columns, rows, mode } = input;
+  const { columns, rows } = input;
+  // Played by itself, as Plume would guide it.
+  const mode = demo ? 'guided' : input.mode;
   const spots = spotsOf(columns);
   const [values, setValues] = useState<Record<string, string>>({});
   const [cursor, setCursor] = useState(0);
@@ -80,7 +86,7 @@ export function ColumnOperation({
     setCursor(at);
   };
 
-  const type = (digit: string) => {
+  const write = (digit: string) => {
     const { values: before, cursor: at } = latest.current;
     const spot = spots[at];
     if (locked || !spot) return;
@@ -103,10 +109,13 @@ export function ColumnOperation({
     move(next, at + 1);
     if (at + 1 === spots.length) onSubmit(resultOf(columns, next));
   };
+  const type = (digit: string) => {
+    if (!demo) write(digit);
+  };
 
   const erase = () => {
     const { values: before, cursor: at } = latest.current;
-    if (locked) return;
+    if (locked || demo) return;
     const here = spots[at];
     const without = (spot: Spot) =>
       Object.fromEntries(Object.entries(before).filter(([key]) => key !== keyOf(spot)));
@@ -137,8 +146,8 @@ export function ColumnOperation({
     onSubmit(resultOf(columns, now));
   };
 
-  const keys = useRef({ type, erase, submit });
-  keys.current = { type, erase, submit };
+  const keys = useRef({ type, write, erase, submit });
+  keys.current = { type, write, erase, submit };
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (/^\d$/.test(event.key)) keys.current.type(event.key);
@@ -150,6 +159,25 @@ export function ColumnOperation({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
+
+  // Plume writes each box in turn: time to read the column, less for its carry.
+  useEffect(() => {
+    if (!demo) return;
+    let timer = 0;
+    const next = () => {
+      const spot = spots[latest.current.cursor];
+      if (!spot) return;
+      timer = window.setTimeout(
+        () => {
+          keys.current.write(expected(columns, spot));
+          next();
+        },
+        spot.kind === 'digit' ? DEMO_DIGIT_MS : DEMO_CARRY_MS,
+      );
+    };
+    next();
+    return () => window.clearTimeout(timer);
+  }, [demo]);
 
   const width = columns.length;
   const active = spots[cursor];
@@ -249,7 +277,7 @@ export function ColumnOperation({
       <AnswerZone>
         <Keypad
           ready={ready}
-          locked={locked}
+          locked={locked || demo}
           press={(key) => {
             if (key === 'submit') submit();
             else if (key === 'erase') erase();

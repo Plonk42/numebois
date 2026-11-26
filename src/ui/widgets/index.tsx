@@ -1,5 +1,5 @@
 import type { ComponentType } from 'preact';
-import { useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import type { Exercise, ExerciseInput, Figure } from '../../core/types';
 import { AnswerZone, Statement, Work, Written } from '../slate';
 import { Choice } from './choice';
@@ -22,7 +22,14 @@ export interface WidgetProps<I extends ExerciseInput = ExerciseInput> {
   onSubmit(answer: string): void;
   /** A slip caught inside the widget (a column checked as it is written): not a first try. */
   onSlip?(): void;
+  /** Plays the expected answer by itself, then submits it (an astuce of Plume, #50). */
+  demo?: boolean;
 }
+
+/** Widgets that play their answer by themselves; the others show it at once (`shown`). */
+export const PLAYS_ITSELF: ReadonlySet<ExerciseInput['kind']> = new Set(['keypad', 'column']);
+/** A demo types one key at a time. */
+const DEMO_KEY_MS = 700;
 
 type Widgets = {
   [K in ExerciseInput['kind']]: ComponentType<WidgetProps<Extract<ExerciseInput, { kind: K }>>>;
@@ -40,6 +47,32 @@ const FIGURES: Figures = {
   ),
   'place-value': ({ figure }) => <PlaceValueFigure digits={figure.digits} />,
 };
+
+/** A figure to look at: a number line, base-ten blocks, a place-value table. */
+export function FigureView({ figure }: { figure: Figure }) {
+  const Drawing = FIGURES[figure.kind] as ComponentType<{ figure: Figure }>;
+  return <Drawing figure={figure} />;
+}
+
+/** The answer typed one key at a time while `on`, then submitted. */
+function useDemo(on: boolean, answer: string, onSubmit: (answer: string) => void): string {
+  const [played, setPlayed] = useState('');
+  const submit = useRef(onSubmit);
+  submit.current = onSubmit;
+  useEffect(() => {
+    if (!on) return;
+    let typed = 0;
+    const timer = window.setInterval(() => {
+      typed++;
+      setPlayed(answer.slice(0, typed));
+      if (typed < answer.length) return;
+      window.clearInterval(timer);
+      submit.current(answer);
+    }, DEMO_KEY_MS);
+    return () => window.clearInterval(timer);
+  }, [on, answer]);
+  return played;
+}
 
 /** The statement alone on the whole width, or with its figure beside the answer zone. */
 function Subject({ exercise }: { exercise: Exercise }) {
@@ -70,15 +103,25 @@ function Typed({
   right,
   shown,
   onSubmit,
+  demo = false,
 }: WidgetProps<Extract<ExerciseInput, { kind: 'keypad' }>>) {
   const [sent, setSent] = useState<string | null>(null);
-  const { entry, press } = useEntry(input.maxDigits, locked, (value) => {
+  const { entry, press } = useEntry(input.maxDigits, locked || demo, (value) => {
     setSent(value);
     onSubmit(value);
   });
+  const played = useDemo(demo, exercise.answer, onSubmit);
   const tried = !right && shown === null && entry === sent;
   const inline = input.inline ? { maxDigits: input.maxDigits } : undefined;
-  const answer = <Answer entry={entry} right={right} shown={shown} tried={tried} inline={inline} />;
+  const answer = (
+    <Answer
+      entry={demo ? played : entry}
+      right={right}
+      shown={shown}
+      tried={tried}
+      inline={inline}
+    />
+  );
   return (
     <>
       {inline ? (
@@ -92,7 +135,7 @@ function Typed({
       )}
       <AnswerZone>
         {!inline && answer}
-        <Keypad ready={entry !== ''} locked={locked} press={press} />
+        <Keypad ready={entry !== ''} locked={locked || demo} press={press} />
       </AnswerZone>
     </>
   );

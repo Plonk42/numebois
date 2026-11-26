@@ -39,6 +39,7 @@ describe('tableau de bord parent (#47)', () => {
         journal: { started: 300, acquired: [], automated: [] },
         recommended: { skill: TABLES.id, group },
         name: 'Zébulon',
+        notebook: ['mental-math.add/essai'],
       },
       new Date(),
     );
@@ -50,6 +51,7 @@ describe('tableau de bord parent (#47)', () => {
       plays: [{ day: 300, kind: 'trail', questions: 10, right: 8, ms: 240_000 }],
       recommended: { skill: TABLES.id, group },
       name: 'Zébulon',
+      notebook: ['mental-math.add/essai'],
     });
     const restored = session();
     restored.restore(parsed.ok ? parsed.data : played.snapshot());
@@ -64,6 +66,7 @@ describe('tableau de bord parent (#47)', () => {
       plays: [],
       recommended: null,
       name: '',
+      notebook: [],
     });
     const top = TABLES.levels - 1;
     expect(
@@ -90,6 +93,8 @@ describe('tableau de bord parent (#47)', () => {
       { automation: 3 },
       { longChallenges: 'yes' },
       { name: 7 },
+      { notebook: 'page' },
+      { notebook: [3] },
       { plays: [{ day: 1, kind: 'trail', questions: 2, right: 3, ms: 0 }] },
     ]) {
       expect(readParentPart(broken, SKILLS), JSON.stringify(broken)).toBeNull();

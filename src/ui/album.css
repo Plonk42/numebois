@@ -284,3 +284,76 @@
   min-width: 0;
   font-size: 24px;
 }
+
+/* The Carnet (#50): under the sound button, or under the Album's book; one page per astuce. */
+#notebook-button {
+  position: fixed;
+  top: 80px;
+  right: 12px;
+  z-index: 5;
+  width: 56px;
+  height: 56px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 2px 8px rgba(0, 40, 80, 0.18);
+  touch-action: manipulation;
+}
+#notebook-button.low {
+  top: 148px;
+}
+#notebook-button svg {
+  width: 34px;
+  height: 34px;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+#notebook-button .cover {
+  fill: #e9f4dc;
+  stroke: #4a7a3a;
+  stroke-width: 2;
+}
+#notebook-button .rings {
+  stroke: #8a5a2b;
+  stroke-width: 2.4;
+}
+#notebook-button .leaf {
+  fill: #6dbb4f;
+  stroke: #3a7527;
+  stroke-width: 1.4;
+}
+#notebook {
+  top: 84px;
+  bottom: auto;
+}
+#notebook .pages {
+  align-self: stretch;
+  max-height: 420px;
+  margin: 8px 0 0;
+  padding: 0;
+  overflow-y: auto;
+  display: grid;
+  gap: 10px;
+  list-style: none;
+}
+#notebook .pages button {
+  width: 100%;
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 28px;
+  text-align: left;
+}
+#notebook .pages button.fresh {
+  background: #fff6d6;
+  box-shadow: 0 4px 0 #e8c46a;
+}
+#notebook .pages span {
+  font-size: 20px;
+  color: #8a6a1f;
+}
