@@ -5,6 +5,7 @@ import { mentalMath } from './mental-math';
 import { numbers } from './numbers';
 import { time } from './time';
 import { timesTables } from './times-tables';
+import { units } from './units';
 import { wordProblems } from './word-problems';
 
 /** The registry: one line per domain. */
@@ -16,4 +17,5 @@ export const DOMAINS: readonly Domain[] = [
   columnArithmetic,
   time,
   measures,
+  units,
 ];

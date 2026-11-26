@@ -115,7 +115,11 @@ function sixMonths(domains: readonly Domain[], withHomework: boolean) {
 }
 
 describe('six mois de jeu', () => {
-  const futures = Array.from({ length: 15 }, (_, i) => syntheticDomain(i, 6));
+  // The registry grows towards about 100 notions with domains of 6 to come.
+  const real = DOMAINS.reduce((sum, domain) => sum + domain.skills.length, 0);
+  const futures = Array.from({ length: Math.round((100 - real) / 6) }, (_, i) =>
+    syntheticDomain(i, 6),
+  );
   it.each([
     { name: 'the current registry', domains: DOMAINS, homework: false, opens: 0.8 },
     {

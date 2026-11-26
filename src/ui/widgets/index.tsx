@@ -13,6 +13,7 @@ import { TimeEntry } from './time-entry';
 import { CalendarFigure, TimelineFigure } from './day';
 import { RulerDraw, RulerMeasure } from './ruler';
 import { Jug, ScaleDial } from './gauge';
+import { ConversionTable, Purse } from './units';
 
 /** What every widget receives; the validation and the hints come from the domain. */
 export interface WidgetProps<I extends ExerciseInput = ExerciseInput> {
@@ -63,6 +64,10 @@ const FIGURES: Figures = {
   ),
   gauge: ({ figure: { instrument, ...gauge } }) =>
     instrument === 'scale' ? <ScaleDial {...gauge} /> : <Jug {...gauge} />,
+  conversion: ({ figure: { units, digits, marks } }) => (
+    <ConversionTable units={units} digits={digits} marks={marks} />
+  ),
+  money: ({ figure }) => <Purse cents={figure.cents} />,
 };
 
 /** A figure to look at: a number line, base-ten blocks, a place-value table. */
@@ -142,10 +147,11 @@ function Typed({
   return (
     <>
       {inline ? (
-        <Work wide>
+        <Work wide={!exercise.figure}>
           <Written text={exercise.statement} digits={inline.maxDigits}>
             {answer}
           </Written>
+          {exercise.figure && <FigureView figure={exercise.figure} />}
         </Work>
       ) : (
         <Subject exercise={exercise} />

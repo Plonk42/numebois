@@ -928,6 +928,100 @@
   text-anchor: end;
 }
 
+/* Units (#59): the conversion table, coins and notes to count. */
+.bench > .work:not(.wide) .statement.written {
+  font-size: 34px;
+  line-height: 42px;
+}
+.bench > .work:has(.conversion, .purse) {
+  align-content: center;
+  gap: 24px;
+}
+.conversion {
+  border-collapse: separate;
+  border-spacing: 3px;
+  font-variant-numeric: tabular-nums;
+  color: #2f4a3a;
+}
+.conversion th {
+  min-width: 52px;
+  padding: 4px 0;
+  border-radius: 10px 10px 0 0;
+  background: #e6f1dc;
+  font-size: 20px;
+}
+.conversion td {
+  height: 64px;
+  border-radius: 0 0 10px 10px;
+  background: #fff;
+  box-shadow: inset 0 0 0 2px #e3d3b6;
+  font-size: 40px;
+  font-weight: 700;
+  text-align: center;
+}
+.conversion .mark {
+  background: #eef6fd;
+  box-shadow: inset 0 0 0 3px var(--minute);
+}
+.purse {
+  max-width: 430px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+.purse span {
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  color: #2f4a3a;
+  box-shadow: 0 3px 4px rgba(0, 30, 20, 0.25);
+}
+.purse .note {
+  width: 118px;
+  height: 62px;
+  border-radius: 8px;
+  font-size: 26px;
+  border: 3px solid rgba(0, 0, 0, 0.12);
+}
+.purse .v500 {
+  background: #d7d5cf;
+}
+.purse .v1000 {
+  background: #f2b8a6;
+}
+.purse .v2000 {
+  background: #a9c8ec;
+}
+.purse .coin {
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  font-size: 19px;
+  background: #e8c35a;
+  border: 4px solid #c99a2e;
+}
+.purse .v200 {
+  background: #e8c35a;
+  border: 7px solid #c9ccd1;
+}
+.purse .v100 {
+  background: #d9dce0;
+  border: 7px solid #e8c35a;
+}
+.purse .v20,
+.purse .v10 {
+  width: 54px;
+  height: 54px;
+}
+.purse .v5 {
+  width: 50px;
+  height: 50px;
+  background: #d9965e;
+  border-color: #a8693a;
+}
+
 /* Decompose (#109): a colour per rank, the same in the table and in the blocks. */
 .bench > .work:has(.place-value, .blocks, .dots) {
   align-content: center;

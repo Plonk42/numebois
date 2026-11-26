@@ -112,7 +112,19 @@ export type Figure =
       label: number;
       value: number;
       unit: string;
-    };
+    }
+  /**
+   * A conversion table (#59), a column per unit from the largest: a digit in some columns, the
+   * columns to read outlined (`marks`).
+   */
+  | {
+      kind: 'conversion';
+      units: readonly string[];
+      digits: readonly (number | null)[];
+      marks: readonly number[];
+    }
+  /** Coins and notes to count (#59), each one by its value in cents. */
+  | { kind: 'money'; cents: readonly number[] };
 
 export interface Exercise {
   skill: SkillId;
