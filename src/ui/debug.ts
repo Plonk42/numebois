@@ -1,6 +1,6 @@
 import { isAutomated } from '../core/facts';
 import { masteryRate, type Stage as MasteryStage } from '../core/mastery';
-import type { Skill } from '../core/types';
+import type { Domain, Skill } from '../core/types';
 import { element } from '../scene/debug';
 import { MAX_ELEMENTS, writeDescription, type SceneDescription } from '../scene/description';
 import type { GameDebug, GameProbe } from './game';
@@ -34,12 +34,21 @@ const STYLE = `
 
 /** Section of the landscape panel (`?debug`): plays this painting in the sandbox. */
 export function sandboxForm(
-  skills: readonly Skill[],
+  domains: readonly Domain[],
   description: () => SceneDescription,
 ): HTMLElement {
+  const skills = domains.flatMap((domain) => domain.skills);
   const notion = element('select', { id: 'debug-notion' }, [
     element('option', { value: '', textContent: 'Toutes (nouvelle partie)' }),
-    ...skills.map((skill) => element('option', { value: skill.id, textContent: skill.name })),
+    ...domains.map((domain) =>
+      element(
+        'optgroup',
+        { label: domain.name },
+        domain.skills.map((skill) =>
+          element('option', { value: skill.id, textContent: skill.name }),
+        ),
+      ),
+    ),
   ]);
   const level = element('select', { id: 'debug-level' });
   const levels = () => {

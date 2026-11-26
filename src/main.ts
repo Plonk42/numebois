@@ -231,5 +231,5 @@ window.addEventListener('keydown', (event) => {
 });
 
 if (sceneOnly && params.has('debug')) {
-  mountDebugPanel(app).append(sandboxForm(curriculum(DOMAINS), () => app.description));
+  mountDebugPanel(app).append(sandboxForm(DOMAINS, () => app.description));
 }
