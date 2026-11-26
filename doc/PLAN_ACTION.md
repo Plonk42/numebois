@@ -570,7 +570,7 @@ Dépend de 4.
 3. Pas de minuteur visible (c'est la différence avec les défis). Le temps de réponse est mesuré en silence pour suivre l'automatisation.
 4. Un fait est « automatisé » quand il est juste du premier coup, avec un temps sous le seuil (environ 3 s pour les tables, ajustable par notion), 3 fois à des jours différents. Pour l'enfant, un fait su par cœur le reste (#123, `known` dans la sauvegarde) : sa feuille et les fleurs de sa branche ne reculent jamais, et sa graine dorée n'est donnée qu'une fois. Pour le moteur, une erreur relance l'automatisation : le fait redevient difficile en rafale et « à consolider » pour le parent.
 5. Motivation :
-   - un fait pas encore su par cœur donne une feuille au plus une fois par jour, un fait su par cœur n'en donne pas (#125, `paid` dans la progression du fait), et la boutique s'ouvre à la fin de la rafale ;
+   - un fait pas encore su par cœur donne une feuille au plus une fois par jour, un fait su par cœur n'en donne pas (#125, `paid` dans la progression du fait), et la boutique s'ouvre à la fin de la rafale ; la dernière feuille du jour d'une branche est un moment (« Toute la branche est cueillie ! » et le son d'un élément posé), et une rafale qui n'a rien rapporté finit sur « Bel entraînement ! » plutôt que « Belle récolte ! » (#150) ;
    - une guirlande de feuilles grandit avec les bonnes réponses du tour et ne perd jamais une feuille ;
    - l'arbre de la rafale : chaque fait automatisé devient une feuille verte, et une table complète fait fleurir sa branche.
 6. Après environ 15 minutes, Plume propose une pause, sans l'imposer.

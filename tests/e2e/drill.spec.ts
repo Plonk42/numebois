@@ -114,3 +114,82 @@ test('la rafale : la table de 7 enchaînée sans interruption, une erreur revien
   await expect(page.getByRole('button', { name: 'Chemin du progrès' })).toBeVisible();
   expect(errors).toEqual([]);
 });
+
+test('la rafale : la dernière feuille du jour d’une branche, puis une rafale sans récolte (#150)', async ({
+  page,
+}) => {
+  // Two rounds of 20 questions: about 2 minutes, more on a loaded machine.
+  test.setTimeout(600_000);
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  const now = new Date('2026-11-25T10:00:00');
+  const day = Math.floor((now.getTime() - now.getTimezoneOffset() * 60_000) / 86_400_000);
+  await page.clock.setFixedTime(now);
+  await page.goto('./?stage=0&name=');
+  await page.evaluate(() => window.__numebois!.ready);
+  // The table of 7 picked today but for 7 × 7.
+  const pair = (n: number) => `times-tables.products:${Math.min(7, n)}x${Math.max(7, n)}`;
+  await loadSave(page, {
+    version: 6,
+    savedAt: '2026-11-23T10:00:00.000Z',
+    leaves: 0,
+    seeds: 0,
+    trailLength: 'normal',
+    progress: [
+      {
+        skill: 'times-tables.products',
+        stage: 'learning',
+        level: 3,
+        recent: [],
+        box: 0,
+        due: null,
+      },
+    ],
+    facts: [2, 3, 4, 5, 6, 8, 9, 10].map((n) => ({
+      fact: pair(n),
+      tries: 1,
+      right: 1,
+      fastDays: [],
+      times: [5000],
+      paid: day,
+    })),
+    history: [],
+  });
+  const stump = page.getByRole('button', { name: 'Par cœur' });
+  const tree = page.locator('#drill-tree');
+  // The praise of the moment is short: an observer keeps what showed.
+  await page.evaluate(() => {
+    const seen: string[] = [];
+    Object.assign(window, { seen });
+    new MutationObserver(() => {
+      const text = globalThis.document.querySelector('#question .praise')?.textContent;
+      if (text && !seen.includes(text)) seen.push(text);
+    }).observe(globalThis.document.body, { childList: true, subtree: true, characterData: true });
+  });
+
+  /** A round of the table of 7, every answer right, then « J'ai fini ». */
+  const round = async () => {
+    await stump.click();
+    await tree.getByRole('button', { name: 'La table de 7' }).click();
+    for (let i = 0; i < 20; i++) {
+      const exercise = await current(page);
+      await driver(exercise.input).answer(page, exercise.input, exercise.answer);
+      await answered(page, exercise);
+    }
+    await page.locator('#drill-break').getByRole('button', { name: 'J’ai fini' }).click();
+  };
+
+  await round();
+  // 7 × 7 came first: its leaf was the last one of the branch today.
+  const seen = await page.evaluate(() => (window as unknown as { seen: string[] }).seen);
+  expect(seen).toContain('Toute la branche est cueillie !');
+  await expect(page.locator('#trail-end')).toContainText('Belle récolte !');
+  await expect(page.locator('#trail-end')).toHaveCount(0, { timeout: 40_000 });
+  expect((await game(page)).leaves).toBe(1);
+
+  // The same branch again, the same day: nothing to harvest, praised all the same.
+  await round();
+  await expect(page.locator('#trail-end')).toContainText('Bel entraînement !');
+  expect((await game(page)).leaves).toBe(1);
+  expect(errors).toEqual([]);
+});

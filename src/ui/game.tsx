@@ -102,6 +102,7 @@ const FRAMED_MS = 3500;
 /** Time for the light to cover the scene before a painting is built under it (#veil). */
 const COVER_MS = 750;
 const PRAISES = ['Bravo !', 'Super !', 'Oui !', 'Bien vu !', 'Génial !'];
+const BRANCH_PICKED = 'Toute la branche est cueillie !';
 /** « Bonjour, Prénom ! » at the top of the landscape when the game opens. */
 const GREETING_MS = 2500;
 /** In a drill, the next question comes quickly; a missed answer shows a moment. */
@@ -122,6 +123,8 @@ const DONE_TITLES: Record<Mode, string> = {
   drill: 'Belle récolte !',
   challenge: 'Défi terminé !',
 };
+/** A drill that brought nothing: praised for the effort, never for a harvest (#150). */
+const DRILL_PRACTISED = 'Bel entraînement !';
 
 /** How a challenge ended, and what to aim at next time. */
 interface ChallengeResult {
@@ -201,7 +204,7 @@ export interface GameForest extends SpotsForest {
   /** The light over the whole scene, to build another painting under it. */
   cover(on: boolean): void;
   /** Short sound of a reward of the trail. */
-  reward(kind: 'right' | 'seed'): void;
+  reward(kind: 'right' | 'seed' | 'element'): void;
   /**
    * Gestures explore the forest, told when the view leaves or comes back to the framing;
    * null stops them and the view glides back.
@@ -948,7 +951,7 @@ function Game(props: Props) {
     const achievements = drill.current!.conclude(skill, exercise, right, ms);
     if (right) {
       setGarland((g) => g + 1);
-      reward(achievements, DRILL_RIGHT_MS);
+      reward(achievements, drill.current!.picked ? PRAISE_MS : DRILL_RIGHT_MS);
       return;
     }
     note(achievements);
@@ -991,9 +994,13 @@ function Game(props: Props) {
   /** A right answer: praise and a leaf (and a flash bonus), golden seeds for what it taught. */
   const reward = (achievements: readonly Achievement[], praiseMs: number, bonus = 0) => {
     note(achievements);
-    setPraise(bonus > 0 ? 'Éclair !' : rng.pick(PRAISES));
+    // The last leaf of today on the branch drilled: a moment of its own (#150).
+    const picked = drilling && drill.current!.picked;
+    let praise = bonus > 0 ? 'Éclair !' : rng.pick(PRAISES);
+    if (picked) praise = BRANCH_PICKED;
+    setPraise(praise);
     setPhase('right');
-    forest.reward('right');
+    forest.reward(picked ? 'element' : 'right');
     // In a challenge, an acorn in the squirrel's basket instead: leaves come at its end (#120).
     const worth = drilling ? drill.current!.earned : session.worth;
     const earned = mode === 'challenge' ? 0 : worth + bonus;
@@ -1254,7 +1261,12 @@ function Game(props: Props) {
         <>
           {done && (
             <TrailDone
-              title={named(DONE_TITLES[ended], name)}
+              title={named(
+                ended === 'drill' && leavesHere === 0 && seedsHere === 0
+                  ? DRILL_PRACTISED
+                  : DONE_TITLES[ended],
+                name,
+              )}
               leaves={leavesHere}
               seeds={seedsHere}
               basket={basket}

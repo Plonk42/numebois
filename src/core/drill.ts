@@ -49,6 +49,8 @@ export class Drill {
   asked = 0;
   /** Leaves the last answer earned. */
   earned = 0;
+  /** The last answer picked the last leaf of today on the branch drilled (#150). */
+  picked = false;
   private readonly missed: (Question & { at: number })[] = [];
   private hardRun = 0;
   private previous: Exercise | null = null;
@@ -109,7 +111,21 @@ export class Drill {
     this.earned = pays ? LEAVES_PER_RIGHT_ANSWER : 0;
     const achievements = this.session.practise(skill, exercise, right, ms);
     if (pays) facts.set(fact, { ...facts.get(fact)!, paid: day });
+    const branch = this.branch();
+    this.picked =
+      pays && branch.length > 0 && branch.every((item) => !paysToday(facts.get(item), day));
     return achievements;
+  }
+
+  /** The facts of the branch drilled; none for a whole notion or the fragile facts. */
+  private branch(): readonly FactId[] {
+    if (this.target.kind !== 'skill' || !this.target.group) return [];
+    const { skill, group } = this.target;
+    return (
+      this.session.skills
+        .find((candidate) => candidate.id === skill)
+        ?.facts?.groups?.find((candidate) => candidate.id === group)?.facts ?? []
+    );
   }
 
   /** Right first answers over the last ones, 0 before the first. */

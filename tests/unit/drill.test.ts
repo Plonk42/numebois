@@ -287,6 +287,28 @@ describe('drill', () => {
     }
   });
 
+  it('marks the answer that picks the last leaf of today on the branch, once (#150)', () => {
+    const player = session();
+    let picked = 0;
+    for (let round = 0; round < 3; round++) {
+      const drill = new Drill(
+        player,
+        { kind: 'skill', skill: products.id, group: 'table-7' },
+        new Rng(round),
+      );
+      for (let i = 0; i < 20; i++) {
+        const { skill, exercise } = drill.ask();
+        drill.conclude(skill, exercise, true, 1700);
+        if (drill.picked) picked++;
+      }
+    }
+    expect(picked).toBe(1);
+    const whole = new Drill(player, { kind: 'skill', skill: products.id }, new Rng(9));
+    const { skill, exercise } = whole.ask();
+    whole.conclude(skill, exercise, true, 1700);
+    expect(whole.picked).toBe(false);
+  });
+
   it('plays only notions with facts, known by heart', () => {
     const drill = new Drill(session(), { kind: 'skill', skill: 'mental-math.add' }, new Rng(5));
     expect(() => drill.ask()).toThrow('notion sans faits');
