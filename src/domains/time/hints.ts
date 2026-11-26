@@ -1,6 +1,6 @@
 import { clockText, durationText, onDial, timeText, weekday } from '../../core/time';
 import { WEEKDAYS, type CalendarExercise } from './calendar';
-import type { DurationExercise } from './durations';
+import { stopsOf, type DurationExercise } from './durations';
 import {
   PERIOD_WORDS,
   type DrawnTime,
@@ -96,31 +96,38 @@ export function unitsHint(exercise: UnitsExercise, attempt: 1 | 2): string {
   return `${rule}\n${larger} + ${small} = ${larger + small} ${r.small}.`;
 }
 
-/** The jumps of the timeline: to the whole hour, then on to the end. */
+/** The jumps of the timeline, the hours from the start told as one: 14h10 → 16h10, 16h10 → 16h30. */
 function jumps(start: number, end: number): [number, number][] {
-  const hour = Math.ceil(start / 60) * 60;
-  return hour > start && hour < end
+  const stops = stopsOf(start, end);
+  if (stops.length === 0) return [[start, end]];
+  const last = stops.at(-1)!;
+  return stops[0] - start === 60
     ? [
-        [start, hour],
-        [hour, end],
+        [start, last],
+        [last, end],
       ]
-    : [[start, end]];
+    : [
+        [start, stops[0]],
+        [stops[0], end],
+      ];
 }
 
-/** 1: jump to the whole hour first; 2: each jump, then the duration or the end. */
+/** 1: how the jumps go; 2: each jump, then the duration or the end. */
 export function durationHint({ level, start, end }: DurationExercise, attempt: 1 | 2): string {
   const length = end - start;
   if (attempt === 1) {
-    if (level === 0) return 'Compte les minutes de bond en bond, de 5 en 5.';
-    if (level === 1) return 'Compte les heures, de bond en bond.';
-    if (level === 4)
-      return `Ajoute ${durationText(length)} à ${clockText(start)}.\nVa d’abord jusqu’à l’heure pile.`;
-    return 'Fais un bond jusqu’à l’heure pile, puis continue.';
+    if (level === 0) return 'Compte les minutes de 5 en 5,\ndu début à la fin.';
+    if (level === 1) return 'Un bond, une heure : compte les bonds.';
+    if (level === 2) return 'Fais un bond jusqu’à l’heure pile, puis continue.';
+    if (level === 3) return 'Un bond, une heure.\nPuis compte les minutes du dernier bond.';
+    const add = `Ajoute ${durationText(length)} à ${clockText(start)}.`;
+    return length > 60
+      ? `${add}\nD’abord les heures, puis les minutes.`
+      : `${add}\nVa d’abord jusqu’à l’heure pile.`;
   }
   if (level === 0) return `De ${clockText(start)} à ${clockText(end)} : ${length} min.`;
   if (level === 1) return `De ${clockText(start)} à ${clockText(end)} : ${length / 60} h.`;
-  const steps = jumps(start, end);
-  const lines = steps.map(
+  const lines = jumps(start, end).map(
     ([a, b]) => `${clockText(a)} → ${clockText(b)} : ${durationText(b - a)}.`,
   );
   const total = level === 4 ? `Fin à ${clockText(end)}.` : `En tout : ${durationText(length)}.`;

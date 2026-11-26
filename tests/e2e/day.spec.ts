@@ -2,8 +2,8 @@ import { expect, test } from '@playwright/test';
 import { clockText } from '../../src/core/time';
 import { current, driver, expectSlateLayout } from './helpers';
 
-/** Durations (#56): the timeline, its jumps, the duration written in hours and minutes. */
-test('la frise des durées : un bond jusqu’à l’heure pile, puis la durée en h et min', async ({
+/** Durations (#56, #166): the timeline, its jumps of an hour, the duration in hours and minutes. */
+test('la frise des durées : des bonds d’une heure, puis les minutes, la durée en h et min', async ({
   page,
 }) => {
   const errors: string[] = [];
@@ -19,10 +19,12 @@ test('la frise des durées : un bond jusqu’à l’heure pile, puis la durée e
   }
   const { start, end } = exercise as unknown as { start: number; end: number };
   const timeline = card.locator('.timeline');
-  // The start and the end under the line, a jump to each whole hour between them.
+  // The start and the end under the line, a jump of an hour from the start, then the minutes.
   await expect(timeline.locator('.bound text')).toHaveText([clockText(start), clockText(end)]);
-  let hours = 0;
-  for (let t = Math.ceil(start / 60) * 60; t < end; t += 60) if (t > start) hours++;
+  const hours = Math.floor((end - start) / 60);
+  await expect(timeline.locator('.hour')).toHaveText(
+    Array.from({ length: hours }, (_, i) => clockText(start + 60 * (i + 1))),
+  );
   await expect(timeline.locator('.jump')).toHaveCount(hours + 1);
   // A duration: « min » after the minutes box.
   await expect(card.locator('.time-entry')).toContainText('min');
@@ -30,10 +32,12 @@ test('la frise des durées : un bond jusqu’à l’heure pile, puis la durée e
 
   const [first, second] = driver(exercise.input).wrongs(exercise.input, exercise.answer);
   await driver(exercise.input).answer(page, exercise.input, first);
-  await expect(card.locator('.hint')).toContainText('heure pile');
+  await expect(card.locator('.hint')).toContainText('Un bond, une heure');
   await driver(exercise.input).answer(page, exercise.input, second);
-  // The worked hint: the jump to the whole hour, then on to the end.
-  await expect(card.locator('.hint')).toContainText(`${clockText(start)} → `);
+  // The worked hint: the hours from the start, then the minutes.
+  await expect(card.locator('.hint')).toContainText(
+    `${clockText(start)} → ${clockText(start + 60 * hours)}`,
+  );
   await expect(card.locator('.hint')).toContainText('En tout');
   await expectSlateLayout(page);
   await test.info().attach('frise', { body: await page.screenshot(), contentType: 'image/png' });

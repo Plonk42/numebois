@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Rng } from '../../core/rng';
 import { daysIn, parseTime, weekday } from '../../core/time';
 import { CALENDAR_LEVELS, WEEKDAYS, generateCalendar } from './calendar';
-import { DURATIONS_LEVELS, generateDuration } from './durations';
+import { DURATIONS_LEVELS, generateDuration, stopsOf } from './durations';
 import { unitFacts } from './facts';
 import { durationHint } from './hints';
 import { RELATIONS, UNITS_LEVELS, generateUnits } from './units';
@@ -61,19 +61,28 @@ describe('les durées', () => {
       if (level === 2) expect(!sameHour && length < 60).toBe(true);
       if (level >= 3) expect(length % 60).not.toBe(0);
       if (level === 3) expect(length).toBeGreaterThan(60);
+      const stops = level === 4 ? [] : stopsOf(start, end);
       expect(exercise.figure).toEqual({
         kind: 'timeline',
         start,
         end,
+        stops,
         asked: level === 4 ? 'end' : 'duration',
       });
+      // Equal jumps of an hour from the start (#166): the whole hours read at once.
+      if (level === 1) expect(stops).toHaveLength(length / 60 - 1);
+      if (level === 1 || level === 3) {
+        for (const [i, t] of stops.entries()) expect(t).toBe(start + 60 * (i + 1));
+      }
+      if (level === 0) expect(stops).toEqual([]);
+      if (level === 2) expect(stops).toEqual([Math.ceil(start / 60) * 60]);
       const time = parseTime(exercise.answer);
       if (level === 4) expect(time).toEqual({ hours: Math.floor(end / 60), minutes: end % 60 });
       else if (level === 3)
         expect(time).toEqual({ hours: Math.floor(length / 60), minutes: length % 60 });
       else expect(Number(exercise.answer)).toBe(level === 1 ? length / 60 : length);
       expect(validateAny(exercise, exercise.answer)).toBe(true);
-      // The worked hint jumps to the whole hour, then on: two jumps at most.
+      // The worked hint: the hours, then the minutes; two jumps at most.
       expect(durationHint(exercise, 2).split('\n').length).toBeLessThanOrEqual(3);
     }
   });

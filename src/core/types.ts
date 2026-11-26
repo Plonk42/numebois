@@ -94,10 +94,17 @@ export type Figure =
   /** A clock to read, `hours` from 0 to 23; the second hand when `seconds` is given. */
   | { kind: 'clock'; hours: number; minutes: number; seconds?: number }
   /**
-   * A timeline of the day (frise), `start` and `end` in minutes since midnight, a jump drawn to
-   * each whole hour between them; when the end is `asked`, a single jump with its duration.
+   * A timeline of the day (frise), `start` and `end` in minutes since midnight, a jump drawn
+   * between each two of `start`, `stops` and `end`; when the end is `asked`, a single jump with
+   * its duration.
    */
-  | { kind: 'timeline'; start: number; end: number; asked: 'duration' | 'end' }
+  | {
+      kind: 'timeline';
+      start: number;
+      end: number;
+      stops: readonly number[];
+      asked: 'duration' | 'end';
+    }
   /** A month of the calendar, `month` from 0 (January), the weeks from Monday; `mark` circles a day. */
   | { kind: 'calendar'; year: number; month: number; mark?: number }
   /**

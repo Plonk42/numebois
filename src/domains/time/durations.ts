@@ -15,7 +15,7 @@ const ACTIVITIES = [
 ] as const;
 
 /**
- * Levels, on a timeline (frise) with a jump to each whole hour:
+ * Levels, on a timeline (frise) of jumps (`stopsOf`):
  * 0. within the hour, in minutes (14h10 to 14h45);
  * 1. whole hours (9h15 to 12h15);
  * 2. past the hour, under an hour, in minutes (14h40 to 15h10);
@@ -23,6 +23,25 @@ const ACTIVITIES = [
  * 4. the end, from the start and the duration (14h10 and 45 min: 14h55).
  */
 export const DURATIONS_LEVELS = 5;
+
+/**
+ * Where the jumps of the timeline stop between `start` and `end` (#166, owner's choice): an hour
+ * from the start, then another, while it stays before the end; under an hour, the whole hour
+ * when it is passed. 14h10 to 15h30: 15h10; 14h40 to 15h10: 15h00.
+ */
+export function stopsOf(start: number, end: number): number[] {
+  const stops: number[] = [];
+  for (let t = start + 60; t < end; t += 60) stops.push(t);
+  if (end - start >= 60) return stops;
+  const hour = Math.ceil(start / 60) * 60;
+  return hour > start && hour < end ? [hour] : [];
+}
+
+/** The timeline of a duration, or a single jump when its end is asked. */
+export function timelineOf(start: number, end: number, asked: 'duration' | 'end') {
+  const stops = asked === 'end' ? [] : stopsOf(start, end);
+  return { kind: 'timeline', start, end, stops, asked } as const;
+}
 
 export interface DurationExercise extends Exercise {
   /** Minutes since midnight. */
@@ -90,12 +109,12 @@ export function durationExercise(
     return {
       ...base,
       statement: `${capital(name)} commence à ${from} et dure ${durationText(end - start)}.\nÀ quelle heure finit-${it} ?`,
-      figure: { kind: 'timeline', start, end, asked: 'end' },
+      figure: timelineOf(start, end, 'end'),
       input: { kind: 'time', seconds: false },
       answer: to,
     };
   }
-  const figure = { kind: 'timeline', start, end, asked: 'duration' } as const;
+  const figure = timelineOf(start, end, 'duration');
   if (level === 3) {
     return {
       ...base,

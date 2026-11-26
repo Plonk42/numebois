@@ -56,8 +56,8 @@ const FIGURES: Figures = {
   clock: ({ figure: { hours, minutes, seconds } }) => (
     <ClockFigure hours={hours} minutes={minutes} seconds={seconds} />
   ),
-  timeline: ({ figure: { start, end, asked } }) => (
-    <TimelineFigure start={start} end={end} asked={asked} />
+  timeline: ({ figure: { start, end, stops, asked } }) => (
+    <TimelineFigure start={start} end={end} stops={stops} asked={asked} />
   ),
   calendar: ({ figure: { year, month, mark } }) => (
     <CalendarFigure year={year} month={month} mark={mark} />
