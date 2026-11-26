@@ -162,7 +162,8 @@ const ready = sceneOnly
           { ask: !unsaved && !params.has('name'), given: params.get('name') },
           // `?lesson=<id>` plays that astuce at once (tests, writing one: the trial one too).
           {
-            all: [...DOMAINS.flatMap((domain) => domain.lessons ?? []), TRY_LESSON],
+            all: DOMAINS.flatMap((domain) => domain.lessons ?? []),
+            trials: [TRY_LESSON],
             start: params.get('lesson'),
           },
         );

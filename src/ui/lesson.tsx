@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { Rng } from '../core/rng';
 import type { Exercise, ExerciseContext, Figure, Lesson, Skill } from '../core/types';
-import type { Mood } from './character';
+import { Plume, type Mood } from './character';
 import { AnswerZone, Slate, Statement, Work, type SlateHint } from './slate';
 import { FigureView, PLAYS_ITSELF, Widget } from './widgets';
 
@@ -39,7 +39,7 @@ function unitsOf(
 }
 
 /** Whether every notion of a lesson is known: its own, and those of its exercises. */
-export function playable(lesson: Lesson, skills: ReadonlyMap<string, Skill>): boolean {
+export function lessonPlayable(lesson: Lesson, skills: ReadonlyMap<string, Skill>): boolean {
   return (
     skills.has(lesson.skill) &&
     lesson.steps.every((step) => {
@@ -182,5 +182,30 @@ export function LessonPlayer({ lesson, skills, rng, context, onDone }: LessonPro
         />
       )}
     </Slate>
+  );
+}
+
+interface OfferProps {
+  lesson: Lesson;
+  onAccept(): void;
+  onDecline(): void;
+}
+
+/** Between two questions, Plume offers her astuce (#51): refusing costs nothing. */
+export function LessonOffer({ lesson, onAccept, onDecline }: OfferProps) {
+  return (
+    <section id="lesson-offer" class="card" aria-live="polite">
+      <Plume mood="talk" />
+      <p class="praise">On regarde une astuce ?</p>
+      <p class="title">{lesson.title}</p>
+      <div class="actions">
+        <button type="button" class="next" onPointerDown={onAccept}>
+          D’accord !
+        </button>
+        <button type="button" onPointerDown={onDecline}>
+          Non merci
+        </button>
+      </div>
+    </section>
   );
 }

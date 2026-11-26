@@ -10,6 +10,7 @@ import {
   squirrelComes,
 } from '../core/challenge';
 import { Drill, suggestedBranch, type DrillTarget } from '../core/drill';
+import { lessonAfter, lessonBefore } from '../core/lessons';
 import { cleanName, named } from '../core/name';
 import { modeOf, settingOf, type SkillSetting } from '../core/settings';
 import {
@@ -71,7 +72,7 @@ import {
 } from './challenge';
 import { DrillBreak, DrillTree, Garland, TuftButton, DRILL_NAME } from './drill';
 import { FinaleBanner, Frame, NextPainting, type NextChoice } from './finale';
-import { LessonPlayer, playable } from './lesson';
+import { LessonOffer, LessonPlayer, lessonPlayable } from './lesson';
 import { Naming } from './naming';
 import { Notebook, NotebookButton } from './notebook';
 import { ParentMenu } from './parent-menu';
@@ -161,8 +162,9 @@ type Phase =
   | 'next'
   | 'album'
   | 'visiting'
-  /** An astuce of Plume (#50), then the Carnet where it is kept. */
+  /** An astuce of Plume (#50), offered between two questions (#51), then the Carnet. */
   | 'lesson'
+  | 'lesson-offer'
   | 'notebook';
 
 /** A trail or a drill in progress: the slate and its rewards. */
@@ -294,8 +296,10 @@ interface Props {
   name: string;
   /** Plume asks the first name first. */
   askName: boolean;
-  /** The astuces the game knows (#50), the ones seen to the end, and one to play first. */
+  /** The astuces of the registry (#50), offered by the trail (#51), and the trial ones. */
   lessons: readonly Lesson[];
+  trials: readonly Lesson[];
+  /** The astuces seen to the end, and one to play first. */
   notebook: readonly string[];
   lesson: Lesson | null;
   debug?: GameDebug;
@@ -359,7 +363,30 @@ function Game(props: Props) {
   const [freshPage, setFreshPage] = useState<string | null>(null);
   const skillMap = useMemo(() => new Map(props.skills.map((s) => [s.id, s])), [props.skills]);
   /** The pages of the Carnet: the astuces seen that the game still knows. */
-  const pages = notebook.flatMap((id) => props.lessons.find((l) => l.id === id) ?? []);
+  const pages = notebook.flatMap(
+    (id) => [...props.lessons, ...props.trials].find((l) => l.id === id) ?? [],
+  );
+  /** Where an astuce leads, once seen: its page in the Carnet, or back to the trail. */
+  const [lessonReturn, setLessonReturn] = useState<'notebook' | 'question' | 'next'>('notebook');
+  /** The astuce Plume offers, between two questions (#51). */
+  const [tip, setTip] = useState<Lesson | null>(null);
+  /** At most one astuce a session comes by itself (#51). */
+  const lessonUsed = useRef(false);
+  const lessonState = () => ({
+    lessons: props.lessons,
+    seen: new Set(notebook),
+    used: lessonUsed.current,
+  });
+  /** A notion that opens brings its astuce first, played at once (never twice). */
+  const lessonFirst = (id: SkillId): boolean => {
+    const moment = lessonBefore(id, session.progress.get(id), lessonState());
+    if (!moment) return false;
+    lessonUsed.current = true;
+    setLesson(moment.lesson);
+    setLessonReturn('question');
+    setPhase('lesson');
+    return true;
+  };
   /** Where a change of season started: the screen stays as it was under the light. */
   const [turnFrom, setTurnFrom] = useState<Phase>('walking');
   /** The drill in progress, its garland of right answers in the round, and how its last round ends. */
@@ -561,6 +588,7 @@ function Game(props: Props) {
     show(question);
     if (chance) flashUsed.current = true;
     setFlash(chance);
+    lessonFirst(question.skill.id);
   };
 
   const show = (question: { skill: Skill; exercise: Exercise }) => {
@@ -584,6 +612,14 @@ function Game(props: Props) {
       return;
     }
     if (session.advance()) {
+      // A notion that resists: Plume offers her astuce, which the child may refuse.
+      const moment = lessonAfter(skill.id, session.progress.get(skill.id), lessonState());
+      if (moment) {
+        lessonUsed.current = true;
+        setTip(moment.lesson);
+        setPhase('lesson-offer');
+        return;
+      }
       ask();
       return;
     }
@@ -599,6 +635,7 @@ function Game(props: Props) {
     if (!free) return;
     squirrelWaits.current = false;
     if (!finished) {
+      if (lessonFirst(skill.id)) return;
       setPhase('asking');
       shownAt.current = playClock();
       return;
@@ -898,19 +935,30 @@ function Game(props: Props) {
     setPhase('album');
   };
 
-  /** An astuce of Plume, from the Carnet (#50): never counted, never paid. */
-  const openLesson = (chosen: Lesson) => {
+  /** An astuce of Plume, from the Carnet (#50) or offered (#51): never counted, never paid. */
+  const openLesson = (chosen: Lesson, then: 'notebook' | 'next' = 'notebook') => {
     setLesson(chosen);
+    setLessonReturn(then);
     setPhase('lesson');
   };
 
-  /** An astuce seen to the end: a new page of the Carnet, which opens on it. */
+  /**
+   * An astuce seen to the end: a new page of the Carnet, which opens on it, or the trail goes
+   * on where it was.
+   */
   const endLesson = () => {
     const id = lesson!.id;
     const fresh = !notebook.includes(id);
     if (fresh) setNotebook([...notebook, id]);
-    setFreshPage(fresh ? id : null);
-    setPhase('notebook');
+    if (lessonReturn === 'question') {
+      setPhase('asking');
+      shownAt.current = playClock();
+    } else if (lessonReturn === 'next') {
+      ask();
+    } else {
+      setFreshPage(fresh ? id : null);
+      setPhase('notebook');
+    }
   };
 
   /** A painting of the Album, alive again: built under the light, which then goes. */
@@ -1200,6 +1248,9 @@ function Game(props: Props) {
             setPhase('notebook');
           }}
         />
+      )}
+      {phase === 'lesson-offer' && tip && (
+        <LessonOffer lesson={tip} onAccept={() => openLesson(tip, 'next')} onDecline={ask} />
       )}
       {phase === 'notebook' && (
         <Notebook
@@ -1496,8 +1547,12 @@ export function mountGame(
   debug?: GameDebug,
   /** `ask`: Plume asks the first name while there is none; `given` replaces the saved one. */
   naming: { ask: boolean; given: string | null } = { ask: false, given: null },
-  /** The astuces the game knows, and `?lesson=`: one to play at once (#50). */
-  lessons: { all: readonly Lesson[]; start: string | null } = { all: [], start: null },
+  /** The astuces the game knows, the trial ones (`?lesson=` only), and one to play at once. */
+  lessons: { all: readonly Lesson[]; trials: readonly Lesson[]; start: string | null } = {
+    all: [],
+    trials: [],
+    start: null,
+  },
 ) {
   const rng = new Rng(seed);
   const session = new Session(skills, rng.fork('trail'), today, () => ({
@@ -1527,8 +1582,11 @@ export function mountGame(
   const askName = naming.ask && home && saved?.ok !== false && name === '';
   // Only the astuces whose notions are all here (`?practice` plays one notion alone).
   const byId = new Map(skills.map((skill) => [skill.id, skill]));
-  const known = lessons.all.filter((lesson) => playable(lesson, byId));
-  const start = home ? (known.find((lesson) => lesson.id === lessons.start) ?? null) : null;
+  const known = lessons.all.filter((lesson) => lessonPlayable(lesson, byId));
+  const trials = lessons.trials.filter((lesson) => lessonPlayable(lesson, byId));
+  const start = home
+    ? ([...known, ...trials].find((lesson) => lesson.id === lessons.start) ?? null)
+    : null;
   let phase: Phase = home ? 'walking' : 'asking';
   if (start) phase = 'lesson';
   if (askName) phase = 'naming';
@@ -1573,6 +1631,7 @@ export function mountGame(
       name={name}
       askName={askName}
       lessons={known}
+      trials={trials}
       notebook={saved?.ok ? saved.data.notebook : []}
       lesson={start}
       debug={debug}

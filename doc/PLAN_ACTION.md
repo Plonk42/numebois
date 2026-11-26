@@ -545,6 +545,9 @@ Dépend de 5 pour les modes démo et guidé.
    - proposée (jamais imposée) après 3 erreurs sur les 5 dernières réponses ;
    - depuis le Carnet, à tout moment ;
    - à la demande du parent, au prochain sentier (#54).
+
+   Réalisé (#51, `src/core/lessons.ts`, fonctions pures testées) : avant la première question d'une notion jamais répondue, son astuce pas encore vue se joue d'abord (`lessonBefore`, jamais imposée deux fois : une astuce vue est dans le Carnet) ; après 3 erreurs sur les 5 dernières réponses de la notion, Plume la propose entre deux questions (`lessonAfter`, carte « On regarde une astuce ? », « D'accord ! » ou « Non merci », refuser ne coûte rien) ; au plus une par session de jeu, imposée ou proposée ; le Carnet rejoue à volonté sans compter. Après l'astuce, le sentier reprend où il était (la page entre dans le Carnet). L'astuce d'essai n'est jamais proposée. La demande du parent arrive avec #54.
+
 3. Leçons V1, chacune dans son module :
    - valeur des chiffres ;
    - stratégies de calcul mental ;
