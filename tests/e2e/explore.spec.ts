@@ -56,6 +56,8 @@ test('se promener dans la forêt : gestes dans leurs limites, retour au cadrage,
   await expect(walk.locator('.hint')).toHaveCount(0);
   await expect(back).toBeHidden();
   expect(await view(page)).toMatchObject({ goal: home, active: true });
+  // Over the whole painting, the camera orbits slowly (#148).
+  expect((await view(page)).orbit).toBe(1);
   // The trail waits at the bottom, its sign at its start.
   const trail = page.getByRole('button', { name: 'Chemin du progrès' }).and(page.locator('#trail'));
   await expect(trail.locator('.sign')).toHaveText('Chemindu progrès');
@@ -83,6 +85,8 @@ test('se promener dans la forêt : gestes dans leurs limites, retour au cadrage,
     ),
   );
   expect((await view(page)).goal.zoom).toBe(2.5);
+  // The child takes the view where the orbit had brought it, and the orbit stops at once.
+  expect((await view(page)).orbit).toBe(0);
   await expect(back).toBeVisible();
   // Away from the framing, the landscape alone: the trail steps aside.
   await expect(page.locator('#trail')).toHaveClass(/aside/);
@@ -134,11 +138,14 @@ test('se promener dans la forêt : gestes dans leurs limites, retour au cadrage,
   await expect(back).toBeHidden();
   await expect(trail).toBeVisible();
   await expect.poll(async () => (await view(page)).now).toEqual(home);
+  // Over the whole painting again, the orbit comes back, slowly.
+  await expect.poll(async () => (await view(page)).orbit, { timeout: 60_000 }).toBe(1);
 
   // The mouse too: the wheel zooms.
   await page.mouse.move(640, 330);
   await page.mouse.wheel(0, -400);
   await expect.poll(async () => (await view(page)).goal.zoom).toBeGreaterThan(1.5);
+  expect((await view(page)).orbit).toBe(0);
   await expect(trail).toHaveCount(0);
   await back.click();
 
@@ -148,6 +155,8 @@ test('se promener dans la forêt : gestes dans leurs limites, retour au cadrage,
   await expect(page.locator('#question')).toBeVisible();
   expect(await view(page)).toMatchObject({ goal: home, active: false });
   await expect.poll(async () => (await view(page)).now).toEqual(home);
+  // Nothing moves during a question: not even the orbit.
+  await expect.poll(async () => (await view(page)).orbit).toBe(0);
 
   // During a question, the forest stays where it is, whatever the fingers do.
   await touch(cdp, drag([120, 300], [120, 600]));

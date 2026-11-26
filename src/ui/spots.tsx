@@ -37,7 +37,7 @@ const EDGE = 48;
 
 /**
  * The free slots offered to the child glow over the forest; one touch places the element.
- * They follow the slow breathing of the camera.
+ * They follow the slow orbit of the camera.
  */
 export function Spots({ forest, slots, onPick }: Props) {
   const buttons = useRef<(HTMLButtonElement | null)[]>([]);
@@ -48,7 +48,7 @@ export function Spots({ forest, slots, onPick }: Props) {
         const button = buttons.current[i];
         const at = forest.slotOnScreen(slot);
         if (!button || !at) return;
-        // Whole pixels: the slow breathing moves a spot a pixel at a time, not every frame.
+        // Whole pixels: the slow orbit moves a spot a pixel at a time, not every frame.
         const x = Math.round(Math.min(window.innerWidth - EDGE, Math.max(EDGE, at.x)));
         const y = Math.round(Math.min(window.innerHeight - EDGE, Math.max(TOP, at.y)));
         button.style.transform = `translate(${x}px, ${y}px)`;

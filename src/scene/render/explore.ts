@@ -88,6 +88,8 @@ export class Explorer {
   readonly view: View = { ...HOME_VIEW };
   /** A tap while gestures are on, in CSS pixels from the top left of the element. */
   onTap: ((x: number, y: number) => void) | null = null;
+  /** Just before a gesture or a jump moves the view: the stage folds its orbit into it. */
+  beforeMove: (() => void) | null = null;
   private goal: View = { ...HOME_VIEW };
   private half: [number, number] = [0, 0];
   private enabled = false;
@@ -113,6 +115,11 @@ export class Explorer {
 
   get active(): boolean {
     return this.enabled;
+  }
+
+  /** The view is at the framing, or gliding back to it: the whole painting. */
+  get atHome(): boolean {
+    return !this.away;
   }
 
   /** Where the view goes once the glide is over. */
@@ -149,6 +156,7 @@ export class Explorer {
 
   /** Jumps to a view without gliding (captures). */
   show(view: View): void {
+    this.beforeMove?.();
     this.goal = clampView(view, this.half);
     Object.assign(this.view, this.goal);
     this.homing = false;
@@ -158,6 +166,16 @@ export class Explorer {
   /** Jumps to a view given as shares of the limits (`viewFromShares`). */
   showShares(shares: readonly number[]): void {
     this.show(viewFromShares(shares, this.half));
+  }
+
+  /** Turns the view and its goal together, in degrees, without gliding nor telling. */
+  shift(yaw: number, pitch: number): void {
+    this.view.yaw += yaw;
+    this.view.pitch += pitch;
+    this.goal = clampView(
+      { ...this.goal, yaw: this.goal.yaw + yaw, pitch: this.goal.pitch + pitch },
+      this.half,
+    );
   }
 
   /** Glides the view towards its goal, on the clock of the page; once per frame. */
@@ -192,7 +210,16 @@ export class Explorer {
   }
 
   private change(next: Partial<View>): void {
-    this.goal = clampView({ ...this.goal, ...next }, this.half);
+    const plain = clampView({ ...this.goal, ...next }, this.half);
+    if (KEYS.every((key) => plain[key] === this.goal[key])) return;
+    const before = { ...this.goal };
+    this.beforeMove?.();
+    const goal = { ...this.goal };
+    for (const key of KEYS) {
+      const value = next[key];
+      if (value !== undefined) goal[key] = value + this.goal[key] - before[key];
+    }
+    this.goal = clampView(goal, this.half);
     this.homing = false;
     this.notify();
   }

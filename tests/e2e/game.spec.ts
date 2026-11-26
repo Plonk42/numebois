@@ -466,7 +466,8 @@ test('la boutique : une biche achetée en graines dorées rejoint la prairie et 
   // the doe appears in view, then the camera goes back (#107).
   const seeds = (await game(page)).seeds;
   const camera = () => page.evaluate(() => window.__numebois!.camera());
-  const home = await camera();
+  // The framing, without the slow orbit (#148), which fades out while the camera comes close.
+  const home = await page.evaluate(() => window.__numebois!.framing());
   const moved = async () => Math.hypot(...(await camera()).map((v, i) => v - home[i]));
   await doe.click();
   await expect(page.locator('#arrival')).toHaveText('Une biche arrive !');

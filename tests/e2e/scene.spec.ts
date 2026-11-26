@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { ORBIT } from '../../src/scene/render/stage';
 
 // Budget of the tablet (see doc/PLAN_ACTION.md, « Contraintes tablette »).
 const BUDGET = { drawCalls: 100, triangles: 150_000, memoryMb: 64 };
@@ -223,4 +224,39 @@ test('avec ?scene, rien d’autre que la scène', async ({ page }) => {
   await expect(page.locator('#debug-panel')).toHaveCount(0);
   await expect(page.locator('#question')).toHaveCount(0);
   await expect(page.locator('canvas#scene')).toBeVisible();
+});
+
+test('la caméra tourne lentement autour du tableau entier, le cadrage des captures reste fixe', async ({
+  page,
+}) => {
+  const errors = watchErrors(page);
+  const at = async (time: number) => {
+    await openScene(page, `stage=6&seed=3&quality=high&time=${time}`);
+    return page.evaluate(() => ({
+      camera: window.__numebois!.camera(),
+      framing: window.__numebois!.framing(),
+    }));
+  };
+  const gap = (a: number[], b: number[]) => Math.hypot(...a.map((v, i) => v - b[i]));
+  // Highest at the start of a turn, then to one side and the other a quarter of a turn on.
+  const start = await at(0);
+  const left = await at(ORBIT.period / 4);
+  const right = await at((3 * ORBIT.period) / 4);
+  // The framing, which the Album and the choice of the next painting capture, never moves.
+  expect(left.framing).toEqual(start.framing);
+  expect(right.framing).toEqual(start.framing);
+  // A few degrees to one side, then to the other, at the same height: a short arc.
+  const arc = 2 * Math.sin((ORBIT.yaw * Math.PI) / 360) * Math.hypot(...start.framing);
+  expect(gap(left.camera, left.framing)).toBeGreaterThan(arc / 3);
+  expect(gap(left.camera, left.framing)).toBeLessThan(arc * 1.2);
+  expect(gap(right.camera, right.framing)).toBeCloseTo(gap(left.camera, left.framing), 1);
+  expect(left.camera[1]).toBeCloseTo(right.camera[1], 1);
+  expect(start.camera[1]).toBeGreaterThan(start.framing[1]);
+
+  // With « reduce motion », it stays still.
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('./?scene&stage=6&seed=3');
+  await page.evaluate(() => window.__numebois!.ready);
+  await expect.poll(() => page.evaluate(() => window.__numebois!.view().orbit)).toBe(0);
+  expect(errors).toEqual([]);
 });

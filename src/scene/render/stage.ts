@@ -23,6 +23,13 @@ export const APPROACH_ARRIVAL_SECONDS = APPROACH.in;
 export const APPROACH_SECONDS = APPROACH.in + APPROACH.stay + APPROACH.out;
 /** Distance to what the camera looks at, at the closest, as a share of the framing's. */
 const APPROACH_DISTANCE = 0.45;
+/**
+ * The slow orbit over the whole painting that shows its relief by parallax (#148): degrees
+ * each side, seconds per turn, and seconds to fade in at rest or out when something else moves.
+ */
+export const ORBIT = { yaw: 6, pitch: 3, period: 30, fadeIn: 3, fadeOut: 0.8 } as const;
+/** CSS pixels at the bottom of the screen kept for the trail (`#trail`): the painting frames above. */
+export const TRAIL_ROOM_PX = 92;
 
 const smooth = (x: number) => {
   const t = Math.min(1, Math.max(0, x));
@@ -35,18 +42,21 @@ export function screenPixelRatio(): number {
 }
 
 /**
- * Renderer, camera and frame loop. The camera frames a box and breathes slightly; the child
- * may explore around that framing when the game allows it.
+ * Renderer, camera and frame loop. The camera frames a box and, while the whole painting is in
+ * view, orbits slowly around it; the child may explore around that framing when the game
+ * allows it.
  */
 export class Stage {
   readonly renderer: THREE.WebGLRenderer;
   readonly scene = new THREE.Scene();
   readonly camera = new THREE.PerspectiveCamera(FOV, 1, NEAR, 600);
-  /** The camera at the framing, without breathing nor exploration: what the backdrop faces. */
+  /** The camera at the framing, without orbit nor exploration: what the backdrop faces. */
   readonly home = new THREE.PerspectiveCamera(FOV, 1, NEAR, 600);
   readonly explorer: Explorer;
   /** Unit vector from the framed box towards the camera. */
   readonly viewOffset = new THREE.Vector3(0, 0.45, 0.9).normalize();
+  /** True while the camera holds still (a question): the orbit fades out. */
+  still: () => boolean = () => false;
 
   private pixelRatioCap = 1.5;
   private readonly target = new THREE.Vector3();
@@ -55,12 +65,20 @@ export class Stage {
   private yaw = 0;
   private pitch = 0.47;
   private frameBox: Frame | null = null;
+  /** Share of the screen height kept for the trail. */
+  private room = 0;
 
   private readonly focusPoint = new THREE.Vector3();
   private focusStart = -100;
   private approachPoint: THREE.Vector3 | null = null;
   private approachStart = -100;
   private tourStart = -100;
+  /** How far the orbit has faded in, 0 to 1, and its offsets at full strength (degrees). */
+  private orbit = 1;
+  private orbitYaw = 0;
+  private orbitPitch = 0;
+  private orbitClock = 0;
+  private readonly reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
   private readonly lookAt = new THREE.Vector3();
   private readonly offset = new THREE.Vector3();
 
@@ -81,6 +99,12 @@ export class Stage {
         unitsPerPixel: (2 * tan * this.distance) / view.zoom / (canvas.clientHeight || 1),
       };
     });
+    // The child takes the view from where the orbit had brought it, without a jump.
+    this.explorer.beforeMove = () => {
+      const weight = smooth(this.orbit);
+      if (weight > 0) this.explorer.shift(weight * this.orbitYaw, weight * this.orbitPitch);
+      this.orbit = 0;
+    };
   }
 
   setQuality(quality: QualitySettings): void {
@@ -98,7 +122,10 @@ export class Stage {
     this.renderer.setPixelRatio(Math.min(screenPixelRatio(), this.pixelRatioCap));
     this.renderer.setSize(width, height, false);
     this.camera.aspect = width / height;
-    this.camera.updateProjectionMatrix();
+    // The centre of the view moves up into the screen above the trail.
+    const room = Math.min(TRAIL_ROOM_PX, height * 0.2);
+    this.room = room / height;
+    this.camera.setViewOffset(width, height, 0, room / 2, width, height);
     if (this.frameBox) this.frame(this.frameBox);
   }
 
@@ -111,8 +138,9 @@ export class Stage {
     const dir = this.direction(this.yaw, this.pitch, this.viewOffset);
     const right = new THREE.Vector3().crossVectors(THREE.Object3D.DEFAULT_UP, dir).normalize();
     const up = new THREE.Vector3().crossVectors(dir, right);
-    const tanV = Math.tan((this.camera.fov * Math.PI) / 360);
-    const tanH = tanV * this.camera.aspect;
+    const tanFull = Math.tan((this.camera.fov * Math.PI) / 360);
+    const tanH = tanFull * this.camera.aspect;
+    const tanV = tanFull * (1 - this.room);
     const margin = 0.94;
     let distance = 0;
     const corner = new THREE.Vector3();
@@ -194,14 +222,20 @@ export class Stage {
     this.tourStart = time;
   }
 
-  /** Exploration, breathing, focus and tour. No allocation: called every frame. */
+  /** How far the orbit has faded in, 0 (still) to 1 (full). */
+  get orbiting(): number {
+    return this.orbit;
+  }
+
+  /** Exploration, orbit, focus and tour. No allocation: called every frame. */
   update(time: number): void {
     const view = this.explorer.step();
-    let yaw = this.yaw + (view.yaw * Math.PI) / 180 + 0.011 * Math.sin(time * 0.21);
-    let pitch = this.pitch + (view.pitch * Math.PI) / 180 + 0.005 * Math.sin(time * 0.17 + 1.3);
-    let distance = (this.distance / view.zoom) * (1 + 0.006 * Math.sin(time * 0.13 + 2.1));
+    let yaw = this.yaw + (view.yaw * Math.PI) / 180;
+    let pitch = this.pitch + (view.pitch * Math.PI) / 180;
+    let distance = this.distance / view.zoom;
     const tour = (time - this.tourStart) / TOUR_SECONDS;
-    if (tour >= 0 && tour < 1) {
+    const touring = tour >= 0 && tour < 1;
+    if (touring) {
       // Left, then right, within the limits of the exploration; a little higher and further.
       const swell = Math.sin(Math.PI * tour);
       yaw += 0.32 * Math.sin(2 * Math.PI * tour) * swell;
@@ -209,8 +243,9 @@ export class Stage {
       distance *= 1 + 0.08 * swell * swell;
     }
     const age = time - this.focusStart;
+    const focusing = age >= 0 && age < 5;
     let weight = 0;
-    if (age >= 0 && age < 5) {
+    if (focusing) {
       const rise = Math.min(1, age / 0.9);
       const fall = Math.min(1, Math.max(0, (age - 3.2) / 1.8));
       weight = rise * rise * (3 - 2 * rise) * (1 - fall * fall * (3 - 2 * fall));
@@ -221,7 +256,8 @@ export class Stage {
     this.lookAt.lerp(this.focusPoint, 0.3 * weight);
     distance *= 1 - 0.1 * weight;
     const near = time - this.approachStart;
-    if (this.approachPoint && near >= 0 && near < APPROACH_SECONDS) {
+    const approaching = near >= 0 && near < APPROACH_SECONDS;
+    if (this.approachPoint && approaching) {
       const close =
         smooth(near / APPROACH.in) *
         (1 - smooth((near - APPROACH.in - APPROACH.stay) / APPROACH.out));
@@ -229,6 +265,26 @@ export class Stage {
       // Never further than the child's own zoom.
       distance += (Math.min(distance, this.distance * APPROACH_DISTANCE) - distance) * close;
     }
+    // Only over the whole painting, and alone: never while the child explores.
+    const dt = Math.min(0.1, Math.max(0, time - this.orbitClock));
+    this.orbitClock = Math.max(this.orbitClock, time);
+    const rest =
+      this.explorer.atHome &&
+      !touring &&
+      !focusing &&
+      !approaching &&
+      !this.still() &&
+      !this.reducedMotion?.matches;
+    this.orbit = Math.min(
+      1,
+      Math.max(0, this.orbit + (rest ? dt / ORBIT.fadeIn : -dt / ORBIT.fadeOut)),
+    );
+    const phase = (2 * Math.PI * time) / ORBIT.period;
+    this.orbitYaw = ORBIT.yaw * Math.sin(phase);
+    this.orbitPitch = ORBIT.pitch * Math.cos(phase);
+    const strength = (smooth(this.orbit) * Math.PI) / 180;
+    yaw += strength * this.orbitYaw;
+    pitch += strength * this.orbitPitch;
     this.direction(yaw, pitch, this.offset);
     this.camera.position.copy(this.lookAt).addScaledVector(this.offset, distance);
     this.camera.lookAt(this.lookAt);
@@ -322,11 +378,17 @@ export class Stage {
   }
 
   /**
-   * The painting at its framing, without breathing nor exploration, as a WebP image `width`
+   * The painting at its framing, without orbit nor exploration, as a WebP image `width`
    * pixels wide (Album, choice of the next painting); the frame loop draws over it next.
    */
   capture(width: number): string {
+    // No trail over a picture: the painting in the middle.
+    const view = this.home.view;
+    if (view) view.enabled = false;
+    this.home.updateProjectionMatrix();
     this.renderer.render(this.scene, this.home);
+    if (view) view.enabled = true;
+    this.home.updateProjectionMatrix();
     const source = this.renderer.domElement;
     const image = document.createElement('canvas');
     image.width = width;
