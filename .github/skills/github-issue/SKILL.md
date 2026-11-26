@@ -26,7 +26,7 @@ Les changements courants (petits ajustements d'interface, corrections mineures, 
 - **Exactement une** priorité, justifiée : `priority:p0` (perte de sauvegarde ou d'Album, jeu inutilisable), `priority:p1` (réponse attendue fausse, condition d'un jalon), `priority:p2` (travail normal, par défaut), `priority:p3` (amélioration facultative). Ne jamais déduire l'urgence de la seule formulation.
 - Les domaines `area:*` pertinents parmi ceux existants : `area:render`, `area:pedagogy`, `area:ui`, `area:engine`, `area:save`, `area:assets`, `area:ci`, `area:workflow`. Ne pas créer de label à la volée. `classe` : un écart avec la classe de la semaine (skill `classwork-check`), à fermer avant la série de photos suivante.
 - Facultatif, un statut : `status:backlog` (nouvelle proposition), `status:ready` (travail choisi et faisable) ou `status:blocked` (en nommant le vrai prérequis, la décision ou l'accord attendu).
-- Un jalon existant, choisi d'après sa description réelle. S'il n'y en a aucun qui convient, demander plutôt que d'en créer un.
+- Un jalon existant, choisi d'après sa description réelle. Un jalon fini et fermé n'est jamais rouvert. Un écart avec la classe va dans « Suivre la classe » (permanent), sauf s'il est déjà prévu dans un jalon ouvert. S'il n'y en a aucun qui convient, demander plutôt que d'en créer un.
 - Enregistrer les vrais prérequis comme liens natifs « blocked by ». Une simple proximité de sujet n'est pas une dépendance : utiliser le lien « relates to ».
 
 ## Corps du ticket

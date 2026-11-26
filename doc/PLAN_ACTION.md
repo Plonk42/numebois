@@ -424,6 +424,7 @@ Chaque jalon est livré en ligne et jouable. Les jalons GitHub portent les même
 - **M3 « Opérations posées et leçons »** (phases 5a et 6).
 - **M4 « Temps et mesures »** (phases 5b et 5c).
 - **M5 « Fractions »** (phase 5d).
+- **« Suivre la classe »** (permanent, jamais fermé, décision du propriétaire, 2026-11-26, à l'essai) : les écarts relevés sur les fiches de la classe (skill `classwork-check`) quand aucun jalon ouvert ne les prévoit ; chaque série de photos a son ticket parent (#165 pour le 26/11), fermé avant la série suivante. Un jalon fini n'est jamais rouvert.
 - Ensuite : nouveaux modules à la demande (division, géométrie…), selon la recette.
 
 ## Phase 0 : socle et déploiement
