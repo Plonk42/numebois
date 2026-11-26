@@ -51,6 +51,8 @@ describe('sauvegarde', () => {
         recommended: null,
         name: '',
         notebook: [],
+        requests: { lesson: null, challenge: null },
+        notebookChoices: [],
       },
       new Date('2026-11-23T10:00:00Z'),
     );
@@ -95,6 +97,8 @@ describe('sauvegarde', () => {
         recommended: null,
         name: '',
         notebook: [],
+        requests: { lesson: null, challenge: null },
+        notebookChoices: [],
       },
       new Date(),
     );
@@ -119,6 +123,8 @@ describe('sauvegarde', () => {
       recommended: null,
       name: '',
       notebook: [],
+      requests: { lesson: null, challenge: null },
+      notebookChoices: [],
     };
     const parsed = parseSave(serializeSave(data, new Date()), SKILLS);
     expect(parsed.ok && parsed.data.records).toEqual([
@@ -166,6 +172,8 @@ describe('sauvegarde', () => {
           recommended: null,
           name: '',
           notebook: [],
+          requests: { lesson: null, challenge: null },
+          notebookChoices: [],
         },
         new Date(),
       );

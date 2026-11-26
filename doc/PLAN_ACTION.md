@@ -112,28 +112,28 @@ Tickets : réserve et micro-retour (#22), boutique (#83), pose et paliers (#24),
 
 Le code (identifiants, fichiers, dossiers) est en anglais. Les textes affichés, les leçons, les docs et les instructions Copilot sont en français.
 
-| Terme du jeu (FR)             | Nom dans le code |
-| ----------------------------- | ---------------- |
-| notion                        | `Skill`          |
-| fait (7×8)                    | `Fact`           |
-| domaine                       | `Domain`         |
-| sentier                       | `Trail`          |
-| rafale                        | `Drill`          |
-| défi                          | `Challenge`      |
-| tableau                       | `Painting`       |
-| Album                         | `Album`          |
-| grand final                   | `finale`         |
-| décor                         | `Biome`          |
-| grand moment                  | `Reveal`         |
-| emplacement                   | `Slot`           |
-| feuilles                      | `leaves`         |
-| graine dorée                  | `seeds`          |
-| réserve                       | `Reserve`        |
-| boutique de la forêt          | `Shop`           |
-| quête (devoirs de la semaine) | `Quest`          |
-| astuce de Plume (leçon)       | `Lesson`         |
-| ardoise (écran d'exercice)    | `Slate`          |
-| Carnet de la forêt            | `Notebook`       |
+| Terme du jeu (FR)             | Nom dans le code          |
+| ----------------------------- | ------------------------- |
+| notion                        | `Skill`                   |
+| fait (7×8)                    | `Fact`                    |
+| domaine                       | `Domain`                  |
+| sentier                       | `Trail`                   |
+| rafale                        | `Drill`                   |
+| défi                          | `Challenge`               |
+| tableau                       | `Painting`                |
+| Album                         | `Album`                   |
+| grand final                   | `finale`                  |
+| décor                         | `Biome`                   |
+| grand moment                  | `Reveal`                  |
+| emplacement                   | `Slot`                    |
+| feuilles                      | `leaves`                  |
+| graine dorée                  | `seeds`                   |
+| réserve                       | `Reserve`                 |
+| boutique de la forêt          | `Shop`                    |
+| quête (devoirs de la semaine) | `Requests`, focus `until` |
+| astuce de Plume (leçon)       | `Lesson`                  |
+| ardoise (écran d'exercice)    | `Slate`                   |
+| Carnet de la forêt            | `Notebook`                |
 
 Domaines : `numbers`, `mental-math`, `times-tables`, `column-arithmetic` (opérations posées), `fractions`, `units`, `measures`, `time`, `word-problems`. Puis à la demande : `division`, `geometry`…
 
@@ -369,7 +369,7 @@ Principe : le contenu grandit, mais la charge par session reste fixe. Tout est l
 3. La difficulté monte à l'intérieur d'une notion (niveaux internes). Les acquis se combinent dans des problèmes mixtes au lieu de s'empiler.
 4. Viser environ 80 % de réussite. En dessous de 70 %, plus de nouveauté et davantage de réussites faciles. Si les temps de réponse s'allongent nettement, le sentier est raccourci.
 5. Une leçon par session au maximum, jamais imposée deux fois, puis rangée dans le Carnet.
-6. Un focus avec une date de fin (devoirs de la semaine) repasse en Auto le lendemain de cette date : ses notions rejoignent la révision normale, et l'astuce ou le défi demandés et pas encore vus ne sont plus proposés.
+6. Un focus avec une date de fin (devoirs de la semaine) repasse en Auto le lendemain de cette date : ses notions rejoignent la révision normale. L'astuce demandée est proposée au départ du prochain sentier, le défi demandé par l'écureuil à la fin du prochain sentier (dès que sa notion est acquise), une seule fois chacun, toujours refusables.
 
 ### Pour l'écran et la forêt : les tableaux
 
@@ -399,7 +399,8 @@ Principe : le contenu grandit, mais la charge par session reste fixe. Tout est l
    - **niveaux** de chaque notion : le plus bas et le plus haut proposés, pour coller à ce qui est vu en classe (#47) ;
    - **devoirs de la semaine (quête, #54)** : un focus peut avoir une date de fin (voir « Pour l'enfant », point 6) ; s'y ajoutent, pour la notion, « Proposer l'astuce au prochain sentier » et « Proposer un défi » (l'écureuil le propose au prochain sentier, toujours refusable, seulement sur une notion maîtrisée) ;
    - **astuces** : chacune disponible ou non dans le Carnet (#54) ;
-   - les réglages sont dans la sauvegarde (exportés avec elle) et le sentier les respecte (`composeTrail`, `src/core/settings.ts`) : une notion fermée ne vient jamais (ni rafale ni défi), une ouverte arrive sans ses prérequis (avant les autres nouveautés), les notions en focus prennent au moins la moitié des questions (échauffement, cœur et fin ; la nouveauté et les révisions restent), une troisième en focus remplace la plus ancienne ; le niveau demandé et celui qui progresse restent dans la plage choisie, et une notion est acquise au plus haut de sa plage ;
+   - réalisé (#54) : onglet « Devoirs » (`Homework`, `src/ui/dashboard.tsx`) : notions en focus avec leur dernier jour (−/+, « Retirer » ; une notion ajoutée l'est pour une semaine), astuce à proposer au prochain sentier, défi à proposer (notions acquises avec un défi), rafale recommandée (venue de l'onglet « Notions »), astuces du Carnet (« Une fois vue », « Toujours », « Jamais »). Sauvegarde : `until` d'un réglage, `requests`, `notebookChoices` (absents = aucun) ; `endFocus` (`src/core/settings.ts`) au tirage de chaque sentier, `lessonAsked`/`challengeAsked` (`src/core/homework.ts`). Le code de la quête en fichier est retiré ;
+   - les réglages sont dans la sauvegarde (exportés avec elle) et le sentier les respecte (`composeTrail`, `src/core/settings.ts`) : une notion fermée ne vient jamais (ni rafale ni défi), une ouverte arrive sans ses prérequis (avant les autres nouveautés), les notions en focus prennent au moins la moitié des questions (le cœur d'abord, puis l'échauffement et la fin s'il le faut ; la nouveauté et les révisions restent ; une notion en focus déjà acquise est révisée sans compter parmi les 3 en cours, #54), une troisième en focus remplace la plus ancienne ; le niveau demandé et celui qui progresse restent dans la plage choisie, et une notion est acquise au plus haut de sa plage ;
    - autres actions : régler la longueur, la rafale recommandée (entrée « Recommandé », en premier sur la carte de la souche) et le seuil d'automatisation (« Exigeant », « Normal », « Souple » : ×0,75, ×1, ×1,5 sur le temps d'une réponse rapide) ;
    - réalisé (#47) : appui long sur la réserve, trois onglets « Suivi » (séances des 7 derniers jours avec du jeu : temps compté question par question, 2 minutes au plus chacune ; par mode, sentier, rafale et défi, sur les 60 dernières parties : questions, temps par question, réussite, #128 ; notions par domaine ; faits fragiles), « Notions » (réglage, plage de niveaux, rafale recommandée) et « Réglages ». Champs `settings`, `automation`, `longChallenges` (défis longs, #132), `plays` (60 dernières parties), `recommended` et `name` (prénom, #138) de la sauvegarde, absents = valeurs par défaut.
 
@@ -546,7 +547,7 @@ Dépend de 5 pour les modes démo et guidé.
    - depuis le Carnet, à tout moment ;
    - à la demande du parent, au prochain sentier (#54).
 
-   Réalisé (#51, `src/core/lessons.ts`, fonctions pures testées) : avant la première question d'une notion jamais répondue, son astuce pas encore vue se joue d'abord (`lessonBefore`, jamais imposée deux fois : une astuce vue est dans le Carnet) ; après 3 erreurs sur les 5 dernières réponses de la notion, Plume la propose entre deux questions (`lessonAfter`, carte « On regarde une astuce ? », « D'accord ! » ou « Non merci », refuser ne coûte rien) ; au plus une par session de jeu, imposée ou proposée ; le Carnet rejoue à volonté sans compter. Après l'astuce, le sentier reprend où il était (la page entre dans le Carnet). L'astuce d'essai n'est jamais proposée. La demande du parent arrive avec #54.
+   Réalisé (#51, `src/core/lessons.ts`, fonctions pures testées) : avant la première question d'une notion encore à découvrir, son astuce pas encore vue se joue d'abord (`lessonBefore`, jamais imposée deux fois : une astuce vue est dans le Carnet) ; après 3 erreurs sur les 5 dernières réponses de la notion, Plume la propose entre deux questions (`lessonAfter`, carte « On regarde une astuce ? », « D'accord ! » ou « Non merci », refuser ne coûte rien) ; au plus une par session de jeu, imposée ou proposée ; le Carnet rejoue à volonté sans compter. Après l'astuce, le sentier reprend où il était (la page entre dans le Carnet). L'astuce d'essai n'est jamais proposée. La demande du parent arrive avec #54.
 
 3. Leçons V1, chacune dans son module (réalisées avec #52 : `numbers.decompose/valeur-des-chiffres`, tableau de numération, plaques-barres-cubes puis la somme ; `mental-math.nine-eleven/par-dix`, ajouter 9 ou 11 en passant par 10 ; `times-tables.products/quadrillage`, figure `dots` : un produit en rangées de points, comptées par rangées, puis le quadrillage tourné) :
    - valeur des chiffres ;
@@ -619,7 +620,7 @@ En parallèle des jalons.
 
 1. Notions et prérequis de chaque module, du simple au complexe, ajoutés en avance sur le programme de CE2 pour être là quand les devoirs les demandent.
 2. Banque de problèmes à variables sur le thème de la forêt.
-3. Devoirs de la semaine réglés dans le tableau de bord parent (#54) : focus jusqu'à une date, niveaux, astuce et défi à proposer, rafale recommandée. Le code de la quête en fichier (`src/quests/`, `Quest`, `defineQuest`, `questErrors`, décor imposé) est retiré.
+3. Devoirs de la semaine réglés dans le tableau de bord parent (#54, réalisé) : focus jusqu'à une date, niveaux, astuce et défi à proposer, rafale recommandée. Le code de la quête en fichier (`src/quests/`, `Quest`, `defineQuest`, `questErrors`, décor imposé) est retiré.
 
 ## Phase 10 : performances tablette
 
@@ -638,7 +639,7 @@ Dépend de 4, puis à chaque jalon.
    - défis avec temps simulé ;
    - aller-retour export/import ;
    - une fois la compatibilité activée, ouverture de chaque fixture figée `tests/fixtures/saves/schema-N.json`.
-4. Simulation de 6 mois, avec un élève virtuel à 80 % de réussite et des devoirs chaque semaine (focus jusqu'à une date), qui vérifie (`tests/unit/simulation.test.ts` pour le sentier, sur le registre actuel et sur un registre d'une centaine de notions ; les devoirs s'y ajoutent avec #54, le tableau avec #29, l'Album avec #34) :
+4. Simulation de 6 mois, avec un élève virtuel à 80 % de réussite et des devoirs chaque semaine (focus jusqu'à une date), qui vérifie (`tests/unit/simulation.test.ts` pour le sentier, sur le registre actuel et sur un registre d'une centaine de notions ; les devoirs avec #54 (chaque semaine, une notion en cours en focus jusqu'à la veille de la semaine suivante : la moitié des sentiers va aux devoirs, donc un registre d'une centaine de notions en ouvre moins, environ 30 au lieu de 50 en six mois), le tableau avec #29, l'Album avec #34) :
    - un sentier de taille constante ;
    - au plus 3 notions en cours ;
    - des révisions ≤ 25 % ;

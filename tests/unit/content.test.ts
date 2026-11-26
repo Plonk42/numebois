@@ -1,17 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { OFFERED_CHOICES, offerChoices } from '../../src/core/choices';
 import { exerciseErrors } from '../../src/core/content';
-import {
-  lessonContentErrors,
-  questErrors,
-  registryErrors,
-  skillsById,
-} from '../../src/core/registry';
+import { lessonContentErrors, registryErrors, skillsById } from '../../src/core/registry';
 import { Rng } from '../../src/core/rng';
-import type { Domain, Quest, Skill } from '../../src/core/types';
+import type { Domain, Skill } from '../../src/core/types';
 import { DOMAINS } from '../../src/domains';
 import { TRY_LESSON } from '../../src/domains/column-arithmetic/lessons/essai';
-import { QUESTS } from '../../src/quests';
 import { BIOMES } from '../../src/scene/biomes';
 import { BIOME_IDS } from '../../src/scene/description';
 
@@ -120,34 +114,6 @@ describe('registre', () => {
       `${TRY_LESSON.id} : mot d'échec : Si tu rates, ce n’est pas grave du tout.`,
       `${TRY_LESSON.id} : notion inconnue gone.x`,
       `${TRY_LESSON.id} : niveau 9 hors de column-arithmetic.add`,
-    ]);
-  });
-
-  it('has valid quests', () => {
-    expect(questErrors(QUESTS, DOMAINS)).toEqual([]);
-  });
-
-  it('detects quests too big, with too many new notions or unknown references', () => {
-    const quest: Quest = {
-      id: '2026-11-30',
-      title: 'Q',
-      until: '2026-11-23',
-      skills: [
-        { id: 'mental-math.add', isNew: true },
-        { id: 'mental-math.subtract', isNew: true },
-        { id: 'mental-math.complements', isNew: true, level: 9 },
-        ...Array.from({ length: 12 }, () => ({ id: 'mental-math.add' })),
-        { id: 'nowhere.x' },
-      ],
-      lessons: ['mental-math.add/nothing'],
-    };
-    expect(questErrors([quest], DOMAINS)).toEqual([
-      'quête 2026-11-30 : période invalide',
-      'quête 2026-11-30 : 3 notions nouvelles',
-      'quête 2026-11-30 : 17 éléments',
-      'quête 2026-11-30 : niveau 9 invalide pour mental-math.complements',
-      'quête 2026-11-30 : notion inconnue nowhere.x',
-      'quête 2026-11-30 : astuce inconnue mental-math.add/nothing',
     ]);
   });
 

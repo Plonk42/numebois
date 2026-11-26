@@ -184,19 +184,3 @@ export interface Domain {
   skills: readonly Skill[];
   lessons?: readonly Lesson[];
 }
-
-/** The homework of the week, in `src/quests/YYYY-MM-DD.ts`. */
-export interface Quest {
-  /** The first day, `YYYY-MM-DD`, also the file name. */
-  id: string;
-  /** Displayed title, in French. */
-  title: string;
-  /** Last day, `YYYY-MM-DD`. */
-  until: string;
-  /** Biome of the next painting, if the quest imposes one. */
-  biome?: string;
-  skills: readonly { id: SkillId; level?: number; isNew?: boolean }[];
-  drill?: SkillId;
-  lessons?: readonly string[];
-  challenges?: readonly SkillId[];
-}

@@ -11,9 +11,10 @@ import {
   type SkillMode,
   type SkillSetting,
 } from '../core/settings';
-import type { Skill, SkillId } from '../core/types';
+import type { Lesson, Skill, SkillId } from '../core/types';
 import { DOMAINS } from '../domains';
-import type { Recommended } from '../save/parent';
+import type { NotebookChoice, Recommended } from '../save/parent';
+import type { Requests } from '../core/homework';
 
 const MODE_LABELS: Record<SkillMode, string> = {
   auto: 'Auto',
@@ -179,9 +180,7 @@ export function Progress({ session, day }: { session: Session; day: number }) {
 
 interface SettingsProps {
   session: Session;
-  recommended: Recommended | null;
   onSettings(settings: Map<SkillId, SkillSetting>): void;
-  onRecommended(recommended: Recommended | null): void;
 }
 
 /** One notion: how the trail treats it, and the levels asked (shown from 1). */
@@ -271,19 +270,16 @@ function Stepper({
 }
 
 /**
- * The parent's settings of the notions (#47): auto, closed, open or focus (two at most), the
- * levels asked, and the drill the stump recommends.
+ * The parent's settings of the notions (#47): auto, closed, open or focus (two at most), and
+ * the levels asked.
  */
-export function Notions({ session, recommended, onSettings, onRecommended }: SettingsProps) {
+export function Notions({ session, onSettings }: SettingsProps) {
   const [settings, setSettings] = useState(() => new Map(session.settings));
   const change = (skill: Skill, delta: Partial<Omit<SkillSetting, 'skill'>>) => {
     const next = changeSetting(settings, skill, delta);
     setSettings(next);
     onSettings(next);
   };
-  const drillable = session.skills.filter((skill) => skill.facts);
-  const isRecommended = (skill: SkillId, group?: string) =>
-    recommended?.skill === skill && recommended.group === group;
   return (
     <div class="tab notions">
       {byDomain(session.skills).map((domain) => (
@@ -303,6 +299,25 @@ export function Notions({ session, recommended, onSettings, onRecommended }: Set
           </table>
         </section>
       ))}
+    </div>
+  );
+}
+
+/** The drill the stump recommends (#47): none, a notion with facts, or one of its groups. */
+function RecommendedDrill({
+  skills,
+  recommended,
+  onRecommended,
+}: {
+  skills: readonly Skill[];
+  recommended: Recommended | null;
+  onRecommended(recommended: Recommended | null): void;
+}) {
+  const drillable = skills.filter((skill) => skill.facts);
+  const isRecommended = (skill: SkillId, group?: string) =>
+    recommended?.skill === skill && recommended.group === group;
+  return (
+    <>
       <h3>Rafale recommandée</h3>
       <div class="choices">
         <button
@@ -341,6 +356,215 @@ export function Notions({ session, recommended, onSettings, onRecommended }: Set
               </td>
             </tr>
           ))}
+        </tbody>
+      </table>
+    </>
+  );
+}
+
+/** A day for the parent: « mardi 3 décembre ». */
+function dayName(day: number): string {
+  const weekday = new Date(day * 86_400_000).toLocaleDateString('fr-FR', {
+    weekday: 'long',
+    timeZone: 'UTC',
+  });
+  return `${weekday} ${dayLabel(day)}`;
+}
+
+/** A week of homework: the focus lasts until next week's eve. */
+const HOMEWORK_DAYS = 6;
+
+interface HomeworkProps extends SettingsProps {
+  day: number;
+  lessons: readonly Lesson[];
+  /** Acquired notions with a challenge: the squirrel can offer one. */
+  challenges: readonly Skill[];
+  requests: Requests;
+  onRequests(requests: Requests): void;
+  notebookChoices: readonly NotebookChoice[];
+  onNotebookChoices(choices: NotebookChoice[]): void;
+  recommended: Recommended | null;
+  onRecommended(recommended: Recommended | null): void;
+}
+
+/**
+ * The homework of the week (#54), set on the tablet in a few touches: one or two notions in
+ * focus until a day, an astuce Plume offers and a challenge the squirrel offers at the next
+ * trail (always refusable), the astuces of the Carnet, and the recommended drill. The child
+ * sees no more than that.
+ */
+export function Homework(props: HomeworkProps) {
+  const { session, day, lessons, challenges, onSettings } = props;
+  const [settings, setSettings] = useState(() => new Map(session.settings));
+  const [requests, setRequests] = useState(props.requests);
+  const [choices, setChoices] = useState(props.notebookChoices);
+  const change = (skill: Skill, delta: Partial<Omit<SkillSetting, 'skill'>>) => {
+    const next = changeSetting(settings, skill, delta);
+    setSettings(next);
+    onSettings(next);
+  };
+  const ask = (asked: Partial<Requests>) => {
+    const next = { ...requests, ...asked };
+    setRequests(next);
+    props.onRequests(next);
+  };
+  const choose = (lesson: string, shown: boolean | null) => {
+    const next = [
+      ...choices.filter((c) => c.lesson !== lesson),
+      ...(shown === null ? [] : [{ lesson, shown }]),
+    ];
+    setChoices(next);
+    props.onNotebookChoices(next);
+  };
+  const focus = session.skills.filter((skill) => settingOf(settings, skill).mode === 'focus');
+  const others = session.skills.filter(
+    (skill) => !['focus', 'closed'].includes(settingOf(settings, skill).mode),
+  );
+  return (
+    <div class="tab homework">
+      <h3>Notions en focus (au plus 2)</h3>
+      {focus.length === 0 && <p class="empty">Aucune notion en focus.</p>}
+      <table class="skills focus">
+        <tbody>
+          {focus.map((skill) => {
+            const until = settingOf(settings, skill).until;
+            return (
+              <tr key={skill.id} data-skill={skill.id}>
+                <td>{skill.name}</td>
+                <td>
+                  <div class="levels" role="group" aria-label={`Jusqu’au : ${skill.name}`}>
+                    <button
+                      type="button"
+                      aria-label="Un jour de moins"
+                      disabled={until === undefined || until <= day}
+                      onPointerDown={() => change(skill, { until: until! - 1 })}
+                    >
+                      −
+                    </button>
+                    <span class="until">
+                      {until === undefined ? 'Sans fin' : `Jusqu’au ${dayName(until)}`}
+                    </span>
+                    <button
+                      type="button"
+                      aria-label="Un jour de plus"
+                      onPointerDown={() => change(skill, { until: (until ?? day - 1) + 1 })}
+                    >
+                      +
+                    </button>
+                  </div>
+                </td>
+                <td>
+                  <button type="button" onPointerDown={() => change(skill, { mode: 'auto' })}>
+                    Retirer
+                  </button>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      <details class="add-focus">
+        <summary>Ajouter une notion en focus, pour une semaine</summary>
+        {byDomain(others).map((domain) => (
+          <section key={domain.name}>
+            <h4>{domain.name}</h4>
+            <div class="choices">
+              {domain.skills.map((skill) => (
+                <button
+                  key={skill.id}
+                  type="button"
+                  onPointerDown={() => change(skill, { mode: 'focus', until: day + HOMEWORK_DAYS })}
+                >
+                  {skill.name}
+                </button>
+              ))}
+            </div>
+          </section>
+        ))}
+      </details>
+
+      <h3>Astuce à proposer au prochain sentier</h3>
+      <div class="choices" role="group" aria-label="Astuce à proposer">
+        <button
+          type="button"
+          aria-pressed={requests.lesson === null}
+          onPointerDown={() => ask({ lesson: null })}
+        >
+          Aucune
+        </button>
+        {lessons.map((lesson) => (
+          <button
+            key={lesson.id}
+            type="button"
+            aria-pressed={requests.lesson === lesson.id}
+            onPointerDown={() => ask({ lesson: lesson.id })}
+          >
+            {lesson.title}
+          </button>
+        ))}
+      </div>
+
+      <h3>Défi à proposer après le prochain sentier</h3>
+      {challenges.length === 0 ? (
+        <p class="empty">Aucune notion acquise n’a encore de défi.</p>
+      ) : (
+        <div class="choices" role="group" aria-label="Défi à proposer">
+          <button
+            type="button"
+            aria-pressed={requests.challenge === null}
+            onPointerDown={() => ask({ challenge: null })}
+          >
+            Aucun
+          </button>
+          {challenges.map((skill) => (
+            <button
+              key={skill.id}
+              type="button"
+              aria-pressed={requests.challenge === skill.id}
+              onPointerDown={() => ask({ challenge: skill.id })}
+            >
+              {skill.name}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <RecommendedDrill
+        skills={session.skills}
+        recommended={props.recommended}
+        onRecommended={props.onRecommended}
+      />
+
+      <h3>Astuces dans le Carnet</h3>
+      <table class="skills notebook-choices">
+        <tbody>
+          {lessons.map((lesson) => {
+            const shown = choices.find((c) => c.lesson === lesson.id)?.shown ?? null;
+            const options: [boolean | null, string][] = [
+              [null, 'Une fois vue'],
+              [true, 'Toujours'],
+              [false, 'Jamais'],
+            ];
+            return (
+              <tr key={lesson.id} data-lesson={lesson.id}>
+                <td>{lesson.title}</td>
+                <td>
+                  <div class="choices" role="group" aria-label={`Carnet : ${lesson.title}`}>
+                    {options.map(([value, label]) => (
+                      <button
+                        key={label}
+                        type="button"
+                        aria-pressed={shown === value}
+                        onPointerDown={() => choose(lesson.id, value)}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

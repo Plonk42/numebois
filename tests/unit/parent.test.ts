@@ -40,6 +40,8 @@ describe('tableau de bord parent (#47)', () => {
         recommended: { skill: TABLES.id, group },
         name: 'Zébulon',
         notebook: ['mental-math.add/essai'],
+        requests: { lesson: null, challenge: null },
+        notebookChoices: [],
       },
       new Date(),
     );
@@ -52,6 +54,8 @@ describe('tableau de bord parent (#47)', () => {
       recommended: { skill: TABLES.id, group },
       name: 'Zébulon',
       notebook: ['mental-math.add/essai'],
+      requests: { lesson: null, challenge: null },
+      notebookChoices: [],
     });
     const restored = session();
     restored.restore(parsed.ok ? parsed.data : played.snapshot());
@@ -67,6 +71,8 @@ describe('tableau de bord parent (#47)', () => {
       recommended: null,
       name: '',
       notebook: [],
+      requests: { lesson: null, challenge: null },
+      notebookChoices: [],
     });
     const top = TABLES.levels - 1;
     expect(
@@ -95,6 +101,9 @@ describe('tableau de bord parent (#47)', () => {
       { name: 7 },
       { notebook: 'page' },
       { notebook: [3] },
+      { requests: { lesson: 3, challenge: null } },
+      { notebookChoices: [{ lesson: 'x' }] },
+      { settings: [{ skill: TABLES.id, mode: 'focus', minLevel: 0, maxLevel: 0, until: 'lundi' }] },
       { plays: [{ day: 1, kind: 'trail', questions: 2, right: 3, ms: 0 }] },
     ]) {
       expect(readParentPart(broken, SKILLS), JSON.stringify(broken)).toBeNull();

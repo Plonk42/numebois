@@ -1,10 +1,8 @@
 import { bubbleErrors, exerciseErrors } from './content';
-import type { Domain, Exercise, Lesson, Quest, Skill, SkillFacts, SkillId } from './types';
+import type { Domain, Exercise, Lesson, Skill, SkillFacts, SkillId } from './types';
 
 /** Content limits checked by the tests (plan, « Pour le parent et le code »). */
 export const MAX_LESSON_STEPS = 6;
-export const MAX_NEW_SKILLS_PER_QUEST = 2;
-export const MAX_QUEST_ELEMENTS = 15;
 
 export function defineDomain(domain: Domain): Domain {
   return domain;
@@ -16,10 +14,6 @@ export function defineSkill<E extends Exercise>(skill: Skill<E>): Skill<E> {
 
 export function defineLesson(lesson: Lesson): Lesson {
   return lesson;
-}
-
-export function defineQuest(quest: Quest): Quest {
-  return quest;
 }
 
 /** Every notion of the registry, by identifier. */
@@ -141,59 +135,6 @@ export function lessonContentErrors(lesson: Lesson, skills: ReadonlyMap<SkillId,
       errors.push(
         ...exerciseErrors(own, exercise, exercise.level).map((e) => `${lesson.id} : ${e}`),
       );
-  }
-  return errors;
-}
-
-const DAY = /^\d{4}-\d{2}-\d{2}$/;
-
-/** Content errors of the quests against the registry (empty when valid). */
-export function questErrors(quests: readonly Quest[], domains: readonly Domain[]): string[] {
-  const errors: string[] = [];
-  const skills = skillsById(domains);
-  const lessons = new Set(domains.flatMap((domain) => domain.lessons ?? []).map((l) => l.id));
-  const ids = new Set<string>();
-  for (const quest of quests) {
-    if (ids.has(quest.id)) errors.push(`quête ${quest.id} en double`);
-    ids.add(quest.id);
-    errors.push(...questContentErrors(quest, skills, lessons));
-  }
-  return errors;
-}
-
-function questContentErrors(
-  quest: Quest,
-  skills: ReadonlyMap<SkillId, Skill>,
-  lessons: ReadonlySet<string>,
-): string[] {
-  const errors: string[] = [];
-  const name = `quête ${quest.id}`;
-  if (!DAY.test(quest.id) || !DAY.test(quest.until) || quest.until < quest.id) {
-    errors.push(`${name} : période invalide`);
-  }
-  const newSkills = quest.skills.filter((skill) => skill.isNew).length;
-  if (newSkills > MAX_NEW_SKILLS_PER_QUEST) errors.push(`${name} : ${newSkills} notions nouvelles`);
-  const elements =
-    quest.skills.length +
-    (quest.lessons?.length ?? 0) +
-    (quest.challenges?.length ?? 0) +
-    (quest.drill ? 1 : 0);
-  if (elements > MAX_QUEST_ELEMENTS) errors.push(`${name} : ${elements} éléments`);
-  for (const { id, level } of quest.skills) {
-    const skill = skills.get(id);
-    if (!skill) errors.push(`${name} : notion inconnue ${id}`);
-    else if (level !== undefined && (level < 0 || level >= skill.levels)) {
-      errors.push(`${name} : niveau ${level} invalide pour ${id}`);
-    }
-  }
-  if (quest.drill && !skills.get(quest.drill)?.facts) {
-    errors.push(`${name} : ${quest.drill} n'est pas une notion de rafale`);
-  }
-  for (const id of quest.challenges ?? []) {
-    if (!skills.get(id)?.challenge) errors.push(`${name} : ${id} n'est pas une notion de défi`);
-  }
-  for (const id of quest.lessons ?? []) {
-    if (!lessons.has(id)) errors.push(`${name} : astuce inconnue ${id}`);
   }
   return errors;
 }
