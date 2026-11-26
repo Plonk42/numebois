@@ -61,6 +61,8 @@ test('le panier de glands : 30 s sous le soleil, une erreur sans perte de temps,
   await expect(offer).toContainText('Un défi avec l’écureuil ?');
   await expect(offer).toContainText('Les tables de multiplication');
   await expect(offer.locator('.record')).toHaveCount(0);
+  // The gift of the day waits on the squirrel's offer too.
+  await expect(offer.locator('.gift')).toHaveCount(1);
   await offer.getByRole('button', { name: 'Non merci' }).click();
   await expect(offer).toHaveCount(0);
   await sign.click();
@@ -112,6 +114,7 @@ test('le panier de glands : 30 s sous le soleil, une erreur sans perte de temps,
   // The record is kept for next time; another one the same day is played for the record,
   // without a word of a gift (#126).
   await sign.click();
+  await expect(offer.locator('.gift')).toHaveCount(0);
   await take(offer, '30 secondes', 'Record : 3 glands');
   await current(page);
   await think(31_000);

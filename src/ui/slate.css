@@ -807,10 +807,31 @@
   width: 780px;
 }
 .offer .offer-body {
+  position: relative;
   margin: 6px 0 4px;
   display: flex;
   align-items: center;
   gap: 22px;
+}
+/* The squirrel's gift of the day, still to give: a golden acorn on the picture (#143). */
+.offer .gift {
+  position: absolute;
+  top: -12px;
+  left: 222px;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #fffbe8, #ffe9a6);
+  box-shadow:
+    0 0 0 3px #fff6d0,
+    0 0 16px 6px rgba(255, 214, 90, 0.75);
+}
+.offer .gift .acorn-icon {
+  width: 30px;
+  height: 30px;
+  vertical-align: 0;
 }
 .offer .picture {
   width: 250px;

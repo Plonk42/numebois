@@ -1268,6 +1268,7 @@ function Game(props: Props) {
               best={
                 bestOf(offer.format, session.attempts(offer.skill.id, offer.format))?.score ?? null
               }
+              gift={giftToday}
               more={offerList.length > 1}
               onAccept={() => {
                 setOfferAt((at) => at + 1);

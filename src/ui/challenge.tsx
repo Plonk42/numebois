@@ -43,6 +43,8 @@ interface OfferProps {
   offer: Offer;
   /** The best score of the notion in the format, null before the first time. */
   best: number | null;
+  /** The squirrel's gift of the day is still to give: a golden acorn on the picture (#143). */
+  gift: boolean;
   /** Another offer is there: « Un autre ». */
   more: boolean;
   onAccept(): void;
@@ -55,7 +57,7 @@ interface OfferProps {
  * « D’accord ! », « Un autre » or « Non merci »; refusing never costs anything.
  */
 export function ChallengeOffer(props: OfferProps) {
-  const { id, title, offer, best, more, onAccept, onAnother, onDecline } = props;
+  const { id, title, offer, best, gift, more, onAccept, onAnother, onDecline } = props;
   const { skill, format } = offer;
   const [name, length] = formatLabel(format);
   return (
@@ -64,6 +66,11 @@ export function ChallengeOffer(props: OfferProps) {
       <p class="praise">{title}</p>
       <div class="offer-body">
         {format.kind === 'basket' ? <BasketPicture /> : <RacePicture />}
+        {gift && (
+          <span class="gift">
+            <AcornIcon />
+          </span>
+        )}
         <div class="what">
           <b>{name}</b>
           <span>{length}</span>
