@@ -67,7 +67,16 @@ const capital = (text: string) => text[0].toUpperCase() + text.slice(1);
 
 export function generateDuration(rng: Rng, level: number): DurationExercise {
   const [start, end] = drawSpan(rng, level);
-  const { name, it } = rng.pick(ACTIVITIES);
+  return durationExercise(start, end, level, rng.pick(ACTIVITIES));
+}
+
+/** The duration from `start` to `end`, or the end at level 4 (an astuce builds its own). */
+export function durationExercise(
+  start: number,
+  end: number,
+  level: number,
+  { name, it }: (typeof ACTIVITIES)[number] = ACTIVITIES[0],
+): DurationExercise {
   const from = clockText(start);
   const to = clockText(end);
   const base = {

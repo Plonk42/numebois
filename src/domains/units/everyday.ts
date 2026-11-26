@@ -58,17 +58,24 @@ export function generateMoney(rng: Rng, level: number): MoneyExercise {
   const count = rng.int(3, level === 0 ? 5 : 6);
   const pieces = Array.from({ length: count }, () => rng.pick(money)).sort((a, b) => b - a);
   const cents = pieces.reduce((sum, n) => sum + n, 0);
+  return countMoney(pieces, level, level === 0 ? undefined : amountChoices(rng, cents));
+}
+
+/** Notes and coins to count, in euros on the keypad, or among `choices` (an astuce builds its own). */
+export function countMoney(
+  pieces: readonly number[],
+  level: number,
+  choices?: string[],
+): MoneyExercise {
+  const cents = pieces.reduce((sum, n) => sum + n, 0);
   return {
     skill: MONEY,
     level,
     instruction: 'Compte l’argent.',
-    statement: level === 0 ? 'Combien d’euros en tout ?' : 'Combien d’argent en tout ?',
+    statement: choices ? 'Combien d’argent en tout ?' : 'Combien d’euros en tout ?',
     figure: { kind: 'money', cents: pieces },
-    input:
-      level === 0
-        ? { kind: 'keypad', maxDigits: 3 }
-        : { kind: 'choice', options: amountChoices(rng, cents) },
-    answer: level === 0 ? String(cents / 100) : amountText(cents),
+    input: choices ? { kind: 'choice', options: choices } : { kind: 'keypad', maxDigits: 3 },
+    answer: choices ? amountText(cents) : String(cents / 100),
     cents,
   };
 }

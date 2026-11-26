@@ -84,7 +84,7 @@ export function generateRelation(rng: Rng, level: number): RelationExercise {
 export const CONVERT_LEVELS = 5;
 
 /** Two units of a table and how many of the smaller one make a larger one. */
-interface Pair {
+export interface Pair {
   family: Family;
   big: string;
   small: string;
@@ -158,10 +158,20 @@ export function generateConvert(rng: Rng, level: number): ConvertExercise {
   }
   const form = level === 4 ? rng.int(0, 3) : level;
   const pair = rng.pick(PAIRS_OF_FORM[form]);
-  const factor = factorOf(pair);
   const big = rng.int(1, form === 0 ? 9 : 4);
-  const small = form === 0 ? 0 : drawSmall(rng, factor);
-  const total = big * factor + small;
+  const small = form === 0 ? 0 : drawSmall(rng, factorOf(pair));
+  return convertExercise(pair, big, small, form, level);
+}
+
+/** `big` and `small` of a pair in the `form` of a level (an astuce builds its own). */
+export function convertExercise(
+  pair: Pair,
+  big: number,
+  small: number,
+  form: number,
+  level: number,
+): ConvertExercise {
+  const total = big * factorOf(pair) + small;
   const back = form === 3;
   // The table holds what is given: the larger unit alone, or every digit down to the smaller.
   let shown = table(pair, total, back ? [pair.big, pair.small] : [pair.small]);

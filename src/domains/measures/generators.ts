@@ -112,7 +112,16 @@ export function generateMeasure(rng: Rng, level: number): MeasureExercise {
     lengths = drawLengths(rng, level);
     lines = polyline(rng, lengths, drawAngles(rng, level, lengths.length));
   } while (!lines);
-  const unit = level === 1 || level === 2 ? 'mm' : 'cm';
+  return measureExercise(lines, lengths, level === 1 || level === 2 ? 'mm' : 'cm', level);
+}
+
+/** Segments of these lengths (mm) to measure in `unit` (an astuce builds its own). */
+export function measureExercise(
+  lines: Segment[],
+  lengths: number[],
+  unit: 'cm' | 'mm',
+  level: number,
+): MeasureExercise {
   const total = lengths.reduce((sum, n) => sum + n, 0);
   const many = lines.length > 1;
   return {
