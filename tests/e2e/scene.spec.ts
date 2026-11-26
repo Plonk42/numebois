@@ -224,3 +224,37 @@ test('avec ?scene, rien d’autre que la scène', async ({ page }) => {
   await expect(page.locator('#question')).toHaveCount(0);
   await expect(page.locator('canvas#scene')).toBeVisible();
 });
+
+test('la caméra tourne lentement autour du tableau entier, le cadrage des captures reste fixe', async ({
+  page,
+}) => {
+  const errors = watchErrors(page);
+  const at = async (time: number) => {
+    await openScene(page, `stage=6&seed=3&quality=high&time=${time}`);
+    return page.evaluate(() => ({
+      camera: window.__numebois!.camera(),
+      framing: window.__numebois!.framing(),
+    }));
+  };
+  const gap = (a: number[], b: number[]) => Math.hypot(...a.map((v, i) => v - b[i]));
+  const start = await at(0);
+  const left = await at(12);
+  const right = await at(36);
+  // The framing, which the Album and the choice of the next painting capture, never moves.
+  expect(left.framing).toEqual(start.framing);
+  expect(right.framing).toEqual(start.framing);
+  // A few degrees to one side, then to the other, along a short arc at the same height.
+  expect(gap(left.camera, left.framing)).toBeGreaterThan(2);
+  expect(gap(left.camera, left.framing)).toBeLessThan(10);
+  expect(gap(right.camera, right.framing)).toBeCloseTo(gap(left.camera, left.framing), 1);
+  expect(gap(left.camera, right.camera)).toBeGreaterThan(4);
+  expect(left.camera[1]).toBeCloseTo(right.camera[1], 1);
+  expect(gap(start.camera, start.framing)).toBeLessThan(gap(left.camera, left.framing) / 3);
+
+  // With « reduce motion », it stays still.
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('./?scene&stage=6&seed=3');
+  await page.evaluate(() => window.__numebois!.ready);
+  await expect.poll(() => page.evaluate(() => window.__numebois!.view().orbit)).toBe(0);
+  expect(errors).toEqual([]);
+});

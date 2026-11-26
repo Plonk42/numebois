@@ -215,13 +215,14 @@ export class SceneApp {
     this.stage.explorer.recenter();
   }
 
-  /** The explored view: where it is, where it goes, and whether gestures move it. */
-  view(): { now: View; goal: View; active: boolean } {
+  /** The explored view: where it is, where it goes, whether gestures move it, the orbit. */
+  view(): { now: View; goal: View; active: boolean; orbit: number } {
     const explorer = this.stage.explorer;
     return {
       now: { ...explorer.view },
       goal: { ...explorer.destination },
       active: explorer.active,
+      orbit: this.stage.orbiting,
     };
   }
 
@@ -346,6 +347,11 @@ export class SceneApp {
   /** Where the camera is, for the tests. */
   camera(): [number, number, number] {
     return this.stage.camera.position.toArray();
+  }
+
+  /** Where the camera is at the framing, without orbit nor exploration, for the tests. */
+  framing(): [number, number, number] {
+    return this.stage.home.position.toArray();
   }
 
   /**

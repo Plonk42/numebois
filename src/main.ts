@@ -36,6 +36,7 @@ declare global {
       game(): GameProbe | null;
       view(): ReturnType<SceneApp['view']>;
       camera(): ReturnType<SceneApp['camera']>;
+      framing(): ReturnType<SceneApp['framing']>;
       animals(): ReturnType<SceneApp['animalsOnScreen']>;
       slot(slot: number): ReturnType<SceneApp['slotOnScreen']>;
       touches(): SceneApp['touches'];
@@ -174,29 +175,31 @@ const ready = sceneOnly
             skills,
             () => app.description,
           );
-        // During a question, the soundscape stays low and plays no calls.
-        app.sound.quiet = () =>
-          ![
-            'naming',
-            'walking',
-            'seed',
-            'drill-menu',
-            'break',
-            'challenge-menu',
-            'challenge-end',
-            'squirrel',
-            'shop',
-            'choosing',
-            'planting',
-            'adopting',
-            'turning',
-            'finale',
-            'framing',
-            'next',
-            'album',
-            'visiting',
-            'notebook',
-          ].includes(game?.phase ?? '');
+        // During a question, the soundscape stays low and plays no calls, the camera holds still.
+        const outside = new Set([
+          'naming',
+          'walking',
+          'seed',
+          'drill-menu',
+          'break',
+          'challenge-menu',
+          'challenge-end',
+          'squirrel',
+          'shop',
+          'choosing',
+          'planting',
+          'adopting',
+          'turning',
+          'finale',
+          'framing',
+          'next',
+          'album',
+          'visiting',
+          'notebook',
+        ]);
+        const asking = () => !outside.has(game?.phase ?? '');
+        app.sound.quiet = asking;
+        app.stage.still = asking;
         return started;
       });
 
@@ -215,6 +218,7 @@ window.__numebois = {
   game: () => game && { ...game },
   view: () => app.view(),
   camera: () => app.camera(),
+  framing: () => app.framing(),
   animals: () => app.animalsOnScreen(),
   slot: (slot) => app.slotOnScreen(slot),
   touches: () => [...app.touches],
