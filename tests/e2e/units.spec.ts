@@ -18,10 +18,12 @@ test('convertir 3 m 25 cm en centimètres avec le tableau', async ({ page }) => 
   expect(exercise.statement).toBe(`${big}\u00a0m ${small}\u00a0cm = ?\u00a0cm`);
   const table = page.locator('#question .conversion');
   const total = String(big * 100 + small);
-  // A digit per column, ending in the centimetres, the column to read outlined.
+  // The table of the class, m | dm | cm | mm (#161): a digit per column, ending in the
+  // centimetres, the column to read outlined.
+  await expect(table.locator('th')).toHaveText(['m', 'dm', 'cm', 'mm']);
   for (const [i, unit] of ['m', 'dm', 'cm'].entries()) {
-    await expect(table.locator('td').nth(3 + i)).toHaveText(total[i]);
-    if (unit === 'cm') await expect(table.locator('td').nth(3 + i)).toHaveClass(/mark/);
+    await expect(table.locator('td').nth(i)).toHaveText(total[i]);
+    if (unit === 'cm') await expect(table.locator('td').nth(i)).toHaveClass(/mark/);
   }
   await expectSlateLayout(page);
   await test.info().attach('tableau', { body: await page.screenshot(), contentType: 'image/png' });

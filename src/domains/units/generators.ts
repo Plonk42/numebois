@@ -1,5 +1,6 @@
 import type { Rng } from '../../core/rng';
 import type { Exercise, Figure } from '../../core/types';
+import { formatNumber } from '../numbers/words';
 
 export const RELATIONS_SKILL = 'units.relations';
 export const CONVERT = 'units.convert';
@@ -36,7 +37,8 @@ export const UNIT_RELATIONS: readonly UnitRelation[] = [
   { big: '€', small: 'c', factor: 100 },
 ];
 
-const quantity = (n: number, unit: string) => `${n}${SPACE}${unit}`;
+/** « 5 000 mm »: digits grouped as at school. */
+const quantity = (n: number, unit: string) => `${formatNumber(n)}${SPACE}${unit}`;
 
 /**
  * Levels: 0. the relation, `1 m = ? cm`; 1. taken back, `100 cm = ? m`.
@@ -74,14 +76,17 @@ export function generateRelation(rng: Rng, level: number): RelationExercise {
 }
 
 /**
- * Levels of converting, the table beside the statement until the last one:
+ * Levels of converting, the table beside the statement except at level 4:
  * 0. one unit into a smaller one, `4 m = ? cm`;
  * 1. two units of length into the smaller one, `3 m 25 cm = ? cm`;
  * 2. the same with masses and volumes, `2 kg 300 g = ? g`;
  * 3. into the larger unit and what is left, `325 cm = 3 m ? cm`;
- * 4. any of them, without the table.
+ * 4. any of them, without the table;
+ * 5. into the larger unit, exact (#161): `5 000 mm = ? m`, `230 cm = ? dm`;
+ * 6. the pairs m–mm, dm–mm, dm–cm into the smaller unit: `2 m 400 mm = ? mm`, `20 dm = ? mm`;
+ * 7. the same pairs into two units, the larger or the smaller one asked: `456 cm = ? dm 6 cm`.
  */
-export const CONVERT_LEVELS = 5;
+export const CONVERT_LEVELS = 8;
 
 /** Two units of a table and how many of the smaller one make a larger one. */
 export interface Pair {
@@ -90,110 +95,182 @@ export interface Pair {
   small: string;
 }
 
+const length = (big: string, small: string): Pair => ({ family: 'length', big, small });
+
 const SINGLE_PAIRS: readonly Pair[] = [
-  { family: 'length', big: 'm', small: 'cm' },
-  { family: 'length', big: 'm', small: 'dm' },
-  { family: 'length', big: 'km', small: 'm' },
-  { family: 'length', big: 'cm', small: 'mm' },
-  { family: 'length', big: 'dm', small: 'cm' },
+  length('m', 'cm'),
+  length('m', 'dm'),
+  length('km', 'm'),
+  length('cm', 'mm'),
+  length('dm', 'cm'),
 ];
-const LENGTH_PAIRS: readonly Pair[] = [
-  { family: 'length', big: 'm', small: 'cm' },
-  { family: 'length', big: 'km', small: 'm' },
-  { family: 'length', big: 'cm', small: 'mm' },
-];
+const LENGTH_PAIRS: readonly Pair[] = [length('m', 'cm'), length('km', 'm'), length('cm', 'mm')];
 const OTHER_PAIRS: readonly Pair[] = [
   { family: 'mass', big: 'kg', small: 'g' },
   { family: 'volume', big: 'L', small: 'cL' },
   { family: 'volume', big: 'L', small: 'dL' },
 ];
+/** Every pair of the class table m | dm | cm | mm. */
+const CLASS_PAIRS: readonly Pair[] = [
+  length('m', 'dm'),
+  length('m', 'cm'),
+  length('m', 'mm'),
+  length('dm', 'cm'),
+  length('dm', 'mm'),
+  length('cm', 'mm'),
+];
+/** The pairs seen in class beyond m–cm and cm–mm. */
+const NEW_PAIRS: readonly Pair[] = [length('m', 'mm'), length('dm', 'mm'), length('dm', 'cm')];
 
-function factorOf({ family, big, small }: Pair): number {
-  const units: readonly string[] = TABLES[family];
-  return 10 ** (units.indexOf(small) - units.indexOf(big));
+/** The table of the class, without km, hm nor dam (#161). */
+export const CLASS_LENGTHS = ['m', 'dm', 'cm', 'mm'] as const;
+
+/** The columns of the table for a pair: the class one when the km is not involved. */
+function columnsOf({ family, big }: Pair): readonly string[] {
+  return family === 'length' && big !== 'km' ? CLASS_LENGTHS : TABLES[family];
 }
+
+export function factorOf(pair: Pair): number {
+  const units = columnsOf(pair);
+  return 10 ** (units.indexOf(pair.small) - units.indexOf(pair.big));
+}
+
+/** What the child finds: everything in the smaller unit, the larger part, or what is left. */
+export type Asked = 'total' | 'big' | 'small';
 
 export interface ConvertExercise extends Exercise {
   pair: Pair;
   /** How many of the larger unit and of the smaller one. */
   big: number;
   small: number;
-  /** Level 3: the smaller units given, what is left asked. */
-  back: boolean;
+  asked: Asked;
 }
 
-/** The table with the digits of `total` (in the smaller unit) ending in its column. */
-function table(pair: Pair, total: number, marks: readonly string[]): Figure {
-  const units: readonly string[] = TABLES[pair.family];
-  const end = units.indexOf(pair.small);
+/** The table with the digits of `total` (in the `end` unit) ending in its column. */
+function table(pair: Pair, total: number, end: string, marks: readonly string[]): Figure {
+  const units = columnsOf(pair);
+  const last = units.indexOf(end);
   const digits: (number | null)[] = units.map(() => null);
   [...String(total)].reverse().forEach((digit, i) => {
-    if (end - i >= 0) digits[end - i] = Number(digit);
+    if (last - i >= 0) digits[last - i] = Number(digit);
   });
   return { kind: 'conversion', units, digits, marks: marks.map((unit) => units.indexOf(unit)) };
 }
 
-/** The pairs of each form of question. */
-const PAIRS_OF_FORM = [SINGLE_PAIRS, LENGTH_PAIRS, OTHER_PAIRS, LENGTH_PAIRS];
-
 /** Some of the smaller unit, fewer than one of the larger: 25 cm, 350 g, 4 mm. */
-function drawSmall(rng: Rng, factor: number): number {
-  let step = 1;
-  if (factor >= 1000) step = 50;
-  else if (factor === 100) step = 5;
-  return step * rng.int(1, factor / step - 1);
+function drawSmall(rng: Rng, factor: number, step = factor >= 1000 ? 50 : factor / 20): number {
+  const by = Math.max(1, step);
+  return by * rng.int(1, factor / by - 1);
 }
 
-function convertStatement(form: number, pair: Pair, big: number, small: number): string {
+/** How many of the larger unit: a few, or up to 60 when a larger one is 10 smaller ones. */
+function drawBig(rng: Rng, pair: Pair): number {
+  const factor = factorOf(pair);
+  if (factor !== 10) return rng.int(1, 9);
+  // The total stays in the table: 9 m = 90 dm at most.
+  const room = 10 ** (columnsOf(pair).indexOf(pair.small) + 1) - 1;
+  return rng.int(2, Math.min(60, Math.floor(room / factor)));
+}
+
+function convertStatement({ pair, big, small, asked }: ConvertExercise): string {
   const { big: b, small: s } = pair;
-  if (form === 0) return `${quantity(big, b)} = ?${SPACE}${s}`;
-  if (form === 3)
-    return `${quantity(big * factorOf(pair) + small, s)} = ${quantity(big, b)} ?${SPACE}${s}`;
-  return `${quantity(big, b)} ${quantity(small, s)} = ?${SPACE}${s}`;
+  const total = quantity(big * factorOf(pair) + small, s);
+  if (asked === 'small') return `${total} = ${quantity(big, b)} ?${SPACE}${s}`;
+  if (asked === 'big')
+    return small === 0
+      ? `${total} = ?${SPACE}${b}`
+      : `${total} = ?${SPACE}${b} ${quantity(small, s)}`;
+  return small === 0
+    ? `${quantity(big, b)} = ?${SPACE}${s}`
+    : `${quantity(big, b)} ${quantity(small, s)} = ?${SPACE}${s}`;
+}
+
+/** The pair, the quantities and what is asked at a level (level 4: one of the first four). */
+function draw(rng: Rng, level: number): [Pair, number, number, Asked] {
+  switch (level) {
+    case 0: {
+      const pair = rng.pick(SINGLE_PAIRS);
+      return [pair, rng.int(1, 9), 0, 'total'];
+    }
+    case 1:
+    case 2: {
+      const pair = rng.pick(level === 1 ? LENGTH_PAIRS : OTHER_PAIRS);
+      return [pair, rng.int(1, 4), drawSmall(rng, factorOf(pair)), 'total'];
+    }
+    case 3: {
+      const pair = rng.pick(LENGTH_PAIRS);
+      return [pair, rng.int(1, 4), drawSmall(rng, factorOf(pair)), 'small'];
+    }
+    case 4:
+      return draw(rng, rng.int(0, 3));
+    case 5: {
+      const pair = rng.pick(CLASS_PAIRS);
+      return [pair, drawBig(rng, pair), 0, 'big'];
+    }
+    case 6: {
+      const pair = rng.pick(NEW_PAIRS);
+      if (rng.chance(0.5)) return [pair, rng.int(1, 9), 0, 'total'];
+      return [pair, rng.int(1, 4), drawSmall(rng, factorOf(pair)), 'total'];
+    }
+    case 7: {
+      const pair = rng.pick(NEW_PAIRS);
+      const factor = factorOf(pair);
+      const asked = rng.pick(['big', 'small'] as const);
+      return [pair, drawBig(rng, pair), drawSmall(rng, factor, 1), asked];
+    }
+    default:
+      throw new RangeError(`niveau ${level}`);
+  }
 }
 
 export function generateConvert(rng: Rng, level: number): ConvertExercise {
-  if (!Number.isInteger(level) || level < 0 || level >= CONVERT_LEVELS) {
-    throw new RangeError(`niveau ${level}`);
-  }
-  const form = level === 4 ? rng.int(0, 3) : level;
-  const pair = rng.pick(PAIRS_OF_FORM[form]);
-  const big = rng.int(1, form === 0 ? 9 : 4);
-  const small = form === 0 ? 0 : drawSmall(rng, factorOf(pair));
-  return convertExercise(pair, big, small, form, level);
+  if (!Number.isInteger(level)) throw new RangeError(`niveau ${level}`);
+  const [pair, big, small, asked] = draw(rng, level);
+  return convertExercise(pair, big, small, asked, level);
 }
 
-/** `big` and `small` of a pair in the `form` of a level (an astuce builds its own). */
+/** `big` and `small` of a pair, `asked` at a level (an astuce builds its own). */
 export function convertExercise(
   pair: Pair,
   big: number,
   small: number,
-  form: number,
+  asked: Asked,
   level: number,
 ): ConvertExercise {
   const total = big * factorOf(pair) + small;
-  const back = form === 3;
   // The table holds what is given: the larger unit alone, or every digit down to the smaller.
-  let shown = table(pair, total, back ? [pair.big, pair.small] : [pair.small]);
-  if (form === 0) shown = table({ ...pair, small: pair.big }, big, [pair.small]);
-  return {
+  let shown = table(
+    pair,
+    total,
+    pair.small,
+    asked === 'small' ? [pair.big, pair.small] : [pair.small],
+  );
+  if (asked === 'big') shown = table(pair, total, pair.small, [pair.big]);
+  if (asked === 'total' && small === 0) shown = table(pair, big, pair.big, [pair.small]);
+  const exercise: ConvertExercise = {
     skill: CONVERT,
     level,
     instruction: level === 4 ? 'Convertis.' : 'Convertis avec le tableau.',
-    statement: convertStatement(form, pair, big, small),
+    statement: '',
     ...(level === 4 ? {} : { figure: shown }),
     input: { kind: 'keypad', maxDigits: 4, inline: true },
-    answer: String(back ? small : total),
+    answer: String({ total, big, small }[asked]),
     pair,
     big,
     small,
-    back,
+    asked,
   };
+  return { ...exercise, statement: convertStatement(exercise) };
 }
 
-/** 100 instead of 1 000, or the two numbers put side by side without the zeros. */
-export function convertLures({ pair, big, small, back }: ConvertExercise): number[] {
+/**
+ * 100 instead of 1 000, the two numbers put side by side without the zeros, the zeros not taken
+ * away, one column too far.
+ */
+export function convertLures({ pair, big, small, asked }: ConvertExercise): number[] {
   const factor = factorOf(pair);
-  if (back) return [big * factor + small - big, small * 10, small + factor];
+  const total = big * factor + small;
+  if (asked === 'small') return [total - big, small * 10, small + factor];
+  if (asked === 'big') return [Math.floor(total / (factor * 10)), total, Math.floor(total / 10)];
   return [big * (factor / 10) + small, Number(`${big}${small}`), big * factor * 10 + small];
 }

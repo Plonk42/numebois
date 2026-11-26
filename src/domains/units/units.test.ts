@@ -10,6 +10,7 @@ import {
 } from './everyday';
 import { relationFacts } from './facts';
 import {
+  CLASS_LENGTHS,
   CONVERT_LEVELS,
   RELATIONS_LEVELS,
   TABLES,
@@ -47,20 +48,23 @@ describe('convertir', () => {
     (level) => {
       for (let seed = 0; seed < SEEDS; seed++) {
         const exercise = generateConvert(new Rng(seed), level);
-        const { pair, big, small, back, figure } = exercise;
+        const { pair, big, small, asked, figure } = exercise;
         const units: readonly string[] = TABLES[pair.family];
         const factor = 10 ** (units.indexOf(pair.small) - units.indexOf(pair.big));
         expect(small).toBeLessThan(factor);
         const total = big * factor + small;
-        expect(Number(exercise.answer)).toBe(back ? small : total);
+        expect(Number(exercise.answer)).toBe({ total, big, small }[asked]);
         expect(exercise.statement.split('?')).toHaveLength(2);
         if (level === 4) {
           expect(figure).toBeUndefined();
           continue;
         }
         if (figure?.kind !== 'conversion') throw new Error('figure');
+        // The table of the class, m | dm | cm | mm, unless the km is involved.
+        const km = pair.family === 'length' && pair.big === 'km';
+        expect(figure.units).toEqual(pair.family === 'length' && !km ? CLASS_LENGTHS : units);
         // Read from the table: the digits down to the smaller unit make the total.
-        const end = units.indexOf(pair.small);
+        const end = figure.units.indexOf(pair.small);
         const read = Number(
           figure.digits
             .slice(0, end + 1)
@@ -68,11 +72,19 @@ describe('convertir', () => {
             .join(''),
         );
         expect(read).toBe(total);
-        expect(figure.marks).toContain(end);
+        expect(figure.marks).toContain(
+          figure.units.indexOf(asked === 'big' ? pair.big : pair.small),
+        );
         if (level === 0) expect(small).toBe(0);
         if (level === 1) expect(pair.family).toBe('length');
         if (level === 2) expect(pair.family).not.toBe('length');
-        expect(back).toBe(level === 3);
+        if (level === 3) expect(asked).toBe('small');
+        if (level < 3) expect(asked).toBe('total');
+        // Into the larger unit, exact: 230 cm = 23 dm (#161).
+        if (level === 5) expect(asked === 'big' && small === 0).toBe(true);
+        if (level >= 6) expect(['m-mm', 'dm-mm', 'dm-cm']).toContain(`${pair.big}-${pair.small}`);
+        if (level === 6) expect(asked).toBe('total');
+        if (level === 7) expect(asked !== 'total' && small > 0).toBe(true);
       }
     },
   );

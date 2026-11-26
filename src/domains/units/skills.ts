@@ -50,7 +50,7 @@ export const convert = defineSkill<ConvertExercise>({
   prerequisites: [RELATIONS_SKILL],
   levels: CONVERT_LEVELS,
   // The quantity written in the table, then read in the other unit.
-  questionSeconds: [12, 18, 20, 20, 22],
+  questionSeconds: [12, 18, 20, 20, 22, 15, 18, 22],
   generate: generateConvert,
   validate: validateNumber,
   hint: convertHint,

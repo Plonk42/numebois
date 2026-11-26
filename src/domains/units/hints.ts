@@ -1,4 +1,5 @@
-import { TABLES, type ConvertExercise, type RelationExercise } from './generators';
+import { formatNumber as n } from '../numbers/words';
+import { factorOf, type ConvertExercise, type RelationExercise } from './generators';
 import { amountText, type MagnitudeExercise, type MoneyExercise } from './everyday';
 
 const SPACE = '\u00a0';
@@ -13,24 +14,28 @@ function reminder({ big, small }: { big: string; small: string }): string {
 export function relationHint({ relation }: RelationExercise, attempt: 1 | 2): string {
   const { big, small, factor } = relation;
   if (attempt === 1) return reminder(relation);
-  return `1${SPACE}${big} = ${factor}${SPACE}${small}.`;
+  return `1${SPACE}${big} = ${n(factor)}${SPACE}${small}.`;
 }
 
 /** 1: the table, a digit per column; 2: the conversion worked out. */
-export function convertHint({ pair, big, small, back }: ConvertExercise, attempt: 1 | 2): string {
-  const units: readonly string[] = TABLES[pair.family];
-  const factor = 10 ** (units.indexOf(pair.small) - units.indexOf(pair.big));
-  const rule = `1${SPACE}${pair.big} = ${factor}${SPACE}${pair.small}.`;
+export function convertHint({ pair, big, small, asked }: ConvertExercise, attempt: 1 | 2): string {
+  const factor = factorOf(pair);
+  const rule = `1${SPACE}${pair.big} = ${n(factor)}${SPACE}${pair.small}.`;
+  const total = big * factor + small;
   if (attempt === 1) {
-    if (back) return `${rule}\nCherche combien de ${pair.big} il y a d’abord.`;
+    if (asked === 'small') return `${rule}\nCherche combien de ${pair.big} il y a d’abord.`;
+    if (asked === 'big') {
+      return `Écris ${n(total)} : son chiffre des unités dans les ${pair.small}.\nLis jusqu’à la colonne des ${pair.big}.`;
+    }
     return `Un chiffre par colonne, jusqu’aux ${pair.small}.\nComplète avec des 0.`;
   }
-  const total = big * factor + small;
-  if (back) {
-    return `${big}${SPACE}${pair.big} = ${big * factor}${SPACE}${pair.small}.\n${total} − ${big * factor} = ${small}.`;
+  const larger = `${big}${SPACE}${pair.big} = ${n(big * factor)}${SPACE}${pair.small}.`;
+  if (asked === 'small') return `${larger}\n${n(total)} − ${n(big * factor)} = ${small}.`;
+  if (asked === 'big' && small === 0) {
+    return `${rule}\n${n(total)}${SPACE}${pair.small} = ${big}${SPACE}${pair.big}.`;
   }
-  if (small === 0) return `${rule}\n${big}${SPACE}${pair.big} = ${total}${SPACE}${pair.small}.`;
-  return `${big}${SPACE}${pair.big} = ${big * factor}${SPACE}${pair.small}.\n${big * factor} + ${small} = ${total}.`;
+  if (small === 0) return `${rule}\n${big}${SPACE}${pair.big} = ${n(total)}${SPACE}${pair.small}.`;
+  return `${larger}\n${n(big * factor)} + ${small} = ${n(total)}.`;
 }
 
 /** 1: the notes first, then the coins; 2: the amount, or the change counted up to 10 €. */
