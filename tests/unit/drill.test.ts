@@ -267,6 +267,26 @@ describe('drill', () => {
     }
   });
 
+  it('asks first the facts that still give their leaf today: a branch fills up in 2 rounds (#152)', () => {
+    const sums = SKILLS.find((skill) => skill.id === 'mental-math.sums')!;
+    const branch = sums.facts!.groups!.find((group) => group.id === 'to-10')!.facts;
+    for (let seed = 0; seed < 50; seed++) {
+      const player = session();
+      for (let round = 0; round < 2; round++) {
+        const drill = new Drill(
+          player,
+          { kind: 'skill', skill: sums.id, group: 'to-10' },
+          new Rng(seed * 10 + round),
+        );
+        for (let i = 0; i < 20; i++) {
+          const { skill, exercise } = drill.ask();
+          drill.conclude(skill, exercise, true, 1700);
+        }
+      }
+      expect(branch.filter((fact) => player.facts.get(fact)?.paid !== 100)).toEqual([]);
+    }
+  });
+
   it('plays only notions with facts, known by heart', () => {
     const drill = new Drill(session(), { kind: 'skill', skill: 'mental-math.add' }, new Rng(5));
     expect(() => drill.ask()).toThrow('notion sans faits');

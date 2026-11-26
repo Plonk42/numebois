@@ -83,7 +83,7 @@ export class Drill {
         (freshSure.length > 0 &&
           (this.missed.length > 0 || this.hardRun >= HARD_RUN || this.rate() < DRILL_RATE)));
     this.hardRun = wantSure ? 0 : this.hardRun + 1;
-    const pool = fresh(wantSure ? sure : hard);
+    const pool = fresh(wantSure ? sure : this.unpicked(hard));
     let question = this.pose(this.rng.pick(pool));
     for (let i = 0; i < REDRAWS && this.same(question.exercise); i++) {
       question = this.pose(this.rng.pick(pool));
@@ -116,6 +116,13 @@ export class Drill {
   private rate(): number {
     const recent = this.results.slice(-RECENT);
     return recent.length === 0 ? 0 : recent.filter(Boolean).length / recent.length;
+  }
+
+  /** The facts that still give their leaf today, if any: a branch fills up without waiting (#152). */
+  private unpicked(items: Item[]): Item[] {
+    const day = this.session.today();
+    const left = items.filter((item) => paysToday(this.session.facts.get(item.fact), day));
+    return left.length > 0 ? left : items;
   }
 
   private same(exercise: Exercise): boolean {
