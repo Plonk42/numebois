@@ -63,6 +63,11 @@ export function isSlipping(progress: FactProgress | undefined): boolean {
   return isKnown(progress) && !isAutomated(progress);
 }
 
+/** The drill still gives a leaf for it today: not known by heart, not paid yet (#125). */
+export function paysToday(progress: FactProgress | undefined, day: number): boolean {
+  return !isKnown(progress) && progress?.paid !== day;
+}
+
 /** Seen, not automated, and often missed or slipping: for the parent dashboard. */
 export function isFragile(progress: FactProgress): boolean {
   return (

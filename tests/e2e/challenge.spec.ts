@@ -53,6 +53,8 @@ test('le panier de glands : 30 s sous le soleil, une erreur sans perte de temps,
   page.on('pageerror', (error) => errors.push(error.message));
   const think = await tablesAcquired(page);
   const sign = page.getByRole('button', { name: 'Défi' });
+  // The squirrel's gift of the day waits on the sign (#143).
+  await expect(sign.locator('.gift')).toHaveCount(1);
   await sign.click();
   // The squirrel offers one challenge (#132): always refusable.
   const offer = page.locator('#challenge-offer');
@@ -104,6 +106,9 @@ test('le panier de glands : 30 s sous le soleil, une erreur sans perte de temps,
   await expect(page.locator('#trail-end')).toContainText('Défi terminé !');
   await expect(page.locator('#trail-end')).toHaveCount(0, { timeout: 40_000 });
   expect(await game(page)).toMatchObject({ mode: 'trail', phase: 'walking', basket: 0 });
+  // The gift given, the sign stays still, without its badge.
+  await expect(sign.locator('.gift')).toHaveCount(0);
+  await expect(sign).toHaveClass(/quiet/);
   // The record is kept for next time; another one the same day is played for the record,
   // without a word of a gift (#126).
   await sign.click();
@@ -113,6 +118,11 @@ test('le panier de glands : 30 s sous le soleil, une erreur sans perte de temps,
   await expect(end).toContainText('Bravo pour ce défi !');
   await expect(end.locator('.gift')).toHaveCount(0);
   expect(await game(page)).toMatchObject({ seeds: seeds + 1, leaves: 3 });
+  // The next day, the gift waits on the sign again.
+  await think(86_400_000);
+  await page.reload();
+  await page.evaluate(() => window.__numebois!.ready);
+  await expect(sign.locator('.gift')).toHaveCount(1);
   expect(errors).toEqual([]);
 });
 

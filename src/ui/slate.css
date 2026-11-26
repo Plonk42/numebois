@@ -1089,6 +1089,18 @@
   fill: #f5d7e2;
   stroke: #c9839f;
 }
+/* A leaf on the plank while the branch still gives leaves today (#143). */
+.tree .plank .gift circle {
+  fill: #fff4c4;
+  stroke: #ffd54a;
+  stroke-width: 3;
+}
+.tree .plank .gift path {
+  fill: #6dbb4f;
+  stroke: #3f8a35;
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+}
 /* The branch Plume suggests: a warm glow and a few sparkles. */
 .tree path.halo {
   fill: none;

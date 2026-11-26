@@ -150,14 +150,28 @@ describe('drill', () => {
     underway('times-tables.products:6x7');
     const branch = (group: string) => ({ skill: products.id, group });
     // 6 × 7 and 7 × 8 both on the table of 7; one each on the tables of 6 and 8.
-    expect(suggestedBranch([products], facts, null)).toEqual(branch('table-7'));
-    expect(suggestedBranch([products], facts, branch('table-9'))).toEqual(branch('table-9'));
+    expect(suggestedBranch([products], facts, null, 100)).toEqual(branch('table-7'));
+    expect(suggestedBranch([products], facts, branch('table-9'), 100)).toEqual(branch('table-9'));
     // The parent's branch already in bloom: the best one of the same notion.
-    expect(suggestedBranch([products], facts, branch('table-2'))).toEqual(branch('table-7'));
+    expect(suggestedBranch([products], facts, branch('table-2'), 100)).toEqual(branch('table-7'));
     // Nothing met yet: the first branch still to grow.
-    expect(suggestedBranch([products], new Map(), null)).toEqual(branch('table-2'));
+    expect(suggestedBranch([products], new Map(), null, 100)).toEqual(branch('table-2'));
     const all = new Map(products.facts!.all.map((fact) => [fact, automated(fact)]));
-    expect(suggestedBranch([products], all, null)).toBeNull();
+    expect(suggestedBranch([products], all, null, 100)).toBeNull();
+  });
+
+  it('makes a branch glow only if it still gives leaves today (#143)', () => {
+    const facts = new Map<string, FactProgress>();
+    for (const fact of products.facts!.all) {
+      facts.set(fact, { ...newFact(fact), tries: 2, right: 1, paid: 100 });
+    }
+    // Every branch picked today: none glows.
+    expect(suggestedBranch([products], facts, null, 100)).toBeNull();
+    // The table of 7 the most under way, but picked: a branch with a leaf left glows instead.
+    facts.set('times-tables.products:2x3', { ...newFact('times-tables.products:2x3') });
+    expect(suggestedBranch([products], facts, null, 100)).toMatchObject({ group: 'table-2' });
+    // The next day, every branch gives leaves again.
+    expect(suggestedBranch([products], facts, null, 101)).not.toBeNull();
   });
 
   it('feeds the facts only, never the mastery of the notion (#122)', () => {
@@ -224,7 +238,7 @@ describe('drill', () => {
     facts.set(slipped, { ...automated(slipped), fastDays: [], known: true });
     const table7 = products.facts!.groups!.find((group) => group.id === 'table-7')!;
     expect(blooms(table7, facts)).toBe(true);
-    expect(suggestedBranch([products], facts, null)).not.toEqual({
+    expect(suggestedBranch([products], facts, null, 100)).not.toEqual({
       skill: products.id,
       group: 'table-7',
     });

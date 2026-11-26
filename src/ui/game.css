@@ -640,6 +640,29 @@
   color: #4f2c14;
   text-shadow: 0 1px 0 rgba(255, 236, 200, 0.7);
 }
+/* Something still to earn there today (#143): a badge over the way in, which calls; without
+   it, the way in stays still and only the trail calls. */
+.tuft.open.quiet {
+  animation: none;
+}
+.tuft span.gift {
+  top: -34px;
+  left: 50%;
+  translate: -50% 0;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #fffbe8, #ffe9a6);
+  box-shadow:
+    0 0 0 3px #fff6d0,
+    0 0 16px 6px rgba(255, 214, 90, 0.75);
+}
+.tuft .gift svg {
+  width: 30px;
+  height: 30px;
+}
 
 /* Hidden parent dashboard, over everything: tabs, then a content that scrolls. */
 #parent-menu {

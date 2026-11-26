@@ -1,3 +1,4 @@
+import type { ComponentChildren } from 'preact';
 import { useState } from 'preact/hooks';
 import type { Branch, DrillTarget } from '../core/drill';
 import type { FactProgress } from '../core/facts';
@@ -19,24 +20,29 @@ interface TuftProps {
   name: string;
   /** Between two trails, a touch opens it; out of sight otherwise. */
   onOpen?: () => void;
+  /** Something still to earn today: shown on a badge, and the tuft calls (#143). */
+  gift?: ComponentChildren;
 }
 
 /**
  * A way in on its tuft of grass, beside the trail and like its sign: the stump of the drill
  * at the bottom right, the sign of the challenges at the bottom left.
  */
-export function TuftButton({ id, sprite, name, onOpen }: TuftProps) {
+export function TuftButton({ id, sprite, name, gift, onOpen }: TuftProps) {
   if (!sprite) return null;
+  let classes = `tuft ${onOpen ? 'open' : 'aside'}`;
+  if (!gift) classes += ' quiet';
   return (
     <button
       type="button"
       id={id}
-      class={`tuft ${onOpen ? 'open' : 'aside'}`}
+      class={classes}
       aria-label={name}
       style={{ width: `${sprite.width}px`, height: `${sprite.height}px` }}
       onPointerDown={onOpen}
     >
       <img src={sprite.url} alt="" draggable={false} />
+      {gift && <span class="gift">{gift}</span>}
       <span
         style={{
           left: `${sprite.label.x}px`,
@@ -58,6 +64,8 @@ interface TreeProps {
   facts: ReadonlyMap<FactId, FactProgress>;
   /** The branch Plume makes glow. */
   suggested: Branch | null;
+  /** Today: the branches that still give leaves show it (#143). */
+  day: number;
   onPick(target: DrillTarget): void;
   onClose(): void;
 }
@@ -66,7 +74,7 @@ interface TreeProps {
  * Where the drill starts (#130): the tree of what is known by heart, a touch on a branch and
  * its drill begins. Plume makes a branch glow; a tab per tree when there are several.
  */
-export function DrillTree({ trees, facts, suggested, onPick, onClose }: TreeProps) {
+export function DrillTree({ trees, facts, suggested, day, onPick, onClose }: TreeProps) {
   const [shown, setShown] = useState(
     trees.find((skill) => skill.id === suggested?.skill) ?? trees[0],
   );
@@ -94,6 +102,7 @@ export function DrillTree({ trees, facts, suggested, onPick, onClose }: TreeProp
         skill={shown}
         facts={facts}
         glow={glow}
+        day={day}
         onPick={(group) => onPick({ kind: 'skill', skill: shown.id, group: group.id })}
       />
       <div class="foot">

@@ -1,4 +1,4 @@
-import { AUTOMATED_DAYS, isKnown, type FactProgress } from '../core/facts';
+import { AUTOMATED_DAYS, isKnown, paysToday, type FactProgress } from '../core/facts';
 import type { FactGroup, FactId, Skill } from '../core/types';
 
 /** How far a fact is from « by heart »: 0 to `AUTOMATED_DAYS` leaves. */
@@ -113,13 +113,31 @@ function plankWidth(name: string): number {
   return small ? Math.max(112, small.length * 10 + 28) : Math.max(112, big.length * 13 + 28);
 }
 
-/** The name of a group on the wooden plank at the tip of its branch. */
-function Plank({ name, x, y }: { name: string; x: number; y: number }) {
+interface PlankProps {
+  name: string;
+  x: number;
+  y: number;
+  gift: boolean;
+  /** The side of the branch: the leaf goes on the outer corner. */
+  side?: -1 | 1;
+}
+
+/**
+ * The name of a group on the wooden plank at the tip of its branch; a leaf on it while the
+ * branch still gives leaves today (#143).
+ */
+function Plank({ name, x, y, gift, side = 1 }: PlankProps) {
   const { small, big } = plankLabel(name);
   const width = plankWidth(name);
   return (
     <g class="plank" transform={`translate(${x} ${y})`}>
       <rect x={-width / 2} y={-32} width={width} height={64} rx={12} />
+      {gift && (
+        <g class="gift" transform={`translate(${side * (width / 2 - 2)} -30)`}>
+          <circle r={17} />
+          <path transform="translate(-12 -12)" d="M5 19C5 10 11 4 20 4c0 9-6 15-15 15z" />
+        </g>
+      )}
       {small ? (
         <>
           <text class="small" y={-9}>
@@ -143,6 +161,8 @@ interface Props {
   facts: ReadonlyMap<FactId, FactProgress>;
   /** The group Plume suggests: its branch glows. */
   glow: string | null;
+  /** Today: the branches that still give leaves show it. */
+  day: number;
   onPick(group: FactGroup): void;
 }
 
@@ -150,7 +170,7 @@ interface Props {
  * The tree of what is known by heart (#130): a branch per group of facts, a leaf per fact that
  * grows as it comes at once; a complete branch blooms. A touch on a branch picks it.
  */
-export function FactTree({ skill, facts, glow, onPick }: Props) {
+export function FactTree({ skill, facts, glow, day, onPick }: Props) {
   const groups = skill.facts!.groups!;
   const rows = Math.ceil(groups.length / 2);
   const all = groups.every((group) => blooms(group, facts));
@@ -183,6 +203,7 @@ export function FactTree({ skill, facts, glow, onPick }: Props) {
           y={rows === 1 ? ALONE : LOW - (Math.floor(i / 2) * (LOW - HIGH)) / (rows - 1)}
           facts={facts}
           glow={group.id === glow}
+          gift={group.facts.some((fact) => paysToday(facts.get(fact), day))}
           onPick={onPick}
         />
       ))}
@@ -196,11 +217,12 @@ interface BranchProps {
   y: number;
   facts: ReadonlyMap<FactId, FactProgress>;
   glow: boolean;
+  gift: boolean;
   onPick(group: FactGroup): void;
 }
 
 /** A branch rising from the trunk, its leaves along it, its plank at the tip: one target. */
-function Branch({ group, side, y, facts, glow, onPick }: BranchProps) {
+function Branch({ group, side, y, facts, glow, gift, onPick }: BranchProps) {
   const foot: Point = [TRUNK, y + 8];
   const tip: Point = [TRUNK + side * REACH, y + 8 - RISE];
   const bend: Point = [TRUNK + (side * REACH) / 2, y + 8];
@@ -262,7 +284,7 @@ function Branch({ group, side, y, facts, glow, onPick }: BranchProps) {
           </g>
         );
       })}
-      <Plank name={group.name} x={plank} y={tip[1]} />
+      <Plank name={group.name} x={plank} y={tip[1]} gift={gift} side={side} />
       {glow && <Sparkles x={plank} y={tip[1]} reach={width / 2} />}
     </g>
   );
@@ -338,7 +360,7 @@ export function FactBranch({ group, facts, today }: FactBranchProps) {
             </g>
           );
         })}
-        <Plank name={group.name} x={tip[0] + width / 2 + 6} y={tip[1]} />
+        <Plank name={group.name} x={tip[0] + width / 2 + 6} y={tip[1]} gift={false} />
       </g>
     </svg>
   );

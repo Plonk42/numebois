@@ -61,6 +61,7 @@ import type { TrailArt } from '../scene/render/trail-art';
 import { AlbumButton, AlbumGrid, AlbumPage } from './album';
 import { Basket } from './basket';
 import {
+  AcornIcon,
   CHALLENGE_NAME,
   ChallengeBar,
   ChallengeEnd,
@@ -74,7 +75,7 @@ import { Naming } from './naming';
 import { ParentMenu } from './parent-menu';
 import { Plume, type Mood } from './character';
 import { RARE_ARRIVALS } from './rares';
-import { plural, Reserve, SeedIcon } from './reserve';
+import { LeafIcon, plural, Reserve, SeedIcon } from './reserve';
 import { SEASON_LABELS, SeasonPicker } from './seasons';
 import { ANIMAL_LABELS, Shop } from './shop';
 import { Slate, type SlateHint } from './slate';
@@ -596,6 +597,9 @@ function Game(props: Props) {
       (s) => s.facts?.groups && (session.progress.get(s.id)?.stage ?? 'discovery') !== 'discovery',
     )
     .sort((a, b) => b.facts!.groups!.length - a.facts!.groups!.length);
+  /** Where leaves are still to earn today (#143): a branch of the drill, the squirrel's gift. */
+  const suggested = suggestedBranch(trees, session.facts, recommended, today());
+  const giftToday = firstOfDay(session.records.values(), today());
 
   const startDrill = (target: DrillTarget) => {
     if (phase !== 'drill-menu') return;
@@ -1126,6 +1130,7 @@ function Game(props: Props) {
           id="stump"
           sprite={art?.stump}
           name={DRILL_NAME}
+          gift={suggested && <LeafIcon />}
           onOpen={free && !exploring ? () => setPhase('drill-menu') : undefined}
         />
       )}
@@ -1134,6 +1139,7 @@ function Game(props: Props) {
           id="challenge-sign"
           sprite={art?.challenge}
           name={CHALLENGE_NAME}
+          gift={giftToday && <AcornIcon />}
           onOpen={free && !exploring ? () => setPhase('challenge-menu') : undefined}
         />
       )}
@@ -1290,7 +1296,8 @@ function Game(props: Props) {
             <DrillTree
               trees={trees}
               facts={session.facts}
-              suggested={suggestedBranch(trees, session.facts, recommended)}
+              suggested={suggested}
+              day={today()}
               onPick={startDrill}
               onClose={() => setPhase('walking')}
             />

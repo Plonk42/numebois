@@ -44,6 +44,8 @@ test('l’arbre de la rafale : une branche par table, une feuille par fait, la t
   // No Carnet any more: the tree is behind the stump.
   await expect(page.getByRole('button', { name: 'Carnet' })).toHaveCount(0);
   const stump = page.getByRole('button', { name: 'Par cœur' });
+  // Leaves still to pick today: a badge on the stump (#143).
+  await expect(stump.locator('.gift')).toHaveCount(1);
   await stump.click();
   const tree = page.locator('#drill-tree');
   await expect(tree).toBeVisible();
@@ -58,6 +60,9 @@ test('l’arbre de la rafale : une branche par table, une feuille par fait, la t
   // Plume makes a branch glow: 7 × 8 is on its way, on the tables of 7 and 8; the 7 comes first.
   await expect(tree.locator('.glow')).toHaveCount(1);
   await expect(tree.locator('[data-group="table-7"]')).toHaveClass(/glow/);
+  // The branches that still give leaves today show one on their plank; not the table of 2 (#143).
+  await expect(tree.locator('.plank .gift')).toHaveCount(8);
+  await expect(tree.locator('[data-group="table-2"] .gift')).toHaveCount(0);
   await expect(tree.locator('.bubble')).toHaveText(
     'Choisis une branche. Celle qui brille t’attend\u00a0!',
   );

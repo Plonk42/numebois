@@ -1,5 +1,5 @@
 import { LEAVES_PER_RIGHT_ANSWER } from './economy';
-import { isAutomated, isKnown, isSure, type FactProgress } from './facts';
+import { isAutomated, isSure, paysToday, type FactProgress } from './facts';
 import type { Rng } from './rng';
 import type { Achievement, Session } from './session';
 import type { Exercise, FactId, Skill, SkillId } from './types';
@@ -96,7 +96,7 @@ export class Drill {
     const fact = skill.facts!.of(exercise)!;
     const day = this.session.today();
     const before = facts.get(fact);
-    const pays = right && !isKnown(before) && before?.paid !== day;
+    const pays = right && paysToday(before, day);
     this.earned = pays ? LEAVES_PER_RIGHT_ANSWER : 0;
     const achievements = this.session.practise(skill, exercise, right, ms);
     if (pays) facts.set(fact, { ...facts.get(fact)!, paid: day });
@@ -182,17 +182,18 @@ export interface Branch {
 
 /**
  * The branch Plume makes glow (#130): the parent's recommendation, else the branch with the
- * most facts met and not known by heart yet, else the first one still to grow; never a branch
- * in full bloom.
+ * most facts met and not known by heart yet, else the first one still to grow; only a branch
+ * that still gives leaves today (#143), so none once every branch is picked.
  */
 export function suggestedBranch(
   trees: readonly Skill[],
   facts: ReadonlyMap<FactId, FactProgress>,
   recommended: { skill: SkillId; group?: string } | null,
+  day: number,
 ): Branch | null {
   const open = trees.flatMap((skill) =>
     (skill.facts?.groups ?? [])
-      .filter((group) => group.facts.some((fact) => !isKnown(facts.get(fact))))
+      .filter((group) => group.facts.some((fact) => paysToday(facts.get(fact), day)))
       .map((group) => ({
         skill: skill.id,
         group: group.id,
