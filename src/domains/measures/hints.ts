@@ -1,12 +1,16 @@
 import type { GaugeExercise } from './gauges';
 import type { DrawExercise, MeasureExercise } from './generators';
 
-/** 1: where to set the ruler; 2: where the end falls, or the lengths added. */
+/** 1: the 0 on an end, then the other end read; 2: where the end falls, or the lengths added. */
 export function measureHint({ level, lengths, unit }: MeasureExercise, attempt: 1 | 2): string {
   if (attempt === 1) {
     if (lengths.length > 1) return 'Mesure chaque segment, puis ajoute les longueurs.';
-    if (level === 3) return 'Tourne la règle avec son rond.\nLe 0 sur un bout du segment.';
-    return 'Glisse la règle : son 0 sur un bout du segment.';
+    const zero = level === 3 ? 'Tourne la règle avec son rond : le 0' : 'Le 0 de la règle';
+    const read =
+      unit === 'cm'
+        ? 'Lis le trait de l’autre bout.'
+        : 'Lis les cm, puis compte les petits traits.';
+    return `${zero} sur un bout.\n${read}`;
   }
   if (lengths.length > 1) {
     const cm = lengths.map((n) => n / 10);
