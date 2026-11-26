@@ -60,3 +60,24 @@ test('tracer à la règle : un segment tiré du point au doigt', async ({ page }
   await expect(page.locator('#question .praise')).toBeVisible();
   await expect(sheet.locator('.drawn.right')).toHaveCount(1);
 });
+
+test('lire la balance : un trait toutes les 50 g, un nombre toutes les 100 g', async ({ page }) => {
+  await page.goto('./?practice=measures.read-gauge&level=3&seed=3&stage=0&quality=low');
+  await page.evaluate(() => window.__numebois!.ready);
+  let exercise = await current(page);
+  while (exercise.level < 3) {
+    await driver(exercise.input).answer(page, exercise.input, exercise.answer);
+    await expect(page.locator('#question .praise')).toBeVisible();
+    exercise = await current(page);
+  }
+  const scale = page.locator('#question .gauge.scale');
+  await expect(scale.locator('.tick')).toHaveCount(1000 / 50 + 1);
+  await expect(scale.locator('.tick.major')).toHaveCount(1000 / 100 + 1);
+  await expect(scale.locator('.needle')).toBeVisible();
+  await expectSlateLayout(page);
+  const [wrong] = driver(exercise.input).wrongs(exercise.input, exercise.answer);
+  await driver(exercise.input).answer(page, exercise.input, wrong);
+  await expect(page.locator('#question .hint')).toContainText('chaque trait vaut 50 g');
+  await driver(exercise.input).answer(page, exercise.input, exercise.answer);
+  await expect(page.locator('#question .praise')).toBeVisible();
+});

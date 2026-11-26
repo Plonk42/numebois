@@ -1,5 +1,6 @@
 import { defineSkill } from '../../core/registry';
-import { WRITE_DIGITS } from '../numbers/generators';
+import { LINE_READ, WRITE_DIGITS } from '../numbers/generators';
+import { GAUGE_LEVELS, READ_GAUGE, gaugeLures, generateGauge, type GaugeExercise } from './gauges';
 import {
   DRAW,
   DRAW_LEVELS,
@@ -10,7 +11,7 @@ import {
   type DrawExercise,
   type MeasureExercise,
 } from './generators';
-import { drawHint, measureHint } from './hints';
+import { drawHint, gaugeHint, measureHint } from './hints';
 import { validateDrawing, validateMeasure } from './validate';
 
 export const measure = defineSkill<MeasureExercise>({
@@ -31,4 +32,15 @@ export const draw = defineSkill<DrawExercise>({
   generate: generateDraw,
   validate: validateDrawing,
   hint: drawHint,
+});
+
+export const readGauge = defineSkill<GaugeExercise>({
+  id: READ_GAUGE,
+  name: 'Lire une balance, un verre doseur',
+  prerequisites: [LINE_READ],
+  levels: GAUGE_LEVELS,
+  generate: generateGauge,
+  validate: validateMeasure,
+  hint: gaugeHint,
+  lures: gaugeLures,
 });

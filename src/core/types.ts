@@ -99,7 +99,20 @@ export type Figure =
    */
   | { kind: 'timeline'; start: number; end: number; asked: 'duration' | 'end' }
   /** A month of the calendar, `month` from 0 (January), the weeks from Monday; `mark` circles a day. */
-  | { kind: 'calendar'; year: number; month: number; mark?: number };
+  | { kind: 'calendar'; year: number; month: number; mark?: number }
+  /**
+   * An instrument to read (#58): the dial of a kitchen scale or a measuring jug, a tick every
+   * `step` and a number every `label` up to `max`, the needle or the liquid on `value`.
+   */
+  | {
+      kind: 'gauge';
+      instrument: 'scale' | 'jug';
+      max: number;
+      step: number;
+      label: number;
+      value: number;
+      unit: string;
+    };
 
 export interface Exercise {
   skill: SkillId;

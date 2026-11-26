@@ -1,3 +1,4 @@
+import type { GaugeExercise } from './gauges';
 import type { DrawExercise, MeasureExercise } from './generators';
 
 /** 1: where to set the ruler; 2: where the end falls, or the lengths added. */
@@ -26,4 +27,21 @@ export function drawHint({ length }: DrawExercise, attempt: 1 | 2): string {
   const mm = length % 10;
   if (mm === 0) return `Arrête le trait sur le ${cm} de la règle.`;
   return `${length} mm, c’est ${cm} cm et ${mm} mm.\nArrête-toi ${mm} petits traits après le ${cm}.`;
+}
+
+/** 1: what a tick is worth; 2: the ticks counted from the number below. */
+export function gaugeHint(
+  { value, step, label, unit, instrument }: GaugeExercise,
+  attempt: 1 | 2,
+): string {
+  const what = instrument === 'jug' ? 'Le liquide' : 'L’aiguille';
+  if (attempt === 1) {
+    if (step === label) return `${what} est sur un nombre : lis-le.`;
+    return `Entre deux nombres, chaque trait vaut ${step} ${unit}.`;
+  }
+  const below = Math.floor(value / label) * label;
+  const ticks = (value - below) / step;
+  if (ticks === 0) return `${what} est sur ${value} : ${value} ${unit}.`;
+  const counted = `${ticks} trait${ticks > 1 ? 's' : ''}`;
+  return `${what} est ${counted} après ${below}.\n${below} + ${ticks * step} = ${value} ${unit}.`;
 }

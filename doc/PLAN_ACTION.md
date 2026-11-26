@@ -532,7 +532,7 @@ Dépend de 1 et 2. Les sous-phases sont indépendantes entre elles. Chaque ateli
 ### 5c. `units` et `measures`
 
 1. Règle à déplacer, segment à tracer, ligne brisée. Les longueurs sont générées en mm exacts. Réalisé (#57) : domaine `measures` (« Les mesures »). Une feuille en millimètres (`src/core/sheet.ts`) et une règle de 14 cm transparente (`src/ui/widgets/ruler.tsx`) : elle glisse sous le doigt, son 0 saute sur un bout de segment proche (aimant de 3 mm) ; le rond au bout la fait tourner autour de son 0, son bord se pose sur un segment proche. `measures.measure` (« Mesurer à la règle », saisie `ruler`, la longueur tapée au pavé sur deux rangées sous la feuille, l'unité à côté ; 6 niveaux : cm entiers, demi-cm en mm, mm, segment penché, ligne brisée de 2 puis 3 segments en cm). `measures.draw` (« Tracer à la règle », saisie `draw` : le doigt tire le trait depuis le point, au millimètre, juste à 1 mm près ; 3 niveaux : 7 cm, 45 mm, 7 cm 4 mm).
-2. Graduations : balance, verre doseur.
+2. Graduations : balance, verre doseur. Réalisé (#58) : `measures.read-gauge` (« Lire une balance, un verre doseur », prérequis : lire une droite graduée), figure `gauge` (`ScaleDial` : cadran de balance de cuisine en g, l'aiguille orange ; `Jug` : verre doseur en cL, le liquide jusqu'à la quantité, `src/ui/widgets/gauge.tsx`), réponse au pavé. 5 niveaux, chacun avec plus de traits entre deux nombres (un nombre à chaque trait, puis 2, 5 et 2 à 5 traits) ; 4 fois sur 5, l'aiguille tombe sur un trait sans nombre ; leurres : un trait de plus ou de moins, les traits comptés sans leur valeur.
 3. Tableau de conversion, relations entre unités, ordres de grandeur, monnaie.
 
 ### 5d. `fractions`

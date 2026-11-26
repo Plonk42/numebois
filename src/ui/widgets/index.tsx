@@ -12,6 +12,7 @@ import { BlocksFigure, DotsFigure, PlaceValueFigure } from './place-value';
 import { TimeEntry } from './time-entry';
 import { CalendarFigure, TimelineFigure } from './day';
 import { RulerDraw, RulerMeasure } from './ruler';
+import { Jug, ScaleDial } from './gauge';
 
 /** What every widget receives; the validation and the hints come from the domain. */
 export interface WidgetProps<I extends ExerciseInput = ExerciseInput> {
@@ -60,6 +61,8 @@ const FIGURES: Figures = {
   calendar: ({ figure: { year, month, mark } }) => (
     <CalendarFigure year={year} month={month} mark={mark} />
   ),
+  gauge: ({ figure: { instrument, ...gauge } }) =>
+    instrument === 'scale' ? <ScaleDial {...gauge} /> : <Jug {...gauge} />,
 };
 
 /** A figure to look at: a number line, base-ten blocks, a place-value table. */

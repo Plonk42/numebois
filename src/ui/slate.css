@@ -854,6 +854,80 @@
   min-height: 64px;
 }
 
+/* Instruments to read (#58): a kitchen scale, a measuring jug. */
+.bench > .work:has(.gauge) {
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+}
+.gauge {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: 340px;
+  min-height: 0;
+}
+.gauge text {
+  font-size: 22px;
+  font-weight: 700;
+  fill: #2f4a3a;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+.gauge .tick {
+  stroke: #6b4a2b;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+.gauge .tick.major {
+  stroke-width: 4;
+}
+.scale .body {
+  fill: #9fc7d8;
+  stroke: #5f8fa4;
+  stroke-width: 3;
+}
+.scale .face {
+  fill: #fffdf7;
+  stroke: #5f8fa4;
+  stroke-width: 4;
+}
+.scale .unit {
+  font-size: 26px;
+  fill: #6b4a2b;
+}
+.scale .needle {
+  stroke: var(--hour);
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+.scale .pivot {
+  fill: #6b4a2b;
+}
+.jug .glass {
+  fill: rgba(220, 238, 246, 0.35);
+  stroke: #7aa7bb;
+  stroke-width: 5;
+  stroke-linejoin: round;
+}
+.jug .handle {
+  fill: none;
+  stroke: #7aa7bb;
+  stroke-width: 10;
+  stroke-linecap: round;
+}
+.jug .liquid {
+  fill: #f6c26b;
+  opacity: 0.75;
+}
+.jug .surface {
+  stroke: #d48a1e;
+  stroke-width: 4;
+}
+.jug text {
+  font-size: 20px;
+  text-anchor: end;
+}
+
 /* Decompose (#109): a colour per rank, the same in the table and in the blocks. */
 .bench > .work:has(.place-value, .blocks, .dots) {
   align-content: center;
