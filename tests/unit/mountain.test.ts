@@ -82,7 +82,7 @@ function sceneTriangles(description: SceneDescription): number {
     0,
   );
   const { cableway } = composition.terrain;
-  const cable = cableway ? triangleCount(cablewayMesh(cableway)) + 2 * triangleCount(cabin()) : 0;
+  const cable = cableway ? triangleCount(cablewayMesh(cableway)) + triangleCount(cabin()) : 0;
   return (
     parts.ground +
     parts.water +
@@ -149,59 +149,40 @@ describe('mountain: the cable car', () => {
         for (const s of supports) expect(s.y, label).toBeGreaterThan(s.ground);
         // No tree of the forest under the line.
         for (const tree of terrain.treeSpots) {
-          for (const index of [0, 1]) {
-            for (let t = 0; t < 60; t += 0.5) {
-              const cab = cabinAt(terrain.cableway!, index, t);
-              if (Math.hypot(cab.x - tree.x, cab.z - tree.z) > 1.2) continue;
-              expect(cab.y - HANG, `${label}, cabin ${index} at ${t} s`).toBeGreaterThan(
-                terrain.surfaceAt(tree.x, tree.z)!.y + 3,
-              );
-            }
+          for (let t = 0; t < 60; t += 0.5) {
+            const cab = cabinAt(terrain.cableway!, t);
+            if (Math.hypot(cab.x - tree.x, cab.z - tree.z) > 1.2) continue;
+            expect(cab.y - HANG, `${label}, at ${t} s`).toBeGreaterThan(
+              terrain.surfaceAt(tree.x, tree.z)!.y + 3,
+            );
           }
         }
       }
     }
   });
 
-  it('runs its two cabins in turn, smoothly, one up while the other comes down', () => {
+  it('runs its cabin smoothly up and down, waiting in each station', () => {
     const { cableway } = createMountain(7, LAST_STAGE, ['cablecar']);
     const bottom = cableway!.supports[0];
     const top = cableway!.supports.at(-1)!;
-    let previous = [cabinAt(cableway!, 0, 0), cabinAt(cableway!, 1, 0)];
+    const along = (p: { x: number; z: number }) =>
+      ((p.x - bottom.x) * (top.x - bottom.x) + (p.z - bottom.z) * (top.z - bottom.z)) /
+      Math.hypot(top.x - bottom.x, top.z - bottom.z);
+    let previous = cabinAt(cableway!, 0);
     const waits = new Set<string>();
-    let crossings = 0;
     for (let f = 1; f <= 30 * 120; f++) {
-      const now = [cabinAt(cableway!, 0, f / 30), cabinAt(cableway!, 1, f / 30)];
-      for (const i of [0, 1]) {
-        const step = Math.hypot(
-          now[i].x - previous[i].x,
-          now[i].y - previous[i].y,
-          now[i].z - previous[i].z,
-        );
-        expect(step, `${f / 30} s`).toBeLessThan(0.2);
+      const now = cabinAt(cableway!, f / 30);
+      const step = Math.hypot(now.x - previous.x, now.y - previous.y, now.z - previous.z);
+      expect(step, `${f / 30} s`).toBeLessThan(0.2);
+      // Not moving at all: waiting in a station, at one end of the line.
+      if (step === 0) {
+        const end = along(now) < 1 ? 'bottom' : along(now) > along(top) - 1 ? 'top' : null;
+        expect(end, `${f / 30} s`).not.toBeNull();
+        waits.add(end!);
       }
-      // One waits in a station while the other waits in the other one; they cross between.
-      const along = (p: { x: number; z: number }) =>
-        ((p.x - bottom.x) * (top.x - bottom.x) + (p.z - bottom.z) * (top.z - bottom.z)) /
-        Math.hypot(top.x - bottom.x, top.z - bottom.z);
-      // Waiting: not moving at all.
-      const still = now.map(
-        (p, i) => p.x === previous[i].x && p.y === previous[i].y && p.z === previous[i].z,
-      );
-      expect(still[1], `${f / 30} s`).toBe(still[0]);
-      if (still[0]) {
-        const up = along(now[0]) > along(now[1]);
-        waits.add(up ? 'top' : 'bottom');
-        expect(Math.min(along(now[0]), along(now[1])), `${f / 30} s`).toBeLessThan(1);
-        expect(Math.max(along(now[0]), along(now[1])), `${f / 30} s`).toBeGreaterThan(
-          along(top) - 1,
-        );
-      }
-      if (Math.abs(along(now[0]) - along(now[1])) < 0.3) crossings++;
       previous = now;
     }
     expect([...waits].sort()).toEqual(['bottom', 'top']);
-    expect(crossings).toBeGreaterThan(0);
   });
 });
 

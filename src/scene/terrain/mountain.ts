@@ -801,10 +801,13 @@ export function cablewayOf(seed: number): CablewayPlan | null {
         const on = standing(layout, ...bottom);
         if (!on || on.ledge || !free(...bottom, 3.2)) continue;
         if (rimValue(layout, outlineOf(CABLECAR_STAGE), ...bottom) > 0.8) continue;
-        const candidate = { bottom, pylons: pylonsOn(layout, bottom, top, free), top };
-        if (grounds.every((g) => g.clears(candidate, slots))) {
-          plan = candidate;
-          break search;
+        // A single pylon at most, the first place along the line that does.
+        for (const pylons of [[], ...pylonsOn(layout, bottom, top, free).map((p) => [p])]) {
+          const candidate = { bottom, pylons, top };
+          if (grounds.every((g) => g.clears(candidate, slots))) {
+            plan = candidate;
+            break search;
+          }
         }
       }
     }
@@ -814,8 +817,8 @@ export function cablewayOf(seed: number): CablewayPlan | null {
 }
 
 /**
- * Pylons along the line: one on the floor before the cliff of the first ledge it climbs
- * onto, then one on each ledge near its brink, where they find room.
+ * Places for a pylon along the line: on the floor before the cliff of the first ledge it
+ * climbs onto, then on each ledge near its brink, where they find room.
  */
 function pylonsOn(
   layout: Layout,
