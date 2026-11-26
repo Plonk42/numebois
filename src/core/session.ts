@@ -1,5 +1,5 @@
 import { CHOICE_SHARE, offerChoices } from './choices';
-import { LEAVES_AT_RECORD, LEAVES_PER_RIGHT_ANSWER } from './economy';
+import { effort, LEAVES_AT_RECORD, LEAVES_PER_RIGHT_ANSWER } from './economy';
 import { isKnown, recordFact, newFact, type FactProgress } from './facts';
 import { bestLevel, isAcquired, newProgress, record, type SkillProgress } from './mastery';
 import {
@@ -122,9 +122,9 @@ export class Session {
     const progress = this.progress.get(skill.id);
     const setting = settingOf(this.settings, skill);
     const level = stepLevel(this.step, progress, setting);
-    this.worth = atRecord(this.step, level, progress, setting)
-      ? LEAVES_AT_RECORD
-      : LEAVES_PER_RIGHT_ANSWER;
+    this.worth =
+      effort(skill, level) *
+      (atRecord(this.step, level, progress, setting) ? LEAVES_AT_RECORD : LEAVES_PER_RIGHT_ANSWER);
     // The statement alone may not change (« Quelle heure est-il ? » under a clock).
     const same = (exercise: Exercise) =>
       exercise.statement === previous?.statement && exercise.answer === previous.answer;

@@ -65,7 +65,8 @@ Le workflow `.github/workflows/ci.yml` tourne sur les PR, les pushs sur `main` e
 ## Tickets et planification
 
 - Ouvrir un ticket pour les bugs, les fonctionnalités, les investigations et le travail en plusieurs étapes qui mérite un suivi, après avoir cherché les doublons. Les changements courants n'en ont pas besoin. Logger un ticket n'autorise pas son implémentation.
-- Trier avec une catégorie, une priorité, les domaines concernés et un jalon. Enregistrer les vrais prérequis comme liens natifs « blocked by ».
+- Trier avec une catégorie, une priorité, les domaines concernés et un jalon.
+- **Blocages (propriétaire, 2026-11-26) :** un ticket bloqué a son prérequis en sous-ticket (sub-issue) ; pas de label de statut « bloqué ». Un ticket sans sous-ticket ouvert n'est pas bloqué.
 - Les labels `status:*` sont une aide facultative : ne pas les mettre à jour à chaque commit, ni les nettoyer après la fermeture.
 - Commenter seulement pour une information utile : une reproduction, une décision, un échec de CI. Pas de points d'étape.
 - Pas de GitHub Project : labels et jalons suffisent.

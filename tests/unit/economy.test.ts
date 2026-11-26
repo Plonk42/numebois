@@ -1,26 +1,33 @@
 import { CLEARING } from './helpers';
 import { describe, expect, it } from 'vitest';
 import {
+  effort,
   LEAVES_PER_ELEMENT,
   leavesPerElement,
+  QUESTION_SECONDS,
+  questionSeconds,
   SEEDS_PER_ANIMAL,
   SEEDS_PER_CHALLENGE,
   SEEDS_PER_GRAND,
   SEEDS_PER_NIGHT,
   SEEDS_PER_RARE,
   SEEDS_PER_SEASON,
+  seedsOf,
 } from '../../src/core/economy';
 import { curriculum } from '../../src/core/registry';
 import { Rng } from '../../src/core/rng';
 import { Session } from '../../src/core/session';
+import { changeSetting } from '../../src/core/settings';
+import { TRAIL_QUESTIONS } from '../../src/core/trail';
+import type { SkillId } from '../../src/core/types';
 import { DOMAINS } from '../../src/domains';
 import { MAX_ELEMENTS, stageFor } from '../../src/scene/description';
 
 /**
  * Time of play, from the owner's session in the child's place (#128): 8.4 s per question in
- * the trail for an adult, about 12 s for the child; rewards, pouring and shop around a trail.
+ * the trail for an adult, about 12 s for the child (`QUESTION_SECONDS`), more on the long
+ * notions (#153); rewards, pouring and shop around a trail.
  */
-const QUESTION_S = 12;
 const AROUND_TRAIL_S = 60;
 /** Minutes of play in a day: a new day brings the squirrel's gift (#126). */
 const DAY_MIN = 20;
@@ -37,43 +44,58 @@ interface Painting {
   /** Elements bought after each trail. */
   bought: number[];
   seeds: number;
+  /** Seconds of questions of each trail. */
+  trails: number[];
 }
 
 /**
  * A child right 80 % of the time at first try (60 % at the second), playing trails and
- * buying an element as soon as the reserve allows, painting after painting.
+ * buying an element as soon as the reserve allows, painting after painting; the parent may
+ * put a notion in focus.
  */
-function play(seed: number, paintings: number, length: 'short' | 'normal' = 'normal'): Painting[] {
+function play(
+  seed: number,
+  paintings: number,
+  length: 'short' | 'normal' = 'normal',
+  focus?: SkillId,
+): Painting[] {
   const rng = new Rng(seed);
   const child = rng.fork('child');
   let day = 1;
   let today = 0;
+  const skills = curriculum(DOMAINS);
   const session = new Session(
-    curriculum(DOMAINS),
+    skills,
     rng.fork('trail'),
     () => day,
     () => CLEARING,
     length,
   );
+  if (focus) {
+    const skill = skills.find((s) => s.id === focus)!;
+    session.settings = changeSetting(session.settings, skill, { mode: 'focus', until: 1000 });
+  }
   let leaves = 0;
   const done: Painting[] = [];
   for (let p = 0; p < paintings; p++) {
-    const painting: Painting = { minutes: 0, bought: [], seeds: 0 };
+    const painting: Painting = { minutes: 0, bought: [], seeds: 0, trails: [] };
     let placed = 0;
     while (placed < MAX_ELEMENTS) {
       session.startTrail();
       let previous;
-      let questions = 0;
+      let seconds = 0;
       do {
         const { skill, exercise } = session.ask(previous);
         const right = child.chance(0.8);
         const second = !right && child.chance(0.6);
         if (right || second) leaves += session.worth;
-        painting.seeds += session.conclude(skill, exercise, right, 4000, !right && !second).length;
+        const achieved = session.conclude(skill, exercise, right, 4000, !right && !second);
+        painting.seeds += seedsOf(achieved, skill, exercise.level);
         previous = exercise;
-        questions++;
+        seconds += questionSeconds(skill, exercise.level);
       } while (session.advance());
-      const minutes = (questions * QUESTION_S + AROUND_TRAIL_S) / 60;
+      const minutes = (seconds + AROUND_TRAIL_S) / 60;
+      painting.trails.push(seconds);
       painting.minutes += minutes;
       let bought = 0;
       while (placed < MAX_ELEMENTS && leaves >= leavesPerElement(stageFor(placed))) {
@@ -131,5 +153,47 @@ describe('economy (#29)', () => {
     // About 11 trails to the stage 6, a little over one each.
     const half = first.bought.slice(0, 11);
     expect(half.reduce((a, b) => a + b, 0)).toBeGreaterThanOrEqual(11);
+  });
+});
+
+describe('effort of the long notions (#153)', () => {
+  it('pays a minute of a long notion at least as much as a minute of a quick one', () => {
+    for (const skill of curriculum(DOMAINS)) {
+      for (let level = 0; level < skill.levels; level++) {
+        const perSecond = effort(skill, level) / questionSeconds(skill, level);
+        expect(perSecond, `${skill.id} ${level}`).toBeGreaterThanOrEqual(1 / QUESTION_SECONDS);
+      }
+    }
+  });
+
+  it('pays the golden seeds of a long notion by its effort, a fact by one', () => {
+    const add = curriculum(DOMAINS).find((s) => s.id === 'column-arithmetic.add')!;
+    expect(seedsOf([{ kind: 'level', skill: add.id, level: 5 }], add, 4)).toBe(effort(add, 4));
+    expect(effort(add, 4)).toBeGreaterThan(1);
+    expect(seedsOf([{ kind: 'automated', fact: 'x' }], add, 4)).toBe(1);
+  });
+
+  // A notion in focus pays less once acquired, quick or long: compared with a quick one.
+  const meanMinutes = (paintings: Painting[]) =>
+    paintings.reduce((sum, p) => sum + p.minutes, 0) / paintings.length;
+  const inFocus = (focus: SkillId) => [1, 2].flatMap((seed) => play(seed, 2, 'normal', focus));
+  const quick = meanMinutes(inFocus('mental-math.add'));
+
+  it.each([
+    'column-arithmetic.add',
+    'column-arithmetic.multiply',
+    'measures.measure',
+    'time.durations',
+    'word-problems.add-subtract',
+  ])('keeps the trail and the painting in their time with %s in focus', (focus) => {
+    const paintings = inFocus(focus);
+    // The notions around the focus differ: 10 % of margin.
+    expect(meanMinutes(paintings)).toBeLessThanOrEqual(quick * 1.1);
+    // About the time of the quick questions; at worst a warmup, a question, a finish and one
+    // more after a mistake, all long.
+    const trails = paintings.flatMap((p) => p.trails);
+    const budget = TRAIL_QUESTIONS.normal * QUESTION_SECONDS;
+    expect(trails.reduce((a, b) => a + b, 0) / trails.length).toBeLessThanOrEqual(budget * 1.25);
+    for (const seconds of trails) expect(seconds).toBeLessThanOrEqual(budget * 2.5);
   });
 });

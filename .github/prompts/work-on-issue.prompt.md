@@ -24,7 +24,7 @@ L'invocation autorise l'implémentation des tickets choisis. Elle n'autorise pas
    - `status:ready` avant les tickets sans statut, avant `status:backlog` ;
    - périmètre plus petit et autonome d'abord, et tickets qui débloquent les autres d'abord.
 4. Écarter, en expliquant pourquoi, les tickets :
-   - `status:blocked` ou avec des liens « blocked by » encore ouverts ;
+   - avec un sous-ticket encore ouvert (son prérequis) ;
    - qui attendent une décision ou un accord du propriétaire ;
    - qui demandent des identifiants ou un nouveau pack d'assets ;
    - qui demandent la validation visuelle d'un nouveau décor par le propriétaire avant livraison ;

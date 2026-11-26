@@ -179,6 +179,11 @@ export interface Skill<E extends Exercise = Exercise> {
   prerequisites: readonly SkillId[];
   /** Number of internal difficulty levels, from 0 to `levels - 1`. */
   levels: number;
+  /**
+   * Seconds a child of 8 takes on a question, one per level: estimated for a long notion
+   * (#153), absent for a quick one (`QUESTION_SECONDS`).
+   */
+  questionSeconds?: readonly number[];
   generate(rng: Rng, level: number, context: ExerciseContext): E;
   validate(exercise: E, answer: string): boolean;
   /** 1: a method hint; 2: the answer with its method. */

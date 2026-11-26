@@ -1,5 +1,24 @@
 /** Economy of the game (plan, « Boucle de progression »): the only place to tune it (#29). */
 
+import type { Achievement } from './session';
+import type { Skill } from './types';
+
+/** Seconds a child takes on a quick question, from the owner's session in its place (#128). */
+export const QUESTION_SECONDS = 12;
+
+/** Seconds a question of the notion takes at this level (#153). */
+export function questionSeconds(skill: Skill, level: number): number {
+  return skill.questionSeconds?.[level] ?? QUESTION_SECONDS;
+}
+
+/**
+ * The leaves of a question are multiplied by the quick questions it lasts, rounded up: a
+ * minute on a long notion never pays less than a minute on a quick one (#153).
+ */
+export function effort(skill: Skill, level: number): number {
+  return Math.ceil(questionSeconds(skill, level) / QUESTION_SECONDS);
+}
+
 /**
  * Leaves earned by a right answer in a trail; in a drill, by a fact not known by heart yet, once
  * a day (#125); in a challenge, an acorn instead.
@@ -9,6 +28,15 @@ export const LEAVES_PER_RIGHT_ANSWER = 1;
 export const LEAVES_AT_RECORD = 2;
 /** Golden seeds earned by a notion acquired, a fact automated or a level reached (#141). */
 export const SEEDS_PER_ACHIEVEMENT = 1;
+
+/**
+ * Golden seeds of what an answer at `level` achieved: a notion acquired or a level reached pays
+ * its effort, a long notion taking as many minutes more to learn (#153).
+ */
+export function seedsOf(achievements: readonly Achievement[], skill: Skill, level: number): number {
+  const each = (a: Achievement) => (a.kind === 'automated' ? 1 : effort(skill, level));
+  return achievements.reduce((sum, a) => sum + SEEDS_PER_ACHIEVEMENT * each(a), 0);
+}
 /** Golden seeds of the squirrel's gift, at the first challenge of the day (#126). */
 export const SEEDS_PER_CHALLENGE = 1;
 /** Leaves the squirrel gives for each of its acorns, at the first challenge of the day (#120). */

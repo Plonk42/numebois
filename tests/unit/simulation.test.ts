@@ -1,5 +1,6 @@
 import { CLEARING } from './helpers';
 import { describe, expect, it } from 'vitest';
+import { questionSeconds, QUESTION_SECONDS } from '../../src/core/economy';
 import { isAcquired, REVIEW_DAYS } from '../../src/core/mastery';
 import { curriculum } from '../../src/core/registry';
 import { Rng } from '../../src/core/rng';
@@ -10,6 +11,8 @@ import type { Domain, Exercise, Skill } from '../../src/core/types';
 import { DOMAINS } from '../../src/domains';
 
 const DAYS = 182;
+/** Seconds of questions of a normal trail of quick questions. */
+const BUDGET = TRAIL_QUESTIONS.normal * QUESTION_SECONDS;
 
 /** A domain of `count` chained notions with 3 levels, standing for the modules to come. */
 function syntheticDomain(index: number, count: number): Domain {
@@ -55,7 +58,7 @@ function sixMonths(domains: readonly Domain[], withHomework: boolean) {
     () => CLEARING,
   );
   const lastSeen = new Map<string, number>();
-  const trails: { stones: number; inProgress: number; reviews: number }[] = [];
+  const trails: { stones: number; seconds: number; inProgress: number; reviews: number }[] = [];
   let forgotten = 0;
   let homework: Skill | null = null;
   let homeworkQuestions = 0;
@@ -73,7 +76,12 @@ function sixMonths(domains: readonly Domain[], withHomework: boolean) {
       }
     }
     if (child.chance(0.15)) continue;
-    for (let trail = child.chance(0.3) ? 2 : 1; trail > 0; trail--) {
+    // The time of one or two trails of quick questions (#153).
+    for (
+      let left = (child.chance(0.3) ? 2 : 1) * BUDGET;
+      left > 0;
+      left -= trails.at(-1)!.seconds
+    ) {
       for (const skill of skills) {
         if (!isAcquired(session.progress.get(skill.id))) continue;
         forgotten = Math.max(forgotten, day - lastSeen.get(skill.id)!);
@@ -82,6 +90,7 @@ function sixMonths(domains: readonly Domain[], withHomework: boolean) {
       const steps = session.trail;
       trails.push({
         stones: session.stones,
+        seconds: 0,
         // In progress: not acquired yet (a homework notion acquired is reviewed).
         inProgress: new Set(
           steps
@@ -103,6 +112,7 @@ function sixMonths(domains: readonly Domain[], withHomework: boolean) {
           !right && child.chance(0.5),
         );
         lastSeen.set(skill.id, day);
+        trails.at(-1)!.seconds += questionSeconds(skill, exercise.level);
         if (skill === homework && session.settings.get(skill.id)?.mode === 'focus') {
           homeworkQuestions++;
         }
@@ -120,13 +130,14 @@ describe('six mois de jeu', () => {
   const futures = Array.from({ length: Math.round((100 - real) / 6) }, (_, i) =>
     syntheticDomain(i, 6),
   );
+  // A long notion takes more time to learn, in trails of the same time (#153): fewer open.
   it.each([
     { name: 'the current registry', domains: DOMAINS, homework: false, opens: 0.8 },
     {
       name: 'a registry of about 100 notions',
       domains: [...DOMAINS, ...futures],
       homework: false,
-      opens: 0.8,
+      opens: 0.75,
     },
     // Half of the trail goes to the homework of the week: fewer notions open (#54).
     {
@@ -139,10 +150,10 @@ describe('six mois de jeu', () => {
       name: 'about 100 notions, homework every week',
       domains: [...DOMAINS, ...futures],
       homework: true,
-      opens: 0.4,
+      opens: 0.35,
     },
   ])(
-    '$name: same trail size, 3 notions in progress, reviews under 25 %, nothing forgotten',
+    '$name: same trail time, 3 notions in progress, reviews under 25 %, nothing forgotten',
     ({ domains, homework, opens }) => {
       const { trails, forgotten, acquired, notions, homeworkQuestions } = sixMonths(
         domains,
@@ -154,8 +165,13 @@ describe('six mois de jeu', () => {
         expect(homeworkQuestions).toBeGreaterThan((trails.length * TRAIL_QUESTIONS.normal) / 4);
       }
       const size = TRAIL_QUESTIONS.normal;
+      // Fewer stones when the questions are long (#153); at worst a warmup, a question, a
+      // finish and one more after a mistake, all long.
+      const seconds = trails.map((trail) => trail.seconds);
+      expect(seconds.reduce((a, b) => a + b, 0) / seconds.length).toBeLessThanOrEqual(BUDGET * 1.1);
       for (const trail of trails) {
-        expect(trail.stones).toBe(size);
+        expect(trail.stones).toBeLessThanOrEqual(size);
+        expect(trail.seconds).toBeLessThanOrEqual(BUDGET * 2.5);
         expect(trail.inProgress).toBeLessThanOrEqual(MAX_ACTIVE);
         expect(trail.reviews).toBeLessThanOrEqual(Math.floor(size * REVIEW_SHARE));
       }

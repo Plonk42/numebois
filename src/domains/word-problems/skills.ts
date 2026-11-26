@@ -18,6 +18,8 @@ export const addSubtract = defineSkill<ProblemExercise>({
   name: 'Problèmes : ajouter ou enlever',
   prerequisites: [ADD, SUBTRACT],
   levels: ADD_SUBTRACT_TEMPLATES.length,
+  // A statement of up to 25 words read at about 70 words a minute, then the operation.
+  questionSeconds: [25, 25, 30, 40],
   generate: generateAddSubtract,
   validate: validateNumber,
   hint: problemHint,
@@ -28,6 +30,7 @@ export const multiply = defineSkill<ProblemExercise>({
   name: 'Problèmes de multiplication',
   prerequisites: [PRODUCTS, ADD_SUBTRACT],
   levels: MULTIPLY_TEMPLATES.length,
+  questionSeconds: [25, 35],
   generate: generateMultiply,
   validate: validateNumber,
   hint: problemHint,

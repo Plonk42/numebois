@@ -49,6 +49,8 @@ export const convert = defineSkill<ConvertExercise>({
   name: 'Convertir',
   prerequisites: [RELATIONS_SKILL],
   levels: CONVERT_LEVELS,
+  // The quantity written in the table, then read in the other unit.
+  questionSeconds: [12, 18, 20, 20, 22],
   generate: generateConvert,
   validate: validateNumber,
   hint: convertHint,
@@ -60,6 +62,8 @@ export const money = defineSkill<MoneyExercise>({
   name: 'La monnaie',
   prerequisites: [WRITE_DIGITS],
   levels: MONEY_LEVELS,
+  // Four to seven coins and notes added one by one.
+  questionSeconds: [20, 25, 25],
   generate: generateMoney,
   validate: validateAny,
   hint: moneyHint,

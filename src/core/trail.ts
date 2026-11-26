@@ -1,10 +1,20 @@
+import { QUESTION_SECONDS, questionSeconds } from './economy';
 import { bestLevel, isAcquired, isDue, type SkillProgress } from './mastery';
 import type { Rng } from './rng';
-import { clampLevel, MAX_FOCUS, modeOf, type Settings, type SkillSetting } from './settings';
+import {
+  clampLevel,
+  MAX_FOCUS,
+  modeOf,
+  settingOf,
+  type Settings,
+  type SkillSetting,
+} from './settings';
 import type { Skill, SkillId } from './types';
 
 export type TrailLength = 'short' | 'normal';
-/** Questions of a trail: about 5 or 10 minutes, whatever the content. */
+/**
+ * Questions of a trail, quick ones: long questions make it shorter, to keep its time (#153).
+ */
 export const TRAIL_QUESTIONS: Record<TrailLength, number> = { short: 6, normal: 10 };
 /** Notions in progress at the same time. */
 export const MAX_ACTIVE = 3;
@@ -43,9 +53,10 @@ export interface TrailInput {
 }
 
 /**
- * The trail of a session: fixed size, at most 3 notions in progress and one novelty. The
- * parent's settings come first: a closed notion never comes, an open one comes without its
- * prerequisites, the notions in focus take at least half of the questions.
+ * The trail of a session: the time of a fixed number of quick questions, at most 3 notions in
+ * progress and one novelty. The parent's settings come first: a closed notion never comes, an
+ * open one comes without its prerequisites, the notions in focus take at least half of the
+ * questions.
  */
 export function composeTrail(input: TrailInput): TrailStep[] {
   const { progress, day, rng, settings } = input;
@@ -109,7 +120,50 @@ export function composeTrail(input: TrailInput): TrailStep[] {
     const at = Math.round(((i + 1) * core.length) / (reviews.length + 1));
     core.splice(at, 0, { skill: skill.id, role: 'review', easy: false });
   });
-  return withFocus([...warmup, ...core, easy('finish')], focus);
+  return fitTime(withFocus([...warmup, ...core, easy('finish')], focus), size, input);
+}
+
+/**
+ * Long questions make a shorter trail (#153): core questions leave, then reviews (they wait for
+ * the next trail), then warmup ones, the last ones and those out of the focus first, until it
+ * takes the time of `size` quick ones; one core and one warmup question stay, and the focus
+ * keeps half of the time.
+ */
+function fitTime(trail: TrailStep[], size: number, input: TrailInput): TrailStep[] {
+  const byId = new Map(input.skills.map((skill) => [skill.id, skill]));
+  const seconds = (step: TrailStep) => {
+    const skill = byId.get(step.skill)!;
+    const level = stepLevel(step, input.progress.get(skill.id), settingOf(input.settings, skill));
+    return questionSeconds(skill, level);
+  };
+  const focus = (step: TrailStep) => modeOf(input.settings, byId.get(step.skill)!) === 'focus';
+  const fitted = [...trail];
+  const sum = (steps: TrailStep[]) => steps.reduce((total, step) => total + seconds(step), 0);
+  let total = sum(fitted);
+  let focused = sum(fitted.filter(focus));
+  const leaving = () => {
+    for (const [role, keep] of [
+      ['core', 1],
+      ['review', 0],
+      ['warmup', 1],
+    ] as const) {
+      const steps = fitted.flatMap((step, i) => (step.role === role ? [i] : []));
+      if (steps.length <= keep) continue;
+      const free = steps.findLast((i) => !focus(fitted[i]));
+      if (free !== undefined) return free;
+      const last = seconds(fitted[steps.at(-1)!]);
+      if (focused - last >= (total - last) / 2) return steps.at(-1);
+    }
+    return undefined;
+  };
+  while (total > size * QUESTION_SECONDS) {
+    const out = leaving();
+    if (out === undefined) break;
+    total -= seconds(fitted[out]);
+    if (focus(fitted[out])) focused -= seconds(fitted[out]);
+    fitted.splice(out, 1);
+  }
+  return fitted;
 }
 
 /**

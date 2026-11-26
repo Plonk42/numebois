@@ -17,9 +17,9 @@ import { modeOf, settingOf, type SkillSetting } from '../core/settings';
 import {
   LEAVES_PER_ACORN,
   leavesPerElement,
-  SEEDS_PER_ACHIEVEMENT,
   SEEDS_PER_CHALLENGE,
   LEAVES_PER_FLASH,
+  seedsOf,
 } from '../core/economy';
 import { Rng } from '../core/rng';
 import {
@@ -1131,7 +1131,7 @@ function Game(props: Props) {
     setBasket(basket + earned);
     const steps: Step[] = [];
     if (achievements.length > 0) {
-      const count = achievements.length * SEEDS_PER_ACHIEVEMENT;
+      const count = seedsOf(achievements, skill, exercise.level);
       const reason = giftReason(achievements[0], skill);
       steps.push(
         {

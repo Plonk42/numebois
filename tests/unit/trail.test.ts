@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { QUESTION_SECONDS, questionSeconds } from '../../src/core/economy';
 import { newProgress, type SkillProgress, type Stage } from '../../src/core/mastery';
 import { Rng } from '../../src/core/rng';
 import { changeSetting, defaultSetting, type SkillMode } from '../../src/core/settings';
@@ -9,6 +10,7 @@ import {
   revisit,
   stepLevel,
   type TrailInput,
+  type TrailStep,
 } from '../../src/core/trail';
 import type { Skill } from '../../src/core/types';
 
@@ -104,6 +106,23 @@ describe('sentier', () => {
   it('is shorter when the answers slow down', () => {
     expect(trail([], { slowing: true })).toHaveLength(TRAIL_QUESTIONS.short);
     expect(trail([], { length: 'short' })).toHaveLength(TRAIL_QUESTIONS.short);
+  });
+
+  it('is shorter with long questions, in the time of the quick ones (#153)', () => {
+    const long = { ...SKILLS[0], questionSeconds: [36, 36, 36] };
+    const skills = [long, ...SKILLS.slice(1)];
+    const steps = trail([at('d.a', 'learning'), at('d.b', 'acquired', { due: 30 })], { skills });
+    const seconds = (s: TrailStep) =>
+      questionSeconds(
+        skills.find((k) => k.id === s.skill)!,
+        1,
+      );
+    expect(steps.length).toBeLessThan(TRAIL_QUESTIONS.normal);
+    expect(steps.reduce((sum, s) => sum + seconds(s), 0)).toBeLessThanOrEqual(
+      TRAIL_QUESTIONS.normal * QUESTION_SECONDS,
+    );
+    expect(steps.filter((s) => s.role === 'core').map((s) => s.skill)).toContain('d.a');
+    expect(steps.at(-1)).toMatchObject({ role: 'finish', easy: true });
   });
 
   it('keeps the acquired notions alive when there is nothing new', () => {

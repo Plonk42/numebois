@@ -52,7 +52,7 @@ export function registryErrors(domains: readonly Domain[]): string[] {
       if (!Number.isInteger(skill.levels) || skill.levels < 1) {
         errors.push(`${skill.id} : niveaux invalides`);
       }
-      errors.push(...factErrors(skill));
+      errors.push(...factErrors(skill), ...secondsErrors(skill));
       skills.set(skill.id, skill);
     }
   }
@@ -62,6 +62,14 @@ export function registryErrors(domains: readonly Domain[]): string[] {
     }
   }
   return [...errors, ...cycleErrors(skills), ...lessonErrors(domains, skills)];
+}
+
+function secondsErrors(skill: Skill): string[] {
+  const seconds = skill.questionSeconds;
+  if (!seconds) return [];
+  return seconds.length === skill.levels && seconds.every((s) => s > 0)
+    ? []
+    : [`${skill.id} : un temps par niveau attendu`];
 }
 
 function factErrors(skill: Skill): string[] {

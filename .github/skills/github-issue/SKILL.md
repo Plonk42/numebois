@@ -25,9 +25,9 @@ Les changements courants (petits ajustements d'interface, corrections mineures, 
 - **Exactement une** catégorie : `bug` (comportement incorrect constaté), `enhancement` (fonctionnalité ou amélioration du jeu) ou `task` (ingénierie, docs, vérification, exploitation).
 - **Exactement une** priorité, justifiée : `priority:p0` (perte de sauvegarde ou d'Album, jeu inutilisable), `priority:p1` (réponse attendue fausse, condition d'un jalon), `priority:p2` (travail normal, par défaut), `priority:p3` (amélioration facultative). Ne jamais déduire l'urgence de la seule formulation.
 - Les domaines `area:*` pertinents parmi ceux existants : `area:render`, `area:pedagogy`, `area:ui`, `area:engine`, `area:save`, `area:assets`, `area:ci`, `area:workflow`. Ne pas créer de label à la volée. `classe` : un écart avec la classe de la semaine (skill `classwork-check`), à fermer avant la série de photos suivante.
-- Facultatif, un statut : `status:backlog` (nouvelle proposition), `status:ready` (travail choisi et faisable) ou `status:blocked` (en nommant le vrai prérequis, la décision ou l'accord attendu).
+- Facultatif, un statut : `status:backlog` (nouvelle proposition) ou `status:ready` (travail choisi et faisable). Pas de statut « bloqué ».
+- Un vrai prérequis devient un sous-ticket (sub-issue) du ticket qu'il bloque, créé ou rattaché avec `gh api` (`POST repos/Plonk42/numebois/issues/<N>/sub_issues`, `sub_issue_id` = id numérique). Une simple proximité de sujet n'est pas une dépendance : la citer avec `#N`.
 - Un jalon existant, choisi d'après sa description réelle. Un jalon fini et fermé n'est jamais rouvert. Un écart avec la classe va dans « Suivre la classe » (permanent), sauf s'il est déjà prévu dans un jalon ouvert. S'il n'y en a aucun qui convient, demander plutôt que d'en créer un.
-- Enregistrer les vrais prérequis comme liens natifs « blocked by ». Une simple proximité de sujet n'est pas une dépendance : utiliser le lien « relates to ».
 
 ## Corps du ticket
 
@@ -36,7 +36,7 @@ Titre concis et actionnable, en français, puis ces sections (adaptées au formu
 - **Objectif :** le résultat attendu pour l'enfant ou le projet, et le comportement actuel vérifié.
 - **Périmètre et hors périmètre :** comportement délimité. Rappeler les contraintes concernées : bienveillance (aucune punition), rendu prioritaire, budget tablette, compatibilité des sauvegardes, fichiers bruts des packs hors du dépôt.
 - **Critères d'acceptation :** liste observable, avec les tests et la vérification visuelle attendus. Distinguer l'acceptation proposée de la livraison vérifiée.
-- **Dépendances et jalon :** tickets liés (`#N`, plus le lien natif), jalon proposé, vrais blocages.
+- **Dépendances et jalon :** tickets liés (`#N`), jalon proposé, prérequis bloquants (en sous-tickets).
 - **État et accord :** proposition ou travail approuvé.
 - **Justification de la priorité.**
 - **Prochaine action :** la plus petite étape concrète, et la décision du propriétaire attendue s'il y en a une.
