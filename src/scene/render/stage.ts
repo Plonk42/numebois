@@ -27,7 +27,9 @@ const APPROACH_DISTANCE = 0.45;
  * The slow orbit over the whole painting that shows its relief by parallax (#148): degrees
  * each side, seconds per turn, and seconds to fade in at rest or out when something else moves.
  */
-export const ORBIT = { yaw: 4, pitch: 0.8, period: 48, fadeIn: 3, fadeOut: 0.8 } as const;
+export const ORBIT = { yaw: 6, pitch: 3, period: 30, fadeIn: 3, fadeOut: 0.8 } as const;
+/** CSS pixels at the bottom of the screen kept for the trail (`#trail`): the painting frames above. */
+export const TRAIL_ROOM_PX = 92;
 
 const smooth = (x: number) => {
   const t = Math.min(1, Math.max(0, x));
@@ -63,6 +65,8 @@ export class Stage {
   private yaw = 0;
   private pitch = 0.47;
   private frameBox: Frame | null = null;
+  /** Share of the screen height kept for the trail. */
+  private room = 0;
 
   private readonly focusPoint = new THREE.Vector3();
   private focusStart = -100;
@@ -118,7 +122,10 @@ export class Stage {
     this.renderer.setPixelRatio(Math.min(screenPixelRatio(), this.pixelRatioCap));
     this.renderer.setSize(width, height, false);
     this.camera.aspect = width / height;
-    this.camera.updateProjectionMatrix();
+    // The centre of the view moves up into the screen above the trail.
+    const room = Math.min(TRAIL_ROOM_PX, height * 0.2);
+    this.room = room / height;
+    this.camera.setViewOffset(width, height, 0, room / 2, width, height);
     if (this.frameBox) this.frame(this.frameBox);
   }
 
@@ -131,8 +138,9 @@ export class Stage {
     const dir = this.direction(this.yaw, this.pitch, this.viewOffset);
     const right = new THREE.Vector3().crossVectors(THREE.Object3D.DEFAULT_UP, dir).normalize();
     const up = new THREE.Vector3().crossVectors(dir, right);
-    const tanV = Math.tan((this.camera.fov * Math.PI) / 360);
-    const tanH = tanV * this.camera.aspect;
+    const tanFull = Math.tan((this.camera.fov * Math.PI) / 360);
+    const tanH = tanFull * this.camera.aspect;
+    const tanV = tanFull * (1 - this.room);
     const margin = 0.94;
     let distance = 0;
     const corner = new THREE.Vector3();
@@ -374,7 +382,13 @@ export class Stage {
    * pixels wide (Album, choice of the next painting); the frame loop draws over it next.
    */
   capture(width: number): string {
+    // No trail over a picture: the painting in the middle.
+    const view = this.home.view;
+    if (view) view.enabled = false;
+    this.home.updateProjectionMatrix();
     this.renderer.render(this.scene, this.home);
+    if (view) view.enabled = true;
+    this.home.updateProjectionMatrix();
     const source = this.renderer.domElement;
     const image = document.createElement('canvas');
     image.width = width;
