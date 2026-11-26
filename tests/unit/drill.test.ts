@@ -2,6 +2,7 @@ import { CLEARING } from './helpers';
 import { describe, expect, it } from 'vitest';
 import {
   COMEBACK,
+  SPACING,
   Drill,
   DRILL_RATE,
   HARD_RUN,
@@ -242,6 +243,28 @@ describe('drill', () => {
       skill: products.id,
       group: 'table-7',
     });
+  });
+
+  it('waits before asking a fact again, round after round (#149)', () => {
+    const sums = SKILLS.find((skill) => skill.id === 'mental-math.sums')!;
+    for (let seed = 0; seed < 200; seed++) {
+      const player = session();
+      for (let round = 0; round < 3; round++) {
+        const drill = new Drill(
+          player,
+          { kind: 'skill', skill: sums.id, group: 'to-10' },
+          new Rng(seed * 10 + round),
+        );
+        const asked: string[] = [];
+        for (let i = 0; i < 20; i++) {
+          const { skill, exercise } = drill.ask();
+          const fact = skill.facts!.of(exercise)!;
+          expect(asked.slice(-SPACING)).not.toContain(fact);
+          asked.push(fact);
+          drill.conclude(skill, exercise, true, 1700);
+        }
+      }
+    }
   });
 
   it('plays only notions with facts, known by heart', () => {

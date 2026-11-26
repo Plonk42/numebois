@@ -22,6 +22,8 @@ export const HARD_RUN = 2;
 export const FRAGILE_FACTS = 6;
 /** Draws to avoid asking the same question twice in a row. */
 const REDRAWS = 20;
+/** Questions before a fact is asked again, unless too few are left (#149). */
+export const SPACING = 6;
 
 /** A fact to ask, with its notion. */
 interface Item {
@@ -50,6 +52,8 @@ export class Drill {
   private readonly missed: (Question & { at: number })[] = [];
   private hardRun = 0;
   private previous: Exercise | null = null;
+  /** The facts of the last questions, the latest last. */
+  private recent: FactId[] = [];
 
   constructor(
     private readonly session: Session,
@@ -66,15 +70,20 @@ export class Drill {
       return this.posed({ skill, exercise });
     }
     const { hard, sure } = this.items();
+    // A fact asked lately waits its turn, as long as others are left (#149).
+    const fresh = (items: Item[]) => {
+      const left = items.filter((item) => !this.recent.includes(item.fact));
+      return left.length > 0 ? left : items;
+    };
+    const freshSure = sure.filter((item) => !this.recent.includes(item.fact));
     // Sure questions while a missed one waits to come back.
     const wantSure =
       sure.length > 0 &&
       (hard.length === 0 ||
-        this.missed.length > 0 ||
-        this.hardRun >= HARD_RUN ||
-        this.rate() < DRILL_RATE);
+        (freshSure.length > 0 &&
+          (this.missed.length > 0 || this.hardRun >= HARD_RUN || this.rate() < DRILL_RATE)));
     this.hardRun = wantSure ? 0 : this.hardRun + 1;
-    const pool = wantSure ? sure : hard;
+    const pool = fresh(wantSure ? sure : hard);
     let question = this.pose(this.rng.pick(pool));
     for (let i = 0; i < REDRAWS && this.same(question.exercise); i++) {
       question = this.pose(this.rng.pick(pool));
@@ -117,6 +126,8 @@ export class Drill {
 
   private posed(question: Question): Question {
     this.previous = question.exercise;
+    const fact = question.skill.facts!.of(question.exercise)!;
+    this.recent = [...this.recent, fact].slice(-SPACING);
     return question;
   }
 
