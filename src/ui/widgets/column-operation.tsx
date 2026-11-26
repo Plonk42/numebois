@@ -76,6 +76,8 @@ export function ColumnOperation({
   const [slip, setSlip] = useState<string | null>(null);
   /** Alone: the box of the first column that jams, with the digit sent. */
   const [jam, setJam] = useState<{ key: string; value: string } | null>(null);
+  /** The table of the multiplier, shown on demand in place of the operation (#49). */
+  const [table, setTable] = useState(false);
   // Fast typing comes before the next render: read and write the latest state here.
   const latest = useRef({ values, cursor });
   const slipped = useRef(false);
@@ -182,13 +184,16 @@ export function ColumnOperation({
   const width = columns.length;
   const active = spots[cursor];
   const columnOf = (rank: number) => width - rank + 1;
-  const resultRow = rows.length + 4;
-  const box = (spot: Spot) => {
+  // A multiplication keeps its carry in the bag beside it, not over the columns (#49).
+  const bagged = input.operator === '×';
+  const top = bagged ? 2 : 3;
+  const resultRow = rows.length + top + 1;
+  const box = (spot: Spot, inBag = false) => {
     const key = keyOf(spot);
     let value = values[key] ?? '';
     let state = value ? 'filled' : 'empty';
-    if (shown !== null) [value, state] = [expected(columns, spot), 'shown'];
-    else if (right) state = 'right';
+    if (shown !== null) [value, state] = [inBag ? '' : expected(columns, spot), 'shown'];
+    else if (right) [value, state] = [inBag ? '' : value, 'right'];
     else if (key === slip || (jam?.key === key && jam.value === value)) state = 'tried';
     if (!locked && active && keyOf(active) === key) state += ' cursor';
     const rank = spot.column;
@@ -197,9 +202,17 @@ export function ColumnOperation({
         key={key}
         type="button"
         class={`box ${spot.kind} r${rank} ${state}`}
-        style={{ gridColumn: columnOf(rank), gridRow: spot.kind === 'digit' ? resultRow : 2 }}
+        style={
+          inBag
+            ? undefined
+            : { gridColumn: columnOf(rank), gridRow: spot.kind === 'digit' ? resultRow : 2 }
+        }
         disabled={locked || mode !== 'alone'}
-        aria-label={`${spot.kind === 'digit' ? 'Chiffre' : 'Retenue'} des ${NAMES[rank]}`}
+        aria-label={
+          inBag
+            ? 'Sac à retenue'
+            : `${spot.kind === 'digit' ? 'Chiffre' : 'Retenue'} des ${NAMES[rank]}`
+        }
         onPointerDown={(event) => {
           event.preventDefault();
           if (locked || mode !== 'alone') return;
@@ -213,6 +226,9 @@ export function ColumnOperation({
       </button>
     );
   };
+  // The bag holds the carry the column in progress receives, or the one it sends.
+  const bagSpot =
+    spots.find((spot) => spot.kind === 'carry' && active && spot.column === active.column) ?? null;
 
   const coach = active && !locked ? columns[sourceOf(active)] : null;
   let bubble: { title: string; text: string } | null = null;
@@ -225,48 +241,81 @@ export function ColumnOperation({
   return (
     <>
       <Work>
-        <div
-          class="statement column-operation"
-          aria-label={exercise.statement}
-          style={{
-            gridTemplateColumns: `44px repeat(${width}, 68px)`,
-            gridTemplateRows: `30px 60px repeat(${rows.length}, 50px) 6px 64px`,
-          }}
-        >
-          {ranks.map((rank) => (
-            <span
-              key={`band-${rank}`}
-              class={`band r${rank}${coach && sourceOf(active) === rank ? ' active' : ''}`}
-              style={{ gridColumn: columnOf(rank), gridRow: '1 / -1' }}
-            />
-          ))}
-          {ranks.map((rank) => (
-            <span
-              key={`rank-${rank}`}
-              class={`rank r${rank}`}
-              style={{ gridColumn: columnOf(rank), gridRow: 1 }}
-            >
-              {RANKS[rank]}
-            </span>
-          ))}
-          {spots.filter((spot) => spot.kind === 'carry').map(box)}
-          {rows.flatMap((n, row) =>
-            [...String(n)].reverse().map((digit, rank) => (
+        {table && (
+          <ol class="table-of" aria-label={`La table de ${rows[1]}`}>
+            {Array.from({ length: 10 }, (_, i) => (
+              <li key={i}>
+                {rows[1]} × {i + 1} = {rows[1] * (i + 1)}
+              </li>
+            ))}
+          </ol>
+        )}
+        <div class="column-layout" hidden={table}>
+          <div
+            class="statement column-operation"
+            aria-label={exercise.statement}
+            style={{
+              gridTemplateColumns: `44px repeat(${width}, 68px)`,
+              gridTemplateRows: `30px ${bagged ? '' : '60px '}repeat(${rows.length}, 50px) 6px 64px`,
+            }}
+          >
+            {ranks.map((rank) => (
               <span
-                key={`term-${row}-${rank}`}
-                class="term"
-                style={{ gridColumn: columnOf(rank), gridRow: row + 3 }}
+                key={`band-${rank}`}
+                class={`band r${rank}${coach && sourceOf(active) === rank ? ' active' : ''}`}
+                style={{ gridColumn: columnOf(rank), gridRow: '1 / -1' }}
+              />
+            ))}
+            {ranks.map((rank) => (
+              <span
+                key={`rank-${rank}`}
+                class={`rank r${rank}`}
+                style={{ gridColumn: columnOf(rank), gridRow: 1 }}
               >
-                {digit}
+                {RANKS[rank]}
               </span>
-            )),
+            ))}
+            {!bagged && spots.filter((spot) => spot.kind === 'carry').map((spot) => box(spot))}
+            {rows.flatMap((n, row) =>
+              [...String(n)].reverse().map((digit, rank) => (
+                <span
+                  key={`term-${row}-${rank}`}
+                  class="term"
+                  style={{ gridColumn: columnOf(rank), gridRow: row + top }}
+                >
+                  {digit}
+                </span>
+              )),
+            )}
+            <span class="sign" style={{ gridColumn: 1, gridRow: rows.length + top - 1 }}>
+              {input.operator}
+            </span>
+            <span class="line" style={{ gridColumn: '1 / -1', gridRow: rows.length + top }} />
+            {spots.filter((spot) => spot.kind === 'digit').map((spot) => box(spot))}
+          </div>
+          {bagged && (
+            <div class="bag">
+              <span>Sac</span>
+              {bagSpot ? (
+                box(bagSpot, true)
+              ) : (
+                <button type="button" class="box carry empty" disabled aria-label="Sac à retenue" />
+              )}
+            </div>
           )}
-          <span class="sign" style={{ gridColumn: 1, gridRow: rows.length + 2 }}>
-            {input.operator}
-          </span>
-          <span class="line" style={{ gridColumn: '1 / -1', gridRow: rows.length + 3 }} />
-          {spots.filter((spot) => spot.kind === 'digit').map(box)}
         </div>
+        {bagged && (
+          <button
+            type="button"
+            class="table-toggle"
+            onPointerDown={(event) => {
+              event.preventDefault();
+              setTable(!table);
+            }}
+          >
+            {table ? 'Revenir à l’opération' : `Voir la table de ${rows[1]}`}
+          </button>
+        )}
       </Work>
       {bubble && (
         <div class="hint coach">

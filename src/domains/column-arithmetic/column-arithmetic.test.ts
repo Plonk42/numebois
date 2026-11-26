@@ -1,8 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { Rng } from '../../core/rng';
-import { addColumns, carryCount } from './columns';
-import { ADD_LEVELS, fitsAddLevel, generateAddition } from './generators';
-import { additionHint } from './hints';
+import { addColumns, carryCount, multiplyColumns } from './columns';
+import {
+  ADD_LEVELS,
+  fitsAddLevel,
+  fitsMultiplyLevel,
+  generateAddition,
+  generateMultiplication,
+  MULTIPLY_LEVELS,
+} from './generators';
+import { additionHint, multiplicationHint } from './hints';
 
 const MODES = ['guided', 'guided', 'accompanied', 'accompanied', 'alone', 'alone'];
 
@@ -66,5 +73,61 @@ describe('poser une addition', () => {
     const exercise = generateAddition(new Rng(1), 4);
     expect(additionHint(exercise, 1)).toContain('de droite à gauche');
     expect(additionHint(exercise, 2)).toContain(`= `);
+  });
+});
+
+describe('poser une multiplication (#49)', () => {
+  const MULTIPLY_MODES = ['guided', 'guided', 'accompanied', 'accompanied', 'alone', 'alone'];
+
+  it('a une règle par niveau, sur 1 000 graines', () => {
+    expect(MULTIPLY_MODES).toHaveLength(MULTIPLY_LEVELS);
+    for (let level = 0; level < MULTIPLY_LEVELS; level++) {
+      for (let seed = 0; seed < 1000; seed++) {
+        const exercise = generateMultiplication(new Rng(seed), level);
+        const { a, b, input } = exercise;
+        expect(fitsMultiplyLevel(a, b, level), `${a} × ${b} au niveau ${level}`).toBe(true);
+        expect(input.kind === 'column' && input.mode).toBe(MULTIPLY_MODES[level]);
+        expect(b).toBeGreaterThanOrEqual(2);
+        expect(b).toBeLessThanOrEqual(9);
+        expect(a * b).toBeLessThanOrEqual(9999);
+      }
+    }
+  });
+
+  it('pose les chiffres et le sac à retenue d’un calcul direct, sur 1 000 graines', () => {
+    for (let level = 0; level < MULTIPLY_LEVELS; level++) {
+      for (let seed = 0; seed < 1000; seed++) {
+        const { a, b, answer } = generateMultiplication(new Rng(seed), level);
+        const columns = multiplyColumns(a, b);
+        expect(answer).toBe(String(a * b));
+        expect(
+          columns
+            .map((c) => c.digit)
+            .reverse()
+            .join(''),
+        ).toBe(String(a * b));
+        // Column by column: the digit of `a` times `b`, plus what waits in the bag.
+        let bag = 0;
+        columns.forEach((column, rank) => {
+          const total = (Math.floor(a / 10 ** rank) % 10) * b + bag;
+          expect([column.digit, column.carry]).toEqual([total % 10, Math.floor(total / 10)]);
+          bag = column.carry;
+        });
+        expect(columns.at(-1)!.carry).toBe(0);
+      }
+    }
+  });
+
+  it('dit ce que Plume écrit et ce qu’elle met dans le sac', () => {
+    expect(multiplyColumns(347, 6)).toEqual([
+      { digit: 2, carry: 4, calc: '7 × 6 = 42', say: 'J’écris 2, je mets 4 dans le sac.' },
+      { digit: 8, carry: 2, calc: '4 × 6 + 4 = 28', say: 'J’écris 8, je mets 2 dans le sac.' },
+      { digit: 0, carry: 2, calc: '3 × 6 + 2 = 20', say: 'J’écris 0, je mets 2 dans le sac.' },
+      { digit: 2, carry: 0, calc: 'Il reste 2 dans le sac', say: 'J’écris 2.' },
+    ]);
+    expect(multiplyColumns(1205, 7).map((c) => c.digit)).toEqual([5, 3, 4, 8]);
+    const exercise = generateMultiplication(new Rng(2), 4);
+    expect(multiplicationHint(exercise, 1)).toContain(`par ${exercise.b}`);
+    expect(multiplicationHint(exercise, 2)).toContain('=');
   });
 });

@@ -37,3 +37,27 @@ export function addColumns(rows: readonly number[]): Column[] {
 /** Carries of an addition: columns that send one over the next. */
 export const carryCount = (columns: readonly Column[]) =>
   columns.filter((column) => column.carry > 0).length;
+
+/**
+ * The columns of `a × b` (b of one digit) set out on a sheet, from the units: each digit of `a`
+ * times `b`, plus what waits in the bag of carries, the digit written under the line and what
+ * goes into the bag for the next column (the school's « sac à retenue », #49).
+ */
+export function multiplyColumns(a: number, b: number): Column[] {
+  const width = rankCount(a * b);
+  const columns: Column[] = [];
+  let received = 0;
+  for (let rank = 0; rank < width; rank++) {
+    const own = rank < rankCount(a);
+    const total = own ? digitAt(a, rank) * b + received : received;
+    const digit = total % 10;
+    const carry = Math.floor(total / 10);
+    let calc = `${digitAt(a, rank)} × ${b} = ${total}`;
+    if (!own) calc = `Il reste ${received} dans le sac`;
+    else if (received > 0) calc = `${digitAt(a, rank)} × ${b} + ${received} = ${total}`;
+    const say = carry > 0 ? `J’écris ${digit}, je mets ${carry} dans le sac.` : `J’écris ${digit}.`;
+    columns.push({ digit, carry, calc, say });
+    received = carry;
+  }
+  return columns;
+}

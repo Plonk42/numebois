@@ -518,6 +518,7 @@ Dépend de 1 et 2. Les sous-phases sont indépendantes entre elles. Chaque ateli
    - autonome : vérification à la fin, en montrant doucement la première colonne qui coince.
 5. Le module calcule les chiffres et les retenues attendus par colonne. Le widget ne fait qu'afficher.
 6. Réalisé pour l'addition (#48) : notion `column-arithmetic.add` (« Poser une addition », prérequis : additionner de tête), saisie `column` (`ExerciseInput` : nombres, colonnes attendues `Column` avec leur calcul et la phrase de Plume, mode), widget `ColumnOperation` (`src/ui/widgets/column-operation.tsx`) avec le pavé à droite. Six niveaux : guidé (2 nombres de 2 chiffres, puis de 3 avec 2 retenues), accompagné (2 nombres de 3 chiffres, puis 3 de 2 chiffres), seul (2 nombres de 3 ou 4 chiffres, puis 3 de 2 à 4 chiffres, 2 retenues ou plus) ; résultat jusqu'à 9 999 (nombres du CE2). Guidé : un chiffre qui n'est pas le bon attend dans sa case, sans compter. Accompagné : il compte comme un essai manqué pour la maîtrise (`onSlip`), la bulle donne le calcul de la colonne. Seul : ✓ à la fin, puis le parcours habituel (indice, puis réponse montrée) ; la première colonne qui coince est montrée doucement, le curseur y va, un appui sur une case l'y déplace. L'étape facultative d'alignement n'est pas faite.
+7. Réalisé pour la multiplication par un nombre d'un chiffre (#49) : notion `column-arithmetic.multiply` (« Poser une multiplication », prérequis : poser une addition et les tables), même saisie (`operator: '×'`, colonnes `multiplyColumns`) et mêmes trois modes, six niveaux (2 chiffres par 2 à 5, puis 3 chiffres, multiplicateur 6 à 9, 4 chiffres avec un zéro ; résultat jusqu'à 9 999). Méthode de l'école de l'enfant : la retenue va « à côté, dans le sac à retenue » (une case à côté de l'opération, qui garde la retenue de la colonne en cours ; Plume : « J'écris 2, je mets 4 dans le sac. »). « Voir la table de 6 » montre la table du multiplicateur à la place de l'opération, le temps d'y jeter un œil, sans compter.
 
 ### 5b. `time`
 
@@ -716,7 +717,7 @@ Vérification : frontmatter YAML valide, `name` identique au nom du dossier, `de
 3. Grands moments intégrés aux paliers (#81) : la chaîne au palier 6 et le lac au palier 8, à valider sur les planches ; la taille de la montagne de fond aux derniers paliers, où le massif occupe déjà le haut de l'écran.
 4. Changement de palier : aujourd'hui le tableau est reconstruit d'un coup. Animer la transition (le tableau qui s'étend, la montagne qui monte, l'eau qui arrive) serait un moment fort : à concevoir.
 5. Taille du tableau : au dernier palier la caméra est nettement plus loin qu'avant, donc les fleurs et les petits détails sont plus petits à l'écran (entre 1,5 et 2 fois, estimé sur les captures, pas mesuré). Lisibilité et fluidité à vérifier sur la vraie tablette (ticket #3).
-6. Méthode de multiplication posée de l'école (position des retenues) : à vérifier sur un cahier de l'enfant.
+6. Tranché (propriétaire, 2026-11-26) : à l'école de l'enfant, la retenue d'une multiplication posée va « à côté, dans le sac à retenue » (#49).
 7. Notation de l'heure attendue (« 14 h 10 », « 14:10 » ou « 2 h 10 de l'après-midi ») : réglable par exercice.
 8. Fractions vues en classe : liste des dénominateurs.
 9. Seuil d'automatisation (environ 3 s) : à ajuster après quelques sessions réelles, grâce au tableau de bord.

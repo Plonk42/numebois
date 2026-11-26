@@ -1,7 +1,7 @@
 import type { Rng } from '../../core/rng';
 import type { ColumnMode, Exercise } from '../../core/types';
 import { formatNumber } from '../numbers/words';
-import { addColumns, carryCount, rankCount } from './columns';
+import { addColumns, carryCount, multiplyColumns, rankCount } from './columns';
 
 export const ADD = 'column-arithmetic.add';
 
@@ -129,5 +129,92 @@ export function generateAddition(rng: Rng, level: number): AdditionExercise {
       return rng.int(10 ** (rank - 1), 10 ** rank - 1);
     });
     if (fitsAddLevel(rows, level)) return addition(rows, level);
+  }
+}
+
+export const MULTIPLY = 'column-arithmetic.multiply';
+
+/** `a × b`, `b` of one digit; the rows are the two numbers. */
+export interface MultiplicationExercise extends Exercise {
+  a: number;
+  b: number;
+}
+
+interface MultiplyLevel {
+  mode: ColumnMode;
+  /** Ranks of `a`, drawn between the two. */
+  ranks: readonly [number, number];
+  /** The multiplier, drawn between the two. */
+  factor: readonly [number, number];
+  /** At least this many carries. */
+  carries: number;
+  /** A zero among the digits of `a` (1 205 × 7). */
+  zero?: boolean;
+}
+
+/**
+ * Levels of « poser une multiplication », by a number of one digit, results up to 9 999:
+ * 0. guided, 2 digits by 2 to 5, a carry: 23 × 4;
+ * 1. guided, 3 digits by 2 to 9, two carries or more: 347 × 6;
+ * 2. accompanied, 2 digits by 6 to 9, a carry or more;
+ * 3. accompanied, 3 digits by 2 to 9, two carries or more;
+ * 4. alone, 3 digits by 6 to 9, two carries or more;
+ * 5. alone, 4 digits with a zero, by 2 to 9, a carry or more.
+ */
+const MULTIPLY_BY_LEVEL: readonly MultiplyLevel[] = [
+  { mode: 'guided', ranks: [2, 2], factor: [2, 5], carries: 1 },
+  { mode: 'guided', ranks: [3, 3], factor: [2, 9], carries: 2 },
+  { mode: 'accompanied', ranks: [2, 2], factor: [6, 9], carries: 1 },
+  { mode: 'accompanied', ranks: [3, 3], factor: [2, 9], carries: 2 },
+  { mode: 'alone', ranks: [3, 3], factor: [6, 9], carries: 2 },
+  { mode: 'alone', ranks: [4, 4], factor: [2, 9], carries: 1, zero: true },
+];
+
+export const MULTIPLY_LEVELS = MULTIPLY_BY_LEVEL.length;
+
+const MULTIPLY_INSTRUCTIONS: Record<ColumnMode, string> = {
+  ...INSTRUCTIONS,
+  alone: 'Calcule la multiplication posée.',
+};
+
+export const multiplyStatement = (a: number, b: number) =>
+  `${formatNumber(a)}${SPACE}×${SPACE}${b}`;
+
+export function multiplication(a: number, b: number, level: number): MultiplicationExercise {
+  const { mode } = MULTIPLY_BY_LEVEL[level];
+  return {
+    skill: MULTIPLY,
+    level,
+    instruction: MULTIPLY_INSTRUCTIONS[mode],
+    statement: multiplyStatement(a, b),
+    input: { kind: 'column', operator: '×', rows: [a, b], columns: multiplyColumns(a, b), mode },
+    answer: String(a * b),
+    a,
+    b,
+  };
+}
+
+/** Whether `a × b` fits a level: its ranks and multiplier, a result up to 9 999, the carries. */
+export function fitsMultiplyLevel(a: number, b: number, level: number): boolean {
+  const { ranks, factor, carries, zero } = MULTIPLY_BY_LEVEL[level];
+  return (
+    rankCount(a) >= ranks[0] &&
+    rankCount(a) <= ranks[1] &&
+    b >= factor[0] &&
+    b <= factor[1] &&
+    a * b <= MAX_RESULT &&
+    (!zero || String(a).slice(1).includes('0')) &&
+    carryCount(multiplyColumns(a, b)) >= carries
+  );
+}
+
+export function generateMultiplication(rng: Rng, level: number): MultiplicationExercise {
+  if (level < 0 || level >= MULTIPLY_LEVELS) throw new RangeError(`niveau ${level}`);
+  const { ranks, factor } = MULTIPLY_BY_LEVEL[level];
+  for (;;) {
+    const rank = rng.int(ranks[0], ranks[1]);
+    const a = rng.int(10 ** (rank - 1), 10 ** rank - 1);
+    const b = rng.int(factor[0], factor[1]);
+    if (fitsMultiplyLevel(a, b, level)) return multiplication(a, b, level);
   }
 }

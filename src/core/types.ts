@@ -45,11 +45,12 @@ export type ExerciseInput =
   | { kind: 'number-line'; line: NumberLine }
   /**
    * An operation set out in columns, its result written digit by digit from the units, each
-   * carry over the next column; the answer is the result.
+   * carry over the next column (or in the bag, for a multiplication); the answer is the result.
    */
   | {
       kind: 'column';
-      operator: '+';
+      /** A multiplication's carry waits in the bag beside it (« sac à retenue »). */
+      operator: '+' | '×';
       rows: readonly number[];
       /** From the units, as many as the digits of the result. */
       columns: readonly Column[];
