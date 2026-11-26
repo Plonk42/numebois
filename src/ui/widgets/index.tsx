@@ -3,6 +3,7 @@ import { useState } from 'preact/hooks';
 import type { Exercise, ExerciseInput, Figure } from '../../core/types';
 import { AnswerZone, Statement, Work, Written } from '../slate';
 import { Choice } from './choice';
+import { ColumnOperation } from './column-operation';
 import { CompareSigns } from './compare';
 import { Answer, Keypad, useEntry } from './keypad';
 import { NumberLineFigure, NumberLinePlace } from './number-line';
@@ -19,6 +20,8 @@ export interface WidgetProps<I extends ExerciseInput = ExerciseInput> {
   /** The expected answer, shown after the second mistake. */
   shown: string | null;
   onSubmit(answer: string): void;
+  /** A slip caught inside the widget (a column checked as it is written): not a first try. */
+  onSlip?(): void;
 }
 
 type Widgets = {
@@ -89,7 +92,7 @@ function Typed({
       )}
       <AnswerZone>
         {!inline && answer}
-        <Keypad entry={entry} locked={locked} press={press} />
+        <Keypad ready={entry !== ''} locked={locked} press={press} />
       </AnswerZone>
     </>
   );
@@ -112,6 +115,7 @@ const WIDGETS: Widgets = {
   ),
   compare: CompareSigns,
   'number-line': NumberLinePlace,
+  column: ColumnOperation,
 };
 
 /** The widget of the exercise's input. */

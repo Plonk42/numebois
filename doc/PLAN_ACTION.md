@@ -344,7 +344,7 @@ Principe : le contenu grandit, mais la charge par session reste fixe. Tout est l
 ### Deux façons de jouer
 
 1. **Sentier**, le mode par défaut, guidé et à budget fixe :
-   - échauffement : 2 ou 3 questions faciles ;
+   - échauffement : 2 ou 3 questions faciles, sur les notions acquises vues il y a le plus longtemps (#48 : une notion ancrée n'a plus de révision prévue et ne doit pas attendre le hasard) ;
    - cœur : 6 à 8 questions sur la notion en cours ou en focus ;
    - au plus une nouveauté (leçon, atelier ou défi) ;
    - fin sur une réussite, puis résumé.
@@ -516,6 +516,7 @@ Dépend de 1 et 2. Les sous-phases sont indépendantes entre elles. Chaque ateli
    - accompagné : vérification colonne par colonne, l'indice est le calcul de la colonne ;
    - autonome : vérification à la fin, en montrant doucement la première colonne qui coince.
 5. Le module calcule les chiffres et les retenues attendus par colonne. Le widget ne fait qu'afficher.
+6. Réalisé pour l'addition (#48) : notion `column-arithmetic.add` (« Poser une addition », prérequis : additionner de tête), saisie `column` (`ExerciseInput` : nombres, colonnes attendues `Column` avec leur calcul et la phrase de Plume, mode), widget `ColumnOperation` (`src/ui/widgets/column-operation.tsx`) avec le pavé à droite. Six niveaux : guidé (2 nombres de 2 chiffres, puis de 3 avec 2 retenues), accompagné (2 nombres de 3 chiffres, puis 3 de 2 chiffres), seul (2 nombres de 3 ou 4 chiffres, puis 3 de 2 à 4 chiffres, 2 retenues ou plus) ; résultat jusqu'à 9 999 (nombres du CE2). Guidé : un chiffre qui n'est pas le bon attend dans sa case, sans compter. Accompagné : il compte comme un essai manqué pour la maîtrise (`onSlip`), la bulle donne le calcul de la colonne. Seul : ✓ à la fin, puis le parcours habituel (indice, puis réponse montrée) ; la première colonne qui coince est montrée doucement, le curseur y va, un appui sur une case l'y déplace. L'étape facultative d'alignement n'est pas faite.
 
 ### 5b. `time`
 
@@ -876,3 +877,4 @@ Vérification : frontmatter YAML valide, `name` identique au nom du dossier, `de
 - 2026-11-26 : montagne des torrents, retour du propriétaire : tous les torrents finissent par une chute qui tombe de l'île, de tailles différentes, à l'avant et sur les côtés (`outflows` de la disposition : le bassin, le petit lac, des sources sur les gradins bas ; l'eau descend le fond au lieu d'y rester à plat).
 - 2026-11-26 : animaux de la montagne (#136, demande du propriétaire) : marmotte, chamois et bouquetin faits avec le MCP Blender à partir de la biche, du cerf et du renard de Quaternius (`scripts/mountain_animals.py`, `AnimalSource.made`), en vente dans la montagne à la place du cerf, de la biche et de l'alpaga. `animals.glb` passe de 1 025 à 1 333 ko.
 - 2026-11-26 : aigles de la montagne (#136, demande du propriétaire) : un aigle animé fait avec le MCP Blender (`scripts/eagle.py`, 362 triangles, 25 ko) ; les deux aigles planent autour du grand pic et se posent tour à tour sur les sommets (`Drifter.perches`, point le plus haut de la grille du sol sur chaque pic ; `render/soaring.ts`).
+- 2026-11-26 : addition posée (#48, M3) : domaine `column-arithmetic`, notion `column-arithmetic.add`, saisie `column` et widget `ColumnOperation` (voir 5a). Les chiffres et les retenues de chaque colonne sont calculés par le module et comparés à un calcul direct sur 1 000 graines par niveau. Ajouter une notion a déplacé le tirage de la simulation de six mois : avec 100 notions, une notion ancrée restait jusqu'à 65 jours sans revenir selon la graine. L'échauffement et la question de fin vont donc aux notions vues il y a le plus longtemps (au lieu d'un tirage au sort) : 12 à 20 jours au pire sur 10 graines.

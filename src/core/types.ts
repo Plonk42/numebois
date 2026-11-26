@@ -11,6 +11,25 @@ export interface NumberLine {
   labels: readonly number[];
 }
 
+/** One column of an operation set out on a sheet, from the units: what is written in it. */
+export interface Column {
+  /** Written under the line. */
+  digit: number;
+  /** Written over the next column (0: none). */
+  carry: number;
+  /** Its calculation, with the carry it receives: « 1 + 4 + 7 = 12 ». */
+  calc: string;
+  /** What Plume says while guiding: « J’écris 2, je retiens 1. » */
+  say: string;
+}
+
+/**
+ * How much the column operation helps: Plume tells each column (`guided`), each
+column is
+ * checked as it is written (`accompanied`), or the whole result at the end (`alone`).
+ */
+export type ColumnMode = 'guided' | 'accompanied' | 'alone';
+
 /** How the child answers; the shared widget of the same name collects the answer. */
 export type ExerciseInput =
   | {
@@ -23,7 +42,19 @@ export type ExerciseInput =
   /** `<`, `=` or `>` set between two numbers, changed at will, then confirmed. */
   | { kind: 'compare'; left: string; right: string }
   /** A number placed with the finger on a tick of the line. */
-  | { kind: 'number-line'; line: NumberLine };
+  | { kind: 'number-line'; line: NumberLine }
+  /**
+   * An operation set out in columns, its result written digit by digit from the units, each
+   * carry over the next column; the answer is the result.
+   */
+  | {
+      kind: 'column';
+      operator: '+';
+      rows: readonly number[];
+      /** From the units, as many as the digits of the result. */
+      columns: readonly Column[];
+      mode: ColumnMode;
+    };
 
 /** What the child looks at without touching it, under the statement (one component per kind). */
 export type Figure =

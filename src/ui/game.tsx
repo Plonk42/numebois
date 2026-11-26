@@ -378,6 +378,8 @@ function Game(props: Props) {
   const timer = useRef(0);
   const shownAt = useRef(playClock());
   const firstAnswerMs = useRef<number | null>(null);
+  /** A slip the widget caught before any answer (a column checked as it is written, #48). */
+  const slipped = useRef(false);
   const [recommended, setRecommended] = useState(props.recommended);
   /** The play in progress, for the parent dashboard: questions, right first, time spent. */
   const tally = useRef({ questions: 0, right: 0, ms: 0 });
@@ -551,6 +553,7 @@ function Game(props: Props) {
     setFlash(false);
     shownAt.current = playClock();
     firstAnswerMs.current = null;
+    slipped.current = false;
   };
 
   const proceed = () => {
@@ -932,11 +935,11 @@ function Game(props: Props) {
       }
       return;
     }
-    count(mistakes === 0);
+    count(mistakes === 0 && !slipped.current);
     const achievements = session.conclude(
       skill,
       exercise,
-      mistakes === 0,
+      mistakes === 0 && !slipped.current,
       firstAnswerMs.current,
       false,
     );
@@ -1255,6 +1258,9 @@ function Game(props: Props) {
             right={phase === 'right'}
             shown={phase === 'reveal' ? exercise.answer : null}
             onSubmit={answer}
+            onSlip={() => {
+              slipped.current = true;
+            }}
           />
         </Slate>
       ) : (

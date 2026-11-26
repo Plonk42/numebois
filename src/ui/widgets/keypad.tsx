@@ -85,11 +85,12 @@ export function Answer({ entry, right, shown, tried, inline }: AnswerProps) {
 
 /** Number pad of the game: reacts as soon as the finger touches. */
 export function Keypad({
-  entry,
+  ready,
   locked,
   press,
 }: {
-  entry: string;
+  /** Something to submit: the ✓ key wakes up. */
+  ready: boolean;
   /** The answer is checked: the keys wait. */
   locked: boolean;
   press(key: Key): void;
@@ -103,7 +104,7 @@ export function Keypad({
             key={key}
             type="button"
             class={`key ${special ? key : 'digit'}`}
-            disabled={locked || (key === 'submit' && !entry)}
+            disabled={locked || (key === 'submit' && !ready)}
             aria-label={special?.label ?? key}
             onPointerDown={(event) => {
               event.preventDefault();

@@ -14,7 +14,7 @@ Recette de fond : [plan, « Recette : ajouter une notion ou un domaine »](../..
 3. **Indices** (`hints.ts`) : 1 = la méthode, 2 = la réponse avec la méthode. Phrases de 12 mots au plus, 3 phrases ou lignes et 120 caractères par bulle, aucun mot d'échec.
 4. **Validation :** `validateNumber` ou `validateChoice` (`src/core/validate.ts`), sinon une nouvelle fonction au même endroit.
 5. **Notion** (`skills.ts`, `defineSkill`) : prérequis (y compris d'autres domaines), `levels`, `challenge`, `facts` (`facts.ts`, ids `<notion>:<clé>`, `exercise(fact, rng)`, `groups` facultatifs) seulement pour ce qui se sait par cœur : une notion à faits se joue en rafale, les autres non. Réponse au pavé : le sentier la propose environ une fois sur trois parmi 4 choix (`offerChoices`, `src/core/choices.ts`) ; `lures` (`lures.ts`) donne les erreurs typiques de la notion (table voisine, retenue oubliée…), sinon ± 1, ± 10 et chiffres échangés. Un choix compte pour la maîtrise, jamais pour un fait.
-6. **Nouveau type de saisie** (seulement si pavé, choix, signe entre deux nombres et droite graduée ne suffisent pas) : le compilateur réclame les quatre morceaux.
+6. **Nouveau type de saisie** (seulement si pavé, choix, signe entre deux nombres, droite graduée et opération posée ne suffisent pas) : le compilateur réclame les quatre morceaux.
    - `ExerciseInput` dans `src/core/types.ts` ;
    - sa règle de réponse dans `ANSWER_FITS` (`src/core/content.ts`) ;
    - son widget dans `src/ui/widgets/index.tsx`, placé avec `Work` (ou `Work wide`) et `AnswerZone`, cibles de 56 px, `pointerdown` ;

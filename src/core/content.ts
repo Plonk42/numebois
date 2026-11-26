@@ -42,6 +42,12 @@ const ANSWER_FITS: {
       (value - line.from) % line.step === 0
     );
   },
+  column: ({ columns }, answer) =>
+    answer ===
+    columns
+      .map((column) => column.digit)
+      .reverse()
+      .join(''),
 };
 
 function inputErrors(input: ExerciseInput, answer: string): string[] {
@@ -52,6 +58,12 @@ function inputErrors(input: ExerciseInput, answer: string): string[] {
     if (new Set(options).size !== options.length) errors.push('choix en double');
     if (options.length < 2 || options.length > MAX_CHOICES) {
       errors.push(`${options.length} choix (2 à ${MAX_CHOICES})`);
+    }
+  }
+  if (input.kind === 'column') {
+    // Plume's bubble on each column: its calculation, and what she writes.
+    for (const { calc, say } of input.columns) {
+      errors.push(...textErrors('colonne', `${calc}\n${say}`, MAX_BUBBLE_SENTENCES));
     }
   }
   return errors;

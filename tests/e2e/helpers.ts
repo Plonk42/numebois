@@ -141,6 +141,27 @@ const DRIVERS: { [K in ExerciseInput['kind']]: Driver<Extract<ExerciseInput, { k
         .filter((value) => value >= line.from && value <= line.to)
         .map(String),
   },
+  column: {
+    async answer(page, { columns, mode }, value) {
+      // From the units, as the cursor goes: the digit of each column, then its carry.
+      const typed = columns.flatMap((column, i) => [
+        value.at(-1 - i) ?? '0',
+        ...(column.carry > 0 && i + 1 < columns.length ? [String(column.carry)] : []),
+      ]);
+      if (mode === 'alone') {
+        await page.getByRole('button', { name: 'Chiffre des unités' }).dispatchEvent('pointerdown');
+      }
+      await page.keyboard.type(typed.join(''));
+      if (mode === 'alone') await page.keyboard.press('Enter');
+    },
+    // Guided or accompanied, a wrong digit waits in its column: never sent.
+    wrongs: ({ mode }, expected) =>
+      mode === 'alone'
+        ? [1, 2].map(
+            (shift) => expected.slice(0, -1) + String((Number(expected.at(-1)) + shift) % 10),
+          )
+        : [],
+  },
 };
 
 export function driver(input: ExerciseInput): Driver<ExerciseInput> {

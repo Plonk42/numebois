@@ -78,8 +78,17 @@ export function composeTrail(input: TrailInput): TrailStep[] {
   if (practised.length === 0) throw new Error('aucune notion à jouer');
 
   const known = practised.filter((skill) => skill !== novelty);
-  const easyPool = [acquired, known, practised].find((pool) => pool.length > 0)!;
-  const easy = (role: StepRole): TrailStep => ({ skill: rng.pick(easyPool).id, role, easy: true });
+  // The easy questions go to the notions seen longest ago: an acquired one never waits on luck.
+  const lastSeen = (skill: Skill) => progress.get(skill.id)?.recent.at(-1)?.day ?? -Infinity;
+  const easyPool = [...[acquired, known, practised].find((pool) => pool.length > 0)!].sort(
+    (a, b) => lastSeen(a) - lastSeen(b),
+  );
+  let easyCount = 0;
+  const easy = (role: StepRole): TrailStep => ({
+    skill: easyPool[easyCount++ % easyPool.length].id,
+    role,
+    easy: true,
+  });
   const warmup = Array.from({ length: struggling ? 3 : 2 }, () => easy('warmup'));
   const coreCount = size - warmup.length - reviews.length - 1;
   const start = rng.int(0, practised.length - 1);
