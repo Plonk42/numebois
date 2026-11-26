@@ -46,6 +46,10 @@ test('la progression et la réserve survivent au rechargement ; export et import
   await expect(page.locator('#parent-menu .screen')).toHaveText(
     'Écran : 1280 × 800 px, ×1 (1280 × 800)',
   );
+  // The commit that runs, to check what the tablet has installed.
+  await expect(page.locator('#parent-menu .version')).toHaveText(
+    /^Version : [0-9a-f]{7,} \(\d{4}-\d{2}-\d{2}\)$/,
+  );
   await page.getByRole('button', { name: 'Court (6)' }).click();
   await expect(page.getByRole('button', { name: 'Court (6)' })).toHaveAttribute(
     'aria-pressed',

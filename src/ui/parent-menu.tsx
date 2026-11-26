@@ -255,6 +255,7 @@ export function ParentMenu({
               {window.devicePixelRatio.toLocaleString('fr', { maximumFractionDigits: 2 })} (
               {screen.width} × {screen.height})
             </p>
+            <p class="version">Version : {__COMMIT__}</p>
           </div>
         )}
       </div>

@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { VitePWA } from 'vite-plugin-pwa';
 import { defineConfig } from 'vitest/config';
@@ -10,6 +11,9 @@ export default defineConfig({
     // Without the optimised KayKit models (CI, fresh clone), the scene uses placeholders.
     __KAYKIT_ASSETS__: JSON.stringify(existsSync(`public/${ASSET_FILE}`)),
     __ANIMAL_ASSETS__: JSON.stringify(existsSync(`public/${ANIMAL_FILE}`)),
+    __COMMIT__: JSON.stringify(
+      execFileSync('git', ['log', '-1', '--format=%h (%cs)']).toString().trim(),
+    ),
   },
   plugins: [
     VitePWA({
