@@ -234,6 +234,30 @@ const DRIVERS: { [K in ExerciseInput['kind']]: Driver<Extract<ExerciseInput, { k
       return [timeText(onDial(hours + 1, minutes)), timeText(onDial(hours, (minutes + 5) % 60))];
     },
   },
+  ruler: {
+    async answer(page, _, value) {
+      await page.keyboard.press('Backspace');
+      await page.keyboard.press('Backspace');
+      await page.keyboard.press('Backspace');
+      await page.keyboard.type(value);
+      await page.keyboard.press('Enter');
+    },
+    wrongs: (_, expected) => [Number(expected) + 1, Number(expected) - 1].map(String),
+  },
+  draw: {
+    // The arrows lengthen or shorten the line drawn from the point, by a millimetre.
+    async answer(page, _, value) {
+      const sheet = page.locator('#question .sheet.draw');
+      const gap = Number(value) - Number(await sheet.getAttribute('data-length'));
+      for (let i = 0; i < Math.abs(gap); i++) {
+        await page.keyboard.press(gap > 0 ? 'ArrowRight' : 'ArrowLeft');
+      }
+      await expect(sheet).toHaveAttribute('data-length', value);
+      await page.keyboard.press('Enter');
+    },
+    // A pencil line is a millimetre wide: 3 mm off is another length.
+    wrongs: (_, expected) => [Number(expected) + 3, Number(expected) - 3].map(String),
+  },
 };
 
 export function driver(input: ExerciseInput): Driver<ExerciseInput> {

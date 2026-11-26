@@ -1,5 +1,6 @@
 import type { Domain } from '../core/types';
 import { columnArithmetic } from './column-arithmetic';
+import { measures } from './measures';
 import { mentalMath } from './mental-math';
 import { numbers } from './numbers';
 import { time } from './time';
@@ -14,4 +15,5 @@ export const DOMAINS: readonly Domain[] = [
   wordProblems,
   columnArithmetic,
   time,
+  measures,
 ];

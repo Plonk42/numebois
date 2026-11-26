@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'erase', '0', 'submit'] as const;
+/** In two rows under a wide work area (a ruler). */
+const ROW_KEYS = ['1', '2', '3', '4', '5', 'erase', '6', '7', '8', '9', '0', 'submit'] as const;
 const SPECIAL = {
   erase: { text: '⌫', label: 'Effacer' },
   submit: { text: '✓', label: 'Valider' },
@@ -88,16 +90,19 @@ export function Keypad({
   ready,
   locked,
   press,
+  rows = false,
 }: {
   /** Something to submit: the ✓ key wakes up. */
   ready: boolean;
   /** The answer is checked: the keys wait. */
   locked: boolean;
   press(key: Key): void;
+  /** Two rows of six keys, under a wide work area. */
+  rows?: boolean;
 }) {
   return (
-    <div class="keypad">
-      {KEYS.map((key) => {
+    <div class={rows ? 'keypad rows' : 'keypad'}>
+      {(rows ? ROW_KEYS : KEYS).map((key) => {
         const special = key === 'erase' || key === 'submit' ? SPECIAL[key] : null;
         return (
           <button

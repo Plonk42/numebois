@@ -1,3 +1,4 @@
+import { RULER_MM } from './sheet';
 import { parseTime } from './time';
 import type { Exercise, ExerciseInput, Skill } from './types';
 
@@ -70,6 +71,8 @@ const ANSWER_FITS: {
       time.minutes % step === 0
     );
   },
+  ruler: (_, answer) => /^\d{1,3}$/.test(answer),
+  draw: (_, answer) => /^\d{1,3}$/.test(answer) && Number(answer) <= RULER_MM,
 };
 
 function inputErrors(input: ExerciseInput, answer: string): string[] {

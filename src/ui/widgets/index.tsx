@@ -11,6 +11,7 @@ import { NumberLineFigure, NumberLinePlace } from './number-line';
 import { BlocksFigure, DotsFigure, PlaceValueFigure } from './place-value';
 import { TimeEntry } from './time-entry';
 import { CalendarFigure, TimelineFigure } from './day';
+import { RulerDraw, RulerMeasure } from './ruler';
 
 /** What every widget receives; the validation and the hints come from the domain. */
 export interface WidgetProps<I extends ExerciseInput = ExerciseInput> {
@@ -181,6 +182,8 @@ const WIDGETS: Widgets = {
     </>
   ),
   clock: ClockSet,
+  ruler: RulerMeasure,
+  draw: RulerDraw,
 };
 
 /** The widget of the exercise's input. */

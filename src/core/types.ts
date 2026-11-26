@@ -1,4 +1,5 @@
 import type { Rng } from './rng';
+import type { Point, Segment } from './sheet';
 
 /** `<domain>.<notion>`, stable: saves refer to it, never rename a published one. */
 export type SkillId = string;
@@ -72,7 +73,14 @@ export type ExerciseInput =
       duration?: boolean;
     }
   /** The hands of a clock set with the finger, the minute hand by `step` minutes: « 3h45 ». */
-  | { kind: 'clock'; step: 1 | 5 };
+  | { kind: 'clock'; step: 1 | 5 }
+  /**
+   * Segments on a sheet, measured with a ruler the child moves and turns; the total length is
+   * typed, in `unit`. The ruler starts at rest at `ruler` (its 0), not on a segment.
+   */
+  | { kind: 'ruler'; lines: readonly Segment[]; unit: 'cm' | 'mm'; ruler: Point }
+  /** A segment drawn from `start`, along the ruler: its length in millimetres. */
+  | { kind: 'draw'; start: Point; ruler: Point };
 
 /** What the child looks at without touching it, under the statement (one component per kind). */
 export type Figure =
