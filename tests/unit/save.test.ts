@@ -50,6 +50,7 @@ describe('sauvegarde', () => {
         journal: JOURNAL,
         recommended: null,
         name: '',
+        notebook: [],
       },
       new Date('2026-11-23T10:00:00Z'),
     );
@@ -93,6 +94,7 @@ describe('sauvegarde', () => {
         journal: JOURNAL,
         recommended: null,
         name: '',
+        notebook: [],
       },
       new Date(),
     );
@@ -116,6 +118,7 @@ describe('sauvegarde', () => {
       journal: JOURNAL,
       recommended: null,
       name: '',
+      notebook: [],
     };
     const parsed = parseSave(serializeSave(data, new Date()), SKILLS);
     expect(parsed.ok && parsed.data.records).toEqual([
@@ -162,6 +165,7 @@ describe('sauvegarde', () => {
           journal: journal as typeof JOURNAL,
           recommended: null,
           name: '',
+          notebook: [],
         },
         new Date(),
       );

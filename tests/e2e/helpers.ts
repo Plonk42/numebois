@@ -235,7 +235,11 @@ export async function expectSlateLayout(page: Page) {
     const card = doc.querySelector('#question')!;
     return {
       card: box(card)!,
-      bars: ['#reserve', '#trail', '#sound-toggle'].map((s) => [s, box(doc.querySelector(s))!]),
+      // A bar out of sight (the trail during an astuce) covers nothing.
+      bars: ['#reserve', '#trail', '#sound-toggle']
+        .map((s) => doc.querySelector(s)!)
+        .filter((bar) => getComputedStyle(bar).opacity !== '0')
+        .map((bar) => [`#${bar.id}`, box(bar)!]),
       scrolled: [card, ...card.querySelectorAll('.bench > *')]
         .filter((el) => el.scrollHeight > el.clientHeight + 1)
         .map((el) => el.className),

@@ -1,5 +1,5 @@
 import { render, type ComponentChildren } from 'preact';
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { isoDate, today } from '../core/day';
 import {
   Challenge,
@@ -31,7 +31,7 @@ import {
 } from '../core/records';
 import { Session, type Achievement, type SessionSnapshot } from '../core/session';
 import { stepLevel, type StepRole, type TrailLength } from '../core/trail';
-import type { Exercise, Skill, SkillId } from '../core/types';
+import type { Exercise, Lesson, Skill, SkillId } from '../core/types';
 import { QUESTS } from '../quests';
 import {
   exportFile,
@@ -71,7 +71,9 @@ import {
 } from './challenge';
 import { DrillBreak, DrillTree, Garland, TuftButton, DRILL_NAME } from './drill';
 import { FinaleBanner, Frame, NextPainting, type NextChoice } from './finale';
+import { LessonPlayer, playable } from './lesson';
 import { Naming } from './naming';
+import { Notebook, NotebookButton } from './notebook';
 import { ParentMenu } from './parent-menu';
 import { Plume, type Mood } from './character';
 import { RARE_ARRIVALS } from './rares';
@@ -158,7 +160,10 @@ type Phase =
   | 'framing'
   | 'next'
   | 'album'
-  | 'visiting';
+  | 'visiting'
+  /** An astuce of Plume (#50), then the Carnet where it is kept. */
+  | 'lesson'
+  | 'notebook';
 
 /** A trail or a drill in progress: the slate and its rewards. */
 const TRAIL_PHASES = new Set<Phase>(['asking', 'right', 'reveal', 'seed']);
@@ -289,6 +294,10 @@ interface Props {
   name: string;
   /** Plume asks the first name first. */
   askName: boolean;
+  /** The astuces the game knows (#50), the ones seen to the end, and one to play first. */
+  lessons: readonly Lesson[];
+  notebook: readonly string[];
+  lesson: Lesson | null;
   debug?: GameDebug;
 }
 
@@ -323,6 +332,7 @@ function Game(props: Props) {
   const [phase, setPhase] = useState<Phase>(() => {
     if (isComplete(forest.description())) return 'finale';
     if (props.askName) return 'naming';
+    if (props.lesson) return 'lesson';
     return props.home ? 'walking' : 'asking';
   });
   const [praise, setPraise] = useState(PRAISES[0]);
@@ -343,6 +353,13 @@ function Game(props: Props) {
   const [album, setAlbum] = useState(props.album);
   const [choices, setChoices] = useState<readonly NextChoice[]>([]);
   const [page, setPage] = useState<AlbumEntry | null>(null);
+  const [lesson, setLesson] = useState(props.lesson);
+  const [notebook, setNotebook] = useState(props.notebook);
+  /** The page just added to the Carnet, marked when it opens. */
+  const [freshPage, setFreshPage] = useState<string | null>(null);
+  const skillMap = useMemo(() => new Map(props.skills.map((s) => [s.id, s])), [props.skills]);
+  /** The pages of the Carnet: the astuces seen that the game still knows. */
+  const pages = notebook.flatMap((id) => props.lessons.find((l) => l.id === id) ?? []);
   /** Where a change of season started: the screen stays as it was under the light. */
   const [turnFrom, setTurnFrom] = useState<Phase>('walking');
   /** The drill in progress, its garland of right answers in the round, and how its last round ends. */
@@ -500,13 +517,14 @@ function Game(props: Props) {
         journal,
         recommended,
         name,
+        notebook: [...notebook],
       },
       new Date(),
     );
   // Every answer changes the phase or the reserve, every element the phase: the save follows.
   useEffect(
     () => props.save(saveData()),
-    [leaves, seeds, phase, length, journal, recommended, name],
+    [leaves, seeds, phase, length, journal, recommended, name, notebook],
   );
   // The end of the trail: the basket empties into the reserve, then the forest is the child's.
   useEffect(() => {
@@ -880,6 +898,21 @@ function Game(props: Props) {
     setPhase('album');
   };
 
+  /** An astuce of Plume, from the Carnet (#50): never counted, never paid. */
+  const openLesson = (chosen: Lesson) => {
+    setLesson(chosen);
+    setPhase('lesson');
+  };
+
+  /** An astuce seen to the end: a new page of the Carnet, which opens on it. */
+  const endLesson = () => {
+    const id = lesson!.id;
+    const fresh = !notebook.includes(id);
+    if (fresh) setNotebook([...notebook, id]);
+    setFreshPage(fresh ? id : null);
+    setPhase('notebook');
+  };
+
   /** A painting of the Album, alive again: built under the light, which then goes. */
   const visit = (entry: AlbumEntry) => {
     if (phase !== 'album') return;
@@ -1154,11 +1187,37 @@ function Game(props: Props) {
         />
       )}
       {/* During a question, the forest dims: one thing at a time. */}
-      <div id="dim" class={onTrail && !away ? 'on' : ''} />
+      <div id="dim" class={(onTrail && !away) || phase === 'lesson' ? 'on' : ''} />
       {gift && phase === 'seed' && <SeedGift {...gift} />}
       {phase === 'choosing' && <Spots forest={forest} slots={spots} onPick={plant} />}
       {roaming && !done && <Walk away={viewAway} onRecenter={() => forest.recenter()} />}
       {free && album.length > 0 && <AlbumButton onOpen={openAlbum} />}
+      {free && pages.length > 0 && (
+        <NotebookButton
+          low={album.length > 0}
+          onOpen={() => {
+            setFreshPage(null);
+            setPhase('notebook');
+          }}
+        />
+      )}
+      {phase === 'notebook' && (
+        <Notebook
+          pages={pages}
+          fresh={freshPage}
+          onOpen={openLesson}
+          onClose={() => setPhase('walking')}
+        />
+      )}
+      {phase === 'lesson' && lesson && (
+        <LessonPlayer
+          lesson={lesson}
+          skills={skillMap}
+          rng={rng}
+          context={session.context()}
+          onDone={endLesson}
+        />
+      )}
       {phase === 'album' && <AlbumGrid entries={album} onVisit={visit} onClose={closeAlbum} />}
       {phase === 'visiting' && page && (
         <AlbumPage entry={page} skills={props.skills} onBack={backToAlbum} />
@@ -1437,6 +1496,8 @@ export function mountGame(
   debug?: GameDebug,
   /** `ask`: Plume asks the first name while there is none; `given` replaces the saved one. */
   naming: { ask: boolean; given: string | null } = { ask: false, given: null },
+  /** The astuces the game knows, and `?lesson=`: one to play at once (#50). */
+  lessons: { all: readonly Lesson[]; start: string | null } = { all: [], start: null },
 ) {
   const rng = new Rng(seed);
   const session = new Session(skills, rng.fork('trail'), today, () => ({
@@ -1464,7 +1525,12 @@ export function mountGame(
   const name = cleanName(naming.given ?? (saved?.ok ? saved.data.name : ''));
   // Not on a save that could not be read: nothing would keep it.
   const askName = naming.ask && home && saved?.ok !== false && name === '';
+  // Only the astuces whose notions are all here (`?practice` plays one notion alone).
+  const byId = new Map(skills.map((skill) => [skill.id, skill]));
+  const known = lessons.all.filter((lesson) => playable(lesson, byId));
+  const start = home ? (known.find((lesson) => lesson.id === lessons.start) ?? null) : null;
   let phase: Phase = home ? 'walking' : 'asking';
+  if (start) phase = 'lesson';
   if (askName) phase = 'naming';
   const probe: GameProbe = {
     exercise: null,
@@ -1506,6 +1572,9 @@ export function mountGame(
       home={home}
       name={name}
       askName={askName}
+      lessons={known}
+      notebook={saved?.ok ? saved.data.notebook : []}
+      lesson={start}
       debug={debug}
     />,
     root,

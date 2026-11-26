@@ -1,6 +1,7 @@
 import { curriculum } from './core/registry';
 import { today } from './core/day';
 import { DOMAINS } from './domains';
+import { TRY_LESSON } from './domains/column-arithmetic/lessons/essai';
 import { SceneApp, type SceneCounters } from './scene/app';
 import { mountSoundButton } from './scene/audio/sound-button';
 import type { Reward, SoundState } from './scene/audio/soundscape';
@@ -159,6 +160,11 @@ const ready = sceneOnly
           debug,
           // `?name=` gives the first name without asking it (tests, captures; empty: none).
           { ask: !unsaved && !params.has('name'), given: params.get('name') },
+          // `?lesson=<id>` plays that astuce at once (tests, writing one: the trial one too).
+          {
+            all: [...DOMAINS.flatMap((domain) => domain.lessons ?? []), TRY_LESSON],
+            start: params.get('lesson'),
+          },
         );
         if (sandbox)
           mountSandboxPanel(
@@ -188,6 +194,7 @@ const ready = sceneOnly
             'next',
             'album',
             'visiting',
+            'notebook',
           ].includes(game?.phase ?? '');
         return started;
       });

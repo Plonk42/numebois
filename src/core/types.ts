@@ -157,11 +157,14 @@ export interface FactGroup {
 
 /** One step of a lesson (« Plume te montre une astuce »), played by `LessonPlayer`. */
 export type LessonStep =
-  | { kind: 'explain'; text: string; widget?: string }
-  | { kind: 'manipulate'; text: string; widget: string }
-  | { kind: 'guidedExample'; text: string; widget: string }
-  /** 2 or 3 exercises of the notion, without effect on mastery. */
-  | { kind: 'check'; count: 2 | 3 };
+  /** Plume explains, a figure to look at, or an exercise the widget plays by itself (`demo`). */
+  | { kind: 'explain'; text: string; figure?: Figure; demo?: Exercise }
+  /** The child tries on a widget: a slip costs nothing, Plume's text stays. */
+  | { kind: 'manipulate'; text: string; exercise: Exercise }
+  /** An example worked out with Plume: the widget guides when it can (a guided column). */
+  | { kind: 'guidedExample'; text: string; exercise: Exercise }
+  /** 2 or 3 exercises of the notion at `level`, without effect on mastery. */
+  | { kind: 'check'; count: 2 | 3; level: number };
 
 export interface Lesson {
   /** `<skill>/<name>`, stable. */

@@ -63,7 +63,7 @@ function inputErrors(input: ExerciseInput, answer: string): string[] {
   if (input.kind === 'column') {
     // Plume's bubble on each column: its calculation, and what she writes.
     for (const { calc, say } of input.columns) {
-      errors.push(...textErrors('colonne', `${calc}\n${say}`, MAX_BUBBLE_SENTENCES));
+      errors.push(...bubbleErrors('colonne', `${calc}\n${say}`));
     }
   }
   return errors;
@@ -78,6 +78,13 @@ function textErrors(name: string, text: string, maxSentences: number): string[] 
   }
   if (lengths.length > maxSentences) errors.push(`${name} : ${lengths.length} phrases : ${text}`);
   if (FAILURE_WORDS.test(text)) errors.push(`${name} : mot d'échec : ${text}`);
+  return errors;
+}
+
+/** A text of Plume's bubble (a hint, a step of a lesson): short sentences, a short bubble. */
+export function bubbleErrors(name: string, text: string): string[] {
+  const errors = textErrors(name, text, MAX_BUBBLE_SENTENCES);
+  if (text.length > MAX_BUBBLE_CHARS) errors.push(`${name} : ${text.length} caractères : ${text}`);
   return errors;
 }
 
@@ -104,11 +111,7 @@ export function exerciseErrors(skill: Skill, exercise: Exercise, level: number):
     errors.push(`plusieurs « ? » où écrire la réponse : ${statement}`);
   }
   for (const attempt of [1, 2] as const) {
-    const hint = skill.hint(exercise, attempt);
-    errors.push(...textErrors(`indice ${attempt}`, hint, MAX_BUBBLE_SENTENCES));
-    if (hint.length > MAX_BUBBLE_CHARS) {
-      errors.push(`indice ${attempt} : ${hint.length} caractères : ${hint}`);
-    }
+    errors.push(...bubbleErrors(`indice ${attempt}`, skill.hint(exercise, attempt)));
   }
   const fact = skill.facts?.of(exercise);
   if (fact != null && !skill.facts!.all.includes(fact)) errors.push(`fait non déclaré : ${fact}`);

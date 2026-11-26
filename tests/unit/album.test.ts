@@ -92,6 +92,7 @@ describe('Album', () => {
         journal: { started: 20_411, acquired: [], automated: [] },
         recommended: null,
         name: '',
+        notebook: [],
       },
       new Date('2026-11-23T10:00:00Z'),
     );
