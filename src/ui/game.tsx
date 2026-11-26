@@ -14,7 +14,6 @@ import { cleanName, named } from '../core/name';
 import { modeOf, settingOf, type SkillSetting } from '../core/settings';
 import {
   LEAVES_PER_ACORN,
-  LEAVES_PER_RIGHT_ANSWER,
   leavesPerElement,
   SEEDS_PER_ACHIEVEMENT,
   SEEDS_PER_CHALLENGE,
@@ -992,7 +991,7 @@ function Game(props: Props) {
     setPhase('right');
     forest.reward('right');
     // In a challenge, an acorn in the squirrel's basket instead: leaves come at its end (#120).
-    const worth = drilling ? LEAVES_PER_RIGHT_ANSWER : session.worth;
+    const worth = drilling ? drill.current!.earned : session.worth;
     const earned = mode === 'challenge' ? 0 : worth + bonus;
     setLeaves(leaves + earned);
     setLeavesHere(leavesHere + earned);

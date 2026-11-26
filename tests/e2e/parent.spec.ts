@@ -75,6 +75,11 @@ test('le tableau de bord parent : suivi, r√©glage des notions, rafale recommand√
   await expect(menu.locator('.days tbody tr')).toHaveCount(2);
   await expect(menu.locator('.days tbody tr').first()).toContainText('4 min');
   await expect(menu.locator('.days tbody tr').first()).toContainText('75 %');
+  // Each mode, its time per question (#128).
+  const modes = menu.locator('.per-mode tbody tr');
+  await expect(modes).toHaveCount(2);
+  await expect(modes.first()).toHaveText(['Sentier', '10', '30,0 s', '80 %'].join(''));
+  await expect(modes.last()).toHaveText(['Rafale', '20', '12,0 s', '75 %'].join(''));
   const products = menu.locator('.progress tr[data-skill="times-tables.products"]');
   await expect(products).toContainText('En cours');
   await expect(products).toContainText('Niveau 2 sur 5');

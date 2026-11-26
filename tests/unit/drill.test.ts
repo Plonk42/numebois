@@ -234,4 +234,39 @@ describe('drill', () => {
     const drill = new Drill(session(), { kind: 'skill', skill: 'mental-math.add' }, new Rng(5));
     expect(() => drill.ask()).toThrow('notion sans faits');
   });
+
+  it('gives a leaf for a fact not known by heart yet, once a day, none for a known one (#125)', () => {
+    let today = 100;
+    const player = session(() => today);
+    /** 40 right answers on the table of 7: the leaves, and the facts asked. */
+    const round = () => {
+      const drill = new Drill(
+        player,
+        { kind: 'skill', skill: products.id, group: 'table-7' },
+        new Rng(today),
+      );
+      let leaves = 0;
+      const asked = new Set<string>();
+      for (let i = 0; i < 40; i++) {
+        const { skill, exercise } = drill.ask();
+        asked.add(skill.facts!.of(exercise)!);
+        drill.conclude(skill, exercise, true, 9000);
+        leaves += drill.earned;
+      }
+      return { leaves, asked: asked.size };
+    };
+    // Fewer leaves than questions: a trail pays at least one per right answer.
+    const first = round();
+    expect(first.leaves).toBe(first.asked);
+    expect(first.leaves).toBeLessThanOrEqual(TABLE_7.length);
+    expect(round().leaves).toBe(0);
+    today++;
+    const next = round();
+    expect(next.leaves).toBe(next.asked);
+    expect(next.leaves).toBeGreaterThan(0);
+    // Known by heart: nothing more, even another day.
+    for (const fact of TABLE_7) player.facts.set(fact, automated(fact));
+    today++;
+    expect(round().leaves).toBe(0);
+  });
 });

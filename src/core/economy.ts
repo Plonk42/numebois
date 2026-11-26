@@ -1,6 +1,9 @@
 /** Economy of the game (plan, « Boucle de progression »): the only place to tune it (#29). */
 
-/** Leaves earned by a right answer in a trail or a drill; in a challenge, an acorn instead. */
+/**
+ * Leaves earned by a right answer in a trail; in a drill, by a fact not known by heart yet, once
+ * a day (#125); in a challenge, an acorn instead.
+ */
 export const LEAVES_PER_RIGHT_ANSWER = 1;
 /** Leaves of a right answer at the notion's record, in the trail: the effort pays (#141). */
 export const LEAVES_AT_RECORD = 2;
