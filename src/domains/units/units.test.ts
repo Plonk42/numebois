@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { Rng } from '../../core/rng';
 import {
+  COMPARE_LENGTHS_LEVELS,
+  compareLengthsHint,
+  generateCompareLengths,
+  lengthText,
+  millimetres,
+  type Written,
+} from './compare';
+import {
   MAGNITUDE_LEVELS,
   MONEY_LEVELS,
   amountText,
@@ -89,6 +97,82 @@ describe('convertir', () => {
     },
   );
 });
+
+describe('comparer des longueurs (#162)', () => {
+  it('reads lengths written in several units', () => {
+    expect(
+      millimetres([
+        [4, 'm'],
+        [876, 'mm'],
+      ]),
+    ).toBe(4876);
+    expect(
+      lengthText([
+        [6, 'm'],
+        [67, 'cm'],
+      ]),
+    ).toBe('6\u00a0m 67\u00a0cm');
+  });
+
+  it.each(levels(COMPARE_LENGTHS_LEVELS))('level %i: 1 000 seeds, the sign is right', (level) => {
+    const signs = new Set<string>();
+    for (let seed = 0; seed < SEEDS; seed++) {
+      const exercise = generateCompareLengths(new Rng(seed), level);
+      const [a, b] = exercise.sides.map(millimetres);
+      expect(a > 0 && b > 0).toBe(true);
+      if (level === 2) {
+        const { input } = exercise;
+        if (input.kind !== 'choice') throw new Error(input.kind);
+        expect(new Set(input.options).size).toBe(4);
+        expect(input.options).toContain(exercise.answer);
+        expect(exercise.statement).toContain(lengthText(exercise.sides[0]));
+        // The right one is equal, written otherwise; no other choice is.
+        expect(a).toBe(b);
+        expect(lengthText(exercise.sides[1])).toBe(exercise.answer);
+        expect(lengthText(exercise.sides[0])).not.toBe(exercise.answer);
+        continue;
+      }
+      expect(exercise.input).toMatchObject({
+        kind: 'compare',
+        left: lengthText(exercise.sides[0]),
+        right: lengthText(exercise.sides[1]),
+      });
+      const sign = a < b ? '<' : a > b ? '>' : '=';
+      expect(exercise.answer).toBe(sign);
+      signs.add(sign);
+      const units = exercise.sides.map((side) => side.map(([, unit]) => unit));
+      if (level < 3) expect(units.flat()).toHaveLength(2);
+      expect(units[0].concat(units[1]).every((u) => ['m', 'dm', 'cm', 'mm'].includes(u))).toBe(
+        true,
+      );
+      if (level === 0) expect(Math.max(a, b) / Math.min(a, b)).toBeGreaterThanOrEqual(2);
+      if (level === 1 || level === 3) expect(Math.abs(a - b) / Math.max(a, b)).toBeLessThan(0.5);
+      if (level === 3) expect(exercise.sides.some((side) => side.length === 2)).toBe(true);
+      for (const attempt of [1, 2] as const) {
+        expect(compareLengthsHint(exercise, attempt).split('\n').length).toBeLessThanOrEqual(3);
+      }
+    }
+    expect(signs.size).toBe(level === 2 ? 0 : level === 0 ? 2 : 3);
+  });
+
+  it('never offers a second length equal to the one given', () => {
+    for (let seed = 0; seed < SEEDS; seed++) {
+      const exercise = generateCompareLengths(new Rng(seed), 2);
+      const { input } = exercise;
+      if (input.kind !== 'choice') throw new Error(input.kind);
+      const given = millimetres(exercise.sides[0]);
+      const equal = input.options.filter((option) => millimetres(parseLength(option)) === given);
+      expect(equal).toEqual([exercise.answer]);
+    }
+  });
+});
+
+/** « 3 dm 4 cm » read back. */
+function parseLength(text: string): Written {
+  return [...text.matchAll(/([\d\u202f]+)\u00a0(mm|dm|cm|m)/g)].map(
+    ([, n, unit]) => [Number(n.replace('\u202f', '')), unit] as const,
+  );
+}
 
 describe('la monnaie et les ordres de grandeur', () => {
   it('writes amounts as at school', () => {

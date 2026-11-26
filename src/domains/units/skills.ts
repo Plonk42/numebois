@@ -4,6 +4,13 @@ import { validateChoice, validateNumber } from '../../core/validate';
 import { MEASURE } from '../measures/generators';
 import { WRITE_DIGITS } from '../numbers/generators';
 import {
+  COMPARE_LENGTHS,
+  COMPARE_LENGTHS_LEVELS,
+  compareLengthsHint,
+  generateCompareLengths,
+  type CompareLengthsExercise,
+} from './compare';
+import {
   MAGNITUDE,
   MAGNITUDE_LEVELS,
   MONEY,
@@ -55,6 +62,18 @@ export const convert = defineSkill<ConvertExercise>({
   validate: validateNumber,
   hint: convertHint,
   lures: convertLures,
+});
+
+export const compareLengths = defineSkill<CompareLengthsExercise>({
+  id: COMPARE_LENGTHS,
+  name: 'Comparer des longueurs',
+  prerequisites: [CONVERT],
+  levels: COMPARE_LENGTHS_LEVELS,
+  // Both lengths written in the same unit, then compared.
+  questionSeconds: [15, 18, 20, 22],
+  generate: generateCompareLengths,
+  validate: validateChoice,
+  hint: compareLengthsHint,
 });
 
 export const money = defineSkill<MoneyExercise>({
