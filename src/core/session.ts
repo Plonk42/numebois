@@ -10,7 +10,7 @@ import {
   type ChallengeRecord,
 } from './records';
 import type { Rng } from './rng';
-import { clampLevel, settingOf, type SkillSetting } from './settings';
+import { clampLevel, endFocus, settingOf, type SkillSetting } from './settings';
 import {
   atRecord,
   composeTrail,
@@ -87,6 +87,8 @@ export class Session {
   }
 
   startTrail(): void {
+    // The homework of last week is over: its notions join the usual review.
+    this.settings = endFocus(this.settings, this.today());
     this.trail = composeTrail({
       skills: this.skills,
       progress: this.progress,

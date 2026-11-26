@@ -1,11 +1,12 @@
 import type { FactProgress } from '../core/facts';
+import { NO_REQUESTS, type Requests } from '../core/homework';
 import { newProgress, type SkillProgress, type Stage } from '../core/mastery';
 import type { Attempt, ChallengeRecord } from '../core/records';
 import type { SessionSnapshot } from '../core/session';
 import type { TrailLength } from '../core/trail';
 import type { FactId, Skill, SkillId } from '../core/types';
 import { readDescription, type SceneDescription } from '../scene/description';
-import { readParentPart, type Recommended } from './parent';
+import { readParentPart, type NotebookChoice, type Recommended } from './parent';
 
 /**
  * Version of the save format, Album included. Free to change until the owner declares that
@@ -39,6 +40,9 @@ export interface SaveData extends SessionSnapshot {
   name: string;
   /** The astuces seen to the end, in the Carnet (#50). */
   notebook: string[];
+  /** The homework of the week asked for the next trail, and the Carnet's choices (#54). */
+  requests: Requests;
+  notebookChoices: NotebookChoice[];
 }
 
 export type ParsedSave = { ok: true; data: SaveData } | { ok: false; reason: string };
@@ -215,6 +219,8 @@ export function practiceSave(
       recommended: null,
       name: '',
       notebook: [],
+      requests: NO_REQUESTS,
+      notebookChoices: [],
     },
   };
 }

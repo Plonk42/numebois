@@ -59,12 +59,14 @@ export function composeTrail(input: TrailInput): TrailStep[] {
     skill.prerequisites.every((id) => isAcquired(progress.get(id)));
 
   const learning = skills.filter((skill) => stage(skill) === 'learning' && !focus.includes(skill));
-  const active = [...focus, ...learning].slice(0, Math.max(MAX_ACTIVE, focus.length));
+  // A notion in focus already acquired is reviewed, not in progress: it leaves room (#54).
+  const reviewed = focus.filter((skill) => isAcquired(progress.get(skill.id))).length;
+  const active = [...focus, ...learning].slice(0, Math.max(MAX_ACTIVE + reviewed, focus.length));
   const discovery = skills.filter(
     (skill) => stage(skill) === 'discovery' && !focus.includes(skill),
   );
   const novelty =
-    struggling || active.length >= MAX_ACTIVE
+    struggling || active.length - reviewed >= MAX_ACTIVE
       ? undefined
       : (discovery.find((skill) => modeOf(settings, skill) === 'open') ?? discovery.find(ready));
   if (novelty) active.push(novelty);
@@ -111,21 +113,22 @@ export function composeTrail(input: TrailInput): TrailStep[] {
 }
 
 /**
- * The notions in focus take at least half of the trail: warmup, core and finish questions of
- * other notions pass to them in turn, the novelty and the reviews stay.
+ * The notions in focus take at least half of the trail: core questions of other notions pass
+ * to them in turn, then warmup and finish ones if need be (they keep the notions seen longest
+ * ago coming back); the novelty and the reviews stay.
  */
 function withFocus(trail: TrailStep[], focus: readonly Skill[]): TrailStep[] {
   if (focus.length === 0) return trail;
   const ids = new Set(focus.map((skill) => skill.id));
   let missing = Math.ceil(trail.length / 2) - trail.filter((step) => ids.has(step.skill)).length;
   let turn = 0;
-  return trail.map((step) => {
-    if (missing <= 0 || ids.has(step.skill) || step.role === 'new' || step.role === 'review') {
-      return step;
-    }
-    missing--;
-    return { ...step, skill: focus[turn++ % focus.length].id };
-  });
+  const pass = (steps: TrailStep[], roles: readonly StepRole[]) =>
+    steps.map((step) => {
+      if (missing <= 0 || ids.has(step.skill) || !roles.includes(step.role)) return step;
+      missing--;
+      return { ...step, skill: focus[turn++ % focus.length].id };
+    });
+  return pass(pass(trail, ['core']), ['warmup', 'finish']);
 }
 
 function shuffled<T>(items: readonly T[], rng: Rng): T[] {

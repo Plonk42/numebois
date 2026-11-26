@@ -3,15 +3,21 @@ import { cleanName, MAX_NAME_LENGTH } from '../core/name';
 import type { Session } from '../core/session';
 import type { SkillSetting } from '../core/settings';
 import type { TrailLength } from '../core/trail';
-import type { Skill, SkillId } from '../core/types';
+import type { Lesson, Skill, SkillId } from '../core/types';
 import { QUALITIES, QUALITY_LABELS, type Quality } from '../scene/render/quality';
 import { importFile } from '../save/album';
-import { AUTOMATION_FACTORS, type Recommended } from '../save/parent';
+import { AUTOMATION_FACTORS, type NotebookChoice, type Recommended } from '../save/parent';
 import { writeAlbum, writeSave } from '../save/store';
-import { Notions, Progress } from './dashboard';
+import { Homework, Notions, Progress } from './dashboard';
+import type { Requests } from '../core/homework';
 
-type Tab = 'progress' | 'notions' | 'settings';
-const TABS: Record<Tab, string> = { progress: 'Suivi', notions: 'Notions', settings: 'Réglages' };
+type Tab = 'progress' | 'notions' | 'homework' | 'settings';
+const TABS: Record<Tab, string> = {
+  progress: 'Suivi',
+  notions: 'Notions',
+  homework: 'Devoirs',
+  settings: 'Réglages',
+};
 
 const AUTOMATION_LABELS: Record<(typeof AUTOMATION_FACTORS)[number], string> = {
   0.75: 'Exigeant',
@@ -39,6 +45,13 @@ interface Props {
   /** The squirrel offers the long challenges too (#132). */
   onLongChallenges(open: boolean): void;
   onRecommended(recommended: Recommended | null): void;
+  /** The homework of the week (#54): astuces and challenges the parent may ask for. */
+  lessons: readonly Lesson[];
+  challenges: readonly Skill[];
+  requests: Requests;
+  onRequests(requests: Requests): void;
+  notebookChoices: readonly NotebookChoice[];
+  onNotebookChoices(choices: NotebookChoice[]): void;
   onClose(): void;
 }
 
@@ -63,6 +76,12 @@ export function ParentMenu({
   onAutomation,
   onLongChallenges,
   onRecommended,
+  lessons,
+  challenges,
+  requests,
+  onRequests,
+  notebookChoices,
+  onNotebookChoices,
   onClose,
 }: Props) {
   const [tab, setTab] = useState<Tab>(problem ? 'settings' : 'progress');
@@ -120,12 +139,20 @@ export function ParentMenu({
       </header>
       <div class="content">
         {tab === 'progress' && <Progress session={session} day={day} />}
-        {tab === 'notions' && (
-          <Notions
+        {tab === 'notions' && <Notions session={session} onSettings={onSettings} />}
+        {tab === 'homework' && (
+          <Homework
             session={session}
+            day={day}
+            lessons={lessons}
+            challenges={challenges}
+            requests={requests}
+            onRequests={onRequests}
+            notebookChoices={notebookChoices}
+            onNotebookChoices={onNotebookChoices}
             recommended={recommended}
-            onSettings={onSettings}
             onRecommended={onRecommended}
+            onSettings={onSettings}
           />
         )}
         {tab === 'settings' && (

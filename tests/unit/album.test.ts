@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dayLabel, isoDate } from '../../src/core/day';
-import type { Quest } from '../../src/core/types';
+import { dayLabel } from '../../src/core/day';
 import { DOMAINS } from '../../src/domains';
 import {
   exportFile,
@@ -35,14 +34,6 @@ function entry(seed: number, biome: 'clearing' | 'orchard' = 'clearing'): AlbumE
     picture: PICTURE,
   };
 }
-
-const quest = (biome: string): Quest => ({
-  id: '2026-11-23',
-  until: '2026-11-29',
-  title: 'Les compléments',
-  biome,
-  skills: [],
-});
 
 describe('Album', () => {
   it('keeps complete paintings with their dates, what was learnt and a picture', () => {
@@ -93,6 +84,8 @@ describe('Album', () => {
         recommended: null,
         name: '',
         notebook: [],
+        requests: { lesson: null, challenge: null },
+        notebookChoices: [],
       },
       new Date('2026-11-23T10:00:00Z'),
     );
@@ -119,25 +112,15 @@ describe('next painting', () => {
     expect(isComplete(newPainting(5, 'winter', 'clearing'))).toBe(false);
   });
 
-  it('offers the décors painted least, or the one of the quest of the week', () => {
-    expect(nextBiomes([], '2026-11-23', [])).toEqual(['clearing', 'orchard', 'sky']);
-    expect(nextBiomes([], '2026-11-23', ['clearing'])).toEqual(['orchard', 'sky', 'mountain']);
-    expect(nextBiomes([], '2026-11-23', ['sky', 'clearing', 'orchard'])).toEqual([
-      'mountain',
-      'clearing',
-      'orchard',
-    ]);
-    expect(nextBiomes([], '2026-11-23', [])).toHaveLength(Math.min(NEXT_CHOICES, 3));
-    expect(nextBiomes([quest('orchard')], '2026-11-25', [])).toEqual(['orchard']);
-    // Before or after the quest, or a décor that does not exist: the choice again.
-    expect(nextBiomes([quest('orchard')], '2026-11-30', [])).toHaveLength(3);
-    expect(nextBiomes([quest('orchard')], '2026-11-22', [])).toHaveLength(3);
-    expect(nextBiomes([quest('moon')], '2026-11-25', [])).toHaveLength(3);
+  it('offers the décors painted least', () => {
+    expect(nextBiomes([])).toEqual(['clearing', 'orchard', 'sky']);
+    expect(nextBiomes(['clearing'])).toEqual(['orchard', 'sky', 'mountain']);
+    expect(nextBiomes(['sky', 'clearing', 'orchard'])).toEqual(['mountain', 'clearing', 'orchard']);
+    expect(nextBiomes([])).toHaveLength(Math.min(NEXT_CHOICES, 3));
   });
 
-  it('writes the days for the quests and for the child', () => {
+  it('writes the days for the child', () => {
     const day = Date.UTC(2026, 11, 1) / 86_400_000;
-    expect(isoDate(day)).toBe('2026-12-01');
     expect(dayLabel(day)).toBe('1er décembre');
     expect(dayLabel(day + 2)).toBe('3 décembre');
   });

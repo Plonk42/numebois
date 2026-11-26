@@ -1,3 +1,4 @@
+import { NO_REQUESTS, type Requests } from '../core/homework';
 import { cleanName } from '../core/name';
 import type { Play } from '../core/session';
 import { SKILL_MODES, type SkillMode, type SkillSetting } from '../core/settings';
@@ -24,6 +25,15 @@ export interface ParentPart {
   name: string;
   /** The astuces seen to the end, in the Carnet (#50), in the order they came. */
   notebook: string[];
+  /** Asked by the parent for the next trail: an astuce, a challenge (#54). */
+  requests: Requests;
+  /** Astuces always in the Carnet (`shown`) or never; the others once seen (#54). */
+  notebookChoices: NotebookChoice[];
+}
+
+export interface NotebookChoice {
+  lesson: string;
+  shown: boolean;
 }
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
@@ -57,13 +67,32 @@ function readSetting(value: unknown, skills: ReadonlyMap<string, Skill>): SkillS
   // A notion with fewer levels than before keeps a range within its own.
   const top = skill.levels - 1;
   const maxLevel = Math.min(value.maxLevel, top);
+  if (value.until !== undefined && !Number.isInteger(value.until)) return null;
   return {
     skill: skill.id,
     mode: value.mode as SkillMode,
     minLevel: Math.min(value.minLevel, maxLevel),
     maxLevel,
+    ...(value.until !== undefined && value.mode === 'focus' && { until: value.until as number }),
   };
 }
+
+const isTextOrNull = (value: unknown) => value === null || typeof value === 'string';
+
+/** Requests of the parent; a challenge on a notion gone from the registry is forgotten. */
+function readRequests(value: unknown, skills: ReadonlyMap<string, Skill>): Requests | null {
+  if (!isObject(value) || !isTextOrNull(value.lesson) || !isTextOrNull(value.challenge)) {
+    return null;
+  }
+  const challenge = value.challenge as string | null;
+  return {
+    lesson: value.lesson as string | null,
+    challenge: challenge !== null && skills.has(challenge) ? challenge : null,
+  };
+}
+
+const isChoice = (value: unknown): value is NotebookChoice =>
+  isObject(value) && typeof value.lesson === 'string' && typeof value.shown === 'boolean';
 
 /**
  * The parent part of a save; absent fields take their default, notions unknown to the
@@ -82,10 +111,15 @@ export function readParentPart(
     recommended = null,
     name = '',
     notebook = [],
+    requests = NO_REQUESTS,
+    notebookChoices = [],
   } = value;
   if (!Array.isArray(settings) || !Array.isArray(plays) || !plays.every(isPlay)) return null;
   if (typeof name !== 'string') return null;
   if (!Array.isArray(notebook) || !notebook.every((id) => typeof id === 'string')) return null;
+  if (!Array.isArray(notebookChoices) || !notebookChoices.every(isChoice)) return null;
+  const asked = readRequests(requests, byId);
+  if (!asked) return null;
   if (!AUTOMATION_FACTORS.includes(automation as (typeof AUTOMATION_FACTORS)[number])) return null;
   if (typeof longChallenges !== 'boolean') return null;
   if (recommended !== null && (!isObject(recommended) || typeof recommended.skill !== 'string')) {
@@ -105,6 +139,8 @@ export function readParentPart(
     recommended: readRecommended(recommended, byId),
     name: cleanName(name),
     notebook: notebook as string[],
+    requests: asked,
+    notebookChoices,
   };
 }
 

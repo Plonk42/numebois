@@ -1,6 +1,6 @@
 import { render, type ComponentChildren } from 'preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { isoDate, today } from '../core/day';
+import { today } from '../core/day';
 import {
   Challenge,
   challengeable,
@@ -10,6 +10,7 @@ import {
   squirrelComes,
 } from '../core/challenge';
 import { Drill, suggestedBranch, type DrillTarget } from '../core/drill';
+import { challengeAsked, lessonAsked, NO_REQUESTS, type Requests } from '../core/homework';
 import { lessonAfter, lessonBefore } from '../core/lessons';
 import { cleanName, named } from '../core/name';
 import { modeOf, settingOf, type SkillSetting } from '../core/settings';
@@ -33,7 +34,6 @@ import {
 import { Session, type Achievement, type SessionSnapshot } from '../core/session';
 import { stepLevel, type StepRole, type TrailLength } from '../core/trail';
 import type { Exercise, Lesson, Skill, SkillId } from '../core/types';
-import { QUESTS } from '../quests';
 import {
   exportFile,
   isFramed,
@@ -41,7 +41,7 @@ import {
   type AlbumEntry,
   type ParsedAlbum,
 } from '../save/album';
-import type { Recommended } from '../save/parent';
+import type { NotebookChoice, Recommended } from '../save/parent';
 import { serializeSave, type PaintingJournal, type ParsedSave } from '../save/save';
 import type { AnimalName } from '../scene/animal-catalog';
 import { BIOMES, nextBiomes } from '../scene/biomes';
@@ -304,8 +304,14 @@ interface Props {
   /** The astuces seen to the end, and one to play first. */
   notebook: readonly string[];
   lesson: Lesson | null;
+  /** The homework asked for the next trail, and the astuces the parent shows or hides (#54). */
+  requests: Requests;
+  notebookChoices: readonly NotebookChoice[];
   debug?: GameDebug;
 }
+
+/** Where an astuce leads, or one refused: the question waiting, the next one, the Carnet. */
+type LessonReturn = 'question' | 'next' | 'notebook';
 
 /** Why golden seeds came: the first thing learnt. */
 function giftReason(achievement: Achievement, skill: Skill): string {
@@ -364,14 +370,23 @@ function Game(props: Props) {
   /** The page just added to the Carnet, marked when it opens. */
   const [freshPage, setFreshPage] = useState<string | null>(null);
   const skillMap = useMemo(() => new Map(props.skills.map((s) => [s.id, s])), [props.skills]);
-  /** The pages of the Carnet: the astuces seen that the game still knows. */
-  const pages = notebook.flatMap(
-    (id) => [...props.lessons, ...props.trials].find((l) => l.id === id) ?? [],
-  );
+  const [requests, setRequests] = useState(props.requests);
+  const [notebookChoices, setNotebookChoices] = useState(props.notebookChoices);
+  /**
+   * The pages of the Carnet: the astuces seen that the game still knows, unless the parent
+   * hides them, and the ones the parent shows before they are seen (#54).
+   */
+  const pages = useMemo(() => {
+    const known = [...props.lessons, ...props.trials];
+    const choice = (id: string) => notebookChoices.find((c) => c.lesson === id)?.shown;
+    const seen = notebook.filter((id) => choice(id) !== false);
+    const shown = props.lessons.map((l) => l.id).filter((id) => choice(id) && !seen.includes(id));
+    return [...seen, ...shown].flatMap((id) => known.find((l) => l.id === id) ?? []);
+  }, [notebook, notebookChoices]);
   /** Where an astuce leads, once seen: its page in the Carnet, or back to the trail. */
-  const [lessonReturn, setLessonReturn] = useState<'notebook' | 'question' | 'next'>('notebook');
-  /** The astuce Plume offers, between two questions (#51). */
-  const [tip, setTip] = useState<Lesson | null>(null);
+  const [lessonReturn, setLessonReturn] = useState<LessonReturn>('notebook');
+  /** The astuce Plume offers, then where the trail goes on (#51, #54). */
+  const [tip, setTip] = useState<{ lesson: Lesson; after: LessonReturn } | null>(null);
   /** At most one astuce a session comes by itself (#51). */
   const lessonUsed = useRef(false);
   const lessonState = () => ({
@@ -387,6 +402,16 @@ function Game(props: Props) {
     setLesson(moment.lesson);
     setLessonReturn('question');
     setPhase('lesson');
+    return true;
+  };
+  /** The astuce the parent asked for, offered when the trail starts, once (#54). */
+  const lessonAskedFirst = (after: LessonReturn): boolean => {
+    const asked = lessonAsked(requests, props.lessons);
+    if (!asked.lesson) return false;
+    setRequests(asked.requests);
+    lessonUsed.current = true;
+    setTip({ lesson: asked.lesson, after });
+    setPhase('lesson-offer');
     return true;
   };
   /** Where a change of season started: the screen stays as it was under the light. */
@@ -548,13 +573,15 @@ function Game(props: Props) {
         recommended,
         name,
         notebook: [...notebook],
+        requests,
+        notebookChoices: [...notebookChoices],
       },
       new Date(),
     );
   // Every answer changes the phase or the reserve, every element the phase: the save follows.
   useEffect(
     () => props.save(saveData()),
-    [leaves, seeds, phase, length, journal, recommended, name, notebook],
+    [leaves, seeds, phase, length, journal, recommended, name, notebook, requests, notebookChoices],
   );
   // The end of the trail: the basket empties into the reserve, then the forest is the child's.
   useEffect(() => {
@@ -619,7 +646,7 @@ function Game(props: Props) {
       const moment = lessonAfter(skill.id, session.progress.get(skill.id), lessonState());
       if (moment) {
         lessonUsed.current = true;
-        setTip(moment.lesson);
+        setTip({ lesson: moment.lesson, after: 'next' });
         setPhase('lesson-offer');
         return;
       }
@@ -638,7 +665,7 @@ function Game(props: Props) {
     if (!free) return;
     squirrelWaits.current = false;
     if (!finished) {
-      if (lessonFirst(skill.id)) return;
+      if (lessonAskedFirst('question') || lessonFirst(skill.id)) return;
       setPhase('asking');
       shownAt.current = playClock();
       return;
@@ -650,6 +677,7 @@ function Game(props: Props) {
     setSeedsHere(0);
     setBasket(0);
     flashUsed.current = false;
+    if (lessonAskedFirst('next')) return;
     ask();
   };
 
@@ -739,7 +767,14 @@ function Game(props: Props) {
 
   /** After a trail ended on right answers, once per session, the squirrel offers a challenge. */
   const afterTrail = () => {
-    if (offered.current || challenges.length === 0 || !squirrelComes(session.results)) return;
+    // The challenge the parent asked for: the squirrel comes with it, this once (#54).
+    const asked = challengeAsked(requests, challenges);
+    if (asked.skill) {
+      setRequests(asked.requests);
+      setOfferAt(offerList.findIndex((o) => o.skill.id === asked.skill!.id));
+    } else if (offered.current || challenges.length === 0 || !squirrelComes(session.results)) {
+      return;
+    }
     // Something to buy: the purchase comes first, the squirrel once the shop is closed (#134).
     if (items.some((item) => canBuy(item, leaves, seeds))) squirrelWaits.current = true;
     else offerChallenge();
@@ -903,18 +938,13 @@ function Game(props: Props) {
   /** Under the light, the décors of the next painting, each shown as it will be once complete. */
   const chooseNext = (entries: readonly AlbumEntry[]) => {
     const painted = entries.map((entry) => entry.description.biome);
-    const options = nextBiomes(QUESTS, isoDate(today()), painted).map((biome) =>
+    const options = nextBiomes(painted).map((biome) =>
       newPainting(rng.int(0, 999_999), DEFAULT_DESCRIPTION.season, biome),
     );
     forest.cover(true);
     setPhase('next');
     setChoices(options.map((description) => ({ description, picture: null })));
     later(COVER_MS, () => {
-      // The décor of the quest: no choice, the painting starts at once.
-      if (options.length === 1) {
-        startPainting(options[0]);
-        return;
-      }
       setChoices(
         options.map((description) => {
           forest.show(completed(description));
@@ -939,10 +969,22 @@ function Game(props: Props) {
   };
 
   /** An astuce of Plume, from the Carnet (#50) or offered (#51): never counted, never paid. */
-  const openLesson = (chosen: Lesson, then: 'notebook' | 'next' = 'notebook') => {
+  const openLesson = (chosen: Lesson, after: LessonReturn = 'notebook') => {
     setLesson(chosen);
-    setLessonReturn(then);
+    setLessonReturn(after);
     setPhase('lesson');
+  };
+
+  /** After an astuce, or one refused: the question waiting, the next one, or the Carnet. */
+  const goOn = (after: LessonReturn) => {
+    if (after === 'question') {
+      setPhase('asking');
+      shownAt.current = playClock();
+    } else if (after === 'next') {
+      ask();
+    } else {
+      setPhase('notebook');
+    }
   };
 
   /**
@@ -953,15 +995,8 @@ function Game(props: Props) {
     const id = lesson!.id;
     const fresh = !notebook.includes(id);
     if (fresh) setNotebook([...notebook, id]);
-    if (lessonReturn === 'question') {
-      setPhase('asking');
-      shownAt.current = playClock();
-    } else if (lessonReturn === 'next') {
-      ask();
-    } else {
-      setFreshPage(fresh ? id : null);
-      setPhase('notebook');
-    }
+    if (lessonReturn === 'notebook') setFreshPage(fresh ? id : null);
+    goOn(lessonReturn);
   };
 
   /** A painting of the Album, alive again: built under the light, which then goes. */
@@ -1253,7 +1288,11 @@ function Game(props: Props) {
         />
       )}
       {phase === 'lesson-offer' && tip && (
-        <LessonOffer lesson={tip} onAccept={() => openLesson(tip, 'next')} onDecline={ask} />
+        <LessonOffer
+          lesson={tip.lesson}
+          onAccept={() => openLesson(tip.lesson, tip.after)}
+          onDecline={() => goOn(tip.after)}
+        />
       )}
       {phase === 'notebook' && (
         <Notebook
@@ -1346,6 +1385,12 @@ function Game(props: Props) {
             props.save(saveData());
           }}
           onRecommended={setRecommended}
+          lessons={props.lessons}
+          challenges={challenges}
+          requests={requests}
+          onRequests={setRequests}
+          notebookChoices={notebookChoices}
+          onNotebookChoices={setNotebookChoices}
           onClose={() => setMenu(false)}
         />
       )}
@@ -1640,6 +1685,8 @@ export function mountGame(
       lessons={known}
       trials={trials}
       notebook={saved?.ok ? saved.data.notebook : []}
+      requests={saved?.ok ? saved.data.requests : NO_REQUESTS}
+      notebookChoices={saved?.ok ? saved.data.notebookChoices : []}
       lesson={start}
       debug={debug}
     />,

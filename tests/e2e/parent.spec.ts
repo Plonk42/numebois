@@ -97,11 +97,13 @@ test('le tableau de bord parent : suivi, r√©glage des notions, rafale recommand√
     await row('times-tables.products').getByRole('button', { name: 'Plus haut : moins' }).click();
   }
   await expect(row('times-tables.products').locator('.level')).toHaveText(['1', '2']);
+  await test.info().attach('notions', { body: await page.screenshot(), contentType: 'image/png' });
+  // The recommended drill, with the homework of the week (#54).
+  await menu.getByRole('button', { name: 'Devoirs' }).click();
   await menu
     .locator('.recommended tr[data-skill="times-tables.products"]')
     .getByRole('button', { name: 'La table de 7' })
     .click();
-  await test.info().attach('notions', { body: await page.screenshot(), contentType: 'image/png' });
   // Nothing goes past the screen of the tablet.
   const box = (await menu.boundingBox())!;
   const viewport = page.viewportSize()!;

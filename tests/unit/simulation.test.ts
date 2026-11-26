@@ -5,6 +5,7 @@ import { curriculum } from '../../src/core/registry';
 import { Rng } from '../../src/core/rng';
 import { Session } from '../../src/core/session';
 import { MAX_ACTIVE, REVIEW_SHARE, TRAIL_QUESTIONS } from '../../src/core/trail';
+import { changeSetting } from '../../src/core/settings';
 import type { Domain, Exercise, Skill } from '../../src/core/types';
 import { DOMAINS } from '../../src/domains';
 
@@ -42,7 +43,7 @@ function syntheticDomain(index: number, count: number): Domain {
  * Six months of a virtual child right 80 % of the time at first try, who skips about one day
  * in seven and sometimes plays two trails: what each trail asks and what is left aside.
  */
-function sixMonths(domains: readonly Domain[]) {
+function sixMonths(domains: readonly Domain[], withHomework: boolean) {
   const skills = curriculum(domains);
   const rng = new Rng(7);
   const child = rng.fork('child');
@@ -56,7 +57,21 @@ function sixMonths(domains: readonly Domain[]) {
   const lastSeen = new Map<string, number>();
   const trails: { stones: number; inProgress: number; reviews: number }[] = [];
   let forgotten = 0;
+  let homework: Skill | null = null;
+  let homeworkQuestions = 0;
   for (day = 1; day <= DAYS; day++) {
+    // The homework of the week (#54): a notion worked in class, so in progress here, in focus
+    // until next week's eve.
+    if (withHomework && day % 7 === 1) {
+      const met = skills.filter((skill) => session.progress.get(skill.id)?.stage === 'learning');
+      if (met.length > 0) {
+        homework = child.pick(met);
+        session.settings = changeSetting(session.settings, homework, {
+          mode: 'focus',
+          until: day + 6,
+        });
+      }
+    }
     if (child.chance(0.15)) continue;
     for (let trail = child.chance(0.3) ? 2 : 1; trail > 0; trail--) {
       for (const skill of skills) {
@@ -67,8 +82,12 @@ function sixMonths(domains: readonly Domain[]) {
       const steps = session.trail;
       trails.push({
         stones: session.stones,
+        // In progress: not acquired yet (a homework notion acquired is reviewed).
         inProgress: new Set(
-          steps.filter((s) => s.role === 'core' || s.role === 'new').map((s) => s.skill),
+          steps
+            .filter((s) => s.role === 'core' || s.role === 'new')
+            .filter((s) => !isAcquired(session.progress.get(s.skill)))
+            .map((s) => s.skill),
         ).size,
         reviews: steps.filter((s) => s.role === 'review').length,
       });
@@ -84,24 +103,52 @@ function sixMonths(domains: readonly Domain[]) {
           !right && child.chance(0.5),
         );
         lastSeen.set(skill.id, day);
+        if (skill === homework && session.settings.get(skill.id)?.mode === 'focus') {
+          homeworkQuestions++;
+        }
         previous = exercise;
       } while (session.advance());
     }
   }
   const acquired = skills.filter((skill) => isAcquired(session.progress.get(skill.id))).length;
-  return { trails, forgotten, acquired, notions: skills.length };
+  return { trails, forgotten, acquired, notions: skills.length, homeworkQuestions };
 }
 
 describe('six mois de jeu', () => {
   const futures = Array.from({ length: 15 }, (_, i) => syntheticDomain(i, 6));
   it.each([
-    { name: 'the current registry', domains: DOMAINS },
-    { name: 'a registry of about 100 notions', domains: [...DOMAINS, ...futures] },
+    { name: 'the current registry', domains: DOMAINS, homework: false, opens: 0.8 },
+    {
+      name: 'a registry of about 100 notions',
+      domains: [...DOMAINS, ...futures],
+      homework: false,
+      opens: 0.8,
+    },
+    // Half of the trail goes to the homework of the week: fewer notions open (#54).
+    {
+      name: 'the current registry, homework every week',
+      domains: DOMAINS,
+      homework: true,
+      opens: 0.6,
+    },
+    {
+      name: 'about 100 notions, homework every week',
+      domains: [...DOMAINS, ...futures],
+      homework: true,
+      opens: 0.4,
+    },
   ])(
     '$name: same trail size, 3 notions in progress, reviews under 25 %, nothing forgotten',
-    ({ domains }) => {
-      const { trails, forgotten, acquired, notions } = sixMonths(domains);
+    ({ domains, homework, opens }) => {
+      const { trails, forgotten, acquired, notions, homeworkQuestions } = sixMonths(
+        domains,
+        homework,
+      );
       expect(trails.length).toBeGreaterThan(DAYS);
+      // The homework of each week comes often: half of most trails of its week.
+      if (homework) {
+        expect(homeworkQuestions).toBeGreaterThan((trails.length * TRAIL_QUESTIONS.normal) / 4);
+      }
       const size = TRAIL_QUESTIONS.normal;
       for (const trail of trails) {
         expect(trail.stones).toBe(size);
@@ -112,7 +159,7 @@ describe('six mois de jeu', () => {
       expect(forgotten).toBeLessThanOrEqual(REVIEW_DAYS.at(-1)!);
       // The content keeps opening: most of today's notions, half of 100, in six months.
       expect(acquired, `${acquired} sur ${notions}`).toBeGreaterThanOrEqual(
-        0.8 * Math.min(notions, 60),
+        opens * Math.min(notions, 60),
       );
     },
   );

@@ -18,6 +18,8 @@ export interface SkillSetting {
   /** Lowest and highest internal levels asked, within `0` and `levels - 1`. */
   minLevel: number;
   maxLevel: number;
+  /** Homework of the week (#54): the focus ends after this day (local day number). */
+  until?: number;
 }
 
 export type Settings = ReadonlyMap<SkillId, SkillSetting>;
@@ -59,15 +61,37 @@ export function changeSetting(
     minLevel: change.maxLevel !== undefined ? Math.min(minLevel, maxLevel) : minLevel,
     maxLevel: change.maxLevel !== undefined ? maxLevel : Math.max(minLevel, maxLevel),
   };
+  // Only a focus ends; a new mode without a day is for good.
+  let until = change.mode ? undefined : before.until;
+  if ('until' in change) until = change.until;
+  if (next.mode === 'focus' && until !== undefined) next.until = until;
   const result = new Map(settings);
   result.delete(skill.id);
   if (next.mode === 'focus') {
     const focus = [...result.values()].filter((s) => s.mode === 'focus');
     for (const old of focus.slice(0, Math.max(0, focus.length - MAX_FOCUS + 1))) {
-      result.set(old.skill, { ...old, mode: 'auto' });
+      result.set(old.skill, backToAuto(old));
     }
   }
   const isDefault = next.mode === 'auto' && next.minLevel === 0 && next.maxLevel === top;
   if (!isDefault) result.set(skill.id, next);
+  return result;
+}
+
+const backToAuto = ({ skill, minLevel, maxLevel }: SkillSetting): SkillSetting => ({
+  skill,
+  mode: 'auto',
+  minLevel,
+  maxLevel,
+});
+
+/** The homework is over: a focus whose last day has passed goes back to auto, levels kept. */
+export function endFocus(settings: Settings, day: number): Map<SkillId, SkillSetting> {
+  const result = new Map(settings);
+  for (const setting of settings.values()) {
+    if (setting.mode === 'focus' && setting.until !== undefined && setting.until < day) {
+      result.set(setting.skill, backToAuto(setting));
+    }
+  }
   return result;
 }
