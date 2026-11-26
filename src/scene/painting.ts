@@ -337,7 +337,7 @@ export class Painting {
         this.cabins.push(mesh);
       }
       for (const s of this.lamps ? [cableway.supports[0], cableway.supports.at(-1)!] : []) {
-        this.root.add(this.lamps!.haloAt(s.x, s.y - ROPE_OVER.bottom + 1.6, s.z, 3.2));
+        this.root.add(this.lamps!.haloAt(s.x, s.y - ROPE_OVER.bottom + 0.8, s.z, 1.8));
       }
     }
     // Lit buildings: a warm halo on the side of the camera, its windows glow (`windowGlow`).

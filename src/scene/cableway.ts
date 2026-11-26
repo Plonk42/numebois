@@ -11,16 +11,16 @@ import type { Cableway } from './terrain/types';
  */
 
 /** Half the gap between the two ropes, one cabin on each. */
-export const GAUGE = 0.8;
+export const GAUGE = 0.45;
 /** From a rope down to the floor of its cabin. */
-export const HANG = 2.4;
+export const HANG = 1.3;
 /** Ropes over the ground at the bottom station, a pylon (at least), the top station. */
-export const ROPE_OVER = { bottom: 3.4, pylon: 7, top: 3 } as const;
+export const ROPE_OVER = { bottom: 1.6, pylon: 4, top: 1.6 } as const;
 /** Sag of a rope, as a share of its span. */
 const SAG = 0.03;
 const SAMPLES = 16;
 /** Cabins' speed in units per second, and seconds they wait in a station. */
-const SPEED = 2.4;
+const SPEED = 1.8;
 const WAIT = 4;
 
 type Vec3 = [number, number, number];
@@ -179,69 +179,46 @@ function roof(
 }
 
 /**
- * A station: a bay under a roof where the cabins stop, over the ropes' end, and a little
- * house beside it, away from the line (`back` -1 at the bottom, 1 at the top). A stone
- * base reaches `deep` under the platform, into the slope.
+ * A station: a little hut with a red roof on a stone base reaching `deep` into the slope,
+ * behind the end of the ropes (`back` -1 at the bottom, 1 at the top), where a cabin waits
+ * at its door.
  */
 function station(out: MeshWriter, f: Frame, back: number, deep: number): void {
-  const top = ROPE_OVER.bottom;
-  block(out, f, [0, -deep / 2 + 0.2, back * 1.1], [2.2, deep / 2 + 0.2, 2.6], 'Stone');
-  // The bay: four posts and a flat roof over the cabins, the bullwheel under it.
-  for (const x of [-1, 1]) {
-    for (const z of [-1, 1]) {
-      beam(
-        out,
-        place(f, [x * 1.9, 0.4, z * 1.1]),
-        place(f, [x * 1.9, top + 0.9, z * 1.1]),
-        0.18,
-        0.18,
-        'DarkBark',
-      );
-    }
-  }
-  block(out, f, [0, top + 1, 0], [2.15, 0.14, 1.35], 'DarkBark');
-  block(out, f, [0, top + 0.25, 0], [GAUGE + 0.25, 0.1, GAUGE + 0.25], 'Stone');
-  // The house: cream walls, windows, a red roof.
-  block(out, f, [0, 1.6, back * 2.4], [1.8, 1.2, 1.2], 'Cream');
-  for (const x of [-1, 1]) {
-    block(out, f, [x * 1.81, 1.8, back * 2.4], [0.02, 0.35, 0.5], 'HexWater');
-  }
-  roof(out, f, [0, 2.8, back * 2.4], 2.05, 1.4, 1.1);
+  block(out, f, [0, -deep / 2, back * 0.5], [0.9, deep / 2 + 0.1, 1.05], 'Stone');
+  block(out, f, [0, 0.55, back * 0.75], [0.75, 0.55, 0.6], 'Cream');
+  block(out, f, [0, 0.65, back * 0.75 - back * 0.61], [0.32, 0.25, 0.02], 'HexWater');
+  roof(out, f, [0, 1.1, back * 0.75], 0.88, 0.72, 0.6);
 }
 
-/** A pylon: four legs leaning in to a cross-arm carrying both ropes. */
+/** A pylon: four thin legs leaning in to a cross-arm carrying both ropes. */
 function pylon(out: MeshWriter, f: Frame, height: number): void {
-  const top = height - 0.25;
+  const top = height - 0.12;
   for (const x of [-1, 1]) {
     for (const z of [-1, 1]) {
       beam(
         out,
-        place(f, [x * 0.75, -0.6, z * 0.75]),
-        place(f, [x * 0.28, top, z * 0.28]),
-        0.16,
-        0.16,
+        place(f, [x * 0.4, -0.4, z * 0.4]),
+        place(f, [x * 0.14, top, z * 0.14]),
+        0.08,
+        0.08,
         'Stone',
       );
     }
   }
-  for (const level of [0.3, 0.6]) {
-    const h = top * level;
-    const r = 0.75 + (0.28 - 0.75) * ((h + 0.6) / (top + 0.6));
-    for (const z of [-1, 1]) {
-      beam(out, place(f, [-r, h, z * r]), place(f, [r, h, z * r]), 0.1, 0.1, 'Stone');
-      beam(out, place(f, [z * r, h, -r]), place(f, [z * r, h, r]), 0.1, 0.1, 'Stone');
-    }
+  const h = top * 0.45;
+  const r = 0.4 + (0.14 - 0.4) * ((h + 0.4) / (top + 0.4));
+  for (const z of [-1, 1]) {
+    beam(out, place(f, [-r, h, z * r]), place(f, [r, h, z * r]), 0.06, 0.06, 'Stone');
+    beam(out, place(f, [z * r, h, -r]), place(f, [z * r, h, r]), 0.06, 0.06, 'Stone');
   }
   beam(
     out,
-    place(f, [-(GAUGE + 0.35), top, 0]),
-    place(f, [GAUGE + 0.35, top, 0]),
-    0.22,
-    0.22,
+    place(f, [-(GAUGE + 0.18), top, 0]),
+    place(f, [GAUGE + 0.18, top, 0]),
+    0.11,
+    0.11,
     'Stone',
   );
-  for (const x of [-1, 1])
-    block(out, f, [x * GAUGE, top + 0.18, 0], [0.12, 0.08, 0.35], 'DarkBark');
 }
 
 /** The stations, the pylons and the two ropes, in one mesh. */
@@ -251,14 +228,14 @@ export function cablewayMesh(c: Cableway): MeshData {
   const s = c.supports;
   s.forEach((support, i) => {
     const f = { x: support.x, y: support.ground, z: support.z, yaw };
-    if (i === 0) station(out, f, -1, 1.5);
+    if (i === 0) station(out, f, -1, 0.8);
     // High on the peak, on a stone buttress into its steep slope.
-    else if (i === s.length - 1) station(out, { ...f, y: support.y - ROPE_OVER.bottom }, 1, 4);
+    else if (i === s.length - 1) station(out, { ...f, y: support.y - ROPE_OVER.bottom }, 1, 2);
     else pylon(out, f, support.y - support.ground);
   });
   for (const side of [-1, 1]) {
     const rope = ropePoints(c, side);
-    for (let i = 1; i < rope.length; i++) beam(out, rope[i - 1], rope[i], 0.07, 0.07, 'DarkBark');
+    for (let i = 1; i < rope.length; i++) beam(out, rope[i - 1], rope[i], 0.05, 0.05, 'DarkBark');
   }
   return out.toMeshData();
 }
@@ -267,30 +244,11 @@ export function cablewayMesh(c: Cableway): MeshData {
 export function cabin(): MeshData {
   const out = new MeshWriter(256, 512);
   const f = { x: 0, y: 0, z: 0, yaw: 0 };
-  block(out, f, [0, -0.05, 0], [0.12, 0.1, 0.45], 'DarkBark');
-  beam(out, [0, -0.1, 0], [0, -0.75, 0], 0.1, 0.1, 'DarkBark');
+  beam(out, [0, 0, 0], [0, -0.55, 0], 0.06, 0.06, 'DarkBark');
   const floor = -HANG;
-  const height = HANG - 0.8;
-  // Body below the windows, the windows, a white roof.
-  block(out, f, [0, floor + 0.35, 0], [0.7, 0.35, 0.85], 'PetalRed');
-  block(
-    out,
-    f,
-    [0, floor + 0.7 + (height - 1.05) / 2, 0],
-    [0.68, (height - 1.05) / 2, 0.83],
-    'HexWater',
-  );
-  for (const x of [-1, 1]) {
-    for (const z of [-1, 1]) {
-      block(
-        out,
-        f,
-        [x * 0.64, floor + 0.7 + (height - 1.05) / 2, z * 0.79],
-        [0.07, (height - 1.05) / 2, 0.07],
-        'PetalRed',
-      );
-    }
-  }
-  block(out, f, [0, floor + height - 0.175, 0], [0.74, 0.175, 0.89], 'Cream', 'PetalRed');
+  // A red body, a band of windows, a white roof.
+  block(out, f, [0, floor + 0.15, 0], [0.36, 0.15, 0.42], 'PetalRed');
+  block(out, f, [0, floor + 0.45, 0], [0.35, 0.15, 0.41], 'HexWater');
+  block(out, f, [0, floor + 0.67, 0], [0.39, 0.07, 0.45], 'Cream', 'PetalRed');
   return out.toMeshData();
 }

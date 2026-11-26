@@ -58,7 +58,7 @@ const CABLECAR_STAGE = rareStage('mountain', 'cablecar')!;
 /** The eagles come by themselves with this stage. */
 const EAGLES_STAGE = 9;
 /** Tallest pylon of the cable car, from the ground to its ropes. */
-const TALLEST_PYLON = 15;
+const TALLEST_PYLON = 8;
 /** Points around a cabin, to find the highest ground under it. */
 const AROUND_CABIN: readonly (readonly [number, number])[] = [
   [0, 0],
