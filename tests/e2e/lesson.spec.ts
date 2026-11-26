@@ -1,10 +1,82 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import type { ExerciseInput } from '../../src/core/types';
+import { DOMAINS } from '../../src/domains';
 import { addColumns } from '../../src/domains/column-arithmetic/columns';
-import { driver, expectSlateLayout, game } from './helpers';
+import { current, driver, expectSlateLayout, game, loadSave, startTrail } from './helpers';
+
+/**
+ * Plays the astuce on the slate to its end, as the child would: each explanation read, each
+ * demo watched, each exercise answered right; the layout checked and captured at each step.
+ */
+async function playLesson(page: Page, name: string) {
+  const card = page.locator('#question');
+  const hint = card.locator('.hint');
+  for (;;) {
+    const { phase, lesson } = await game(page);
+    if (phase !== 'lesson') return;
+    await expectSlateLayout(page);
+    await test.info().attach(`${name}, étape ${lesson!.step + 1}`, {
+      body: await page.screenshot(),
+      contentType: 'image/png',
+    });
+    const { exercise, kind, step } = lesson!;
+    if (kind === 'demo') await expect(hint).toContainText('Voilà !', { timeout: 30_000 });
+    if (kind === 'try') {
+      await driver(exercise!.input).answer(page, exercise!.input, exercise!.answer);
+      await expect(hint).toContainText('Bravo !');
+    }
+    await card.getByRole('button', { name: 'Suivant' }).click();
+    await expect
+      .poll(async () => {
+        const now = await game(page);
+        return now.phase !== 'lesson' || now.lesson?.step !== step;
+      })
+      .toBe(true);
+  }
+}
+
+for (const lesson of DOMAINS.flatMap((domain) => domain.lessons ?? [])) {
+  test(`${lesson.id} : l’astuce jusqu’au bout, sa page dans le Carnet`, async ({ page }) => {
+    const errors: string[] = [];
+    page.on('pageerror', (error) => errors.push(error.message));
+    await page.goto(`./?lesson=${lesson.id}&name=Zébulon&seed=3&stage=0&quality=low`);
+    await page.evaluate(() => window.__numebois!.ready);
+    await expect(page.locator('#question header')).toHaveText(lesson.title);
+    await playLesson(page, lesson.id);
+    await expect(
+      page.locator('#notebook').getByRole('button', { name: lesson.title }),
+    ).toContainText('Nouvelle page');
+    expect(errors).toEqual([]);
+  });
+}
+
+/** A notion that opens brings its astuce first, then its first question (#51). */
+test('la première astuce d’une notion avant sa première question', async ({ page }) => {
+  await page.goto('./?stage=0&name=&seed=3&quality=low');
+  await page.evaluate(() => window.__numebois!.ready);
+  // « Décomposer » opened by the parent: the first trail starts with it.
+  await loadSave(page, {
+    version: 6,
+    savedAt: '2026-11-23T10:00:00.000Z',
+    leaves: 0,
+    seeds: 0,
+    trailLength: 'normal',
+    progress: [],
+    facts: [],
+    history: [],
+    settings: [{ skill: 'numbers.decompose', mode: 'open', minLevel: 0, maxLevel: 3 }],
+  });
+  await startTrail(page);
+  await expect(page.locator('#question header')).toHaveText('La valeur des chiffres');
+  await playLesson(page, 'première fois');
+  const exercise = await current(page);
+  expect(exercise.skill).toBe('numbers.decompose');
+  const now = await game(page);
+  expect([now.stone, now.leaves]).toEqual([0, 0]);
+});
 
 /** The operation on the slate, as the widget is given it: rows read from its label. */
-async function shownAddition(page: import('@playwright/test').Page) {
+async function shownAddition(page: Page) {
   const label = await page.locator('#question .column-operation').getAttribute('aria-label');
   const rows = label!.split('+').map((n) => Number(n.replace(/\D/g, '')));
   const input: ExerciseInput = {

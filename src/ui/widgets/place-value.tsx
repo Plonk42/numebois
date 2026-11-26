@@ -97,3 +97,30 @@ export function BlocksFigure({
     </svg>
   );
 }
+
+const DOT_GAP = 44;
+
+/** `rows × columns` as rows of dots, one colour a row out of two to count them by rows. */
+export function DotsFigure({ rows, columns }: { rows: number; columns: number }) {
+  return (
+    <svg
+      class="dots"
+      viewBox={`0 0 ${columns * DOT_GAP} ${rows * DOT_GAP}`}
+      style={{ width: `${columns * DOT_GAP}px` }}
+      aria-label={`${rows} rangées de ${columns} points`}
+    >
+      {Array.from({ length: rows }, (_, row) => (
+        <g key={row} class={row % 2 === 0 ? 'row' : 'row other'}>
+          {Array.from({ length: columns }, (_, column) => (
+            <circle
+              key={column}
+              cx={(column + 0.5) * DOT_GAP}
+              cy={(row + 0.5) * DOT_GAP}
+              r={DOT_GAP * 0.32}
+            />
+          ))}
+        </g>
+      ))}
+    </svg>
+  );
+}

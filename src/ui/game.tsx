@@ -72,7 +72,7 @@ import {
 } from './challenge';
 import { DrillBreak, DrillTree, Garland, TuftButton, DRILL_NAME } from './drill';
 import { FinaleBanner, Frame, NextPainting, type NextChoice } from './finale';
-import { LessonOffer, LessonPlayer, lessonPlayable } from './lesson';
+import { LessonOffer, LessonPlayer, lessonPlayable, type LessonShown } from './lesson';
 import { Naming } from './naming';
 import { Notebook, NotebookButton } from './notebook';
 import { ParentMenu } from './parent-menu';
@@ -245,6 +245,8 @@ export interface GameProbe {
   role: StepRole | null;
   /** Leaves a right answer to the trail's question earns, a flash bonus aside (#141). */
   worth: number;
+  /** The step of the astuce on the slate (#50), null outside one. */
+  lesson: LessonShown | null;
 }
 
 /** Shortcuts of the sandbox (`?sandbox`), wired by the game. */
@@ -466,6 +468,7 @@ function Game(props: Props) {
       stones: session.stones,
       role: finished ? null : session.step.role,
       worth: session.worth,
+      ...(phase !== 'lesson' && { lesson: null }),
     });
   });
   useEffect(() => {
@@ -1266,6 +1269,9 @@ function Game(props: Props) {
           skills={skillMap}
           rng={rng}
           context={session.context()}
+          onShow={(shown) => {
+            probe.lesson = shown;
+          }}
           onDone={endLesson}
         />
       )}
@@ -1605,6 +1611,7 @@ export function mountGame(
     stones: session.stones,
     role: null,
     worth: 0,
+    lesson: null,
   };
   let problem: string | null = null;
   if (saved && !saved.ok) {

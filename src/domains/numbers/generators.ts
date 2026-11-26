@@ -1,5 +1,5 @@
 import type { Exercise, Figure, NumberLine } from '../../core/types';
-import type { Rng } from '../../core/rng';
+import { Rng } from '../../core/rng';
 import { formatNumber, numberWords } from './words';
 
 export const WRITE_DIGITS = 'numbers.write-digits';
@@ -182,6 +182,32 @@ function composeStatement(rng: Rng, value: number, ranks: number[], show: Decomp
   return parts.map((r) => `${digit(r)} ${RANK_NAMES[r][digit(r) >= 2 ? 1 : 0]}`).join(', ');
 }
 
+/** A number to write in digits from its ranks, shown as `show` (`rng` only shuffles `mixed`). */
+export function composeExercise(
+  value: number,
+  show: DecomposeShow,
+  level: number,
+  rng = new Rng(0),
+): DecomposeExercise {
+  const digit = (r: number) => Math.floor(value / 10 ** r) % 10;
+  const ranks = [3, 2, 1, 0].filter((r) => 10 ** r <= value);
+  return {
+    skill: DECOMPOSE,
+    level,
+    instruction: 'Écris ce nombre en chiffres.',
+    statement: composeStatement(rng, value, ranks, show),
+    ...(show === 'blocks' && {
+      figure: { kind: 'blocks', hundreds: digit(2), tens: digit(1), units: digit(0) },
+    }),
+    input: { kind: 'keypad', maxDigits: 4, inline: show === 'sum' },
+    answer: String(value),
+    value,
+    ask: 'compose',
+    rank: 0,
+    show,
+  };
+}
+
 export function generateDecompose(rng: Rng, level: number): DecomposeExercise {
   let value: number;
   let ask: DecomposeExercise['ask'] = 'compose';
@@ -195,21 +221,15 @@ export function generateDecompose(rng: Rng, level: number): DecomposeExercise {
   } else throw levelError(level);
   const shows = DECOMPOSE_SHOWS[level];
   const show = rng.pick(rng.chance(EASY_SHOW_SHARE) ? shows.easy : shows.effort);
+  if (ask === 'compose') return composeExercise(value, show, level, rng);
   const digit = (r: number) => Math.floor(value / 10 ** r) % 10;
   const ranks = [3, 2, 1, 0].filter((r) => 10 ** r <= value);
-  let instruction = 'Écris ce nombre en chiffres.';
+  let instruction = 'Trouve le chiffre.';
   let statement: string;
-  let figure: Figure | undefined;
   let answer: number;
-  if (show === 'table') figure = { kind: 'place-value', digits: ranks.map(digit) };
-  if (ask === 'compose') {
-    statement = composeStatement(rng, value, ranks, show);
-    if (show === 'blocks') {
-      figure = { kind: 'blocks', hundreds: digit(2), tens: digit(1), units: digit(0) };
-    }
-    answer = value;
-  } else if (ask === 'digit') {
-    instruction = 'Trouve le chiffre.';
+  const figure: Figure | undefined =
+    show === 'table' ? { kind: 'place-value', digits: ranks.map(digit) } : undefined;
+  if (ask === 'digit') {
     statement =
       show === 'table'
         ? `Le chiffre des ${RANK_NAMES[rank][1]}\u00a0?`

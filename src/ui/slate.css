@@ -122,6 +122,8 @@
   font-weight: 700;
   overflow-wrap: anywhere;
   text-wrap: balance;
+  /* An astuce of Plume goes to the line where it says so. */
+  white-space: pre-line;
 }
 .statement.large {
   font-size: 56px;
@@ -545,7 +547,7 @@
 }
 
 /* Decompose (#109): a colour per rank, the same in the table and in the blocks. */
-.bench > .work:has(.place-value, .blocks) {
+.bench > .work:has(.place-value, .blocks, .dots) {
   align-content: center;
   gap: 28px;
 }
@@ -594,6 +596,20 @@
   background: var(--rank-pale);
   font-size: 52px;
   color: #2f4a3a;
+}
+/* Times tables (#52): rows of dots, one colour a row out of two. */
+.dots {
+  max-width: 100%;
+  max-height: 260px;
+}
+.dots .row circle {
+  fill: #7cc46a;
+  stroke: #4a8f3a;
+  stroke-width: 1.5;
+}
+.dots .row.other circle {
+  fill: #f0a64a;
+  stroke: #b8701f;
 }
 .blocks {
   width: 420px;

@@ -59,11 +59,20 @@ type Phase = 'asking' | 'right' | 'reveal';
 /** A widget without a demo of its own shows its answer after this long. */
 const SHOWN_DEMO_MS = 1500;
 
+/** The step on the slate, for the tests: what it is and its exercise. */
+export interface LessonShown {
+  id: string;
+  step: number;
+  kind: Unit['kind'];
+  exercise: Exercise | null;
+}
+
 interface LessonProps {
   lesson: Lesson;
   skills: ReadonlyMap<string, Skill>;
   rng: Rng;
   context: ExerciseContext;
+  onShow?(shown: LessonShown): void;
   onDone(): void;
 }
 
@@ -73,12 +82,20 @@ interface LessonProps {
  * of the notion. Nothing counts for the mastery nor brings leaves: a mistake shows the hint,
  * a second one the answer, as on the trail.
  */
-export function LessonPlayer({ lesson, skills, rng, context, onDone }: LessonProps) {
+export function LessonPlayer({ lesson, skills, rng, context, onShow, onDone }: LessonProps) {
   const units = useMemo(() => unitsOf(lesson, skills, rng, context), [lesson]);
   const [index, setIndex] = useState(0);
   const [phase, setPhase] = useState<Phase>('asking');
   const [mistakes, setMistakes] = useState(0);
   const unit = units[index];
+  useEffect(() => {
+    onShow?.({
+      id: lesson.id,
+      step: index,
+      kind: unit.kind,
+      exercise: unit.kind === 'explain' ? null : unit.exercise,
+    });
+  }, [lesson, index]);
 
   const next = () => {
     if (index + 1 === units.length) {

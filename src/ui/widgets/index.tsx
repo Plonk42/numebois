@@ -7,7 +7,7 @@ import { ColumnOperation } from './column-operation';
 import { CompareSigns } from './compare';
 import { Answer, Keypad, useEntry } from './keypad';
 import { NumberLineFigure, NumberLinePlace } from './number-line';
-import { BlocksFigure, PlaceValueFigure } from './place-value';
+import { BlocksFigure, DotsFigure, PlaceValueFigure } from './place-value';
 
 /** What every widget receives; the validation and the hints come from the domain. */
 export interface WidgetProps<I extends ExerciseInput = ExerciseInput> {
@@ -46,6 +46,7 @@ const FIGURES: Figures = {
     <BlocksFigure hundreds={hundreds} tens={tens} units={units} />
   ),
   'place-value': ({ figure }) => <PlaceValueFigure digits={figure.digits} />,
+  dots: ({ figure }) => <DotsFigure rows={figure.rows} columns={figure.columns} />,
 };
 
 /** A figure to look at: a number line, base-ten blocks, a place-value table. */

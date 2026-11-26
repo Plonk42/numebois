@@ -146,15 +146,24 @@ export function generateSubtract(rng: Rng, level: number): OperationExercise {
 export const NINE_ELEVEN_LEVELS = 2;
 
 export function generateNineEleven(rng: Rng, level: number): OperationExercise {
-  const b = rng.pick([9, 11]);
+  const b = rng.pick([9, 11] as const);
   switch (level) {
     case 0:
-      return operation(NINE_ELEVEN, level, rng.int(11, 88), '+', b);
+      return nineElevenOperation(rng.int(11, 88), '+', b, level);
     case 1:
-      return operation(NINE_ELEVEN, level, rng.int(21, 99), '−', b);
+      return nineElevenOperation(rng.int(21, 99), '−', b, level);
     default:
       throw levelError(level);
   }
+}
+
+export function nineElevenOperation(
+  a: number,
+  op: Operator,
+  b: 9 | 11,
+  level: number,
+): OperationExercise {
+  return operation(NINE_ELEVEN, level, a, op, b);
 }
 
 /** `given + ? = target`; the answer is the missing number. */

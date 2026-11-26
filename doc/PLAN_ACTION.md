@@ -548,7 +548,7 @@ Dépend de 5 pour les modes démo et guidé.
 
    Réalisé (#51, `src/core/lessons.ts`, fonctions pures testées) : avant la première question d'une notion jamais répondue, son astuce pas encore vue se joue d'abord (`lessonBefore`, jamais imposée deux fois : une astuce vue est dans le Carnet) ; après 3 erreurs sur les 5 dernières réponses de la notion, Plume la propose entre deux questions (`lessonAfter`, carte « On regarde une astuce ? », « D'accord ! » ou « Non merci », refuser ne coûte rien) ; au plus une par session de jeu, imposée ou proposée ; le Carnet rejoue à volonté sans compter. Après l'astuce, le sentier reprend où il était (la page entre dans le Carnet). L'astuce d'essai n'est jamais proposée. La demande du parent arrive avec #54.
 
-3. Leçons V1, chacune dans son module :
+3. Leçons V1, chacune dans son module (réalisées avec #52 : `numbers.decompose/valeur-des-chiffres`, tableau de numération, plaques-barres-cubes puis la somme ; `mental-math.nine-eleven/par-dix`, ajouter 9 ou 11 en passant par 10 ; `times-tables.products/quadrillage`, figure `dots` : un produit en rangées de points, comptées par rangées, puis le quadrillage tourné) :
    - valeur des chiffres ;
    - stratégies de calcul mental ;
    - tables ;
