@@ -1,5 +1,5 @@
 import type { Rng } from './rng';
-import type { Point, Segment } from './sheet';
+import type { Point, Pose, Segment } from './sheet';
 
 /** `<domain>.<notion>`, stable: saves refer to it, never rename a published one. */
 export type SkillId = string;
@@ -178,6 +178,17 @@ export interface ExerciseContext {
   vocabulary: Vocabulary;
 }
 
+/** What a widget showed when its answer was given, for the hint (#167). */
+export interface WidgetState {
+  /** Where the ruler lay. */
+  ruler?: Pose;
+}
+
+/** A wrong answer, and what the widget showed then: the hint answers this mistake (#167). */
+export interface Tried extends WidgetState {
+  answer: string;
+}
+
 /** A notion: pure functions only, the random generator is injected. */
 export interface Skill<E extends Exercise = Exercise> {
   id: SkillId;
@@ -193,8 +204,11 @@ export interface Skill<E extends Exercise = Exercise> {
   questionSeconds?: readonly number[];
   generate(rng: Rng, level: number, context: ExerciseContext): E;
   validate(exercise: E, answer: string): boolean;
-  /** 1: a method hint; 2: the answer with its method. */
-  hint(exercise: E, attempt: 1 | 2): string;
+  /**
+   * 1: a method hint, or one about the mistake when it is recognised in `tried` (#167); 2: the
+   * answer with its method.
+   */
+  hint(exercise: E, attempt: 1 | 2, tried?: Tried): string;
   /**
    * Typical wrong answers of a keypad question (a neighbouring table, a forgotten carry…),
    * when the trail offers it among choices (`offerChoices`).

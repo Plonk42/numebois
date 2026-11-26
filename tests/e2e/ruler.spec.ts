@@ -47,6 +47,37 @@ test('mesurer à la règle : glisser son 0 sur le bout du segment, lire, écrire
   expect(errors).toEqual([]);
 });
 
+test('mesurer à la règle : la règle bien posée, les cm mal lus, Plume parle des cm (#167)', async ({
+  page,
+}) => {
+  await page.goto('./?practice=measures.measure&level=1&seed=3&stage=0&quality=low');
+  await page.evaluate(() => window.__numebois!.ready);
+  let exercise = await current(page);
+  while (exercise.level < 1) {
+    await driver(exercise.input).answer(page, exercise.input, exercise.answer);
+    await expect(page.locator('#question .praise')).toBeVisible();
+    exercise = await current(page);
+  }
+  const input = exercise.input as Extract<ExerciseInput, { kind: 'ruler' }>;
+  const [{ from }] = input.lines;
+  const sheet = page.locator('#question .sheet');
+  await slide(
+    page,
+    { x: input.ruler.x + 40, y: input.ruler.y + 12 },
+    { x: from.x + 40, y: from.y + 12 },
+  );
+  await expect(sheet).toHaveAttribute('data-ruler', `${from.x},${from.y},0`);
+  // 105 mm read as 15: the millimetres right, the centimetres misread.
+  const length = Number(exercise.answer);
+  const misread = 10 * (Math.floor(length / 10) - 1) + (length % 10);
+  await driver(input).answer(page, input, String(misread));
+  const hint = page.locator('#question .hint');
+  await expect(hint).toContainText('Les petits traits sont bons');
+  await expect(hint).not.toContainText('Glisse');
+  await expectSlateLayout(page);
+  await test.info().attach('indice', { body: await page.screenshot(), contentType: 'image/png' });
+});
+
 test('tracer à la règle : un segment tiré du point au doigt', async ({ page }) => {
   await page.goto('./?practice=measures.draw&level=0&seed=3&stage=0&quality=low');
   await page.evaluate(() => window.__numebois!.ready);

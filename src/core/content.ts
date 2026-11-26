@@ -138,6 +138,11 @@ export function exerciseErrors(skill: Skill, exercise: Exercise, level: number):
   for (const attempt of [1, 2] as const) {
     errors.push(...bubbleErrors(`indice ${attempt}`, skill.hint(exercise, attempt)));
   }
+  // The hint after a typical wrong answer (#167).
+  for (const lure of skill.lures?.(exercise) ?? []) {
+    const tried = { answer: String(lure) };
+    errors.push(...bubbleErrors(`indice après ${lure}`, skill.hint(exercise, 1, tried)));
+  }
   const fact = skill.facts?.of(exercise);
   if (fact != null && !skill.facts!.all.includes(fact)) errors.push(`fait non déclaré : ${fact}`);
   return errors;

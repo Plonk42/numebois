@@ -1,6 +1,6 @@
 import type { ComponentType } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
-import type { Exercise, ExerciseInput, Figure } from '../../core/types';
+import type { Exercise, ExerciseInput, Figure, WidgetState } from '../../core/types';
 import { AnswerZone, Statement, Work, Written } from '../slate';
 import { Choice } from './choice';
 import { ClockFigure, ClockSet } from './clock';
@@ -25,7 +25,7 @@ export interface WidgetProps<I extends ExerciseInput = ExerciseInput> {
   right: boolean;
   /** The expected answer, shown after the second mistake. */
   shown: string | null;
-  onSubmit(answer: string): void;
+  onSubmit(answer: string, state?: WidgetState): void;
   /** A slip caught inside the widget (a column checked as it is written): not a first try. */
   onSlip?(): void;
   /** Plays the expected answer by itself, then submits it (an astuce of Plume, #50). */

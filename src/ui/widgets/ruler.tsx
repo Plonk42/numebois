@@ -1,26 +1,26 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { RULER_MM, SHEET, type Point, type Segment } from '../../core/sheet';
+import {
+  RULER_BEFORE_MM,
+  RULER_MM,
+  SHEET,
+  type Point,
+  type Pose,
+  type Segment,
+} from '../../core/sheet';
 import type { ExerciseInput } from '../../core/types';
 import { AnswerZone, Statement, Work } from '../slate';
 import { Answer, Keypad, useEntry } from './keypad';
 import type { WidgetProps } from './index';
 
 /** The ruler in millimetres: its body around the graduations, the round handle that turns it. */
-const BEFORE = 6;
+const BEFORE = RULER_BEFORE_MM;
 const AFTER = 6;
 const HEIGHT = 16;
 const KNOB = { x: RULER_MM + AFTER + 7, y: HEIGHT / 2, r: 6.5 };
 /** The 0 of the ruler jumps onto a point this close (mm), its edge onto a segment (degrees). */
 const SNAP_MM = 3;
 const SNAP_DEGREES = 6;
-
-/** Where the 0 of the ruler is on the sheet, and how it is turned (degrees, clockwise). */
-export interface Pose {
-  x: number;
-  y: number;
-  angle: number;
-}
 
 const degrees = (rad: number) => (rad * 180) / Math.PI;
 const KNOB_ANGLE = degrees(Math.atan2(KNOB.y, KNOB.x));
@@ -100,6 +100,8 @@ interface SheetProps {
   locked: boolean;
   /** A touch out of the ruler (drawing a segment). */
   onPaper?(point: Point, first: boolean): void;
+  /** The ruler moved or turned. */
+  onPose?(pose: Pose): void;
   class: string;
   data?: Record<string, string>;
   children?: ComponentChildren;
@@ -110,7 +112,17 @@ interface SheetProps {
  * jumps onto a point close to it; the round handle at its end turns it around its 0, its edge
  * laid on a segment when close. The ruler is see-through, the segments show under it.
  */
-function Sheet({ lines, points, start, locked, onPaper, class: name, data, children }: SheetProps) {
+function Sheet({
+  lines,
+  points,
+  start,
+  locked,
+  onPaper,
+  onPose,
+  class: name,
+  data,
+  children,
+}: SheetProps) {
   const [pose, setPose] = useState(start);
   const latest = useRef(start);
   const drag = useRef<{ mode: 'move' | 'turn' | 'paper'; offset: Point } | null>(null);
@@ -118,6 +130,7 @@ function Sheet({ lines, points, start, locked, onPaper, class: name, data, child
   const set = (next: Pose) => {
     latest.current = next;
     setPose(next);
+    onPose?.(next);
   };
   const follow = (point: Point, first: boolean) => {
     const now = drag.current;
@@ -199,9 +212,11 @@ export function RulerMeasure({
   onSubmit,
 }: WidgetProps<Extract<ExerciseInput, { kind: 'ruler' }>>) {
   const [sent, setSent] = useState<string | null>(null);
+  const start = { ...input.ruler, angle: 0 };
+  const pose = useRef<Pose>(start);
   const { entry, press } = useEntry(3, locked, (value) => {
     setSent(value);
-    onSubmit(value);
+    onSubmit(value, { ruler: pose.current });
   });
   const tried = !right && shown === null && entry === sent;
   return (
@@ -212,8 +227,9 @@ export function RulerMeasure({
           class="measure"
           lines={input.lines}
           points={endsOf(input.lines)}
-          start={{ ...input.ruler, angle: 0 }}
+          start={start}
           locked={locked}
+          onPose={(next) => (pose.current = next)}
         />
       </Work>
       <AnswerZone>

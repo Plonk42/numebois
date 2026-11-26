@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { Rng } from '../../core/rng';
 import { DRAWING_AREA, segmentLength } from '../../core/sheet';
-import { DRAW_LEVELS, MEASURE_LEVELS, generateDraw, generateMeasure } from './generators';
+import {
+  DRAW_LEVELS,
+  MEASURE_LEVELS,
+  generateDraw,
+  generateMeasure,
+  measureExercise,
+} from './generators';
+import { measureHint, measureLures } from './hints';
 import { validateDrawing } from './validate';
 
 const SEEDS = 1000;
@@ -46,6 +53,58 @@ describe('mesurer à la règle', () => {
       expect(answers.size).toBeGreaterThanOrEqual(5);
     },
   );
+});
+
+describe('l’indice après une mesure fausse (#167)', () => {
+  const at = (x: number, y: number, angle = 0) => ({ x, y, angle });
+  const flat = measureExercise([{ from: { x: 20, y: 20 }, to: { x: 125, y: 20 } }], [105], 'mm', 2);
+  const onStart = at(20, 20);
+  const hint = (answer: string, ruler?: ReturnType<typeof at>, exercise = flat) =>
+    measureHint(exercise, 1, { answer, ruler });
+
+  it('names a ruler laid wrong', () => {
+    expect(hint('98', at(3, 42))).toContain('n’est sur aucun bout');
+    // The edge of the body, 6 mm before the 0, on the start.
+    expect(hint('99', at(26, 20))).toContain('Le bord de la règle n’est pas le 0');
+    expect(hint('99', at(20, 20, 20))).toContain('Tourne la règle');
+    // Laid from the other end, turned back along the segment: right.
+    expect(hint('15', at(125, 20, 180))).toContain('Les petits traits sont bons');
+  });
+
+  it('names a reading mistake, the ruler laid right', () => {
+    expect(hint('15', onStart)).toBe(
+      'Les petits traits sont bons.\nRegarde le dernier nombre avant le bout.',
+    );
+    expect(hint('5', onStart)).toContain('Tu as compté les petits traits');
+    expect(hint('10', onStart)).toContain('10, ce sont les cm');
+    expect(hint('103', onStart)).toContain('après le 10');
+    expect(hint('107')).toContain('après le 10');
+    const cm = measureExercise([{ from: { x: 20, y: 20 }, to: { x: 70, y: 20 } }], [50], 'cm', 0);
+    expect(hint('50', onStart, cm)).toContain('Ici, on mesure en cm');
+    const broken = generateMeasure(new Rng(1), 4);
+    expect(hint(String(broken.lengths[0] / 10), undefined, broken)).toContain('un seul segment');
+  });
+
+  it('keeps the method hint for a mistake it does not know', () => {
+    expect(hint('60', onStart)).toBe(measureHint(flat, 1));
+    expect(hint('')).toBe(measureHint(flat, 1));
+  });
+
+  it.each(levels(MEASURE_LEVELS))('level %i: every lure is a recognised mistake', (level) => {
+    for (let seed = 0; seed < 200; seed++) {
+      const exercise = generateMeasure(new Rng(seed), level);
+      for (const lure of measureLures(exercise)) {
+        if (
+          exercise.unit === 'cm' &&
+          exercise.lengths.length === 1 &&
+          lure !== exercise.lengths[0]
+        ) {
+          continue;
+        }
+        expect(hint(String(lure), undefined, exercise)).not.toBe(measureHint(exercise, 1));
+      }
+    }
+  });
 });
 
 describe('tracer à la règle', () => {

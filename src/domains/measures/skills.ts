@@ -11,7 +11,7 @@ import {
   type DrawExercise,
   type MeasureExercise,
 } from './generators';
-import { drawHint, gaugeHint, measureHint } from './hints';
+import { drawHint, gaugeHint, measureHint, measureLures } from './hints';
 import { validateDrawing, validateMeasure } from './validate';
 
 export const measure = defineSkill<MeasureExercise>({
@@ -24,6 +24,7 @@ export const measure = defineSkill<MeasureExercise>({
   generate: generateMeasure,
   validate: validateMeasure,
   hint: measureHint,
+  lures: measureLures,
 });
 
 export const draw = defineSkill<DrawExercise>({

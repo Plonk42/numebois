@@ -1,6 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { Rng } from '../core/rng';
-import type { Exercise, ExerciseContext, Figure, Lesson, Skill } from '../core/types';
+import type {
+  Exercise,
+  ExerciseContext,
+  Figure,
+  Lesson,
+  Skill,
+  Tried,
+  WidgetState,
+} from '../core/types';
 import { Plume, type Mood } from './character';
 import { AnswerZone, Slate, Statement, Work, type SlateHint } from './slate';
 import { FigureView, PLAYS_ITSELF, Widget } from './widgets';
@@ -87,6 +95,7 @@ export function LessonPlayer({ lesson, skills, rng, context, onShow, onDone }: L
   const [index, setIndex] = useState(0);
   const [phase, setPhase] = useState<Phase>('asking');
   const [mistakes, setMistakes] = useState(0);
+  const [tried, setTried] = useState<Tried | undefined>(undefined);
   const unit = units[index];
   useEffect(() => {
     onShow?.({
@@ -105,6 +114,7 @@ export function LessonPlayer({ lesson, skills, rng, context, onShow, onDone }: L
     setIndex(index + 1);
     setPhase('asking');
     setMistakes(0);
+    setTried(undefined);
   };
   const nextRef = useRef(next);
   nextRef.current = next;
@@ -129,7 +139,7 @@ export function LessonPlayer({ lesson, skills, rng, context, onShow, onDone }: L
     return () => window.removeEventListener('keydown', onKey);
   }, [index]);
 
-  const answer = (value: string) => {
+  const answer = (value: string, state?: WidgetState) => {
     if (unit.kind === 'explain' || phase !== 'asking') return;
     const skill = skills.get(unit.exercise.skill)!;
     if (unit.kind === 'demo' || skill.validate(unit.exercise, value)) {
@@ -137,6 +147,7 @@ export function LessonPlayer({ lesson, skills, rng, context, onShow, onDone }: L
       return;
     }
     setMistakes(mistakes + 1);
+    setTried({ ...state, answer: value });
     if (mistakes + 1 >= 2) setPhase('reveal');
   };
 
@@ -152,7 +163,7 @@ export function LessonPlayer({ lesson, skills, rng, context, onShow, onDone }: L
     } else if (phase === 'reveal') {
       hint = { title: 'On regarde ensemble.', text: skill.hint(exercise, 2), onNext: next };
     } else if (mistakes > 0) {
-      hint = { title: 'Presque !', text: skill.hint(exercise, 1) };
+      hint = { title: 'Presque !', text: skill.hint(exercise, 1, tried) };
     } else if (unit.text && !coaches(exercise, demo)) {
       hint = { text: unit.text };
     } else if (!unit.text) {

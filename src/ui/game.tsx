@@ -33,7 +33,7 @@ import {
 } from '../core/records';
 import { Session, type Achievement, type SessionSnapshot } from '../core/session';
 import { stepLevel, type StepRole, type TrailLength } from '../core/trail';
-import type { Exercise, Lesson, Skill, SkillId } from '../core/types';
+import type { Exercise, Lesson, Skill, SkillId, Tried, WidgetState } from '../core/types';
 import {
   exportFile,
   isFramed,
@@ -341,6 +341,7 @@ function Game(props: Props) {
   const [round, setRound] = useState(0);
   const [{ skill, exercise }, setQuestion] = useState(() => session.ask());
   const [mistakes, setMistakes] = useState(0);
+  const [tried, setTried] = useState<Tried | undefined>(undefined);
   const [phase, setPhase] = useState<Phase>(() => {
     if (isComplete(forest.description())) return 'finale';
     if (props.askName) return 'naming';
@@ -624,6 +625,7 @@ function Game(props: Props) {
   const show = (question: { skill: Skill; exercise: Exercise }) => {
     setQuestion(question);
     setMistakes(0);
+    setTried(undefined);
     setRound((r) => r + 1);
     setPhase('asking');
     setFlash(false);
@@ -1034,7 +1036,7 @@ function Game(props: Props) {
     later(steps[i].ms, () => play(steps, i + 1));
   };
 
-  const answer = (value: string) => {
+  const answer = (value: string, state?: WidgetState) => {
     if (phase !== 'asking') return;
     firstAnswerMs.current ??= Math.max(0, playClock() - shownAt.current);
     if (drilling) {
@@ -1047,6 +1049,7 @@ function Game(props: Props) {
     }
     if (!skill.validate(exercise, value)) {
       setMistakes(mistakes + 1);
+      setTried({ ...state, answer: value });
       if (mistakes + 1 >= 2) {
         count(false);
         session.conclude(skill, exercise, false, firstAnswerMs.current, true);
@@ -1161,7 +1164,7 @@ function Game(props: Props) {
   if (mistakes > 0) {
     hint = {
       title: revealed ? 'On regarde ensemble.' : 'Presque !',
-      text: skill.hint(exercise, revealed ? 2 : 1),
+      text: skill.hint(exercise, revealed ? 2 : 1, tried),
       onNext: phase === 'reveal' ? proceed : undefined,
     };
   }
