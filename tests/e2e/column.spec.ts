@@ -1,5 +1,13 @@
 import { expect, test } from '@playwright/test';
-import { current, driver, expectSlateLayout, game, poseColumns, rowBox } from './helpers';
+import {
+  columnKeys,
+  current,
+  driver,
+  expectSlateLayout,
+  game,
+  poseColumns,
+  rowBox,
+} from './helpers';
 
 /** Addition set out in columns (#48): guided, then alone, two carries or more. */
 test('addition posée avec 2 retenues, guidée puis seule', async ({ page }) => {
@@ -126,13 +134,15 @@ test('multiplication posée : le sac à retenue, la table sur demande, guidée p
     await expect(card.locator('.hint')).toContainText(`+ ${units.carry} =`);
   }
   await test.info().attach('guidée', { body: await page.screenshot(), contentType: 'image/png' });
-  const rest = input.columns
-    .slice(1)
-    .flatMap((column, i) => [
-      String(column.digit),
-      ...(column.carry > 0 && i + 2 < input.columns.length ? [String(column.carry)] : []),
-    ]);
-  await page.keyboard.type(rest.join(''));
+  const keys = columnKeys(input.columns, exercise.answer);
+  const whole = input.columns.filter((column) => column.joined).length + 1;
+  await page.keyboard.type(keys.slice(units.carry > 0 ? 2 : 1, -whole).join(''));
+  // The last column as in class (#164): « 6 × 3 = 18, puis 18 + 2 = 20. J’écris 20. »
+  const last = input.columns.at(-1)!;
+  await expect(card.locator('.hint')).toContainText(last.say);
+  await expect(card.locator('.hint')).toContainText(`${b} × ${String(a)[0]}`);
+  await test.info().attach('fin', { body: await page.screenshot(), contentType: 'image/png' });
+  await page.keyboard.type(keys.slice(-whole).join(''));
   await expect(card.locator('.praise')).toBeVisible();
   expect(exercise.answer).toBe(String(a * b));
 

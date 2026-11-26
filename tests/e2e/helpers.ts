@@ -1,6 +1,6 @@
 import { expect, type Page } from '@playwright/test';
 import { onDial, parseTime, timeText, type TimeOfDay } from '../../src/core/time';
-import type { ExerciseInput } from '../../src/core/types';
+import type { Column, ExerciseInput } from '../../src/core/types';
 
 export async function game(page: Page) {
   return (await page.evaluate(() => window.__numebois!.game()))!;
@@ -168,11 +168,7 @@ const DRIVERS: { [K in ExerciseInput['kind']]: Driver<Extract<ExerciseInput, { k
     async answer(page, input, value) {
       const { columns, mode } = input;
       await poseColumns(page, input);
-      // From the units, as the cursor goes: the digit of each column, then its carry.
-      const typed = columns.flatMap((column, i) => [
-        value.at(-1 - i) ?? '0',
-        ...(column.carry > 0 && i + 1 < columns.length ? [String(column.carry)] : []),
-      ]);
+      const typed = columnKeys(columns, value);
       if (mode === 'alone') {
         await page.getByRole('button', { name: 'Chiffre des unités' }).dispatchEvent('pointerdown');
       }
@@ -262,6 +258,23 @@ const DRIVERS: { [K in ExerciseInput['kind']]: Driver<Extract<ExerciseInput, { k
 
 export function driver(input: ExerciseInput): Driver<ExerciseInput> {
   return DRIVERS[input.kind] as Driver<ExerciseInput>;
+}
+
+/**
+ * The keys of a column operation as the cursor goes, from the units: the digit of each column,
+ * then its carry; a number written whole from its left digit (#164).
+ */
+export function columnKeys(columns: readonly Column[], value: string): string[] {
+  const typed: string[] = [];
+  let i = 0;
+  while (i < columns.length) {
+    let end = i;
+    while (columns[end + 1]?.joined) end++;
+    for (let j = end; j >= i; j--) typed.push(value.at(-1 - j) ?? '0');
+    if (columns[i].carry > 0 && end + 1 < columns.length) typed.push(String(columns[i].carry));
+    i = end + 1;
+  }
+  return typed;
 }
 
 /** Writes a save in IndexedDB, as the game does, then reloads the page. */

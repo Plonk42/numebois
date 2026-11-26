@@ -12,16 +12,16 @@ export const COLUMN_MULTIPLICATION = defineLesson({
   steps: [
     {
       kind: 'explain',
-      text: 'Pour 47 × 3, on multiplie chaque chiffre par 3.\nOn commence par les unités, à droite.',
+      text: 'Pour 47 × 3, je calcule 3 × chaque chiffre.\nOn commence par les unités, à droite.',
     },
     {
       kind: 'explain',
-      text: '47 × 3 = 141.\nLe sac a gardé la retenue pour la colonne suivante.',
+      text: '47 × 3 = 141.\nÀ la fin, j’ajoute le sac et j’écris 14 en entier.',
       demo: multiplication(47, 3, 0),
     },
     {
       kind: 'explain',
-      text: 'Avec 3 chiffres, c’est pareil :\nle sac garde chaque retenue, une colonne après l’autre.',
+      text: 'Avec 3 chiffres, c’est pareil :\nle sac garde chaque retenue jusqu’à la dernière colonne.',
       demo: multiplication(258, 4, 1),
     },
     {

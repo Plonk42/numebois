@@ -15,10 +15,10 @@ export function additionHint({ rows }: AdditionExercise, attempt: 1 | 2): string
   return `${addStatement(rows)} = ${formatNumber(sum)}.\nRegarde les retenues en haut des colonnes.`;
 }
 
-/** 1: each digit times the multiplier, the bag added; 2: the result, the bag on each column. */
+/** 1: the multiplier times each digit, the bag added, the last number whole; 2: the result. */
 export function multiplicationHint({ a, b }: MultiplicationExercise, attempt: 1 | 2): string {
   if (attempt === 1) {
-    return `Multiplie chaque chiffre par ${b}, de droite à gauche.\nAjoute ce qui est dans le sac.`;
+    return `Calcule ${b} × chaque chiffre, de droite à gauche.\nAjoute le sac. À la fin, écris le nombre entier.`;
   }
   return `${multiplyStatement(a, b)} = ${formatNumber(a * b)}.\nLe sac garde la retenue pour la colonne suivante.`;
 }

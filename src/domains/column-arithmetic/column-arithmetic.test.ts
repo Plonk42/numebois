@@ -109,11 +109,22 @@ describe('poser une multiplication (#49)', () => {
             .reverse()
             .join(''),
         ).toBe(String(a * b));
-        // Column by column: the digit of `a` times `b`, plus what waits in the bag.
+        // Column by column: `b` times the digit of `a`, plus what waits in the bag; the last
+        // one written whole (#164).
         let bag = 0;
+        const ranks = String(a).length;
         columns.forEach((column, rank) => {
+          if (rank >= ranks) {
+            expect(column).toMatchObject({ joined: true, carry: 0 });
+            return;
+          }
           const total = (Math.floor(a / 10 ** rank) % 10) * b + bag;
-          expect([column.digit, column.carry]).toEqual([total % 10, Math.floor(total / 10)]);
+          const last = rank === ranks - 1;
+          expect([column.digit, column.carry]).toEqual([
+            total % 10,
+            last ? 0 : Math.floor(total / 10),
+          ]);
+          if (last) expect(column.say).toBe(`J’écris ${total}.`);
           bag = column.carry;
         });
         expect(columns.at(-1)!.carry).toBe(0);
@@ -121,16 +132,23 @@ describe('poser une multiplication (#49)', () => {
     }
   });
 
-  it('dit ce que Plume écrit et ce qu’elle met dans le sac', () => {
+  it('dit ce que Plume écrit et ce qu’elle met dans le sac, comme la classe', () => {
+    const last = '6 × 3 = 18, puis 18 + 2 = 20';
     expect(multiplyColumns(347, 6)).toEqual([
-      { digit: 2, carry: 4, calc: '7 × 6 = 42', say: 'J’écris 2, je mets 4 dans le sac.' },
-      { digit: 8, carry: 2, calc: '4 × 6 + 4 = 28', say: 'J’écris 8, je mets 2 dans le sac.' },
-      { digit: 0, carry: 2, calc: '3 × 6 + 2 = 20', say: 'J’écris 0, je mets 2 dans le sac.' },
-      { digit: 2, carry: 0, calc: 'Il reste 2 dans le sac', say: 'J’écris 2.' },
+      { digit: 2, carry: 4, calc: '6 × 7 = 42', say: 'J’écris 2, je mets 4 dans le sac.' },
+      { digit: 8, carry: 2, calc: '6 × 4 + 4 = 28', say: 'J’écris 8, je mets 2 dans le sac.' },
+      { digit: 0, carry: 0, calc: last, say: 'J’écris 20.' },
+      { digit: 2, carry: 0, calc: last, say: 'J’écris 20.', joined: true },
+    ]);
+    // 26 × 4 as in class: « 4 × 6 = 24 », then « 8 + 2 = 10. J’écris 10. »
+    expect(multiplyColumns(26, 4).map((c) => [c.calc, c.say])).toEqual([
+      ['4 × 6 = 24', 'J’écris 4, je mets 2 dans le sac.'],
+      ['4 × 2 = 8, puis 8 + 2 = 10', 'J’écris 10.'],
+      ['4 × 2 = 8, puis 8 + 2 = 10', 'J’écris 10.'],
     ]);
     expect(multiplyColumns(1205, 7).map((c) => c.digit)).toEqual([5, 3, 4, 8]);
     const exercise = generateMultiplication(new Rng(2), 4);
-    expect(multiplicationHint(exercise, 1)).toContain(`par ${exercise.b}`);
+    expect(multiplicationHint(exercise, 1)).toContain(`${exercise.b} × chaque chiffre`);
     expect(multiplicationHint(exercise, 2)).toContain('=');
   });
 });

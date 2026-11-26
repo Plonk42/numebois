@@ -22,6 +22,11 @@ export interface Column {
   calc: string;
   /** What Plume says while guiding: « J’écris 2, je retiens 1. » */
   say: string;
+  /**
+   * Written with the column on its right as one number, from the left (« J’écris 10. », #164):
+   * the same calculation and words.
+   */
+  joined?: boolean;
 }
 
 /**

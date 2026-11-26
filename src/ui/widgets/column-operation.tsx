@@ -19,16 +19,30 @@ const keyOf = (spot: Spot) => `${spot.kind}${spot.column}`;
 const DEMO_DIGIT_MS = 2400;
 const DEMO_CARRY_MS = 900;
 
-/** Where the cursor goes, from the units: the digit of each column, then its carry. */
+/**
+ * Where the cursor goes, from the units: the digit of each column, then its carry; a number
+ * written whole (`joined` columns) from its left digit, as by hand (#164).
+ */
 function spotsOf(columns: readonly Column[]): Spot[] {
-  return columns.flatMap((column, i): Spot[] =>
-    column.carry > 0 && i + 1 < columns.length
-      ? [
-          { kind: 'digit', column: i },
-          { kind: 'carry', column: i + 1 },
-        ]
-      : [{ kind: 'digit', column: i }],
-  );
+  const spots: Spot[] = [];
+  let i = 0;
+  while (i < columns.length) {
+    let end = i;
+    while (columns[end + 1]?.joined) end++;
+    for (let j = end; j >= i; j--) spots.push({ kind: 'digit', column: j });
+    if (columns[i].carry > 0 && end + 1 < columns.length) {
+      spots.push({ kind: 'carry', column: end + 1 });
+    }
+    i = end + 1;
+  }
+  return spots;
+}
+
+/** The column whose calculation a column's digit comes from: joined ones from their right. */
+function ownerOf(columns: readonly Column[], column: number): number {
+  let at = column;
+  while (columns[at]?.joined) at--;
+  return at;
 }
 
 /** The column a box belongs to: a carry comes from the column on its right. */
@@ -237,8 +251,9 @@ export function ColumnOperation({
     );
   };
   // The bag holds the carry the column in progress receives, or the one it sends.
+  const owner = active ? ownerOf(columns, active.column) : -1;
   const bagSpot =
-    spots.find((spot) => spot.kind === 'carry' && active && spot.column === active.column) ?? null;
+    spots.find((spot) => spot.kind === 'carry' && active && spot.column === owner) ?? null;
 
   const coach = active && !locked && !posing ? columns[sourceOf(active)] : null;
   let bubble: { title: string; text: string } | null = setup.bubble;
