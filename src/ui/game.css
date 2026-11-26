@@ -435,6 +435,15 @@
 .rare-icon .gondola {
   fill: #9a6a3e;
 }
+.rare-icon .peak {
+  fill: #8d97a6;
+}
+.rare-icon .snowcap {
+  fill: #fbfdff;
+}
+.rare-icon .eagle {
+  fill: #6e4826;
+}
 
 /* A walk in the forest: the forest everywhere; at the top centre, once the view has left it,
    the whole forest again. */

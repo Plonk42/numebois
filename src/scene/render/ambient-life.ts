@@ -15,6 +15,10 @@ export const ANIMAL_HEIGHT: Record<AnimalName, number> = {
   Alpaca: 1.6,
   Horse: 1.9,
   Cow: 1.6,
+  Chamois: 1.3,
+  Ibex: 1.7,
+  Marmot: 0.6,
+  Eagle: 0.9,
 };
 /** Half width of the diorama when the first animal arrives: larger ones are seen from further. */
 const FIRST_EXTENT = 19;

@@ -7,6 +7,7 @@ export const RARE_LABELS: Record<RareName, string> = {
   beavers: 'Des castors',
   windmill: 'Un moulin',
   balloon: 'Une montgolfière',
+  eagles: 'Des aigles',
 };
 
 /** Shown while the rare element comes into the painting. */
@@ -16,6 +17,7 @@ export const RARE_ARRIVALS: Record<RareName, string> = {
   beavers: 'Les castors arrivent !',
   windmill: 'Le moulin arrive !',
   balloon: 'La montgolfière arrive !',
+  eagles: 'Les aigles arrivent !',
 };
 
 const BANDS = ['#e8584f', '#f39a3c', '#f4d04a', '#69b85a', '#4f8fd8'];
@@ -86,9 +88,26 @@ const SHAPES: Record<RareName, JSX.Element> = {
       <rect class="gondola" x="26" y="52" width="12" height="8" rx="2" />
     </>
   ),
+  eagles: (
+    <>
+      <path class="peak" d="M4 60l18-26 8 9 10-17 20 34z" />
+      <path class="snowcap" d="M35.3 34L40 26l4.7 8-2.4-1.6-2.3 2.4-2.3-2.4z" />
+      {[
+        [20, 14, 1.1],
+        [51, 12, 0.75],
+      ].map(([x, y, k]) => (
+        <path
+          key={x}
+          class="eagle"
+          transform={`translate(${x} ${y}) scale(${k})`}
+          d="M-14 0c5-4 10-4 14 1 4-5 9-5 14-1-5 0-9 2-14 6-5-4-9-6-14-6z"
+        />
+      ))}
+    </>
+  ),
 };
 
-/** A rare element in one picture: fireflies at night, a rainbow, the beavers' dam, a windmill, a balloon. */
+/** A rare element in one picture: fireflies at night, a rainbow, the beavers' dam, a windmill, a balloon, eagles. */
 export function RareIcon({ rare }: { rare: RareName }) {
   return (
     <svg class={`rare-icon ${rare}`} viewBox="0 0 64 64" aria-hidden="true">

@@ -114,6 +114,20 @@ for (const [stage, fill] of [
   });
 }
 
+for (const [stage, fill] of [
+  [0, 20],
+  [6, 55],
+  [11, 100],
+]) {
+  test(`montagne des torrents, palier ${stage}`, async ({ page }) => {
+    const errors = watchErrors(page);
+    await openScene(page, `biome=mountain&stage=${stage}&fill=${fill}&quality=high&time=12`);
+    expect((await page.evaluate(() => window.__numebois!.describe())).biome).toBe('mountain');
+    await checkScene(page, `montagne-palier-${stage}`);
+    expect(errors).toEqual([]);
+  });
+}
+
 test('qualité basse', async ({ page }) => {
   const errors = watchErrors(page);
   await openScene(page, 'stage=11&quality=low&time=12');

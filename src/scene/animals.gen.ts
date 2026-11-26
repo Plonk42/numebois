@@ -62,4 +62,28 @@ export const ANIMALS = {
     max: [1.156, 4.531, 5.087],
     clips: { idle: 3.333, look: 3.333, eat: 6, walk: 1.167, jump: 1.733, gallop: 0.6 },
   },
+  Chamois: {
+    triangles: 2238,
+    min: [-0.574, -0.013, -1.642],
+    max: [0.574, 4.523, 2.755],
+    clips: { idle: 3.333, look: 3.333, eat: 6, walk: 1.167, jump: 1.533, gallop: 0.533 },
+  },
+  Ibex: {
+    triangles: 2342,
+    min: [-0.733, 0.01, -1.802],
+    max: [0.733, 4.7, 3.036],
+    clips: { idle: 3.333, look: 3.333, eat: 12.1, walk: 1.167, jump: 1.533, gallop: 0.533 },
+  },
+  Marmot: {
+    triangles: 1848,
+    min: [-0.823, -0.001, -1.486],
+    max: [0.823, 1.872, 2.093],
+    clips: { idle: 3.333, look: 4, eat: 2.533, walk: 1.067, jump: 1.333, gallop: 0.567 },
+  },
+  Eagle: {
+    triangles: 362,
+    min: [-1.25, -0.267, -0.66],
+    max: [1.25, 0.33, 0.56],
+    clips: { idle: 4, look: 4, eat: 4, walk: 0.8, jump: 1, gallop: 3 },
+  },
 } as const satisfies Record<AnimalName, AnimalInfo>;

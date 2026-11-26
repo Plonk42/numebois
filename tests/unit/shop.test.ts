@@ -16,6 +16,7 @@ import {
   STAGES,
   demoAnimals,
   demoRares,
+  GRAND_RARES,
   newPainting,
   stageFor,
   type SceneDescription,
@@ -209,11 +210,14 @@ describe('boutique de la forêt', () => {
     });
     // The great element of the décor, the climax: dearer than the fireflies and the rainbow.
     expect(SEEDS_PER_GRAND).toBeGreaterThan(SEEDS_PER_RARE);
-    // The orchard sells its windmill, the sky its balloon, after the rainbow.
+    // The orchard sells its windmill, the sky its balloon, the mountain its eagles, after the
+    // rainbow.
     for (const [biome, great] of [
       ['orchard', 'windmill'],
       ['sky', 'balloon'],
+      ['mountain', 'eagles'],
     ] as const) {
+      expect(GRAND_RARES).toContain(great);
       const all = { ...painting(MAX_ELEMENTS, demoAnimals(biome, LAST_STAGE)), biome };
       expect(names({ ...all, rares: ['fireflies', 'rainbow'] })).toEqual([great]);
       expect(names({ ...all, rares: demoRares(biome, LAST_STAGE) })).toEqual([]);

@@ -415,7 +415,11 @@ function loadAnimalPack(): Files | null {
     ? readdirSync(dir).find((f) => f.startsWith(ANIMAL_ZIP_PREFIX) && f.endsWith('.zip'))
     : undefined;
   if (!zip) return null;
-  const wanted = new Set(Object.values<AnimalSource>(ANIMAL_CATALOG).map((s) => `${s.file}.gltf`));
+  const wanted = new Set(
+    Object.values<AnimalSource>(ANIMAL_CATALOG)
+      .filter((s) => !s.made)
+      .map((s) => `${s.file}.gltf`),
+  );
   const entries = unzipSync(readFileSync(join(dir, zip)), {
     filter: (file) => file.name.includes('/glTF/') && wanted.has(basename(file.name)),
   });
@@ -548,14 +552,28 @@ function dropRestChannels(doc: Document): void {
   }
 }
 
+/** An animal of the pack, or one made from it in Blender. */
+async function readAnimal(io: NodeIO, files: Files, source: AnimalSource): Promise<Document> {
+  if (!source.made) {
+    const json = JSON.parse(new TextDecoder().decode(files.get(`${source.file}.gltf`)!));
+    return io.readJSON({ json, resources: {} } as JSONDocument);
+  }
+  const made = join(ROOT, 'assets-private', 'animals', 'export', `${source.file}.glb`);
+  if (!existsSync(made)) {
+    throw new Error(
+      `${source.file}.glb absent : lancer scripts/mountain_animals.py ou scripts/eagle.py dans Blender`,
+    );
+  }
+  return io.read(made);
+}
+
 async function prepareAnimal(
   io: NodeIO,
   files: Files,
   name: string,
   source: AnimalSource,
 ): Promise<{ doc: Document; info: AnimalInfo }> {
-  const json = JSON.parse(new TextDecoder().decode(files.get(`${source.file}.gltf`)!));
-  const doc = await io.readJSON({ json, resources: {} } as JSONDocument);
+  const doc = await readAnimal(io, files, source);
   const root = doc.getRoot();
   const skin = root.listSkins()[0];
   const joints = skin.listJoints();

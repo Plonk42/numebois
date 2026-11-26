@@ -512,4 +512,124 @@ export function balloon(): MeshData {
   return out.toMeshData();
 }
 
-export const GENERATED_DRIFTERS = { balloon } as const;
+/** Body of the eagle along x, tail to beak: [x, half width, half height, swatch]. */
+const EAGLE_BODY: readonly (readonly [number, number, number, SwatchName])[] = [
+  [-0.42, 0.04, 0.03, 'Brown'],
+  [-0.3, 0.11, 0.09, 'Brown'],
+  [-0.05, 0.14, 0.12, 'Brown'],
+  [0.18, 0.11, 0.1, 'Brown'],
+  [0.27, 0.08, 0.08, 'Gold'],
+  [0.38, 0.075, 0.075, 'Gold'],
+  [0.45, 0.04, 0.045, 'Gold'],
+];
+const EAGLE_SIDES = 6;
+
+/**
+ * Golden eagle gliding, 2 wide from tip to tip, beak towards +x: a lofted body with a golden
+ * head, broad wings raised in a slight V with their fingered tips, a fanned tail.
+ */
+export function eagle(): MeshData {
+  const out = new MeshWriter(256, 512);
+  const ring = (x: number, w: number, h: number): Vec[] =>
+    Array.from({ length: EAGLE_SIDES }, (_, i) => {
+      const a = (i / EAGLE_SIDES) * TAU;
+      return [x, Math.sin(a) * h, Math.cos(a) * w];
+    });
+  for (let k = 0; k + 1 < EAGLE_BODY.length; k++) {
+    const [x0, w0, h0] = EAGLE_BODY[k];
+    const [x1, w1, h1, swatch] = EAGLE_BODY[k + 1];
+    const a = ring(x0, w0, h0);
+    const b = ring(x1, w1, h1);
+    for (let i = 0; i < EAGLE_SIDES; i++) {
+      const j = (i + 1) % EAGLE_SIDES;
+      const am = ((i + 0.5) / EAGLE_SIDES) * TAU;
+      const n = [0, Math.sin(am), Math.cos(am)];
+      outward(out, [a[i], a[j], b[j], b[i]], n, swatchUV(swatch, shadeOf(n[1]) * 0.8));
+    }
+  }
+  // Closed at the tail, and a hooked yellow beak.
+  const [tx, tw, th] = EAGLE_BODY[0];
+  const tail = ring(tx, tw, th);
+  for (let i = 0; i < EAGLE_SIDES; i++) {
+    const j = (i + 1) % EAGLE_SIDES;
+    facing(out, [tail[i], tail[j], [tx - 0.02, 0, 0]], [-1, 0, 0], swatchUV('Brown', 0.6));
+  }
+  const [bx, bw, bh] = EAGLE_BODY.at(-1)!;
+  const tip: Vec = [bx + 0.13, -0.04, 0];
+  const beak = ring(bx, bw, bh);
+  for (let i = 0; i < EAGLE_SIDES; i++) {
+    const j = (i + 1) % EAGLE_SIDES;
+    const am = ((i + 0.5) / EAGLE_SIDES) * TAU;
+    const n = [0.5, Math.sin(am), Math.cos(am)];
+    facing(out, [beak[i], beak[j], tip], n, swatchUV('PetalYellow', shadeOf(n[1]) * 0.7));
+  }
+  // Wings: an arm and a hand, thick at the leading edge, thin at the trailing one.
+  for (const side of [1, -1]) {
+    // [x of the leading edge, x of the trailing edge, z, y] from the shoulder to the tip.
+    const span: readonly (readonly [number, number, number, number])[] = [
+      [0.12, -0.2, 0.08, 0.04],
+      [0.14, -0.26, 0.5, 0.12],
+      [0.06, -0.24, 0.82, 0.2],
+      [-0.06, -0.18, 1, 0.24],
+    ];
+    for (let k = 0; k + 1 < span.length; k++) {
+      const [l0, t0, z0, y0] = span[k];
+      const [l1, t1, z1, y1] = span[k + 1];
+      const thick = 0.035 * (1 - k / span.length);
+      const swatch: SwatchName = k === span.length - 2 ? 'DarkBark' : 'Brown';
+      const le0: Vec = [l0, y0 + thick, z0 * side];
+      const le1: Vec = [l1, y1 + thick * 0.7, z1 * side];
+      const lb0: Vec = [l0, y0 - thick, z0 * side];
+      const lb1: Vec = [l1, y1 - thick * 0.7, z1 * side];
+      const te0: Vec = [t0, y0, z0 * side];
+      const te1: Vec = [t1, y1, z1 * side];
+      outward(out, [le0, le1, te1, te0], [0, 1, 0], swatchUV(swatch, 0.25));
+      outward(out, [lb0, te0, te1, lb1], [0, -1, 0], swatchUV(swatch, 0.75));
+      outward(out, [le0, lb0, lb1, le1], [1, 0, 0], swatchUV(swatch, 0.45));
+    }
+    // Fingered tip: three primaries spread past the hand.
+    const [l, t, z, y] = span.at(-1)!;
+    for (let f = 0; f < 3; f++) {
+      const x = lerpNumber(l, t, (f + 0.5) / 3);
+      const root: Vec = [x + 0.03, y, z * side];
+      const root2: Vec = [x - 0.03, y, z * side];
+      const end: Vec = [x - 0.06 * f, y + 0.03 + 0.02 * f, (z + 0.16 - 0.03 * f) * side];
+      facing(out, [root, end, root2], [0, 1, 0], swatchUV('DarkBark', 0.3));
+      facing(out, [root, root2, end], [0, -1, 0], swatchUV('DarkBark', 0.7));
+    }
+  }
+  // Fanned tail.
+  const tailTop: Vec[] = [
+    [-0.34, 0.02, 0.07],
+    [-0.62, 0.01, 0.17],
+    [-0.62, 0.01, -0.17],
+    [-0.34, 0.02, -0.07],
+  ];
+  outward(out, tailTop, [0, 1, 0], swatchUV('Brown', 0.35));
+  outward(out, tailTop, [0, -1, 0], swatchUV('Brown', 0.7));
+  return out.toMeshData();
+}
+
+function lerpNumber(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
+}
+
+/** A single facet, wound so it faces along `n`. */
+function facing(
+  out: MeshWriter,
+  [p0, p1, p2]: readonly Vec[],
+  n: readonly number[],
+  uv: [number, number],
+): void {
+  const e1 = [p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]];
+  const e2 = [p2[0] - p0[0], p2[1] - p0[1], p2[2] - p0[2]];
+  const c = [
+    e1[1] * e2[2] - e1[2] * e2[1],
+    e1[2] * e2[0] - e1[0] * e2[2],
+    e1[0] * e2[1] - e1[1] * e2[0],
+  ];
+  if (c[0] * n[0] + c[1] * n[1] + c[2] * n[2] >= 0) out.facet(p0, p1, p2, uv);
+  else out.facet(p0, p2, p1, uv);
+}
+
+export const GENERATED_DRIFTERS = { balloon, eagle } as const;

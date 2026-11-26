@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { Rng } from '../core/rng';
 import type { AnimalName } from './animal-catalog';
-import type { AnimalLibrary } from './animals';
+import type { AnimalBody, AnimalLibrary } from './animals';
 import type { AssetLibrary } from './assets';
 import { MODELS } from './assets.gen';
 import { BIOMES } from './biomes';
@@ -12,6 +12,7 @@ import { bufferGeometryOf, triangleCount } from './mesh-data';
 import { candidateSlots, childTreeAge } from './populate';
 import { GENERATED_DRIFTERS } from './props';
 import { Backdrop, BACKDROP_TRIANGLES } from './render/backdrop';
+import { EAGLE_SCALE, soarPose } from './render/soaring';
 import { CloudSea, CLOUD_SEA_TRIANGLES } from './render/cloud-sea';
 import type { InstanceBatch } from './render/instancing';
 import {
@@ -174,6 +175,12 @@ export class Painting {
   private readonly sprouting: { slot: number; start: number }[] = [];
   private readonly spinners: { pivot: THREE.Group; speed: number }[] = [];
   private readonly drifters: { mesh: THREE.Mesh; drifter: Drifter }[] = [];
+  /** The eagles: the animated model, or the generated one without the animals' file. */
+  private readonly soarers: {
+    object: THREE.Object3D;
+    body: AnimalBody | null;
+    drifter: Drifter;
+  }[] = [];
   private readonly cloudSea: CloudSea | null = null;
   private readonly lamps: Lamps | null = null;
   /** Bursts of the grand finale still to come, the first one last. */
@@ -267,16 +274,41 @@ export class Painting {
       : null;
     if (lit) this.disposables.push(lit);
     for (const drifter of terrain.drifters) {
+      if (drifter.model === 'eagle' && !animals.placeholders) {
+        const body = animals.create('Eagle');
+        body.object.scale.setScalar(drifter.scale * EAGLE_SCALE);
+        body.object.rotation.order = 'YXZ';
+        drifterTriangles += body.triangles;
+        this.root.add(body.object);
+        this.soarers.push({ object: body.object, body, drifter });
+        continue;
+      }
       const data = GENERATED_DRIFTERS[drifter.model]();
       drifterTriangles += triangleCount(data);
-      const mesh = new THREE.Mesh(bufferGeometryOf(data), lit ?? materials.solid);
+      const balloon = drifter.model === 'balloon';
+      const mesh = new THREE.Mesh(
+        bufferGeometryOf(data),
+        balloon ? (lit ?? materials.solid) : materials.solid,
+      );
       mesh.castShadow = true;
       mesh.scale.setScalar(drifter.scale);
       mesh.name = drifter.model;
-      if (this.lamps) mesh.add(this.lamps.burner());
+      // Heading, then banked into the turn around its own length.
+      mesh.rotation.order = 'YXZ';
+      if (this.lamps && balloon) mesh.add(this.lamps.burner());
+      this.disposables.push({ dispose: () => mesh.geometry.dispose() });
+      if (drifter.model === 'eagle') {
+        // The generated eagle faces +x, the animals +z.
+        const holder = new THREE.Group();
+        holder.rotation.order = 'YXZ';
+        mesh.rotation.set(0, -Math.PI / 2, 0);
+        holder.add(mesh);
+        this.root.add(holder);
+        this.soarers.push({ object: holder, body: null, drifter });
+        continue;
+      }
       this.root.add(mesh);
       this.drifters.push({ mesh, drifter });
-      this.disposables.push({ dispose: () => mesh.geometry.dispose() });
     }
     // Lit buildings: a warm halo on the side of the camera, its windows glow (`windowGlow`).
     for (const m of this.lamps ? terrain.staticModels : []) {
@@ -515,10 +547,15 @@ export class Painting {
     for (const fall of terrain.waterfalls) {
       const count = Math.max(4, Math.round(6.5 * fall.width * quality.particles));
       for (let i = 0; i < count; i++) {
+        // With spray, half the puffs float up around the foot, wider than the fall.
+        const spray = fall.spray && i % 2 === 1;
+        const spread = spray ? 1.6 : 0.5;
         puffs.push({
-          x: fall.foot[0] + rng.range(-0.5, 0.5) * fall.width,
-          y: fall.foot[1] + (fall.splash ? 0.02 : rng.range(-0.6, 0.6)),
-          z: fall.foot[2] + rng.range(-0.5, 0.5) * fall.width,
+          x: fall.foot[0] + rng.range(-spread, spread) * fall.width,
+          y:
+            fall.foot[1] +
+            (spray ? rng.range(0.4, 1.6) : fall.splash ? 0.02 : rng.range(-0.6, 0.6)),
+          z: fall.foot[2] + rng.range(-spread, spread) * fall.width,
         });
       }
     }
@@ -834,6 +871,14 @@ export class Painting {
     this.follow(time);
     this.herd.update(time);
     for (const s of this.spinners) s.pivot.rotation.z = time * s.speed;
+    this.soarers.forEach(({ object, body, drifter }, index) => {
+      const pose = soarPose(drifter, index, time);
+      object.position.set(pose.x, pose.y, pose.z);
+      object.rotation.set(pose.pitch, pose.yaw, pose.roll);
+      if (!body) return;
+      for (const { clip, weight } of pose.clips) body.pose(clip, time, weight);
+      body.apply();
+    });
     for (const { mesh, drifter: d } of this.drifters) {
       const a = time * d.speed * TAU;
       mesh.position.set(
@@ -910,6 +955,7 @@ export class Painting {
     this.leaves.dispose();
     this.batch.dispose();
     this.herd.dispose();
+    for (const { body } of this.soarers) body?.dispose();
     for (const d of this.disposables) d.dispose();
     this.materials.dispose();
   }
