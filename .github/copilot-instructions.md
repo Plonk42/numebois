@@ -48,7 +48,7 @@ Numebois est un jeu web de maths pour un enfant de CE2 (8 ans, grande difficult�
 
 ## Tenir le plan et les personnalisations à jour
 
-- À chaque demande de fonctionnalité, mettre à jour dans le même commit le plan (décisions, recettes, journal en bas du fichier). Le tableau de couverture se met à jour à chaque jalon terminé.
+- À chaque demande de fonctionnalité, mettre à jour dans le même commit le plan (décisions, recettes ; pas de journal, l'historique est dans git et les tickets). Le tableau de couverture se met à jour à chaque jalon terminé.
 - Utiliser le skill adapté s'il existe (liste dans le plan, section « Personnalisations Copilot ») : `visual-review` pour tout changement de rendu.
 - **Auto-amélioration :** quand le propriétaire exprime une préférence durable ou corrige la façon de faire, l'enregistrer au bon endroit dans le même commit, puis le signaler en une ligne à la fin de la réponse :
   - règle transversale → ce fichier ;

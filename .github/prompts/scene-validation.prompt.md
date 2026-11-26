@@ -102,7 +102,7 @@ La fluidité n'est pas validée à cette étape, mais les compteurs, qui ne dép
   - partir de `main` à jour, créer une branche, ouvrir une PR avec le modèle `.github/pull_request_template.md` ;
   - lancer `gh pr merge --auto --squash` sans attendre la CI ;
   - un commit par étape cohérente, avec ses tests.
-- Mettre à jour `doc/PLAN_ACTION.md` dans la même PR : décisions prises, recette « ajouter un décor » ajustée, journal. Mettre aussi à jour `.github/instructions/scene-art.instructions.md` si une règle durable apparaît.
+- Mettre à jour `doc/PLAN_ACTION.md` dans la même PR : décisions prises, recette « ajouter un décor » ajustée. Mettre aussi à jour `.github/instructions/scene-art.instructions.md` si une règle durable apparaît.
 - Ne jamais faire de force-push sur `main`, affaiblir un test, ni commiter des packs, `assets-private/` ou des assets générés.
 
 ## Quand s'arrêter et demander

@@ -69,7 +69,7 @@ Le workflow `.github/workflows/ci.yml` tourne sur les PR, les pushs sur `main` e
 - Les labels `status:*` sont une aide facultative : ne pas les mettre à jour à chaque commit, ni les nettoyer après la fermeture.
 - Commenter seulement pour une information utile : une reproduction, une décision, un échec de CI. Pas de points d'étape.
 - Pas de GitHub Project : labels et jalons suffisent.
-- [PLAN_ACTION.md](PLAN_ACTION.md) porte la vision et le journal, les tickets portent l'avancement.
+- [PLAN_ACTION.md](PLAN_ACTION.md) porte la vision (décisions, recettes), les tickets, commits et PR portent l'avancement et l'historique.
 
 | Catégorie     | Sens                                                    |
 | ------------- | ------------------------------------------------------- |
@@ -106,7 +106,7 @@ Dans Copilot Chat :
 
 La progression de l'enfant et son Album sont précieux : les perdre serait très démotivant.
 
-- **Tant que le propriétaire n'a pas déclaré « l'enfant joue pour de vrai »** (à noter dans le journal du plan), le format de sauvegarde peut changer librement.
+- **Tant que le propriétaire n'a pas déclaré « l'enfant joue pour de vrai »** (à noter, avec sa date, dans la décision « Sauvegarde » du plan), le format de sauvegarde peut changer librement.
 - **Ensuite,** toute sauvegarde écrite par une version publiée doit s'ouvrir avec le même sens. On préfère les ajouts compatibles, qui ne demandent pas de changer de version (nouvelle notion, nouveau décor, nouveau champ facultatif). Un changement incompatible passe par la route risquée et apporte, dans la même PR :
   - `SAVE_SCHEMA_VERSION` incrémenté ;
   - l'étape de mise à niveau depuis la version précédente dans `src/save/migrations.ts`, une fonction pure qui ne supprime ni ne réinterprète jamais une valeur ;

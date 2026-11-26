@@ -40,4 +40,4 @@ Recette de fond : [plan, « Ajouter un décor » et « Escalade d'un tableau à 
 - Tests Vitest sur le modèle de `tests/unit/orchard.test.ts` : budget (paliers × saisons, 12 graines, tout rempli), progression, grands moments annoncés puis montrés, effets, emplacements sur 100 graines et plus, arbres stables d'un palier à l'autre, animaux sur l'herbe ; sons (`sound.test.ts`, somme des boucles sous 2,7).
 - Spec Playwright du paysage (`tests/e2e/scene.spec.ts`) aux paliers 0, 6 et 11, et l'Album (`album.spec.ts` : le choix du tableau suivant montre tous les décors, `NEXT_CHOICES`).
 - Skill `visual-review` : douze paliers, quatre graines, quatre saisons, remplissages 0/50/100 %, qualité basse, formes de remplacement. Une mise en commun du moteur se vérifie au pixel près sur la clairière (`assets-private/scratch/pixdiff.ts`).
-- Plan (décisions, recette, journal) et ticket, puis validation du propriétaire.
+- Plan (décisions, recette) et ticket, puis validation du propriétaire.

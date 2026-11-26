@@ -27,4 +27,4 @@ Recette de fond : [plan, « Recette : ajouter une notion ou un domaine »](../..
 2. Automatiques, sans rien écrire : `tests/unit/content.test.ts` (`exerciseErrors` sur 1 000 graines par niveau) et `tests/e2e/notions.spec.ts` (la notion jouée sur l'ardoise, indice, réponse montrée, dernier niveau, capture jointe).
 3. `npm run format`, `npm run check`, puis `npx playwright test tests/e2e/notions.spec.ts -g <notion> --reporter=list`.
 4. À l'œil : `?practice=<notion>&level=<n>` sur le serveur de dev (ou la tablette) joue la notion seule, sans toucher à la sauvegarde.
-5. Plan : journal, et tableau de couverture à la fin du jalon.
+5. Plan : décisions, et tableau de couverture à la fin du jalon.
