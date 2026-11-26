@@ -71,7 +71,7 @@ test('un tableau complet : grand final, cadre, nouveau décor ; il reste vivant 
   });
   const reserve = await game(page);
   await page.locator('#reserve').click();
-  await page.getByRole('button', { name: 'Une pousse, 15 feuilles' }).click();
+  await page.getByRole('button', { name: 'Une pousse, 11 feuilles' }).click();
   await page.getByRole('button', { name: 'Planter ici' }).first().tap();
   const describe = () => page.evaluate(() => window.__numebois!.describe());
   const finished = await describe();
@@ -140,7 +140,7 @@ test('un tableau complet : grand final, cadre, nouveau décor ; il reste vivant 
   await expect(page.locator('#veil')).not.toHaveClass(/on/);
   await expect(page.locator('#reserve')).toHaveAttribute(
     'aria-label',
-    reserveLabel(reserve.leaves - 15, reserve.seeds),
+    reserveLabel(reserve.leaves - 11, reserve.seeds),
   );
   await expect(page.locator('#album-button')).toBeVisible();
   const painting = await describe();

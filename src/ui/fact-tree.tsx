@@ -1,3 +1,4 @@
+import { drillPaysToday } from '../core/drill';
 import { AUTOMATED_DAYS, isKnown, paysToday, type FactProgress } from '../core/facts';
 import type { FactGroup, FactId, Skill } from '../core/types';
 
@@ -174,6 +175,8 @@ export function FactTree({ skill, facts, glow, day, onPick }: Props) {
   const groups = skill.facts!.groups!;
   const rows = Math.ceil(groups.length / 2);
   const all = groups.every((group) => blooms(group, facts));
+  // Under its daily cap, the drill still gives leaves today (#29).
+  const open = drillPaysToday(facts, day);
   return (
     <svg
       class={all ? 'tree bloom' : 'tree'}
@@ -203,7 +206,7 @@ export function FactTree({ skill, facts, glow, day, onPick }: Props) {
           y={rows === 1 ? ALONE : LOW - (Math.floor(i / 2) * (LOW - HIGH)) / (rows - 1)}
           facts={facts}
           glow={group.id === glow}
-          gift={group.facts.some((fact) => paysToday(facts.get(fact), day))}
+          gift={open && group.facts.some((fact) => paysToday(facts.get(fact), day))}
           onPick={onPick}
         />
       ))}

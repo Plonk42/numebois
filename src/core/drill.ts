@@ -1,4 +1,4 @@
-import { LEAVES_PER_RIGHT_ANSWER } from './economy';
+import { DRILL_LEAVES_PER_DAY, LEAVES_PER_RIGHT_ANSWER } from './economy';
 import { isAutomated, isSure, paysToday, type FactProgress } from './facts';
 import type { Rng } from './rng';
 import type { Achievement, Session } from './session';
@@ -85,7 +85,7 @@ export class Drill {
         (freshSure.length > 0 &&
           (this.missed.length > 0 || this.hardRun >= HARD_RUN || this.rate() < DRILL_RATE)));
     this.hardRun = wantSure ? 0 : this.hardRun + 1;
-    const pool = fresh(wantSure ? sure : this.unpicked(hard));
+    const pool = wantSure ? fresh(sure) : this.unpicked(fresh(hard));
     let question = this.pose(this.rng.pick(pool));
     for (let i = 0; i < REDRAWS && this.same(question.exercise); i++) {
       question = this.pose(this.rng.pick(pool));
@@ -107,7 +107,7 @@ export class Drill {
     const fact = skill.facts!.of(exercise)!;
     const day = this.session.today();
     const before = facts.get(fact);
-    const pays = right && paysToday(before, day);
+    const pays = right && paysToday(before, day) && drillPaysToday(facts, day);
     this.earned = pays ? LEAVES_PER_RIGHT_ANSWER : 0;
     const achievements = this.session.practise(skill, exercise, right, ms);
     if (pays) facts.set(fact, { ...facts.get(fact)!, paid: day });
@@ -137,6 +137,7 @@ export class Drill {
   /** The facts that still give their leaf today, if any: a branch fills up without waiting (#152). */
   private unpicked(items: Item[]): Item[] {
     const day = this.session.today();
+    if (!drillPaysToday(this.session.facts, day)) return items;
     const left = items.filter((item) => paysToday(this.session.facts.get(item.fact), day));
     return left.length > 0 ? left : items;
   }
@@ -214,6 +215,13 @@ export interface Branch {
   group: string;
 }
 
+/** The drill still gives leaves today: fewer than its daily cap so far (#29). */
+export function drillPaysToday(facts: ReadonlyMap<FactId, FactProgress>, day: number): boolean {
+  let paid = 0;
+  for (const progress of facts.values()) if (progress.paid === day) paid++;
+  return paid < DRILL_LEAVES_PER_DAY;
+}
+
 /**
  * The branch Plume makes glow (#130): the parent's recommendation, else the branch with the
  * most facts met and not known by heart yet, else the first one still to grow; only a branch
@@ -225,6 +233,7 @@ export function suggestedBranch(
   recommended: { skill: SkillId; group?: string } | null,
   day: number,
 ): Branch | null {
+  if (!drillPaysToday(facts, day)) return null;
   const open = trees.flatMap((skill) =>
     (skill.facts?.groups ?? [])
       .filter((group) => group.facts.some((fact) => paysToday(facts.get(fact), day)))

@@ -15,18 +15,23 @@ export const SEEDS_PER_CHALLENGE = 1;
 export const LEAVES_PER_ACORN = 1;
 /** Leaves added by a flash bonus won in the trail. */
 export const LEAVES_PER_FLASH = 1;
+/** Leaves the drill gives in a day at most, all branches together (#29). */
+export const DRILL_LEAVES_PER_DAY = 10;
 /** Leaves of a new element in the shop of the forest (#83), at the first stage. */
-export const LEAVES_PER_ELEMENT = 4;
+export const LEAVES_PER_ELEMENT = 6;
 
-/** The price of a new element rises with the stages: a richer landscape asks more (#141, #29). */
+/**
+ * The price of a new element rises with the stages, one leaf every two: 1 or 2 elements per
+ * trail, a painting in about 40 minutes (#141, #29; `tests/unit/economy.test.ts`).
+ */
 export function leavesPerElement(stage: number): number {
-  return LEAVES_PER_ELEMENT + stage;
+  return LEAVES_PER_ELEMENT + Math.floor(stage / 2);
 }
 /** Golden seeds of an animal in the shop of the forest (#83). */
-export const SEEDS_PER_ANIMAL = 2;
+export const SEEDS_PER_ANIMAL = 1;
 /** Golden seeds of a season for the painting in progress (#82). */
-export const SEEDS_PER_SEASON = 3;
+export const SEEDS_PER_SEASON = 2;
 /** Golden seeds of the night for the painting in progress (#85). */
-export const SEEDS_PER_NIGHT = 3;
+export const SEEDS_PER_NIGHT = 2;
 /** Golden seeds of a rare element for the painting in progress: fireflies, rainbow, beavers (#46). */
-export const SEEDS_PER_RARE = 4;
+export const SEEDS_PER_RARE = 2;

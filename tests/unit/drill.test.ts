@@ -9,6 +9,7 @@ import {
   fragileFacts,
   suggestedBranch,
 } from '../../src/core/drill';
+import { DRILL_LEAVES_PER_DAY } from '../../src/core/economy';
 import { isSure, newFact, type FactProgress } from '../../src/core/facts';
 import type { SkillProgress } from '../../src/core/mastery';
 import { curriculum } from '../../src/core/registry';
@@ -161,17 +162,17 @@ describe('drill', () => {
     expect(suggestedBranch([products], all, null, 100)).toBeNull();
   });
 
-  it('makes a branch glow only if it still gives leaves today (#143)', () => {
+  it('makes a branch glow only if it still gives leaves today (#143, #29)', () => {
     const facts = new Map<string, FactProgress>();
-    for (const fact of products.facts!.all) {
+    // The table of 7 the most under way, but picked today: a branch with leaves left glows.
+    for (const fact of TABLE_7)
       facts.set(fact, { ...newFact(fact), tries: 2, right: 1, paid: 100 });
-    }
-    // Every branch picked today: none glows.
-    expect(suggestedBranch([products], facts, null, 100)).toBeNull();
-    // The table of 7 the most under way, but picked: a branch with a leaf left glows instead.
-    facts.set('times-tables.products:2x3', { ...newFact('times-tables.products:2x3') });
+    facts.set('times-tables.products:2x3', { ...newFact('times-tables.products:2x3'), tries: 1 });
     expect(suggestedBranch([products], facts, null, 100)).toMatchObject({ group: 'table-2' });
-    // The next day, every branch gives leaves again.
+    // The drill's leaves of the day all given: none glows; the next day, again.
+    facts.set('times-tables.products:2x2', { ...newFact('times-tables.products:2x2'), paid: 100 });
+    expect(DRILL_LEAVES_PER_DAY).toBe(10);
+    expect(suggestedBranch([products], facts, null, 100)).toBeNull();
     expect(suggestedBranch([products], facts, null, 101)).not.toBeNull();
   });
 
@@ -267,23 +268,27 @@ describe('drill', () => {
     }
   });
 
-  it('asks first the facts that still give their leaf today: a branch fills up in 2 rounds (#152)', () => {
+  it('asks first the facts that still give their leaf today, up to the cap of the day (#152, #29)', () => {
     const sums = SKILLS.find((skill) => skill.id === 'mental-math.sums')!;
-    const branch = sums.facts!.groups!.find((group) => group.id === 'to-10')!.facts;
+    const toTen = sums.facts!.groups!.find((group) => group.id === 'to-10')!.facts;
     for (let seed = 0; seed < 50; seed++) {
       const player = session();
-      for (let round = 0; round < 2; round++) {
-        const drill = new Drill(
-          player,
-          { kind: 'skill', skill: sums.id, group: 'to-10' },
-          new Rng(seed * 10 + round),
-        );
+      const round = (skill: string, group: string, rng: number) => {
+        const drill = new Drill(player, { kind: 'skill', skill, group }, new Rng(rng));
+        let leaves = 0;
         for (let i = 0; i < 20; i++) {
           const { skill, exercise } = drill.ask();
           drill.conclude(skill, exercise, true, 1700);
+          leaves += drill.earned;
         }
-      }
-      expect(branch.filter((fact) => player.facts.get(fact)?.paid !== 100)).toEqual([]);
+        return leaves;
+      };
+      // The table of 7, 9 facts: all picked in one round.
+      expect(round(products.id, 'table-7', seed)).toBe(TABLE_7.length);
+      expect(TABLE_7.every((fact) => player.facts.get(fact)?.paid === 100)).toBe(true);
+      // Then the cap of the day: one more leaf, whatever the branch.
+      expect(round(sums.id, 'to-10', seed + 1)).toBe(DRILL_LEAVES_PER_DAY - TABLE_7.length);
+      expect(toTen.filter((fact) => player.facts.get(fact)?.paid === 100)).toHaveLength(1);
     }
   });
 

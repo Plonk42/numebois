@@ -154,7 +154,7 @@ test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt po
   await expect(reserveButton).not.toHaveClass(/ready/);
   await reserveButton.click();
   await expect(page.locator('#shop .article').first()).toBeDisabled();
-  await expect(page.locator('#shop .article').first()).toContainText('Encore 4 feuilles');
+  await expect(page.locator('#shop .article').first()).toContainText('Encore 6 feuilles');
   await expect(page.locator('#trail')).toHaveClass(/aside/);
   // It stays a button, pressed: nothing moves under the finger, a second touch closes the shop.
   await expect(reserveButton).toHaveAttribute('aria-pressed', 'true');
@@ -290,8 +290,8 @@ test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt po
   await expect(page.locator('#walk')).toHaveCount(0);
   const shop = shopCard.locator('.articles');
   const shoot = shop.getByRole('button', { name: /^Une pousse,/ });
-  const doe = shop.getByRole('button', { name: 'Une biche, 2 graines dorées' });
-  await expect(shoot).toHaveAccessibleName('Une pousse, 4 feuilles');
+  const doe = shop.getByRole('button', { name: 'Une biche, 1 graine dorée' });
+  await expect(shoot).toHaveAccessibleName('Une pousse, 6 feuilles');
   await expect(shoot).toBeEnabled();
   await expect(doe).toBeDisabled();
   await expect(doe).toContainText('Encore 3 pousses');
@@ -317,7 +317,7 @@ test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt po
   expect(await describe()).toMatchObject({ seed: 3, stage: 0, elements: [], animals: [] });
   let left = earned;
   for (let placed = 1; placed <= 2; placed++) {
-    const price = 3 + placed;
+    const price = 6 + Math.floor((placed - 1) / 2);
     await expect(shoot).toHaveAccessibleName(`Une pousse, ${price} feuilles`);
     await shoot.click();
     await expect(shopCard).toHaveClass(/away/);
@@ -362,7 +362,7 @@ test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt po
   }
   // The probe follows the render a moment after the card comes back.
   await expect.poll(async () => (await game(page)).grown).toBe(2);
-  await expect(shoot).toHaveAccessibleName('Une pousse, 6 feuilles');
+  await expect(shoot).toHaveAccessibleName('Une pousse, 7 feuilles');
   await expect(doe).toContainText('Encore 1 pousse');
 
   // Closed, the reserve waits; a touch on the top of the sign, above the strip, starts another
@@ -432,7 +432,7 @@ test('la boutique : une biche achetée en graines dorées rejoint la prairie et 
   }
   const end = page.locator('#shop');
   const shop = end.locator('.articles');
-  const doe = shop.getByRole('button', { name: 'Une biche, 2 graines dorées' });
+  const doe = shop.getByRole('button', { name: 'Une biche, 1 graine dorée' });
   // Once Plume has poured her basket into the reserve, a touch on it opens the shop.
   await expect(page.locator('#reserve')).toHaveClass(/ready/, { timeout: 20_000 });
   await page.locator('#reserve').click();
@@ -479,7 +479,7 @@ test('la boutique : une biche achetée en graines dorées rejoint la prairie et 
   expect(doeOnScreen.y).toBeGreaterThan(0);
   expect(doeOnScreen.y).toBeLessThan(viewport.height);
   await test.info().attach('arrivée', { body: await page.screenshot(), contentType: 'image/png' });
-  expect((await game(page)).seeds).toBe(seeds - 2);
+  expect((await game(page)).seeds).toBe(seeds - 1);
   expect(await page.evaluate(() => window.__numebois!.describe().animals)).toEqual(['Deer']);
   // The arrival waits on the scene's clock, slower than the wall clock on a loaded runner.
   await expect(end).not.toHaveClass(/away/, { timeout: 45_000 });
@@ -492,7 +492,7 @@ test('la boutique : une biche achetée en graines dorées rejoint la prairie et 
   await page.evaluate(() => window.__numebois!.ready);
   expect(await page.evaluate(() => window.__numebois!.describe().animals)).toEqual(['Deer']);
   expect(await animals()).toBe(1);
-  expect((await game(page)).seeds).toBe(seeds - 2);
+  expect((await game(page)).seeds).toBe(seeds - 1);
   expect(errors).toEqual([]);
 });
 
@@ -542,7 +542,7 @@ test('les saisons : l’automne acheté, l’enfant choisit la saison de son tab
   const end = page.locator('#shop');
   const offer = end
     .locator('.articles')
-    .getByRole('button', { name: 'L’automne, 3 graines dorées' });
+    .getByRole('button', { name: 'L’automne, 2 graines dorées' });
   // Once Plume has poured her basket into the reserve, a touch on it opens the shop.
   await expect(page.locator('#reserve')).toHaveClass(/ready/, { timeout: 20_000 });
   await expect(picker).toHaveCount(0);
@@ -569,7 +569,7 @@ test('les saisons : l’automne acheté, l’enfant choisit la saison de son tab
   await expect(page.locator('#arrival')).toHaveCount(0);
   const seen = await page.evaluate(() => (window as unknown as { seen: string[] }).seen);
   expect(seen.sort()).toEqual(['away', 'L’automne arrive !'].sort());
-  expect((await game(page)).seeds).toBe(seedsBefore - 3);
+  expect((await game(page)).seeds).toBe(seedsBefore - 2);
   expect(await describe()).toMatchObject({ season: 'autumn', seasons: ['summer', 'autumn'] });
   await expect(picker.getByRole('button')).toHaveCount(2);
   await expect(end.locator('.articles').getByRole('button', { name: /^L’automne/ })).toHaveCount(0);
@@ -580,7 +580,7 @@ test('les saisons : l’automne acheté, l’enfant choisit la saison de son tab
   await expect(summer).toHaveAttribute('aria-pressed', 'true');
   await expect(end).not.toHaveClass(/away/);
   expect(await describe()).toMatchObject({ season: 'summer', seasons: ['summer', 'autumn'] });
-  expect((await game(page)).seeds).toBe(seedsBefore - 3);
+  expect((await game(page)).seeds).toBe(seedsBefore - 2);
 
   // During the walk, the bar stays clear of the other buttons.
   await end.getByRole('button', { name: 'Fermer' }).click();
@@ -660,7 +660,7 @@ test('la nuit : achetée dans la boutique, choisie comme une cinquième saison (
   const shop = page.locator('#shop');
   const offer = shop
     .locator('.articles')
-    .getByRole('button', { name: 'La nuit, 3 graines dorées' });
+    .getByRole('button', { name: 'La nuit, 2 graines dorées' });
   // Not bought yet: the bar has only the seasons.
   await expect(picker.getByRole('button')).toHaveCount(2);
   await expect(moon).toHaveCount(0);
@@ -671,7 +671,7 @@ test('la nuit : achetée dans la boutique, choisie comme une cinquième saison (
   await offer.click();
   await expect(moon).toHaveAttribute('aria-pressed', 'true');
   await expect(shop).not.toHaveClass(/away/);
-  expect((await game(page)).seeds).toBe(0);
+  expect((await game(page)).seeds).toBe(1);
   expect(await describe()).toMatchObject({
     season: 'summer',
     seasons: ['summer', 'autumn'],
