@@ -13,6 +13,7 @@ applyTo: "src/core/**, src/domains/**"
 - Pas d'`eval` ni de `new Function` : les expressions passent par `src/core/expr.ts`.
 - **Identifiants stables :** une notion, un fait ou une leçon publiés ne sont jamais renommés. Les sauvegardes y font référence. Pour remplacer, ajouter le nouveau et retirer l'ancien.
 - La difficulté monte à l'intérieur d'une notion (niveaux internes), plutôt que par l'ajout de notions.
+- Méthode, mots et présentation : ceux de la classe (plan, « Façons de faire de la classe »), à défaut [maitrelucas.fr](https://maitrelucas.fr/ce2/maths-ce2/), référence de qualité ; s'en inspirer sans recopier. Photos de fiches à comparer : skill `classwork-check`.
 - Les réponses attendues doivent être exactes : un générateur refuse et retire les tirages hors contraintes (résultat négatif, retenue non voulue, division non entière…).
 - Tests de chaque générateur sur 1 000 graines, avec toutes les contraintes vérifiées. Les opérations posées sont comparées à un calcul direct.
 - Limites vérifiées par les tests de contenu :

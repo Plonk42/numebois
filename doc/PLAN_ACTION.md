@@ -141,7 +141,7 @@ Widgets : `Keypad`, `Choice`, `CompareSigns`, `FractionInput`, `TimeInput`, `Clo
 
 ## Couverture du programme
 
-À vérifier contre le programme officiel en vigueur et les devoirs de l'enfant. La colonne « Rafale » indique les faits à connaître par cœur que la rafale entraîne jusqu'à l'automatisme (décision du propriétaire, 2026-11-24 : seulement ce qui se répond instantanément ; le reste se travaille au sentier et dans les défis).
+Vérifiée contre les fiches et leçons de la classe, que le propriétaire envoie en photo (skill `classwork-check`) : la classe d'abord, puis [maitrelucas.fr](https://maitrelucas.fr/ce2/maths-ce2/), référence de qualité pour la méthode et le vocabulaire (décision du propriétaire, 2026-11-26 ; beaucoup de fiches en viennent), puis le programme officiel. La colonne « Rafale » indique les faits à connaître par cœur que la rafale entraîne jusqu'à l'automatisme (décision du propriétaire, 2026-11-24 : seulement ce qui se répond instantanément ; le reste se travaille au sentier et dans les défis).
 
 | Domaine (module)    | Notions                                                                                                                                                              | Interaction                                                   | Leçon                               | Rafale                                                                         | Chrono             | État                   |
 | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------ | ------------------ | ---------------------- |
@@ -154,6 +154,15 @@ Widgets : `Keypad`, `Choice`, `CompareSigns`, `FractionInput`, `TimeInput`, `Clo
 | `measures`          | Règle (cm, mm), tracer un segment, ligne brisée, graduations (balance, verre doseur)                                                                                 | Règle, graduations                                            | Oui                                 | Non                                                                            | Non                | Réalisé (M4)           |
 | `time`              | Lire l'heure (pile, demie, quarts, 5 en 5, minute près), placer les aiguilles, 14 h = 2 h, durées, h/min/s, calendrier                                               | Horloge, saisie « 14h10 », frise, calendrier                  | Oui                                 | Relations par cœur (1 h = 60 min), pas la lecture de l'heure                   | Lecture de l'heure | Réalisé (M4)           |
 | `word-problems`     | Énoncés à variables sur le thème de la forêt, en une ou deux étapes, mobilisant les autres domaines                                                                  | Pavé, choix                                                   | Non                                 | Non                                                                            | Non                | Prévu M1, puis enrichi |
+
+### Façons de faire de la classe
+
+Confirmées par le propriétaire ou par une photo de la classe ; le jeu les suit (méthode, mots, présentation).
+
+- Multiplication posée (#49, propriétaire, 2026-11-26) : la retenue va « à côté, dans le sac à retenue ». Photo (2026-11-26) : colonnes c d u ; « Je calcule 4 × 6 = 24. Je pose 4 et je retiens 2. », le multiplicateur d'abord ; à la dernière colonne, le nombre s'écrit en entier (« 8 + 2 = 10. J'écris 10. »), comme chez Maître Lucas.
+- Heure (#55, propriétaire, 2026-11-26) : « 14h10 », et « 3h45min20s » avec les secondes.
+- Longueurs (photo, 2026-11-26) : équivalences 1 m = 10 dm = 100 cm = 1 000 mm, 1 dm = 10 cm, 1 cm = 10 mm ; tableau m | dm | cm | mm (sans km, hm ni dam) ; méthode en 4 temps : repérer l'unité de départ, placer le chiffre des unités dans sa colonne, compléter par des 0, lire dans l'unité demandée ; « vers la droite, × 10 à chaque colonne ; vers la gauche, ÷ 10 ». Fiche : choisir l'unité (m, dm, cm, mm), relier les mesures égales, convertir dans les deux sens (5 000 mm = 5 m, 230 cm = 23 dm, 456 cm = 45 dm 6 cm), comparer (56 m et 60 cm).
+- Fractions (photo, 2026-11-26, vues en classe avant M5) : « une fraction permet de mesurer une partie d'un tout » ; le numérateur, en haut, est le nombre de parts que l'on prend en compte ; le dénominateur, en bas, le nombre de parts égales en tout ; un rond partagé en 9, 6 parts coloriées, 6/9 se lit « six neuvièmes ».
 
 ## Architecture
 
@@ -708,6 +717,7 @@ Tout est rangé dans le dépôt (`.github/`), donc versionné avec le code. Chaq
 | `blender-asset`                                  | créer un modèle, asset manquant, Blender, low-poly                                 | MCP Blender : partir d'un modèle KayKit proche, réutiliser la texture de dégradé, respecter l'échelle et le nombre de polygones, exporter en glTF, passer la chaîne de traitement, rendu de contrôle  | Phase R, après le premier lot |
 | `add-skill`                                      | ajouter les divisions, l'enfant doit travailler…, nouvelle notion, nouveau domaine | La recette, une liste de contrôle, un modèle tiré de `times-tables` (#18)                                                                                                                             | Oui (#93)                     |
 | `write-lesson`                                   | leçon, astuce de Plume, explique-lui…                                              | Types d'étapes, scripts de démo des widgets, règles de formulation, au plus 6 étapes                                                                                                                  | Phase 6, #50                  |
+| `classwork-check`                                | photos de fiches, exercices de la semaine, leçon de la classe, maitrelucas.fr      | Relever chaque exercice, le retrouver dans le code (notion, niveau, astuce), tableau ✓/≈/✗, écarts en tickets, réglages de la semaine proposés au propriétaire, « Façons de faire de la classe »      | Oui (2026-11-26)              |
 
 Chaque skill est créé quand le code correspondant existe, pour que ses modèles soient tirés du vrai code. Dès qu'une même procédure revient une deuxième fois, elle devient un skill.
 
@@ -720,9 +730,7 @@ Vérification : frontmatter YAML valide, `name` identique au nom du dossier, `de
 3. Grands moments intégrés aux paliers (#81) : la chaîne au palier 6 et le lac au palier 8, à valider sur les planches ; la taille de la montagne de fond aux derniers paliers, où le massif occupe déjà le haut de l'écran.
 4. Changement de palier : aujourd'hui le tableau est reconstruit d'un coup. Animer la transition (le tableau qui s'étend, la montagne qui monte, l'eau qui arrive) serait un moment fort : à concevoir.
 5. Taille du tableau : au dernier palier la caméra est nettement plus loin qu'avant, donc les fleurs et les petits détails sont plus petits à l'écran (entre 1,5 et 2 fois, estimé sur les captures, pas mesuré). Lisibilité et fluidité à vérifier sur la vraie tablette (ticket #3).
-6. Tranché (propriétaire, 2026-11-26) : à l'école de l'enfant, la retenue d'une multiplication posée va « à côté, dans le sac à retenue » (#49).
-7. Tranché (propriétaire, 2026-11-26) : l'heure s'écrit « 14h10 », et « 3h45min20s » avec les secondes (#55).
-8. Fractions vues en classe : liste des dénominateurs.
-9. Seuil d'automatisation (environ 3 s) : à ajuster après quelques sessions réelles, grâce au tableau de bord.
-10. Durée cible d'un tableau (environ 40 minutes de jeu) et longueur du sentier (10 pierres) : à ajuster selon l'attention réelle de l'enfant. Les deux réglages sont centralisés. Prix, gains de graines dorées et catalogue de la clairière : calibrés par simulation (#29, 2026-11-26), à revoir après M3 et M4 (questions plus longues : un poids d'effort par notion) avec une nouvelle séance du propriétaire ; ce qui reste aux paliers (lucioles, arc-en-ciel) et ce qui s'achète (#46).
-11. Nombres en lettres : orthographe rectifiée de 1990 (traits d'union partout : « trois-mille-deux-cents »), recommandée à l'école depuis 2016. À vérifier sur les cahiers de l'enfant.
+6. Fractions : dénominateurs vus en classe, au moins jusqu'aux neuvièmes (photo, 2026-11-26) ; la liste complète reste à confirmer.
+7. Seuil d'automatisation (environ 3 s) : à ajuster après quelques sessions réelles, grâce au tableau de bord.
+8. Durée cible d'un tableau (environ 40 minutes de jeu) et longueur du sentier (10 pierres) : à ajuster selon l'attention réelle de l'enfant. Les deux réglages sont centralisés. Prix, gains de graines dorées et catalogue de la clairière : calibrés par simulation (#29, 2026-11-26), à revoir après M3 et M4 (questions plus longues : un poids d'effort par notion) avec une nouvelle séance du propriétaire ; ce qui reste aux paliers (lucioles, arc-en-ciel) et ce qui s'achète (#46).
+9. Nombres en lettres : orthographe rectifiée de 1990 (traits d'union partout : « trois-mille-deux-cents »), recommandée à l'école depuis 2016. À vérifier sur les cahiers de l'enfant.
