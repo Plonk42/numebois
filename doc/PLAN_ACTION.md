@@ -409,7 +409,7 @@ Chaque jalon est livré en ligne et jouable. Les jalons GitHub portent les même
 - **M0 « Tranche verticale visuelle »** (phases 0 et R) : assets gratuits et compléments générés, chaîne de traitement des assets, un décor complet (clairière) avec ses 12 paliers de richesse, à la qualité visée, fluide sur la vraie tablette. Validation par le propriétaire et test de la réaction de l'enfant avant d'aller plus loin. Terminé le 2026-11-23.
 - **M1 « Boucle jouable »** (phases 1 à 4) : forêt en tableaux avec Album, nombres, calcul mental, tables, sentier, sauvegarde.
 - **M2 « Rafale et défis »** (phases 7 et 8) : automatisation des tables et du calcul mental.
-- **« Équilibrage du jeu, temps et économie »** (sans numéro, ouvert le 2026-11-25) : ce que rapporte chaque mode (#124), progression qui ne se gagne ni ne se perd à tort (#122, #123), gains de la rafale et du défi (#125, #126, #127), temps par question mesuré par le propriétaire qui joue à la place de l'enfant (#128), puis calibrage des prix et de la durée d'un tableau (#29, en dernier).
+- **« Équilibrage du jeu, temps et économie »** (sans numéro, ouvert le 2026-11-25) : ce que rapporte chaque mode (#124), progression qui ne se gagne ni ne se perd à tort (#122, #123), gains de la rafale et du défi (#125, #126, #127), temps par question mesuré par le propriétaire qui joue à la place de l'enfant (#128), puis calibrage des prix et de la durée d'un tableau (#29, en dernier). Fermé le 2026-11-26 (13 tickets, dont #141, #143, #149, #150, #152 venus en route) ; le poids d'effort des notions longues suit avec M4 (#153).
 - **M3 « Opérations posées et leçons »** (phases 5a et 6).
 - **M4 « Temps et mesures »** (phases 5b et 5c).
 - **M5 « Fractions »** (phase 5d).
