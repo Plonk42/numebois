@@ -676,6 +676,87 @@
   font-size: 26px;
 }
 
+/* Durations (#56): the timeline, its jumps over the line, the start and the end under it. */
+.bench > .work:has(.timeline, .calendar) {
+  align-content: center;
+  gap: 16px;
+}
+.timeline {
+  display: block;
+  width: 100%;
+  overflow: visible;
+}
+.timeline .axis,
+.timeline .tick {
+  stroke: #6b4a2b;
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+.timeline .jump {
+  fill: none;
+  stroke: var(--minute);
+  stroke-width: 3;
+  stroke-dasharray: 8 6;
+}
+.timeline text {
+  font-size: 22px;
+  font-weight: 700;
+  text-anchor: middle;
+  fill: #2f4a3a;
+}
+.timeline .hour {
+  font-size: 18px;
+  font-weight: 600;
+  fill: #6b4a2b;
+}
+.timeline .bound text {
+  fill: var(--hour);
+}
+.timeline .length {
+  fill: var(--minute);
+}
+
+/* The calendar: a line per week from Monday, the weekend tinted, the day asked circled. */
+.calendar {
+  border-collapse: separate;
+  border-spacing: 3px 2px;
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+  color: #2f4a3a;
+}
+.calendar caption {
+  padding-bottom: 2px;
+  font-size: 21px;
+  font-weight: 700;
+}
+.calendar th {
+  padding: 1px 0;
+  border-radius: 8px;
+  background: #e6f1dc;
+  font-size: 16px;
+}
+.calendar td {
+  width: 52px;
+  height: 31px;
+  padding: 0;
+  border-radius: 8px;
+  background: #fff;
+  text-align: center;
+}
+.calendar .weekend {
+  background: #fdeed9;
+}
+.calendar td.mark span {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  box-sizing: border-box;
+  border: 3px solid var(--hour);
+  border-radius: 50%;
+  font-weight: 700;
+}
+
 /* Decompose (#109): a colour per rank, the same in the table and in the blocks. */
 .bench > .work:has(.place-value, .blocks, .dots) {
   align-content: center;

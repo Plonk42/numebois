@@ -10,6 +10,7 @@ import { Answer, Keypad, useEntry } from './keypad';
 import { NumberLineFigure, NumberLinePlace } from './number-line';
 import { BlocksFigure, DotsFigure, PlaceValueFigure } from './place-value';
 import { TimeEntry } from './time-entry';
+import { CalendarFigure, TimelineFigure } from './day';
 
 /** What every widget receives; the validation and the hints come from the domain. */
 export interface WidgetProps<I extends ExerciseInput = ExerciseInput> {
@@ -51,6 +52,12 @@ const FIGURES: Figures = {
   dots: ({ figure }) => <DotsFigure rows={figure.rows} columns={figure.columns} />,
   clock: ({ figure: { hours, minutes, seconds } }) => (
     <ClockFigure hours={hours} minutes={minutes} seconds={seconds} />
+  ),
+  timeline: ({ figure: { start, end, asked } }) => (
+    <TimelineFigure start={start} end={end} asked={asked} />
+  ),
+  calendar: ({ figure: { year, month, mark } }) => (
+    <CalendarFigure year={year} month={month} mark={mark} />
   ),
 };
 

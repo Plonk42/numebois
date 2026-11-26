@@ -1,5 +1,21 @@
 import { parseTime } from '../../core/time';
+import type { Exercise } from '../../core/types';
+import { validateChoice, validateNumber } from '../../core/validate';
 import type { ReadClockExercise, SetClockExercise } from './generators';
+
+/** A number on the keypad, a choice, or a time in its boxes: the same hours and minutes. */
+export function validateAny(exercise: Exercise, answer: string): boolean {
+  if (exercise.input.kind === 'keypad') return validateNumber(exercise, answer);
+  if (exercise.input.kind !== 'time') return validateChoice(exercise, answer);
+  const time = parseTime(answer);
+  const expected = parseTime(exercise.answer)!;
+  return (
+    time !== null &&
+    time.hours === expected.hours &&
+    time.minutes === expected.minutes &&
+    time.seconds === expected.seconds
+  );
+}
 
 /**
  * The time read on the clock: without a period said, 3h45 or 15h45 alike; with one, the

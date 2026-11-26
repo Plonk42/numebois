@@ -65,7 +65,12 @@ export type ExerciseInput =
       setup?: ColumnSetup;
     }
   /** A time written in its boxes, hours then minutes (then seconds): « 14h10 » (`timeText`). */
-  | { kind: 'time'; seconds: boolean }
+  | {
+      kind: 'time';
+      seconds: boolean;
+      /** A duration: « min » after the minutes box, « 1h20 » read as 1 h 20 min. */
+      duration?: boolean;
+    }
   /** The hands of a clock set with the finger, the minute hand by `step` minutes: « 3h45 ». */
   | { kind: 'clock'; step: 1 | 5 };
 
@@ -79,7 +84,14 @@ export type Figure =
   /** `rows × columns` as a grid of dots: `rows` rows of `columns` dots. */
   | { kind: 'dots'; rows: number; columns: number }
   /** A clock to read, `hours` from 0 to 23; the second hand when `seconds` is given. */
-  | { kind: 'clock'; hours: number; minutes: number; seconds?: number };
+  | { kind: 'clock'; hours: number; minutes: number; seconds?: number }
+  /**
+   * A timeline of the day (frise), `start` and `end` in minutes since midnight, a jump drawn to
+   * each whole hour between them; when the end is `asked`, a single jump with its duration.
+   */
+  | { kind: 'timeline'; start: number; end: number; asked: 'duration' | 'end' }
+  /** A month of the calendar, `month` from 0 (January), the weeks from Monday; `mark` circles a day. */
+  | { kind: 'calendar'; year: number; month: number; mark?: number };
 
 export interface Exercise {
   skill: SkillId;

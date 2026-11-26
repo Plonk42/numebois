@@ -1,10 +1,13 @@
-import { onDial, timeText } from '../../core/time';
+import { clockText, durationText, onDial, timeText, weekday } from '../../core/time';
+import { WEEKDAYS, type CalendarExercise } from './calendar';
+import type { DurationExercise } from './durations';
 import {
   PERIOD_WORDS,
   type DrawnTime,
   type ReadClockExercise,
   type SetClockExercise,
 } from './generators';
+import type { UnitsExercise } from './units';
 
 /** Where the minute hand stands: on a number, or a few ticks after one. */
 function minuteSpot(minutes: number): string {
@@ -65,4 +68,85 @@ export function setClockHint({ hours, minutes, period }: SetClockExercise, attem
   const where = `La petite aiguille ${hourSpot(hours, minutes)},\nla grande ${minuteSpot(minutes)}.`;
   if (period && period !== 'morning') return `${hours} − 12 = ${dial.hours}.\n${where}`;
   return where;
+}
+
+/** Where a relation is seen: the clock and the calendar. */
+const REMINDERS: Record<string, string> = {
+  'hour-minutes': 'En une heure, la grande aiguille fait un tour.',
+  'minute-seconds': 'En une minute, la trotteuse fait un tour.',
+  'half-hour': 'Une heure, c’est 60 minutes : prends-en la moitié.',
+  'quarter-hour': 'Un quart d’heure : la grande aiguille fait un quart de tour.',
+  'day-hours': 'En un jour, la petite aiguille fait 2 tours.',
+  'week-days': 'Compte les jours, de lundi à dimanche.',
+  'year-months': 'Compte les mois, de janvier à décembre.',
+};
+
+/** 1: the relation; 2: the relation used, the larger units added one by one. */
+export function unitsHint(exercise: UnitsExercise, attempt: 1 | 2): string {
+  const { relation: r, big, small, back } = exercise;
+  const rule = `${r.one} = ${r.factor} ${r.small}.`;
+  if (attempt === 1) return exercise.level === 0 ? REMINDERS[r.key] : rule;
+  if (exercise.level === 0) return rule;
+  const bigs = Array.from({ length: big }, () => r.factor).join(' + ');
+  const larger = big * r.factor;
+  if (back) {
+    return `${rule}\n${larger + small} − ${larger} = ${small} ${r.small}.`;
+  }
+  if (small === 0) return `${rule}\n${bigs} = ${larger} ${r.small}.`;
+  return `${rule}\n${larger} + ${small} = ${larger + small} ${r.small}.`;
+}
+
+/** The jumps of the timeline: to the whole hour, then on to the end. */
+function jumps(start: number, end: number): [number, number][] {
+  const hour = Math.ceil(start / 60) * 60;
+  return hour > start && hour < end
+    ? [
+        [start, hour],
+        [hour, end],
+      ]
+    : [[start, end]];
+}
+
+/** 1: jump to the whole hour first; 2: each jump, then the duration or the end. */
+export function durationHint({ level, start, end }: DurationExercise, attempt: 1 | 2): string {
+  const length = end - start;
+  if (attempt === 1) {
+    if (level === 0) return 'Compte les minutes de bond en bond, de 5 en 5.';
+    if (level === 1) return 'Compte les heures, de bond en bond.';
+    if (level === 4)
+      return `Ajoute ${durationText(length)} à ${clockText(start)}.\nVa d’abord jusqu’à l’heure pile.`;
+    return 'Fais un bond jusqu’à l’heure pile, puis continue.';
+  }
+  if (level === 0) return `De ${clockText(start)} à ${clockText(end)} : ${length} min.`;
+  if (level === 1) return `De ${clockText(start)} à ${clockText(end)} : ${length / 60} h.`;
+  const steps = jumps(start, end);
+  const lines = steps.map(
+    ([a, b]) => `${clockText(a)} → ${clockText(b)} : ${durationText(b - a)}.`,
+  );
+  const total = level === 4 ? `Fin à ${clockText(end)}.` : `En tout : ${durationText(length)}.`;
+  return [...lines, total].join('\n');
+}
+
+/** 1: where to look; 2: the line or the weeks that give the answer. */
+export function calendarHint(exercise: CalendarExercise, attempt: 1 | 2): string {
+  const { level, year, month, given, asked } = exercise;
+  if (level === 0) {
+    return attempt === 1
+      ? `Trouve le ${given}, puis monte jusqu’au nom de sa colonne.`
+      : `Le ${given} est dans la colonne du ${exercise.answer}.`;
+  }
+  if (level === 1) {
+    const day = WEEKDAYS[weekday(year, month, given)];
+    return attempt === 1
+      ? `Descends la colonne du ${day}, semaine après semaine.`
+      : `Les ${day}s : ${Array.from({ length: (asked - given) / 7 + 1 }, (_, i) => given + 7 * i).join(', ')}.`;
+  }
+  if (level === 2) {
+    return attempt === 1
+      ? 'Une semaine, c’est 7 jours : une ligne plus bas.'
+      : `${given} + ${asked - given} = ${asked}.`;
+  }
+  if (attempt === 1) return 'Tous les 7 jours, le même jour revient.';
+  const gap = asked - given;
+  return `Du ${given} au ${asked} : ${Math.abs(gap)} jour${Math.abs(gap) > 1 ? 's' : ''}.\nLe ${asked} est un ${exercise.answer}.`;
 }

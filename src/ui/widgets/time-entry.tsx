@@ -1,6 +1,7 @@
 import { Fragment } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { parseTime, timeText } from '../../core/time';
+import type { ExerciseInput } from '../../core/types';
 import { Keypad, type Key } from './keypad';
 import type { WidgetProps } from './index';
 
@@ -24,7 +25,7 @@ export function TimeEntry({
   right,
   shown,
   onSubmit,
-}: WidgetProps<{ kind: 'time'; seconds: boolean }>) {
+}: WidgetProps<Extract<ExerciseInput, { kind: 'time' }>>) {
   const fields = input.seconds ? FIELDS : FIELDS.slice(0, 2);
   const [values, setValues] = useState<string[]>(fields.map(() => ''));
   const [active, setActive] = useState(0);
@@ -120,8 +121,10 @@ export function TimeEntry({
             >
               {boxes[i]}
             </button>
-            {/* « 14h10 »: the minutes need no unit, unless the seconds follow. */}
-            {(field.name !== 'minutes' || input.seconds) && <span class="unit">{field.unit}</span>}
+            {/* « 14h10 »: the minutes need no unit, unless a duration or the seconds. */}
+            {(field.name !== 'minutes' || input.seconds || input.duration) && (
+              <span class="unit">{field.unit}</span>
+            )}
           </Fragment>
         ))}
       </div>
