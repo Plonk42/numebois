@@ -131,7 +131,6 @@ export const SOUND_CATALOG = {
     ...source(878603, 19512113, 'Qvantor', 'Correct Answer Ding'),
     cuts: [[0, 0.7]],
   },
-  bell: { kind: 'calls', ...source(538147, 7724198, 'Fupicat', 'Correct Bell'), cuts: [[0, 1.55]] },
   seed: { kind: 'calls', ...source(878614, 19512113, 'Qvantor', 'Gem Sparkle'), cuts: [[0, 2.3]] },
   heal: { kind: 'calls', ...source(878621, 19512113, 'Qvantor', 'Heal Restore'), cuts: [[0, 3.2]] },
   stage: {

@@ -37,7 +37,7 @@ const CALLS: Record<CallLevel, { sounds: readonly CallName[]; gain: number }> = 
 export type Reward = 'right' | 'seed' | 'element' | 'stage' | 'finale';
 /** Recordings of each reward, one drawn each time, and its gain: the right answer comes often, so it stays soft. */
 const REWARDS: Record<Reward, { sounds: readonly CallName[]; gain: number }> = {
-  right: { sounds: ['ding', 'bell'], gain: 0.35 },
+  right: { sounds: ['ding'], gain: 0.35 },
   seed: { sounds: ['seed'], gain: 0.55 },
   element: { sounds: ['chime', 'heal'], gain: 0.6 },
   stage: { sounds: ['stage'], gain: 0.6 },
