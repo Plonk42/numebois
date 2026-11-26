@@ -70,7 +70,7 @@ export type Reveal = 'waiting' | 'announced' | 'shown';
 /** Grand moment coming at the next stage: sparkles float over it. */
 export interface Announcement {
   /** Names its own random draws. */
-  label: 'lake' | 'windmill' | 'blossom' | 'bridge' | 'cascade' | 'balloon';
+  label: 'lake' | 'windmill' | 'blossom' | 'bridge' | 'cascade' | 'balloon' | 'peak' | 'eagles';
   x: number;
   y: number;
   z: number;
@@ -99,18 +99,23 @@ export interface Spinner {
   speed: number;
 }
 
-/** Generated model drifting along a loop in the air, bobbing gently (the sky islands' balloon). */
+/**
+ * Generated model drifting along a loop in the air, bobbing gently (the sky islands' balloon),
+ * or an eagle soaring on it, landing now and then on a summit (`render/soaring.ts`).
+ */
 export interface Drifter {
-  model: 'balloon';
+  model: 'balloon' | 'eagle';
   /** Centre of the loop and its half axes. */
   x: number;
   y: number;
   z: number;
   rx: number;
   rz: number;
-  /** Turns per second. */
+  /** Turns per second, negative to turn the other way. */
   speed: number;
   scale: number;
+  /** Summits an eagle lands on in turn. */
+  perches?: readonly (readonly [number, number, number])[];
 }
 
 export interface Waterfall {
@@ -120,6 +125,8 @@ export interface Waterfall {
   width: number;
   /** Whether the foot is in water (foam) or in the void. */
   splash: boolean;
+  /** Spray rising around the foot (the mountain's great cascade). */
+  spray?: boolean;
 }
 
 export interface BankPath {

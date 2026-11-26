@@ -14,6 +14,10 @@ export const ANIMAL_LABELS: Record<AnimalName, string> = {
   Alpaca: 'Un alpaga',
   Horse: 'Un cheval',
   Cow: 'Une vache',
+  Chamois: 'Un chamois',
+  Ibex: 'Un bouquetin',
+  Marmot: 'Une marmotte',
+  Eagle: 'Un aigle',
 };
 
 const labelOf = (article: Article) => {

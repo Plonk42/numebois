@@ -9,8 +9,11 @@ export const LAST_STAGE: Stage = 11;
 /** One value per stage. */
 export type PerStage<T> = readonly [T, T, T, T, T, T, T, T, T, T, T, T];
 
-/** Décors of a painting: the clearing, the orchard on its hills (#31), the sky islands (#32). */
-export const BIOME_IDS = ['clearing', 'orchard', 'sky'] as const;
+/**
+ * Décors of a painting: the clearing, the orchard on its hills (#31), the sky islands (#32),
+ * the mountain of the torrents (#136).
+ */
+export const BIOME_IDS = ['clearing', 'orchard', 'sky', 'mountain'] as const;
 export type BiomeId = (typeof BIOME_IDS)[number];
 
 /** An element the child placed in a slot of the painting; its kind is the slot's. */
@@ -56,6 +59,14 @@ export const ANIMAL_OFFERS: Record<BiomeId, readonly { animal: AnimalName; stage
     { animal: 'Alpaca', stage: 9 },
     { animal: 'Deer', stage: 10 },
   ],
+  // The animals of the heights, made from the pack's (the marmots live in pairs).
+  mountain: [
+    { animal: 'Marmot', stage: 3 },
+    { animal: 'Chamois', stage: 5 },
+    { animal: 'Ibex', stage: 7 },
+    { animal: 'Wolf', stage: 9 },
+    { animal: 'Marmot', stage: 10 },
+  ],
 };
 
 /**
@@ -77,12 +88,20 @@ export type SeasonChoice = Season | 'night';
 /**
  * Rare elements, bought in golden seeds for the whole painting (#46): fireflies, a rainbow
  * over the widest fall, and the great element of each décor: the beavers, who fill their lake
- * in the clearing, the windmill of the orchard, the balloon of the sky islands.
+ * in the clearing, the windmill of the orchard, the balloon of the sky islands, the eagles of
+ * the mountain.
  */
-export const RARE_NAMES = ['fireflies', 'rainbow', 'beavers', 'windmill', 'balloon'] as const;
+export const RARE_NAMES = [
+  'fireflies',
+  'rainbow',
+  'beavers',
+  'windmill',
+  'balloon',
+  'eagles',
+] as const;
 export type RareName = (typeof RARE_NAMES)[number];
 /** The great element of each décor, the climax of the painting: dearer, shown apart in the shop. */
-export const GRAND_RARES: readonly RareName[] = ['beavers', 'windmill', 'balloon'];
+export const GRAND_RARES: readonly RareName[] = ['beavers', 'windmill', 'balloon', 'eagles'];
 
 /**
  * The rare elements of each décor, each open from a stage: the rainbow needs a fall landing
@@ -103,6 +122,11 @@ export const RARE_OFFERS: Record<BiomeId, readonly { rare: RareName; stage: Stag
     { rare: 'fireflies', stage: 4 },
     { rare: 'rainbow', stage: 8 },
     { rare: 'balloon', stage: 8 },
+  ],
+  mountain: [
+    { rare: 'fireflies', stage: 4 },
+    { rare: 'rainbow', stage: 6 },
+    { rare: 'eagles', stage: 8 },
   ],
 };
 
