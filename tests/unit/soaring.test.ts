@@ -7,7 +7,7 @@ const FPS = 30;
 describe('eagles of the mountain', () => {
   it('soar smoothly, land on every summit in turn and take off again', () => {
     for (const seed of [3, 7, 12, 21]) {
-      const terrain = createMountain(seed, 11, ['eagles']);
+      const terrain = createMountain(seed, 11);
       expect(terrain.drifters.map((d) => d.model)).toEqual(['eagle', 'eagle']);
       terrain.drifters.forEach((d, index) => {
         const perches = d.perches!;
@@ -50,8 +50,8 @@ describe('eagles of the mountain', () => {
   });
 
   it('land on the highest point of the ground on each summit risen', () => {
-    for (const stage of [3, 8, 11] as const) {
-      const terrain = createMountain(12, stage, ['eagles']);
+    for (const stage of [9, 10, 11] as const) {
+      const terrain = createMountain(12, stage);
       for (const d of terrain.drifters) {
         const tops = d.perches!.map(([, y]) => y);
         expect(tops).toEqual([...tops].sort((p, q) => q - p));

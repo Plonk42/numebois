@@ -70,7 +70,7 @@ export type Reveal = 'waiting' | 'announced' | 'shown';
 /** Grand moment coming at the next stage: sparkles float over it. */
 export interface Announcement {
   /** Names its own random draws. */
-  label: 'lake' | 'windmill' | 'blossom' | 'bridge' | 'cascade' | 'balloon' | 'peak' | 'eagles';
+  label: 'lake' | 'windmill' | 'blossom' | 'bridge' | 'cascade' | 'balloon' | 'peak' | 'cablecar';
   x: number;
   y: number;
   z: number;
@@ -116,6 +116,15 @@ export interface Drifter {
   scale: number;
   /** Summits an eagle lands on in turn. */
   perches?: readonly (readonly [number, number, number])[];
+}
+
+/**
+ * An aerial cable car (the mountain's great element, #154): two ropes over its supports, from
+ * the bottom station to the top one (`cableway.ts`).
+ */
+export interface Cableway {
+  /** Where the ropes run over each support, the stations first and last, and the ground under it. */
+  supports: readonly { x: number; y: number; z: number; ground: number }[];
 }
 
 export interface Waterfall {
@@ -173,6 +182,8 @@ export interface Terrain {
   readonly staticModels: readonly StaticModel[];
   readonly spinners: readonly Spinner[];
   readonly drifters: readonly Drifter[];
+  /** The mountain's cable car, once bought. */
+  readonly cableway?: Cableway | null;
   /** Level of a sea of clouds under the diorama, or null for the plain sky. */
   readonly cloudSea: number | null;
   readonly waterfalls: readonly Waterfall[];

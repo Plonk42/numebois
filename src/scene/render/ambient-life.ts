@@ -160,6 +160,9 @@ function openGround(
   }
   const dam = terrain.dam;
   if (dam && Math.hypot(dam.x - x, dam.z - z) < dam.width + room) return null;
+  for (const support of terrain.cableway?.supports ?? []) {
+    if (Math.hypot(support.x - x, support.z - z) < 3 + room) return null;
+  }
   for (const rock of terrain.staticModels) {
     if (Math.hypot(rock.x - x, rock.z - z) < 2.5 * rock.scale + room) return null;
   }

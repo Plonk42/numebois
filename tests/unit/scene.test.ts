@@ -679,6 +679,9 @@ describe('slots and grand moments', () => {
         } else if (rare === 'windmill') {
           expect(BIOMES[biome].terrain(3, stage, []).spinners, label).toEqual([]);
           expect(terrain.spinners, label).not.toEqual([]);
+        } else if (rare === 'cablecar') {
+          expect(BIOMES[biome].terrain(3, stage, []).cableway, label).toBeNull();
+          expect(terrain.cableway, label).not.toBeNull();
         } else {
           expect(BIOMES[biome].terrain(3, stage, []).drifters, label).toEqual([]);
           expect(terrain.drifters, label).not.toEqual([]);

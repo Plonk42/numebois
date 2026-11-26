@@ -447,7 +447,7 @@ export function beam(
 }
 
 /** A flat quad as two facets, wound so they face along `n`. */
-function outward(
+export function outward(
   out: MeshWriter,
   [p0, p1, p2, p3]: readonly Vec[],
   n: readonly number[],
@@ -615,7 +615,7 @@ function lerpNumber(a: number, b: number, t: number): number {
 }
 
 /** A single facet, wound so it faces along `n`. */
-function facing(
+export function facing(
   out: MeshWriter,
   [p0, p1, p2]: readonly Vec[],
   n: readonly number[],

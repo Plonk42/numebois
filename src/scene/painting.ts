@@ -13,6 +13,7 @@ import { candidateSlots, childTreeAge } from './populate';
 import { GENERATED_DRIFTERS } from './props';
 import { Backdrop, BACKDROP_TRIANGLES } from './render/backdrop';
 import { EAGLE_SCALE, soarPose } from './render/soaring';
+import { cabin, cabinAt, cablewayMesh, ROPE_OVER } from './cableway';
 import { CloudSea, CLOUD_SEA_TRIANGLES } from './render/cloud-sea';
 import type { InstanceBatch } from './render/instancing';
 import {
@@ -175,6 +176,8 @@ export class Painting {
   private readonly sprouting: { slot: number; start: number }[] = [];
   private readonly spinners: { pivot: THREE.Group; speed: number }[] = [];
   private readonly drifters: { mesh: THREE.Mesh; drifter: Drifter }[] = [];
+  /** The cable car's two cabins (#154). */
+  private readonly cabins: THREE.Mesh[] = [];
   /** The eagles: the animated model, or the generated one without the animals' file. */
   private readonly soarers: {
     object: THREE.Object3D;
@@ -309,6 +312,33 @@ export class Painting {
       }
       this.root.add(mesh);
       this.drifters.push({ mesh, drifter });
+    }
+    const { cableway } = terrain;
+    if (cableway) {
+      const line = cablewayMesh(cableway);
+      const cabinData = cabin();
+      drifterTriangles += triangleCount(line) + 2 * triangleCount(cabinData);
+      const lineMesh = new THREE.Mesh(bufferGeometryOf(line), materials.solid);
+      lineMesh.castShadow = true;
+      lineMesh.name = 'cableway';
+      const cabinGeometry = bufferGeometryOf(cabinData);
+      this.disposables.push(
+        { dispose: () => lineMesh.geometry.dispose() },
+        { dispose: () => cabinGeometry.dispose() },
+      );
+      this.root.add(lineMesh);
+      for (let i = 0; i < 2; i++) {
+        // Lit from inside at night, like the balloon.
+        const mesh = new THREE.Mesh(cabinGeometry, lit ?? materials.solid);
+        mesh.castShadow = true;
+        mesh.name = 'cabin';
+        mesh.rotation.order = 'YXZ';
+        this.root.add(mesh);
+        this.cabins.push(mesh);
+      }
+      for (const s of this.lamps ? [cableway.supports[0], cableway.supports.at(-1)!] : []) {
+        this.root.add(this.lamps!.haloAt(s.x, s.y - ROPE_OVER.bottom + 0.8, s.z, 1.8));
+      }
     }
     // Lit buildings: a warm halo on the side of the camera, its windows glow (`windowGlow`).
     for (const m of this.lamps ? terrain.staticModels : []) {
@@ -871,6 +901,11 @@ export class Painting {
     this.follow(time);
     this.herd.update(time);
     for (const s of this.spinners) s.pivot.rotation.z = time * s.speed;
+    this.cabins.forEach((mesh, index) => {
+      const pose = cabinAt(this.terrain.cableway!, index, time);
+      mesh.position.set(pose.x, pose.y, pose.z);
+      mesh.rotation.set(pose.swing, pose.yaw, 0);
+    });
     this.soarers.forEach(({ object, body, drifter }, index) => {
       const pose = soarPose(drifter, index, time);
       object.position.set(pose.x, pose.y, pose.z);

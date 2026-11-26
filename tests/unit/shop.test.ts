@@ -210,12 +210,12 @@ describe('boutique de la forêt', () => {
     });
     // The great element of the décor, the climax: dearer than the fireflies and the rainbow.
     expect(SEEDS_PER_GRAND).toBeGreaterThan(SEEDS_PER_RARE);
-    // The orchard sells its windmill, the sky its balloon, the mountain its eagles, after the
-    // rainbow.
+    // The orchard sells its windmill, the sky its balloon, the mountain its cable car, after
+    // the rainbow.
     for (const [biome, great] of [
       ['orchard', 'windmill'],
       ['sky', 'balloon'],
-      ['mountain', 'eagles'],
+      ['mountain', 'cablecar'],
     ] as const) {
       expect(GRAND_RARES).toContain(great);
       const all = { ...painting(MAX_ELEMENTS, demoAnimals(biome, LAST_STAGE)), biome };
