@@ -38,8 +38,10 @@ test('les éléments rares : les castors achetés en graines dorées remplissent
   await expect(page.locator('#reserve')).toHaveClass(/ready/);
   await page.locator('#reserve').click();
   const shop = page.locator('#shop .articles');
-  const beavers = shop.getByRole('button', { name: 'Des castors, 2 graines dorées' });
+  const beavers = shop.getByRole('button', { name: 'Des castors, 5 graines dorées' });
   await expect(beavers).toBeEnabled();
+  // The great element of the décor: a card apart, bigger and golden.
+  await expect(beavers).toHaveClass(/grand/);
   await expect(beavers.locator('svg.rare-icon')).toBeVisible();
   await expect(shop.getByRole('button', { name: /^Des lucioles/ })).toHaveCount(0);
 
@@ -61,7 +63,7 @@ test('les éléments rares : les castors achetés en graines dorées remplissent
     .poll(async () => (await describe()).rares)
     .toEqual(['fireflies', 'rainbow', 'beavers']);
   await expect(page.locator('#arrival')).toHaveCount(0, { timeout: 15_000 });
-  expect((await game(page)).seeds).toBe(3);
+  expect((await game(page)).seeds).toBe(0);
   await expect(shop.getByRole('button', { name: /^Des castors/ })).toHaveCount(0);
 
   // The beavers stay in the painting, once written.

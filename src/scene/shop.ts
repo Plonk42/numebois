@@ -1,6 +1,7 @@
 import {
   leavesPerElement,
   SEEDS_PER_ANIMAL,
+  SEEDS_PER_GRAND,
   SEEDS_PER_NIGHT,
   SEEDS_PER_RARE,
   SEEDS_PER_SEASON,
@@ -12,6 +13,7 @@ import {
   MAX_ELEMENTS,
   NIGHT_STAGE,
   RARE_OFFERS,
+  GRAND_RARES,
   SEASON_STAGES,
   nextSeason,
   type RareName,
@@ -84,7 +86,7 @@ export function shopItems(description: SceneDescription): ShopItem[] {
     items.push({
       article: { kind: 'rare', rare: rare.rare },
       leaves: 0,
-      seeds: SEEDS_PER_RARE,
+      seeds: GRAND_RARES.includes(rare.rare) ? SEEDS_PER_GRAND : SEEDS_PER_RARE,
       elementsToGo: 0,
     });
   }

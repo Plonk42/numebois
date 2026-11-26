@@ -769,6 +769,17 @@
   filter: saturate(0.35) brightness(1.08);
   opacity: 0.7;
 }
+/* The great element of the décor, the climax of the painting: a bigger, golden card. */
+#shop .article.grand {
+  width: 196px;
+  border-color: #f2c94c;
+  background: linear-gradient(#fffaf0, #ffecb0);
+}
+#shop .article.grand .picture {
+  width: 140px;
+  height: 140px;
+  background: radial-gradient(circle, #fff6cf, #f7dd8a);
+}
 #shop .article .price {
   display: inline-flex;
   align-items: center;

@@ -1,4 +1,5 @@
 import type { AnimalName } from '../scene/animal-catalog';
+import { GRAND_RARES } from '../scene/description';
 import { canBuy, type Article, type ShopItem } from '../scene/shop';
 import { RARE_LABELS, RareIcon } from './rares';
 import { LeafIcon, plural, SeedIcon, SproutIcon } from './reserve';
@@ -82,6 +83,7 @@ export function Shop({ items, leaves, seeds, portrait, onBuy }: Props) {
         let state = 'ready';
         if (item.elementsToGo > 0) state = 'later';
         else if (!ready) state = 'saving';
+        if (article.kind === 'rare' && GRAND_RARES.includes(article.rare)) state += ' grand';
         const image = article.kind === 'animal' ? portrait(article.animal) : null;
         return (
           <li key={keyOf(article)}>

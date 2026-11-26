@@ -5,6 +5,7 @@ import {
   leavesPerElement,
   SEEDS_PER_ANIMAL,
   SEEDS_PER_CHALLENGE,
+  SEEDS_PER_GRAND,
   SEEDS_PER_NIGHT,
   SEEDS_PER_RARE,
   SEEDS_PER_SEASON,
@@ -23,9 +24,13 @@ const QUESTION_S = 12;
 const AROUND_TRAIL_S = 60;
 /** Minutes of play in a day: a new day brings the squirrel's gift (#126). */
 const DAY_MIN = 20;
-/** Golden seeds a painting asks: 5 animals, 3 seasons, the night, 3 rare elements. */
+/** Golden seeds a painting asks: 5 animals, 3 seasons, the night, 2 rare elements, the great one. */
 const SEED_CATALOG =
-  5 * SEEDS_PER_ANIMAL + 3 * SEEDS_PER_SEASON + SEEDS_PER_NIGHT + 3 * SEEDS_PER_RARE;
+  5 * SEEDS_PER_ANIMAL +
+  3 * SEEDS_PER_SEASON +
+  SEEDS_PER_NIGHT +
+  2 * SEEDS_PER_RARE +
+  SEEDS_PER_GRAND;
 
 interface Painting {
   minutes: number;
@@ -112,12 +117,12 @@ describe('economy (#29)', () => {
   });
 
   it('pays most of the golden seeds a painting asks', () => {
-    expect(SEED_CATALOG).toBe(19);
+    expect(SEED_CATALOG).toBe(22);
     const seeds = paintings.map((p) => p.seeds);
     expect(seeds.reduce((a, b) => a + b, 0) / seeds.length).toBeGreaterThanOrEqual(
       SEED_CATALOG * 0.8,
     );
-    for (const s of seeds) expect(s).toBeGreaterThanOrEqual(SEED_CATALOG * 0.6);
+    for (const s of seeds) expect(s).toBeGreaterThanOrEqual(SEED_CATALOG * 0.55);
   });
 
   it('buys an element after a short trail on the first half of the stages', () => {

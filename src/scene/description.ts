@@ -81,6 +81,8 @@ export type SeasonChoice = Season | 'night';
  */
 export const RARE_NAMES = ['fireflies', 'rainbow', 'beavers', 'windmill', 'balloon'] as const;
 export type RareName = (typeof RARE_NAMES)[number];
+/** The great element of each décor, the climax of the painting: dearer, shown apart in the shop. */
+export const GRAND_RARES: readonly RareName[] = ['beavers', 'windmill', 'balloon'];
 
 /**
  * The rare elements of each décor, each open from a stage: the rainbow needs a fall landing

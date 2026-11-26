@@ -35,3 +35,5 @@ export const SEEDS_PER_SEASON = 2;
 export const SEEDS_PER_NIGHT = 2;
 /** Golden seeds of a rare element for the painting in progress: fireflies, rainbow, beavers (#46). */
 export const SEEDS_PER_RARE = 2;
+/** Golden seeds of the great element of the décor, saved up for: castors, windmill, balloon. */
+export const SEEDS_PER_GRAND = 5;

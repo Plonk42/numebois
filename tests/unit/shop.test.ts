@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   LEAVES_PER_ELEMENT,
   SEEDS_PER_ANIMAL,
+  SEEDS_PER_GRAND,
   SEEDS_PER_NIGHT,
   SEEDS_PER_RARE,
   SEEDS_PER_SEASON,
@@ -203,9 +204,11 @@ describe('boutique de la forêt', () => {
     expect(beavers).toEqual({
       article: { kind: 'rare', rare: 'beavers' },
       leaves: 0,
-      seeds: SEEDS_PER_RARE,
+      seeds: SEEDS_PER_GRAND,
       elementsToGo: 0,
     });
+    // The great element of the décor, the climax: dearer than the fireflies and the rainbow.
+    expect(SEEDS_PER_GRAND).toBeGreaterThan(SEEDS_PER_RARE);
     // The orchard sells its windmill, the sky its balloon, after the rainbow.
     for (const [biome, great] of [
       ['orchard', 'windmill'],
