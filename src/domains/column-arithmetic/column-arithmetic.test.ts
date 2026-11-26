@@ -2,12 +2,15 @@ import { describe, expect, it } from 'vitest';
 import { Rng } from '../../core/rng';
 import { addColumns, carryCount, multiplyColumns } from './columns';
 import {
+  addition,
   ADD_LEVELS,
   fitsAddLevel,
   fitsMultiplyLevel,
   generateAddition,
   generateMultiplication,
+  multiplication,
   MULTIPLY_LEVELS,
+  WRITTEN_SHARE,
 } from './generators';
 import { additionHint, multiplicationHint } from './hints';
 
@@ -129,5 +132,35 @@ describe('poser une multiplication (#49)', () => {
     const exercise = generateMultiplication(new Rng(2), 4);
     expect(multiplicationHint(exercise, 1)).toContain(`par ${exercise.b}`);
     expect(multiplicationHint(exercise, 2)).toContain('=');
+  });
+});
+
+describe('poser l’opération avant de la calculer (#158)', () => {
+  const generators = [
+    ['addition', generateAddition, ADD_LEVELS],
+    ['multiplication', generateMultiplication, MULTIPLY_LEVELS],
+  ] as const;
+
+  it.each(generators)(
+    '%s : d’un appui avec Plume, puis écrite de plus en plus, sur 1 000 graines',
+    (_, generate, levels) => {
+      for (let level = 0; level < levels; level++) {
+        let written = 0;
+        for (let seed = 0; seed < 1000; seed++) {
+          const { input, instruction } = generate(new Rng(seed), level);
+          if (input.kind !== 'column') throw new Error(input.kind);
+          expect(instruction).toMatch(/^Pose l’opération/);
+          if (input.setup === 'write') written++;
+        }
+        const share = WRITTEN_SHARE[MODES[level] as keyof typeof WRITTEN_SHARE];
+        expect(written / 1000, `niveau ${level}`).toBeCloseTo(share, 1);
+      }
+    },
+  );
+
+  it('laisse Plume poser ses démos', () => {
+    expect(addition([47, 38], 0).input).not.toHaveProperty('setup');
+    expect(multiplication(47, 3, 0).input).not.toHaveProperty('setup');
+    expect(addition([47, 38], 0).instruction).toBe('Calcule avec Plume, colonne par colonne.');
   });
 });

@@ -678,6 +678,11 @@
   margin: 2px 6px;
   font-size: 28px;
 }
+/* A box of a number being set out (#158), in its row. */
+#question .column-layout .box.term {
+  margin: 2px 4px;
+  font-size: 36px;
+}
 #question .column-layout .box:disabled {
   opacity: 1;
 }

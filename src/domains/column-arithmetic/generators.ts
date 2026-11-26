@@ -1,5 +1,5 @@
 import type { Rng } from '../../core/rng';
-import type { ColumnMode, Exercise } from '../../core/types';
+import type { ColumnMode, ColumnSetup, Exercise } from '../../core/types';
 import { formatNumber } from '../numbers/words';
 import { addColumns, carryCount, multiplyColumns, rankCount } from './columns';
 
@@ -92,17 +92,38 @@ const INSTRUCTIONS: Record<ColumnMode, string> = {
   alone: 'Calcule l’addition posée.',
 };
 
+const SETUP_INSTRUCTIONS: Record<ColumnMode, string> = {
+  guided: 'Pose l’opération avec Plume, puis calcule.',
+  accompanied: 'Pose l’opération, puis calcule colonne par colonne.',
+  alone: 'Pose l’opération, puis calcule-la.',
+};
+
+/** Share of the operations written box by box, the others set out with a touch (#158). */
+export const WRITTEN_SHARE: Record<ColumnMode, number> = {
+  guided: 0,
+  accompanied: 1 / 2,
+  alone: 2 / 3,
+};
+
+/** Drawn apart, so that the numbers stay those of the seed. */
+const drawSetup = (rng: Rng, mode: ColumnMode): ColumnSetup =>
+  rng.fork('setup').chance(WRITTEN_SHARE[mode]) ? 'write' : 'tap';
+
 export const addStatement = (rows: readonly number[]) => rows.map(formatNumber).join(`${SPACE}+ `);
 
-export function addition(rows: readonly number[], level: number): AdditionExercise {
+export function addition(
+  rows: readonly number[],
+  level: number,
+  setup?: ColumnSetup,
+): AdditionExercise {
   const { mode } = ADD_BY_LEVEL[level];
   const columns = addColumns(rows);
   return {
     skill: ADD,
     level,
-    instruction: INSTRUCTIONS[mode],
+    instruction: setup ? SETUP_INSTRUCTIONS[mode] : INSTRUCTIONS[mode],
     statement: addStatement(rows),
-    input: { kind: 'column', operator: '+', rows, columns, mode },
+    input: { kind: 'column', operator: '+', rows, columns, mode, ...(setup && { setup }) },
     answer: String(rows.reduce((sum, n) => sum + n, 0)),
     rows,
   };
@@ -128,7 +149,9 @@ export function generateAddition(rng: Rng, level: number): AdditionExercise {
       const rank = rng.int(low, high);
       return rng.int(10 ** (rank - 1), 10 ** rank - 1);
     });
-    if (fitsAddLevel(rows, level)) return addition(rows, level);
+    if (fitsAddLevel(rows, level)) {
+      return addition(rows, level, drawSetup(rng, ADD_BY_LEVEL[level].mode));
+    }
   }
 }
 
@@ -180,14 +203,26 @@ const MULTIPLY_INSTRUCTIONS: Record<ColumnMode, string> = {
 export const multiplyStatement = (a: number, b: number) =>
   `${formatNumber(a)}${SPACE}×${SPACE}${b}`;
 
-export function multiplication(a: number, b: number, level: number): MultiplicationExercise {
+export function multiplication(
+  a: number,
+  b: number,
+  level: number,
+  setup?: ColumnSetup,
+): MultiplicationExercise {
   const { mode } = MULTIPLY_BY_LEVEL[level];
   return {
     skill: MULTIPLY,
     level,
-    instruction: MULTIPLY_INSTRUCTIONS[mode],
+    instruction: setup ? SETUP_INSTRUCTIONS[mode] : MULTIPLY_INSTRUCTIONS[mode],
     statement: multiplyStatement(a, b),
-    input: { kind: 'column', operator: '×', rows: [a, b], columns: multiplyColumns(a, b), mode },
+    input: {
+      kind: 'column',
+      operator: '×',
+      rows: [a, b],
+      columns: multiplyColumns(a, b),
+      mode,
+      ...(setup && { setup }),
+    },
     answer: String(a * b),
     a,
     b,
@@ -215,6 +250,8 @@ export function generateMultiplication(rng: Rng, level: number): MultiplicationE
     const rank = rng.int(ranks[0], ranks[1]);
     const a = rng.int(10 ** (rank - 1), 10 ** rank - 1);
     const b = rng.int(factor[0], factor[1]);
-    if (fitsMultiplyLevel(a, b, level)) return multiplication(a, b, level);
+    if (fitsMultiplyLevel(a, b, level)) {
+      return multiplication(a, b, level, drawSetup(rng, MULTIPLY_BY_LEVEL[level].mode));
+    }
   }
 }

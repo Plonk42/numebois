@@ -30,6 +30,12 @@ column is
  */
 export type ColumnMode = 'guided' | 'accompanied' | 'alone';
 
+/**
+ * How the child sets the numbers out before working the operation out (#158): a touch on the
+ * box where a number starts (`tap`), or each digit written in its box, then checked (`write`).
+ */
+export type ColumnSetup = 'tap' | 'write';
+
 /** How the child answers; the shared widget of the same name collects the answer. */
 export type ExerciseInput =
   | {
@@ -55,6 +61,8 @@ export type ExerciseInput =
       /** From the units, as many as the digits of the result. */
       columns: readonly Column[];
       mode: ColumnMode;
+      /** Absent: already set out (a demo of Plume). */
+      setup?: ColumnSetup;
     };
 
 /** What the child looks at without touching it, under the statement (one component per kind). */

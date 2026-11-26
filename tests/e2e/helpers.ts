@@ -97,6 +97,28 @@ export interface Driver<I extends ExerciseInput> {
   wrongs(input: I, expected: string): string[];
 }
 
+const RANK_NAMES = ['unités', 'dizaines', 'centaines', 'milliers'];
+
+/** The box of a number being set out in the grid of a column operation (#158). */
+export const rowBox = (page: Page, row: number, rank: number) =>
+  page
+    .locator('#question')
+    .getByRole('button', { name: `Ligne ${row + 1}, ${RANK_NAMES[rank]}`, exact: true });
+
+/** Sets the numbers out right, with a touch or digit by digit, while the question asks it. */
+export async function poseColumns(
+  page: Page,
+  { rows, setup }: Extract<ExerciseInput, { kind: 'column' }>,
+) {
+  if (!setup || (await page.locator('#question .box.term').count()) === 0) return;
+  for (const [row, n] of rows.entries()) {
+    await rowBox(page, row, String(n).length - 1).dispatchEvent('pointerdown');
+    if (setup === 'write') await page.keyboard.type(String(n));
+  }
+  if (setup === 'write') await page.keyboard.press('Enter');
+  await expect(page.locator('#question .box.term')).toHaveCount(0);
+}
+
 /** One driver per kind of input: a new kind does not compile without its driver. */
 const DRIVERS: { [K in ExerciseInput['kind']]: Driver<Extract<ExerciseInput, { kind: K }>> } = {
   keypad: {
@@ -142,7 +164,9 @@ const DRIVERS: { [K in ExerciseInput['kind']]: Driver<Extract<ExerciseInput, { k
         .map(String),
   },
   column: {
-    async answer(page, { columns, mode }, value) {
+    async answer(page, input, value) {
+      const { columns, mode } = input;
+      await poseColumns(page, input);
       // From the units, as the cursor goes: the digit of each column, then its carry.
       const typed = columns.flatMap((column, i) => [
         value.at(-1 - i) ?? '0',

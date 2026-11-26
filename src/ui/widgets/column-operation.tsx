@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { Column, ExerciseInput } from '../../core/types';
 import { AnswerZone, Work } from '../slate';
+import { NAMES, RANKS, useColumnSetup } from './column-setup';
 import type { WidgetProps } from './index';
 import { Keypad } from './keypad';
 
@@ -13,9 +14,6 @@ interface Spot {
   column: number;
 }
 
-/** Over the columns, from the units, coloured as in the place-value table. */
-const RANKS = ['U', 'D', 'C', 'M'];
-const NAMES = ['unités', 'dizaines', 'centaines', 'milliers'];
 const keyOf = (spot: Spot) => `${spot.kind}${spot.column}`;
 /** A demo writes a digit once the column is read, its carry soon after. */
 const DEMO_DIGIT_MS = 2400;
@@ -50,7 +48,8 @@ function resultOf(columns: readonly Column[], values: Record<string, string>): s
 }
 
 /**
- * An operation set out in columns, units on the right (#48). The cursor goes by itself from
+ * An operation set out in columns, units on the right (#48), the numbers first set out by the
+ * child (#158, `useColumnSetup`). The cursor goes by itself from
  * the units, the digit of a column then its carry; the keypad writes in it. Guided, Plume tells
  * the column; accompanied, a column is checked as it is written, its calculation shown at a
  * slip; alone, the result is checked at the end, the first column that jams shown gently, and
@@ -81,6 +80,8 @@ export function ColumnOperation({
   // Fast typing comes before the next render: read and write the latest state here.
   const latest = useRef({ values, cursor });
   const slipped = useRef(false);
+  const setup = useColumnSetup({ input, demo, locked, onSlip });
+  const posing = !setup.posed.current;
 
   const move = (next: Record<string, string>, at: number) => {
     latest.current = { values: next, cursor: at };
@@ -112,11 +113,16 @@ export function ColumnOperation({
     if (at + 1 === spots.length) onSubmit(resultOf(columns, next));
   };
   const type = (digit: string) => {
-    if (!demo) write(digit);
+    if (!setup.posed.current) setup.keys.type(digit);
+    else if (!demo) write(digit);
   };
 
   const erase = () => {
     const { values: before, cursor: at } = latest.current;
+    if (!setup.posed.current) {
+      setup.keys.erase();
+      return;
+    }
     if (locked || demo) return;
     const here = spots[at];
     const without = (spot: Spot) =>
@@ -133,6 +139,10 @@ export function ColumnOperation({
   const ready = mode === 'alone' && columns.every((_, i) => values[`digit${i}`] !== undefined);
   const submit = () => {
     const { values: now } = latest.current;
+    if (!setup.posed.current) {
+      setup.keys.submit();
+      return;
+    }
     if (locked || mode !== 'alone' || columns.some((_, i) => now[`digit${i}`] === undefined)) {
       return;
     }
@@ -230,8 +240,8 @@ export function ColumnOperation({
   const bagSpot =
     spots.find((spot) => spot.kind === 'carry' && active && spot.column === active.column) ?? null;
 
-  const coach = active && !locked ? columns[sourceOf(active)] : null;
-  let bubble: { title: string; text: string } | null = null;
+  const coach = active && !locked && !posing ? columns[sourceOf(active)] : null;
+  let bubble: { title: string; text: string } | null = setup.bubble;
   if (coach && mode === 'guided') bubble = { title: coach.calc, text: coach.say };
   else if (coach && mode === 'accompanied' && slip !== null) {
     bubble = { title: 'Presque !', text: coach.calc };
@@ -256,7 +266,7 @@ export function ColumnOperation({
             aria-label={exercise.statement}
             style={{
               gridTemplateColumns: `44px repeat(${width}, 68px)`,
-              gridTemplateRows: `30px ${bagged ? '' : '60px '}repeat(${rows.length}, 50px) 6px 64px`,
+              gridTemplateRows: `30px ${bagged ? '' : '60px '}repeat(${rows.length}, 60px) 6px 64px`,
             }}
           >
             {ranks.map((rank) => (
@@ -275,8 +285,10 @@ export function ColumnOperation({
                 {RANKS[rank]}
               </span>
             ))}
-            {!bagged && spots.filter((spot) => spot.kind === 'carry').map((spot) => box(spot))}
-            {rows.flatMap((n, row) =>
+            {!bagged &&
+              !posing &&
+              spots.filter((spot) => spot.kind === 'carry').map((spot) => box(spot))}
+            {rows.slice(0, setup.termRows).flatMap((n, row) =>
               [...String(n)].reverse().map((digit, rank) => (
                 <span
                   key={`term-${row}-${rank}`}
@@ -291,12 +303,14 @@ export function ColumnOperation({
               {input.operator}
             </span>
             <span class="line" style={{ gridColumn: '1 / -1', gridRow: rows.length + top }} />
-            {spots.filter((spot) => spot.kind === 'digit').map((spot) => box(spot))}
+            {posing
+              ? setup.boxes((row, rank) => ({ gridColumn: columnOf(rank), gridRow: row + top }))
+              : spots.filter((spot) => spot.kind === 'digit').map((spot) => box(spot))}
           </div>
           {bagged && (
             <div class="bag">
               <span>Sac</span>
-              {bagSpot ? (
+              {bagSpot && !posing ? (
                 box(bagSpot, true)
               ) : (
                 <button type="button" class="box carry empty" disabled aria-label="Sac à retenue" />
@@ -325,8 +339,8 @@ export function ColumnOperation({
       )}
       <AnswerZone>
         <Keypad
-          ready={ready}
-          locked={locked || demo}
+          ready={posing ? setup.ready : ready}
+          locked={locked || demo || (posing && !setup.typing)}
           press={(key) => {
             if (key === 'submit') submit();
             else if (key === 'erase') erase();

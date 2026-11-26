@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { current, driver, expectSlateLayout, game } from './helpers';
+import { current, driver, expectSlateLayout, game, poseColumns, rowBox } from './helpers';
 
 /** Addition set out in columns (#48): guided, then alone, two carries or more. */
 test('addition posée avec 2 retenues, guidée puis seule', async ({ page }) => {
@@ -21,6 +21,13 @@ test('addition posée avec 2 retenues, guidée puis seule', async ({ page }) => 
   if (input.kind !== 'column') throw new Error(input.kind);
   expect(input.mode).toBe('guided');
   expect(input.columns.filter((column) => column.carry > 0).length).toBeGreaterThanOrEqual(2);
+  // Set out first, with a touch (#158): touched at the units, the number lands too far right.
+  expect(input.setup).toBe('tap');
+  await expect(card.locator('.hint')).toContainText(`Où commence ${input.rows[0]} ?`);
+  await rowBox(page, 0, 0).dispatchEvent('pointerdown');
+  await expect(grid.locator('.box.term.tried')).toHaveCount(1);
+  await expect(card.locator('.hint')).toContainText('Presque !');
+  await poseColumns(page, input);
   await expectSlateLayout(page);
   const [units] = input.columns;
   await expect(card.locator('.hint')).toContainText(units.calc);
@@ -59,6 +66,7 @@ test('addition posée avec 2 retenues, guidée puis seule', async ({ page }) => 
   if (alone.kind !== 'column') throw new Error(alone.kind);
   expect(alone.mode).toBe('alone');
   expect(alone.columns.filter((column) => column.carry > 0).length).toBeGreaterThanOrEqual(2);
+  await poseColumns(page, alone);
   await expect(card.locator('.hint')).toHaveCount(0);
   // The tens forgotten their carry: one too few.
   const tensDigit = (alone.columns[1].digit + 9) % 10;
@@ -106,6 +114,7 @@ test('multiplication posée : le sac à retenue, la table sur demande, guidée p
   await expect(card.locator('.table-of li').nth(6)).toHaveText(`${b} × 7 = ${b * 7}`);
   await card.getByRole('button', { name: 'Revenir à l’opération' }).click();
   await expect(card.locator('.column-operation')).toBeVisible();
+  await poseColumns(page, input);
   // Column by column with Plume: each carry goes into the bag, then helps the next column.
   const [units] = input.columns;
   await expect(card.locator('.hint')).toContainText(units.calc);
@@ -150,6 +159,59 @@ test('multiplication posée : le sac à retenue, la table sur demande, guidée p
   await test.info().attach('seule', { body: await page.screenshot(), contentType: 'image/png' });
   await page.keyboard.type(String(alone.columns[1].digit));
   await page.keyboard.press('Enter');
+  await expect(card.locator('.praise')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+/** Written box by box (#158): ✓ checks the numbers, the first set out wrong shown gently. */
+test('poser case par case : le nombre mal posé montré, repris, puis le calcul', async ({
+  page,
+}) => {
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto('./?practice=column-arithmetic.add&level=5&seed=3&stage=0&quality=low');
+  await page.evaluate(() => window.__numebois!.ready);
+  const card = page.locator('#question');
+  const lengths = (rows: readonly number[]) => new Set(rows.map((n) => String(n).length)).size;
+  let exercise = await current(page);
+  for (;;) {
+    const { input } = exercise;
+    if (input.kind !== 'column') throw new Error(input.kind);
+    if (exercise.level === 5 && input.setup === 'write' && lengths(input.rows) > 1) break;
+    await driver(input).answer(page, input, exercise.answer);
+    await expect(card.locator('.praise')).toBeVisible();
+    exercise = await current(page);
+  }
+  const input = exercise.input;
+  if (input.kind !== 'column') throw new Error(input.kind);
+  const width = input.columns.length;
+  await expect(card.locator('.hint')).toContainText('Écris chaque nombre sur sa ligne');
+  // The shortest number written from the left: its units are not under the units.
+  const short = input.rows.findIndex(
+    (n) => String(n).length === Math.min(...input.rows.map((m) => String(m).length)),
+  );
+  for (const [row, n] of input.rows.entries()) {
+    const start = row === short ? width - 1 : String(n).length - 1;
+    await rowBox(page, row, start).dispatchEvent('pointerdown');
+    await page.keyboard.type(String(n));
+  }
+  await page.keyboard.press('Enter');
+  await expect(card.locator('.hint')).toContainText('Presque !');
+  await expect(card.locator('.hint')).toContainText('Les unités sous les unités');
+  await expect(rowBox(page, short, width - 1)).toHaveClass(/tried/);
+  await expectSlateLayout(page);
+  await test
+    .info()
+    .attach('pose écrite', { body: await page.screenshot(), contentType: 'image/png' });
+  // Erased from the right, then written again from the right box.
+  const digits = String(input.rows[short]);
+  for (let i = 0; i < digits.length; i++) await page.keyboard.press('Backspace');
+  await expect(card.locator('.box.term.tried')).toHaveCount(0);
+  await rowBox(page, short, digits.length - 1).dispatchEvent('pointerdown');
+  await page.keyboard.type(digits);
+  await page.keyboard.press('Enter');
+  await expect(card.locator('.box.term')).toHaveCount(0);
+  await driver(input).answer(page, input, exercise.answer);
   await expect(card.locator('.praise')).toBeVisible();
   expect(errors).toEqual([]);
 });

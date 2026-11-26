@@ -1,7 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import type { ExerciseInput } from '../../src/core/types';
 import { DOMAINS } from '../../src/domains';
-import { addColumns } from '../../src/domains/column-arithmetic/columns';
 import { current, driver, expectSlateLayout, game, loadSave, startTrail } from './helpers';
 
 /**
@@ -75,18 +73,10 @@ test('la première astuce d’une notion avant sa première question', async ({ 
   expect([now.stone, now.leaves]).toEqual([0, 0]);
 });
 
-/** The operation on the slate, as the widget is given it: rows read from its label. */
+/** The exercise on the slate, as the lesson player gives it to the widget. */
 async function shownAddition(page: Page) {
-  const label = await page.locator('#question .column-operation').getAttribute('aria-label');
-  const rows = label!.split('+').map((n) => Number(n.replace(/\D/g, '')));
-  const input: ExerciseInput = {
-    kind: 'column',
-    operator: '+',
-    rows,
-    columns: addColumns(rows),
-    mode: 'alone',
-  };
-  return { input, answer: String(rows.reduce((a, b) => a + b, 0)) };
+  const { exercise } = (await game(page)).lesson!;
+  return { input: exercise!.input, answer: exercise!.answer };
 }
 
 /** « Plume te montre une astuce » (#50): every kind of step, then a page of the Carnet. */
