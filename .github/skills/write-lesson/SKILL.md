@@ -16,7 +16,7 @@ Le mot « leçon » n'apparaît jamais dans le jeu : « Plume te montre une astu
    - `guidedExample` : un exemple fait avec Plume (une opération posée en mode `guided` : Plume dit chaque colonne) ;
    - `check` : 2 ou 3 exercices de la notion tirés au `level` donné.
 3. **Exercices :** construits avec les fonctions du domaine (`addition([37, 48], 0)`, `sum(8, 5, 1)`…), donc exacts ; ils peuvent venir d'une autre notion déjà au registre.
-4. **Textes :** une bulle de Plume (12 mots par phrase, 3 phrases ou lignes, 120 caractères, aucun mot d'échec) ; tutoiement, mots justes, chiffres en chiffres.
+4. **Textes :** une bulle de Plume (12 mots par phrase, 3 phrases ou lignes, 120 caractères, aucun mot d'échec) ; tutoiement, mots justes, chiffres en chiffres. Sur une opération posée (`demo` ou `guidedExample`), la bulle de Plume parle colonne par colonne et le texte de l'étape ne vient qu'à la fin, après « Voilà ! » ou « Bravo ! » : l'écrire comme une conclusion (« 47 + 38 = 85. »), et ce qu'il faut savoir avant dans une étape `explain` sans démo.
 
 ## Ce que fait le lecteur
 
