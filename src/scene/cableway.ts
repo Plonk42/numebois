@@ -4,12 +4,15 @@ import { beam, facing, outward } from './props';
 import type { Cableway } from './terrain/types';
 
 /**
- * The mountain's cable car (#154): a rope from a station beside the pool, over a pylon, to a
- * station under the summit of the great peak. A red cabin goes up and down it, waiting a
- * little in each station. A function of the time only, like the herd.
+ * The mountain's cable car (#154): two ropes from a station beside the pool, over pylons on
+ * the ledges, to a station under the summit of the great peak. A red cabin hangs on each and
+ * they shuttle in turn, one going up while the other comes down, waiting a little in each
+ * station. A function of the time only, like the herd.
  */
 
-/** From the rope down to the floor of the cabin. */
+/** Half the gap between the two ropes, one cabin on each. */
+export const GAUGE = 0.45;
+/** From a rope down to the floor of its cabin. */
 export const HANG = 1.3;
 /** Ropes over the ground at the bottom station, a pylon (at least), the top station. */
 export const ROPE_OVER = { bottom: 1.6, pylon: 4, top: 1.6 } as const;
@@ -27,6 +30,14 @@ export function sagAt(span: number, t: number): number {
   return 4 * SAG * span * t * (1 - t);
 }
 
+/** Across the line, horizontally: the side of each rope. */
+function across(c: Cableway): [number, number] {
+  const a = c.supports[0];
+  const b = c.supports[c.supports.length - 1];
+  const l = Math.hypot(b.x - a.x, b.z - a.z) || 1;
+  return [-(b.z - a.z) / l, (b.x - a.x) / l];
+}
+
 /** Heading of the line from the bottom station up, for a model facing +z. */
 export function headingOf(c: Cableway): number {
   const a = c.supports[0];
@@ -34,8 +45,9 @@ export function headingOf(c: Cableway): number {
   return Math.atan2(b.x - a.x, b.z - a.z);
 }
 
-/** Points along the rope, sagging between its supports. */
-export function ropePoints(c: Cableway): Vec3[] {
+/** Points along a rope (side -1 or 1, 0 for the middle of the line), sagging between supports. */
+export function ropePoints(c: Cableway, side: number): Vec3[] {
+  const [ax, az] = across(c);
   const out: Vec3[] = [];
   for (let k = 0; k + 1 < c.supports.length; k++) {
     const a = c.supports[k];
@@ -44,9 +56,9 @@ export function ropePoints(c: Cableway): Vec3[] {
     for (let i = k === 0 ? 0 : 1; i <= SAMPLES; i++) {
       const t = i / SAMPLES;
       out.push([
-        a.x + (b.x - a.x) * t,
+        a.x + (b.x - a.x) * t + ax * side * GAUGE,
         a.y + (b.y - a.y) * t - sagAt(span, t),
-        a.z + (b.z - a.z) * t,
+        a.z + (b.z - a.z) * t + az * side * GAUGE,
       ]);
     }
   }
@@ -62,9 +74,9 @@ export interface CabinPose {
   swing: number;
 }
 
-/** Where the cabin hangs at a time: the point of the rope it runs on. */
-export function cabinAt(c: Cableway, time: number): CabinPose {
-  const rope = ropePoints(c);
+/** Where cabin 0 or 1 hangs at a time: the point of its rope it runs on. */
+export function cabinAt(c: Cableway, index: number, time: number): CabinPose {
+  const rope = ropePoints(c, index === 0 ? -1 : 1);
   const lengths = [0];
   for (let i = 1; i < rope.length; i++) {
     const [a, b] = [rope[i - 1], rope[i]];
@@ -73,7 +85,8 @@ export function cabinAt(c: Cableway, time: number): CabinPose {
   const length = lengths[lengths.length - 1];
   const trip = length / SPEED;
   const period = 2 * (trip + WAIT);
-  const t = ((time % period) + period) % period;
+  // One leaves the bottom when the other leaves the top.
+  const t = (((time + index * (trip + WAIT)) % period) + period) % period;
   const ease = (u: number) => u - Math.sin(2 * Math.PI * u) / (2 * Math.PI);
   let share: number;
   let since: number;
@@ -179,15 +192,22 @@ function station(out: MeshWriter, f: Frame, back: number, deep: number): void {
   roof(out, f, [0, 1.1, back * 0.75], 0.88, 0.72, 0.6);
 }
 
-/** A pylon: a single mast, a saddle on top carrying the rope. */
+/** A pylon: a single mast, a cross-arm on top carrying both ropes. */
 function pylon(out: MeshWriter, f: Frame, height: number): void {
   const top = height - 0.12;
   beam(out, place(f, [0, -0.4, 0]), place(f, [0, top * 0.5, 0]), 0.2, 0.2, 'Stone');
   beam(out, place(f, [0, top * 0.5, 0]), place(f, [0, top + 0.08, 0]), 0.15, 0.15, 'Stone');
-  block(out, f, [0, top + 0.08, 0], [0.12, 0.07, 0.3], 'DarkBark');
+  beam(
+    out,
+    place(f, [-(GAUGE + 0.18), top, 0]),
+    place(f, [GAUGE + 0.18, top, 0]),
+    0.11,
+    0.11,
+    'Stone',
+  );
 }
 
-/** The stations, the pylon and the rope, in one mesh. */
+/** The stations, the pylons and the two ropes, in one mesh. */
 export function cablewayMesh(c: Cableway): MeshData {
   const out = new MeshWriter(2048, 4096);
   const yaw = headingOf(c);
@@ -199,8 +219,10 @@ export function cablewayMesh(c: Cableway): MeshData {
     else if (i === s.length - 1) station(out, { ...f, y: support.y - ROPE_OVER.bottom }, 1, 2);
     else pylon(out, f, support.y - support.ground);
   });
-  const rope = ropePoints(c);
-  for (let i = 1; i < rope.length; i++) beam(out, rope[i - 1], rope[i], 0.05, 0.05, 'DarkBark');
+  for (const side of [-1, 1]) {
+    const rope = ropePoints(c, side);
+    for (let i = 1; i < rope.length; i++) beam(out, rope[i - 1], rope[i], 0.05, 0.05, 'DarkBark');
+  }
   return out.toMeshData();
 }
 
@@ -213,7 +235,7 @@ export function cabin(): MeshData {
   const f = { x: 0, y: 0, z: 0, yaw: 0 };
   beam(out, [0, 0, 0], [0, -0.55, 0], 0.06, 0.06, 'DarkBark');
   const floor = -HANG;
-  // All red, deep red, but a thin band of windows: it stands out on the rock and the snow.
+  // All deep red but a thin band of windows: it stands out on the rock and the snow.
   block(out, f, [0, floor + 0.2, 0], [0.36, 0.2, 0.42], 'PetalRed', 'PetalRed', RED);
   block(out, f, [0, floor + 0.5, 0], [0.35, 0.1, 0.41], 'HexWater');
   block(out, f, [0, floor + 0.66, 0], [0.39, 0.06, 0.45], 'PetalRed', 'PetalRed', RED);
