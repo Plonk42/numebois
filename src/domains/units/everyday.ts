@@ -87,7 +87,7 @@ export interface Thing {
   unit: string;
 }
 
-const LENGTHS = ['mm', 'cm', 'm', 'km'];
+const LENGTHS = ['mm', 'cm', 'dm', 'm', 'km'];
 const MASSES = ['g', 'kg'];
 const VOLUMES = ['cL', 'dL', 'L'];
 
@@ -101,6 +101,13 @@ const THINGS: readonly (readonly Thing[])[] = [
     { text: 'Une feuille de chêne mesure environ', n: 10, unit: 'cm' },
     { text: 'Une coccinelle mesure environ', n: 6, unit: 'mm' },
     { text: 'La rivière mesure environ', n: 30, unit: 'km' },
+    // Seen in class (#163): the decimetre between the centimetre and the metre.
+    { text: 'Une guitare mesure environ', n: 14, unit: 'dm' },
+    { text: 'Une table mesure environ', n: 8, unit: 'dm' },
+    { text: 'Un balai mesure environ', n: 13, unit: 'dm' },
+    { text: 'Une abeille mesure environ', n: 20, unit: 'mm' },
+    { text: 'Un peigne mesure environ', n: 17, unit: 'cm' },
+    { text: 'Une voiture mesure environ', n: 5, unit: 'm' },
   ],
   [
     { text: 'Une pomme pèse environ', n: 150, unit: 'g' },
@@ -125,11 +132,18 @@ export function familyOf(unit: string): string[] {
   return [LENGTHS, MASSES, VOLUMES].find((units) => units.includes(unit))!;
 }
 
+/** The units offered: 4 lengths at most, the km only for a distance (#163). */
+export function unitsFor(unit: string): string[] {
+  const family = familyOf(unit);
+  if (family !== LENGTHS) return family;
+  return unit === 'km' ? LENGTHS.slice(1) : LENGTHS.slice(0, 4);
+}
+
 export function generateMagnitude(rng: Rng, level: number): MagnitudeExercise {
   const things = THINGS[level];
   if (!things) throw new RangeError(`niveau ${level}`);
   const thing = rng.pick(things);
-  const options = familyOf(thing.unit).map((unit) => `${thing.n}${SPACE}${unit}`);
+  const options = unitsFor(thing.unit).map((unit) => `${thing.n}${SPACE}${unit}`);
   return {
     skill: MAGNITUDE,
     level,

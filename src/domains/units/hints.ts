@@ -53,5 +53,6 @@ export function magnitudeHint({ thing }: MagnitudeExercise, attempt: 1 | 2): str
   if (attempt === 2) return `${thing.text} ${thing.n}${SPACE}${thing.unit}.`;
   if (['g', 'kg'].includes(thing.unit)) return '1 kg, c’est un paquet de farine.';
   if (['cL', 'dL', 'L'].includes(thing.unit)) return '1 L, c’est une grande bouteille d’eau.';
+  if (thing.unit === 'dm') return '1 dm, c’est la largeur d’une main.\n1 m, c’est un grand pas.';
   return '1 cm, c’est la largeur d’un doigt.\n1 m, c’est un grand pas.';
 }

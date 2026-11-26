@@ -12,7 +12,6 @@ import {
   MAGNITUDE_LEVELS,
   MONEY_LEVELS,
   amountText,
-  familyOf,
   generateMagnitude,
   generateMoney,
 } from './everyday';
@@ -196,11 +195,20 @@ describe('la monnaie et les ordres de grandeur', () => {
   });
 
   it.each(levels(MAGNITUDE_LEVELS))('level %i: the unit that fits among its family', (level) => {
-    for (let seed = 0; seed < 200; seed++) {
+    const units = new Set<string>();
+    for (let seed = 0; seed < SEEDS; seed++) {
       const exercise = generateMagnitude(new Rng(seed), level);
       if (exercise.input.kind !== 'choice') throw new Error(exercise.input.kind);
-      expect(exercise.input.options).toHaveLength(familyOf(exercise.thing.unit).length);
-      expect(exercise.input.options).toContain(exercise.answer);
+      const { options } = exercise.input;
+      expect(options).toContain(exercise.answer);
+      expect(options.length).toBeLessThanOrEqual(4);
+      units.add(exercise.thing.unit);
+      if (level > 0) continue;
+      // Lengths (#163): mm, cm, dm, m, and the km only for a distance, instead of the mm.
+      const offered = options.map((option) => option.split('\u00a0')[1]);
+      const km = exercise.thing.unit === 'km';
+      expect(offered).toEqual(km ? ['cm', 'dm', 'm', 'km'] : ['mm', 'cm', 'dm', 'm']);
     }
+    if (level === 0) expect(units).toEqual(new Set(['mm', 'cm', 'dm', 'm', 'km']));
   });
 });
