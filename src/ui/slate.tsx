@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'preact/hooks';
 import { Basket } from './basket';
 import { AcornBasket } from './challenge';
 import { Plume, Squirrel, type Mood } from './character';
+import { Frac, hasFraction, withFractions } from './fraction-text';
 import './slate.css';
 
 export interface SlateHint {
@@ -104,14 +105,18 @@ function statementSize(text: string): string {
   return 'text';
 }
 
-/** The statement, large, in the work area. */
+/** The statement, large, in the work area; its fractions one over the other. */
 export function Statement({ text }: { text: string }) {
-  return <p class={`statement ${statementSize(text)}`}>{text}</p>;
+  return (
+    <p class={`statement ${statementSize(text)}`} aria-label={hasFraction(text) ? text : undefined}>
+      {withFractions(text)}
+    </p>
+  );
 }
 
 /**
- * An operation with the answer written in it, as on a sheet: in place of its `?`, or after an
- * `=` added at its end.
+ * An operation with the answer written in it, as on a sheet: in place of its `?` (a numerator
+ * too: « 1/2 = ?/8 »), or after an `=` added at its end.
  */
 export function Written({
   text,
@@ -126,11 +131,13 @@ export function Written({
   const blank = text.includes('?');
   const [before, after = ''] = blank ? text.split('?') : [`${text}\u00a0=`];
   const size = statementSize(blank ? text.replace('?', room) : `${text} = ${room}`);
+  const over = /^\/(\d{1,2})/.exec(after);
+  const rest = over ? after.slice(over[0].length) : after;
   return (
     <p class={`statement written ${size}`} aria-label={text}>
-      {before.trim() && <span>{before.trim()}</span>}
-      {children}
-      {after.trim() && <span>{after.trim()}</span>}
+      {before.trim() && <span>{withFractions(before.trim())}</span>}
+      {over ? <Frac n={children} d={over[1]} /> : children}
+      {rest.trim() && <span>{withFractions(rest.trim())}</span>}
     </p>
   );
 }

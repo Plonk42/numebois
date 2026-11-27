@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
+import { hasFraction, withFractions } from '../fraction-text';
 import { grouped } from './keypad';
 
 interface Props {
@@ -45,6 +46,7 @@ export function Choice({ options, locked, right, shown, onSubmit }: Props) {
   const numbers = options.every((option) => /^\d+$/.test(option));
   let layout = '';
   if (numbers) layout = options.some((option) => option.length > 4) ? ' numbers long' : ' numbers';
+  else if (options.every((option) => /^\d+\/\d+$/.test(option))) layout = ' numbers';
   else if (short) layout = ' signs';
   return (
     <div class={`choice${layout}`}>
@@ -59,9 +61,10 @@ export function Choice({ options, locked, right, shown, onSubmit }: Props) {
             type="button"
             class={state}
             disabled={locked && state !== 'right' && state !== 'shown'}
+            aria-label={hasFraction(option) ? option : undefined}
             onPointerDown={() => choose(option)}
           >
-            {numbers ? grouped(option) : option}
+            {numbers ? grouped(option) : withFractions(option)}
           </button>
         );
       })}

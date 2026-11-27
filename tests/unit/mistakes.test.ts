@@ -195,6 +195,22 @@ function mistakesOf(exercise: Exercise): string[] {
   const { input, answer } = exercise;
   if (input.kind === 'choice') return input.options.filter((o) => o !== answer);
   if (input.kind === 'compare') return ['<', '=', '>'].filter((s) => s !== answer);
+  const fraction = /^(\d+)\/(\d+)$/.exec(answer);
+  if (fraction) {
+    const [n, d] = [Number(fraction[1]), Number(fraction[2])];
+    return [
+      [d, n],
+      [n, d - n],
+      [d - n, d],
+      [n + 1, d],
+      [n, d + 1],
+      [n - 1, d],
+      [n, d * 2],
+      [n * 2, d],
+    ]
+      .filter(([a, b]) => a >= 0 && b > 0 && (a !== n || b !== d))
+      .map(([a, b]) => `${a}/${b}`);
+  }
   const time = parseTime(answer);
   if (time) {
     const { hours, minutes } = time;

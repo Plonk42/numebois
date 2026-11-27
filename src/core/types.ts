@@ -12,6 +12,17 @@ export interface NumberLine {
   labels: readonly number[];
 }
 
+/** How a whole shared in equal parts is drawn (#61): a galette, a strip, a bar of chocolate, a slice of log. */
+export type WholeShape = 'disc' | 'strip' | 'bar' | 'log';
+
+/** A whole shared in `parts` equal parts, the first `coloured` coloured, then `added` in another colour. */
+export interface Whole {
+  shape: WholeShape;
+  parts: number;
+  coloured: number;
+  added?: number;
+}
+
 /** One column of an operation set out on a sheet, from the units: what is written in it. */
 export interface Column {
   /** Written under the line. */
@@ -85,7 +96,11 @@ export type ExerciseInput =
    */
   | { kind: 'ruler'; lines: readonly Segment[]; unit: 'cm' | 'mm'; ruler: Point }
   /** A segment drawn from `start`, along the ruler: its length in millimetres. */
-  | { kind: 'draw'; start: Point; ruler: Point };
+  | { kind: 'draw'; start: Point; ruler: Point }
+  /** A fraction written in its two boxes, the numerator over the denominator: « 6/9 ». */
+  | { kind: 'fraction' }
+  /** The parts of a whole coloured with the finger (#61): the answer is how many. */
+  | { kind: 'parts'; shape: WholeShape; parts: number };
 
 /** What the child looks at without touching it, under the statement (one component per kind). */
 export type Figure =
@@ -136,7 +151,9 @@ export type Figure =
       marks: readonly number[];
     }
   /** Coins and notes to count (#59), each one by its value in cents. */
-  | { kind: 'money'; cents: readonly number[] };
+  | { kind: 'money'; cents: readonly number[] }
+  /** Wholes shared in equal parts (#61), side by side, or one under the other for strips. */
+  | { kind: 'fraction'; wholes: readonly Whole[] };
 
 export interface Exercise {
   skill: SkillId;

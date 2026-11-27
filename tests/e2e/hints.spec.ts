@@ -3,6 +3,7 @@ import { skillsById } from '../../src/core/registry';
 import { timeText } from '../../src/core/time';
 import type { Exercise } from '../../src/core/types';
 import { DOMAINS } from '../../src/domains';
+import type { ReadExercise } from '../../src/domains/fractions/generators';
 import type { ReadClockExercise } from '../../src/domains/time/generators';
 import { current, driver, expectSlateLayout } from './helpers';
 
@@ -18,6 +19,14 @@ const swappedHands: Mistakes = (exercise) => {
 /** The right calculation, one off. */
 const offByOne: Mistakes = (exercise) => [String(Number(exercise.answer) + 1)];
 
+/** The numbers of a fraction the other way round, a part too few, another reading. */
+const fractionSlips: Mistakes = (exercise) => {
+  const { numerator: n, denominator: d, input } = exercise as ReadExercise;
+  if (input.kind === 'parts') return [String(n === 1 ? 2 : n - 1)];
+  if (input.kind === 'choice') return [...input.options];
+  return [`${d}/${n}`, `${n}/${d - n}`];
+};
+
 // A typical mistake, one notion per domain: Plume names it before the method (#168).
 const NOTIONS: [domain: string, notion: string, level: number, mistakes?: Mistakes][] = [
   ['calcul mental', 'mental-math.subtract', 4],
@@ -29,6 +38,7 @@ const NOTIONS: [domain: string, notion: string, level: number, mistakes?: Mistak
   ['heure', 'time.read-clock', 3, swappedHands],
   ['problèmes', 'word-problems.add-subtract', 1, offByOne],
   ['comparer des longueurs', 'units.compare-lengths', 1, () => ['<', '>', '=']],
+  ['fractions', 'fractions.read', 2, fractionSlips],
 ];
 
 for (const [domain, id, level, mistakes] of NOTIONS) {

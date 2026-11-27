@@ -254,6 +254,40 @@ const DRIVERS: { [K in ExerciseInput['kind']]: Driver<Extract<ExerciseInput, { k
     // A pencil line is a millimetre wide: 3 mm off is another length.
     wrongs: (_, expected) => [Number(expected) + 3, Number(expected) - 3].map(String),
   },
+  fraction: {
+    // A touch on a box empties it, then its number is written in it.
+    async answer(page, _, value) {
+      const entry = page.locator('#question .fraction-entry');
+      for (const [i, name] of ['Numérateur', 'Dénominateur'].entries()) {
+        await entry.getByRole('button', { name, exact: true }).dispatchEvent('pointerdown');
+        await page.keyboard.type(value.split('/')[i]);
+      }
+      await page.keyboard.press('Enter');
+    },
+    wrongs: (_, expected) => {
+      const [n, d] = expected.split('/').map(Number);
+      return [`${n + 1}/${d}`, `${n}/${d + 1}`];
+    },
+  },
+  parts: {
+    // A touch on a part colours it or takes its colour off: the first ones coloured.
+    async answer(page, { parts }, value) {
+      const whole = page.locator('#question .whole.touch');
+      const on = await whole
+        .locator('.part')
+        .evaluateAll((paths) =>
+          paths.map((path) => /\b(on|tried)\b/.test(path.getAttribute('class') ?? '')),
+        );
+      for (let i = 0; i < parts; i++) {
+        if (on[i] !== i < Number(value)) {
+          await whole.locator(`[data-part="${i}"]`).dispatchEvent('pointerdown');
+        }
+      }
+      await page.locator('#question .submit').click();
+    },
+    wrongs: ({ parts }, expected) =>
+      [Number(expected) + 1, Number(expected) - 1].filter((n) => n >= 1 && n <= parts).map(String),
+  },
 };
 
 export function driver(input: ExerciseInput): Driver<ExerciseInput> {

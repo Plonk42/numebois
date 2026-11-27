@@ -14,6 +14,7 @@ import { CalendarFigure, TimelineFigure } from './day';
 import { RulerDraw, RulerMeasure } from './ruler';
 import { Jug, ScaleDial } from './gauge';
 import { ConversionTable, Purse } from './units';
+import { FractionEntry, FractionFigure, PartsColour } from './fraction';
 
 /** What every widget receives; the validation and the hints come from the domain. */
 export interface WidgetProps<I extends ExerciseInput = ExerciseInput> {
@@ -68,6 +69,7 @@ const FIGURES: Figures = {
     <ConversionTable units={units} digits={digits} marks={marks} />
   ),
   money: ({ figure }) => <Purse cents={figure.cents} />,
+  fraction: ({ figure }) => <FractionFigure wholes={figure.wholes} />,
 };
 
 /** A figure to look at: a number line, base-ten blocks, a place-value table. */
@@ -193,6 +195,15 @@ const WIDGETS: Widgets = {
   clock: ClockSet,
   ruler: RulerMeasure,
   draw: RulerDraw,
+  fraction: ({ exercise, locked, right, shown, onSubmit }) => (
+    <>
+      <Subject exercise={exercise} />
+      <AnswerZone>
+        <FractionEntry locked={locked} right={right} shown={shown} onSubmit={onSubmit} />
+      </AnswerZone>
+    </>
+  ),
+  parts: PartsColour,
 };
 
 /** The widget of the exercise's input. */

@@ -73,6 +73,8 @@ const ANSWER_FITS: {
   },
   ruler: (_, answer) => /^\d{1,3}$/.test(answer),
   draw: (_, answer) => /^\d{1,3}$/.test(answer) && Number(answer) <= RULER_MM,
+  fraction: (_, answer) => /^\d{1,2}\/0?[1-9]\d?$/.test(answer),
+  parts: ({ parts }, answer) => /^\d{1,2}$/.test(answer) && Number(answer) <= parts,
 };
 
 function inputErrors(input: ExerciseInput, answer: string): string[] {

@@ -14,3 +14,29 @@ export function triedNumber(tried?: Tried): number | null {
 export function validateChoice(exercise: Exercise, answer: string): boolean {
   return answer === exercise.answer;
 }
+
+/** The numerator and denominator of « a/b », or null. */
+export function parseFraction(text: string): [number, number] | null {
+  const match = /^(\d{1,2})\/(\d{1,2})$/.exec(text);
+  if (!match || Number(match[2]) === 0) return null;
+  return [Number(match[1]), Number(match[2])];
+}
+
+/** The fraction written in its boxes: the same numerator and denominator. */
+export function validateFraction(exercise: Exercise, answer: string): boolean {
+  const [tried, expected] = [parseFraction(answer), parseFraction(exercise.answer)];
+  return (
+    tried !== null && expected !== null && tried[0] === expected[0] && tried[1] === expected[1]
+  );
+}
+
+/** A fraction equal to the expected one: 6/8 for 3/4. */
+export function validateEqualFraction(exercise: Exercise, answer: string): boolean {
+  const [tried, expected] = [parseFraction(answer), parseFraction(exercise.answer)];
+  return tried !== null && expected !== null && tried[0] * expected[1] === expected[0] * tried[1];
+}
+
+/** The fraction tried in its boxes, or null. */
+export function triedFraction(tried?: Tried): [number, number] | null {
+  return tried ? parseFraction(tried.answer) : null;
+}

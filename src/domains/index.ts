@@ -1,5 +1,6 @@
 import type { Domain } from '../core/types';
 import { columnArithmetic } from './column-arithmetic';
+import { fractions } from './fractions';
 import { measures } from './measures';
 import { mentalMath } from './mental-math';
 import { numbers } from './numbers';
@@ -18,4 +19,5 @@ export const DOMAINS: readonly Domain[] = [
   time,
   measures,
   units,
+  fractions,
 ];
