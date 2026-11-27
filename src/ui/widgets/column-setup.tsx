@@ -52,11 +52,7 @@ function tapBubble(n: number, guided: boolean, tried: boolean): Bubble {
 /** Written: the numbers to set out; the first set out wrong (`written` as it is), what jams. */
 function writeBubble(input: ColumnInput, jam: number | null, written: string): Bubble {
   if (jam === null) {
-    const sign = `\u00a0${input.operator} `;
-    return {
-      title: `Pose ${input.rows.map(grouped).join(sign)}.`,
-      text: 'Écris chaque nombre sur sa ligne, puis appuie sur ✓.',
-    };
+    return { title: 'Écris chaque nombre sur sa ligne.', text: 'Puis appuie sur ✓.' };
   }
   const n = input.rows[jam];
   return {

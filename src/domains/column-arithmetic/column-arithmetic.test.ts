@@ -165,9 +165,9 @@ describe('poser l’opération avant de la calculer (#158)', () => {
       for (let level = 0; level < levels; level++) {
         let written = 0;
         for (let seed = 0; seed < 1000; seed++) {
-          const { input, instruction } = generate(new Rng(seed), level);
+          const { input, instruction, statement } = generate(new Rng(seed), level);
           if (input.kind !== 'column') throw new Error(input.kind);
-          expect(instruction).toMatch(/^Pose l’opération/);
+          expect(instruction.startsWith(`Pose ${statement}`), instruction).toBe(true);
           if (input.setup === 'write') written++;
         }
         const share = WRITTEN_SHARE[MODES[level] as keyof typeof WRITTEN_SHARE];

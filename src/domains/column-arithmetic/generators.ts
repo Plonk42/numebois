@@ -92,10 +92,11 @@ const INSTRUCTIONS: Record<ColumnMode, string> = {
   alone: 'Calcule l’addition posée.',
 };
 
-const SETUP_INSTRUCTIONS: Record<ColumnMode, string> = {
-  guided: 'Pose l’opération avec Plume, puis calcule.',
-  accompanied: 'Pose l’opération, puis calcule colonne par colonne.',
-  alone: 'Pose l’opération, puis calcule-la.',
+/** The operation to set out, in line, as on a school sheet. */
+const SETUP_INSTRUCTIONS: Record<ColumnMode, (statement: string) => string> = {
+  guided: (statement) => `Pose ${statement} avec Plume, puis calcule.`,
+  accompanied: (statement) => `Pose ${statement}, puis calcule colonne par colonne.`,
+  alone: (statement) => `Pose ${statement}, puis calcule.`,
 };
 
 /** Share of the operations written box by box, the others set out with a touch (#158). */
@@ -118,11 +119,12 @@ export function addition(
 ): AdditionExercise {
   const { mode } = ADD_BY_LEVEL[level];
   const columns = addColumns(rows);
+  const statement = addStatement(rows);
   return {
     skill: ADD,
     level,
-    instruction: setup ? SETUP_INSTRUCTIONS[mode] : INSTRUCTIONS[mode],
-    statement: addStatement(rows),
+    instruction: setup ? SETUP_INSTRUCTIONS[mode](statement) : INSTRUCTIONS[mode],
+    statement,
     input: { kind: 'column', operator: '+', rows, columns, mode, ...(setup && { setup }) },
     answer: String(rows.reduce((sum, n) => sum + n, 0)),
     rows,
@@ -210,11 +212,12 @@ export function multiplication(
   setup?: ColumnSetup,
 ): MultiplicationExercise {
   const { mode } = MULTIPLY_BY_LEVEL[level];
+  const statement = multiplyStatement(a, b);
   return {
     skill: MULTIPLY,
     level,
-    instruction: setup ? SETUP_INSTRUCTIONS[mode] : MULTIPLY_INSTRUCTIONS[mode],
-    statement: multiplyStatement(a, b),
+    instruction: setup ? SETUP_INSTRUCTIONS[mode](statement) : MULTIPLY_INSTRUCTIONS[mode],
+    statement,
     input: {
       kind: 'column',
       operator: '×',
