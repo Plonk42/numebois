@@ -300,3 +300,30 @@ test('soustraction posée par compensation, guidée puis seule', async ({ page }
   await expect(card.locator('.praise')).toBeVisible();
   expect(errors).toEqual([]);
 });
+
+/** Prices in euros (#177): the comma under the comma in every row, set out then worked out. */
+test('prix posés : la virgule sous la virgule', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto('./?practice=column-arithmetic.prices&level=0&seed=3&stage=0&quality=low');
+  await page.evaluate(() => window.__numebois!.ready);
+  const card = page.locator('#question');
+  const grid = card.locator('.column-operation');
+  const exercise = await current(page);
+  const input = exercise.input;
+  if (input.kind !== 'column') throw new Error(input.kind);
+  expect(input.decimals).toBe(2);
+  const [a] = input.rows;
+  const price = `${Math.floor(a / 100)},${String(a % 100).padStart(2, '0')}`;
+  await expect(card.locator('.hint')).toContainText(`Où commence ${price} ?`);
+  await rowBox(page, 0, 0).dispatchEvent('pointerdown');
+  await expect(card.locator('.hint')).toContainText('La virgule sous la virgule');
+  await poseColumns(page, input);
+  // A comma in each row and in the result, after the euros.
+  await expect(grid.locator('.comma')).toHaveCount(input.rows.length + 1);
+  await expectSlateLayout(page);
+  await test.info().attach('prix', { body: await page.screenshot(), contentType: 'image/png' });
+  await page.keyboard.type(columnKeys(input.columns, exercise.answer).join(''));
+  await expect(card.locator('.praise')).toBeVisible();
+  expect(errors).toEqual([]);
+});

@@ -83,6 +83,8 @@ export type ExerciseInput =
       mode: ColumnMode;
       /** Absent: already set out (a demo of Plume). */
       setup?: ColumnSetup;
+      /** Prices (#177): the last `decimals` columns are the cents, after the comma. */
+      decimals?: number;
     }
   /** A time written in its boxes, hours then minutes (then seconds): « 14h10 » (`timeText`). */
   | {

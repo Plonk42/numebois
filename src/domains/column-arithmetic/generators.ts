@@ -86,17 +86,26 @@ const ADD_BY_LEVEL: readonly AddLevel[] = [
 
 export const ADD_LEVELS = ADD_BY_LEVEL.length;
 
-const INSTRUCTIONS: Record<ColumnMode, string> = {
+export const INSTRUCTIONS: Record<ColumnMode, string> = {
   guided: 'Calcule avec Plume, colonne par colonne.',
   accompanied: 'Calcule colonne par colonne.',
   alone: 'Calcule l’addition posée.',
 };
 
 /** The operation to set out, in line, as on a school sheet. */
-const SETUP_INSTRUCTIONS: Record<ColumnMode, (statement: string) => string> = {
-  guided: (statement) => `Pose ${statement} avec Plume, puis calcule.`,
-  accompanied: (statement) => `Pose ${statement}, puis calcule colonne par colonne.`,
-  alone: (statement) => `Pose ${statement}, puis calcule.`,
+/** Longer, the instruction no longer holds on a line of the slate. */
+const INSTRUCTION_LINE = 50;
+
+/** On one line, or cut where it makes sense: « Pose 808,70 € − 95 € » then « Puis calcule… ». */
+const setOut = (pose: string, then: string) =>
+  `${pose}, puis ${then}`.length <= INSTRUCTION_LINE
+    ? `${pose}, puis ${then}`
+    : `${pose}\nPuis ${then}`;
+
+export const SETUP_INSTRUCTIONS: Record<ColumnMode, (statement: string) => string> = {
+  guided: (statement) => setOut(`Pose ${statement} avec Plume`, 'calcule.'),
+  accompanied: (statement) => setOut(`Pose ${statement}`, 'calcule colonne par colonne.'),
+  alone: (statement) => setOut(`Pose ${statement}`, 'calcule.'),
 };
 
 /** Share of the operations written box by box, the others set out with a touch (#158). */
@@ -107,7 +116,7 @@ export const WRITTEN_SHARE: Record<ColumnMode, number> = {
 };
 
 /** Drawn apart, so that the numbers stay those of the seed. */
-const drawSetup = (rng: Rng, mode: ColumnMode): ColumnSetup =>
+export const drawSetup = (rng: Rng, mode: ColumnMode): ColumnSetup =>
   rng.fork('setup').chance(WRITTEN_SHARE[mode]) ? 'write' : 'tap';
 
 export const addStatement = (rows: readonly number[]) => rows.map(formatNumber).join(`${SPACE}+ `);

@@ -7,6 +7,22 @@ type ColumnInput = Extract<ExerciseInput, { kind: 'column' }>;
 export const RANKS = ['U', 'D', 'C', 'M'];
 export const NAMES = ['unités', 'dizaines', 'centaines', 'milliers'];
 
+/** A column's label, colour and name; the cents of a price (#177) apart, without a label. */
+export function rankOf(rank: number, decimals = 0) {
+  if (rank < decimals) {
+    return { label: '', css: 'rc', name: rank === 0 ? 'centimes' : 'dizaines de centimes' };
+  }
+  return {
+    label: RANKS[rank - decimals],
+    css: `r${rank - decimals}`,
+    name: NAMES[rank - decimals],
+  };
+}
+
+/** A price in cents as written on a sheet: « 4,56 ». */
+const price = (cents: number) =>
+  `${Math.floor(cents / 100)},${String(cents % 100).padStart(2, '0')}`;
+
 /** Thousands apart, as in the statement (numbers up to 9 999). */
 const grouped = (n: number) =>
   n < 1000 ? String(n) : `${Math.floor(n / 1000)}\u00a0${String(n % 1000).padStart(3, '0')}`;
@@ -32,19 +48,24 @@ interface Options {
   onSlip?: () => void;
 }
 
-const aligned = (n: number) => `Les unités sous les unités : le ${String(n).at(-1)} va sous le U.`;
+const aligned = (n: number, decimals: number) =>
+  decimals > 0
+    ? 'La virgule sous la virgule : les centimes à droite.'
+    : `Les unités sous les unités : le ${String(n).at(-1)} va sous le U.`;
+/** A number as the statement shows it. */
+const shown = (n: number, decimals: number) => (decimals > 0 ? price(n) : grouped(n));
 
 /** With a touch: where the number starts; set out wrong (`tried`), the rule. */
-function tapBubble(n: number, guided: boolean, tried: boolean): Bubble {
+function tapBubble(n: number, guided: boolean, tried: boolean, decimals: number): Bubble {
   const digits = String(n);
-  if (tried) return { title: 'Presque !', text: aligned(n) };
-  const title = digits.length > 1 ? `Où commence ${grouped(n)} ?` : `Où va le ${n} ?`;
+  if (tried) return { title: 'Presque !', text: aligned(n, decimals) };
+  const title = digits.length > 1 ? `Où commence ${shown(n, decimals)} ?` : `Où va le ${n} ?`;
   if (digits.length === 1)
     return { title, text: guided ? 'Il va sous le U : touche sa case.' : 'Touche sa case.' };
   return {
     title,
     text: guided
-      ? `Le ${digits.at(-1)} va sous le U : touche la case du ${digits[0]}.`
+      ? `${decimals > 0 ? 'Les centimes à droite' : `Le ${digits.at(-1)} va sous le U`} : touche la case du ${digits[0]}.`
       : `Touche la case de son premier chiffre, le ${digits[0]}.`,
   };
 }
@@ -57,7 +78,10 @@ function writeBubble(input: ColumnInput, jam: number | null, written: string): B
   const n = input.rows[jam];
   return {
     title: 'Presque !',
-    text: written === String(n) ? aligned(n) : `Regarde bien les chiffres de ${grouped(n)}.`,
+    text:
+      written === String(n)
+        ? aligned(n, input.decimals ?? 0)
+        : `Regarde bien les chiffres de ${shown(n, input.decimals ?? 0)}.`,
   };
 }
 
@@ -165,7 +189,7 @@ export function useColumnSetup({ input, demo, locked, onSlip }: Options) {
 
   let bubble: Bubble | null = null;
   if (!posed.current && setup === 'tap') {
-    bubble = tapBubble(rows[row], input.mode === 'guided', tried !== null);
+    bubble = tapBubble(rows[row], input.mode === 'guided', tried !== null, input.decimals ?? 0);
   } else if (!posed.current && setup === 'write') {
     const written =
       jam === null
@@ -199,10 +223,12 @@ export function useColumnSetup({ input, demo, locked, onSlip }: Options) {
           <button
             key={`set-${r}-${rank}`}
             type="button"
-            class={`box term r${rank} ${state}`}
+            class={`box term ${rankOf(rank, input.decimals).css} ${state}`}
             style={at(r, rank)}
             disabled={locked}
-            aria-label={`Ligne ${r + 1}, ${NAMES[rank]}`}
+            aria-label={`Ligne ${r + 1}, ${rankOf(rank, input.decimals).name}`}
+            data-row={r}
+            data-rank={rank}
             onPointerDown={(event) => {
               event.preventDefault();
               touch({ row: r, rank });

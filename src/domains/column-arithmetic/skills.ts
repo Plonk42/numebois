@@ -16,6 +16,8 @@ import {
   type MultiplicationExercise,
   type SubtractionExercise,
 } from './generators';
+import { MONEY } from '../units/everyday';
+import { generatePrices, PRICE_LEVELS, PRICES, priceHint, type PriceExercise } from './prices';
 import { additionHint, multiplicationHint, subtractionHint, subtractionLures } from './hints';
 
 export const addition = defineSkill<AdditionExercise>({
@@ -54,4 +56,16 @@ export const multiplication = defineSkill<MultiplicationExercise>({
   generate: generateMultiplication,
   validate: validateNumber,
   hint: multiplicationHint,
+});
+
+export const prices = defineSkill<PriceExercise>({
+  id: PRICES,
+  name: 'Poser des prix',
+  prerequisites: [SUBTRACT, MONEY],
+  levels: PRICE_LEVELS,
+  // As the addition and the subtraction, a column more, the comma to set out.
+  questionSeconds: [30, 40, 35, 50, 60, 70],
+  generate: generatePrices,
+  validate: validateNumber,
+  hint: priceHint,
 });

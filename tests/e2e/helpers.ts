@@ -98,13 +98,9 @@ export interface Driver<I extends ExerciseInput> {
   wrongs(input: I, expected: string): string[];
 }
 
-const RANK_NAMES = ['unités', 'dizaines', 'centaines', 'milliers'];
-
 /** The box of a number being set out in the grid of a column operation (#158). */
 export const rowBox = (page: Page, row: number, rank: number) =>
-  page
-    .locator('#question')
-    .getByRole('button', { name: `Ligne ${row + 1}, ${RANK_NAMES[rank]}`, exact: true });
+  page.locator(`#question .box.term[data-row="${row}"][data-rank="${rank}"]`);
 
 /** Sets the numbers out right, with a touch or digit by digit, while the question asks it. */
 export async function poseColumns(
@@ -170,7 +166,7 @@ const DRIVERS: { [K in ExerciseInput['kind']]: Driver<Extract<ExerciseInput, { k
       await poseColumns(page, input);
       const typed = columnKeys(columns, value);
       if (mode === 'alone') {
-        await page.getByRole('button', { name: 'Chiffre des unités' }).dispatchEvent('pointerdown');
+        await page.locator('#question .box.digit[data-column="0"]').dispatchEvent('pointerdown');
       }
       await page.keyboard.type(typed.join(''));
       if (mode === 'alone') await page.keyboard.press('Enter');

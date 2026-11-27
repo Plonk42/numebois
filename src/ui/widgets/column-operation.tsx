@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { Column, ExerciseInput } from '../../core/types';
 import { AnswerZone, Work } from '../slate';
-import { NAMES, RANKS, useColumnSetup } from './column-setup';
+import { rankOf, useColumnSetup } from './column-setup';
 import type { WidgetProps } from './index';
 import { Keypad } from './keypad';
 
@@ -215,6 +215,9 @@ export function ColumnOperation({
   const top = bagged || under ? 2 : 3;
   const lineRow = rows.length + top + (under ? 1 : 0);
   const resultRow = lineRow + 1;
+  // A price (#177): the comma after the euros, in every row, the result's too.
+  const decimals = input.decimals ?? 0;
+  const commaRows = decimals > 0 ? [...rows.map((_, row) => row + top), resultRow] : [];
   const carryRow = under ? rows.length + top : 2;
   const box = (spot: Spot, inBag = false) => {
     const key = keyOf(spot);
@@ -229,7 +232,8 @@ export function ColumnOperation({
       <button
         key={key}
         type="button"
-        class={`box ${spot.kind} r${rank} ${state}`}
+        class={`box ${spot.kind} ${rankOf(rank, decimals).css} ${state}`}
+        data-column={rank}
         style={
           inBag
             ? undefined
@@ -242,7 +246,7 @@ export function ColumnOperation({
         aria-label={
           inBag
             ? 'Sac à retenue'
-            : `${spot.kind === 'digit' ? 'Chiffre' : 'Retenue'} des ${NAMES[rank]}`
+            : `${spot.kind === 'digit' ? 'Chiffre' : 'Retenue'} des ${rankOf(rank, decimals).name}`
         }
         onPointerDown={(event) => {
           event.preventDefault();
@@ -307,17 +311,17 @@ export function ColumnOperation({
             {ranks.map((rank) => (
               <span
                 key={`band-${rank}`}
-                class={`band r${rank}${coach && sourceOf(active) === rank ? ' active' : ''}`}
+                class={`band ${rankOf(rank, decimals).css}${coach && sourceOf(active) === rank ? ' active' : ''}`}
                 style={{ gridColumn: columnOf(rank), gridRow: '1 / -1' }}
               />
             ))}
             {ranks.map((rank) => (
               <span
                 key={`rank-${rank}`}
-                class={`rank r${rank}`}
+                class={`rank ${rankOf(rank, decimals).css}`}
                 style={{ gridColumn: columnOf(rank), gridRow: 1 }}
               >
-                {RANKS[rank]}
+                {rankOf(rank, decimals).label}
               </span>
             ))}
             {!bagged &&
@@ -338,12 +342,21 @@ export function ColumnOperation({
               ranks.filter(tenMore).map((rank) => (
                 <span
                   key={`ten-${rank}`}
-                  class={`ten r${rank}`}
+                  class={`ten ${rankOf(rank, decimals).css}`}
                   style={{ gridColumn: columnOf(rank), gridRow: top }}
                 >
                   1
                 </span>
               ))}
+            {commaRows.map((row) => (
+              <span
+                key={`comma-${row}`}
+                class="comma"
+                style={{ gridColumn: columnOf(decimals), gridRow: row }}
+              >
+                ,
+              </span>
+            ))}
             <span class="sign" style={{ gridColumn: 1, gridRow: rows.length + top - 1 }}>
               {input.operator}
             </span>

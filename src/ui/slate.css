@@ -1034,6 +1034,12 @@
   align-content: center;
   gap: 28px;
 }
+/* The cents of a price (#177), after the comma. */
+.rc {
+  --rank: #a7b8ad;
+  --rank-dark: #5f7a69;
+  --rank-pale: #eef3ef;
+}
 .r3 {
   --rank: #b48ad8;
   --rank-dark: #7c55a3;
@@ -1176,6 +1182,15 @@
 #question .column-layout .box.carry {
   margin: 2px 6px;
   font-size: 28px;
+}
+/* A price (#177): the comma after the euros, between two columns. */
+.column-operation .comma {
+  justify-self: end;
+  align-self: center;
+  margin-right: -9px;
+  z-index: 1;
+  font-weight: 700;
+  color: #2f4a3a;
 }
 /* By compensation (#173), the top digit gets 10 more: a small 1 before it. */
 .column-operation .ten {

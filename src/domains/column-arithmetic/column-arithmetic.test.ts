@@ -16,6 +16,15 @@ import {
   generateSubtraction,
   subtraction,
 } from './generators';
+import {
+  fitsPriceLevel,
+  generatePrices,
+  PRICE_LEVELS,
+  priceDigits,
+  priceHint,
+  priceOperation,
+  priceText,
+} from './prices';
 import { additionHint, multiplicationHint, subtractionHint, subtractionLures } from './hints';
 
 const MODES = ['guided', 'guided', 'accompanied', 'accompanied', 'alone', 'alone'];
@@ -283,5 +292,69 @@ describe('poser une soustraction, par compensation (#173)', () => {
       expect(written / 1000, `niveau ${level}`).toBeCloseTo(share, 1);
     }
     expect(subtraction(523, 178, 0).input).not.toHaveProperty('setup');
+  });
+});
+
+describe('poser des prix en euros (#177)', () => {
+  const OPERATORS = ['+', '+', '−', '−', '+', '−'];
+  const PRICE_MODES = ['guided', 'accompanied', 'guided', 'accompanied', 'alone', 'alone'];
+
+  it('a une règle par niveau, sur 1 000 graines', () => {
+    expect(OPERATORS).toHaveLength(PRICE_LEVELS);
+    let wholes = 0;
+    for (let level = 0; level < PRICE_LEVELS; level++) {
+      for (let seed = 0; seed < 1000; seed++) {
+        const exercise = generatePrices(new Rng(seed), level);
+        const { rows, operator, input, statement } = exercise;
+        expect(fitsPriceLevel(rows, level), statement).toBe(true);
+        expect(operator).toBe(OPERATORS[level]);
+        expect(input.kind === 'column' && input.mode).toBe(PRICE_MODES[level]);
+        expect(input.kind === 'column' && input.decimals).toBe(2);
+        expect(statement).toMatch(/^\d+(,\d\d)?\u00a0€\u00a0[+−] \d+(,\d\d)?\u00a0€$/);
+        if (level === 3) expect(rows[1] % 100).toBe(0);
+        if (/ \d+\u00a0€$/.test(statement)) wholes++;
+      }
+    }
+    // A price without cents written « 68 € » or « 68,00 € » (owner: both).
+    expect(wholes).toBeGreaterThan(300);
+  });
+
+  it('pose les chiffres d’un calcul direct, en centimes, sur 1 000 graines', () => {
+    for (let level = 0; level < PRICE_LEVELS; level++) {
+      for (let seed = 0; seed < 1000; seed++) {
+        const { rows, operator, answer, input } = generatePrices(new Rng(seed), level);
+        if (input.kind !== 'column') throw new Error(input.kind);
+        const [a, b] = rows;
+        expect(answer).toBe(String(operator === '+' ? a + b : a - b));
+        expect(
+          input.columns
+            .map((c) => c.digit)
+            .reverse()
+            .join(''),
+        ).toBe(answer);
+      }
+    }
+  });
+
+  it('écrit les prix comme sur une fiche, la virgule sous la virgule', () => {
+    expect(priceDigits(456)).toBe('4,56');
+    expect(priceDigits(6800)).toBe('68,00');
+    expect(priceText(6800, true)).toBe('68\u00a0€');
+    expect(priceText(6800, false)).toBe('68,00\u00a0€');
+    const exercise = priceOperation('−', [24345, 6800], 3, undefined, true);
+    expect(exercise.statement).toBe('243,45\u00a0€\u00a0− 68\u00a0€');
+    expect(priceHint(exercise, 2)).toBe(
+      '243,45\u00a0€\u00a0− 68,00\u00a0€ = 175,45\u00a0€.\nLa virgule reste sous la virgule.',
+    );
+    expect(priceHint(exercise, 1)).toContain('Ajoute 10, et retiens 1 en bas.');
+    // The carry of the cents forgotten in the euros.
+    expect(priceHint(exercise, 1, { answer: '18545' })).toBe(
+      'Aux dizaines, tu as oublié la retenue.\nAjoute-la au chiffre du bas.',
+    );
+    const sum = priceOperation('+', [456, 1570], 0);
+    expect(priceHint(sum, 1)).toContain('La virgule descend sous la virgule.');
+    expect(priceHint(sum, 1, { answer: '1926' })).toBe(
+      'Aux unités, tu as oublié la retenue.\nElle est en haut de la colonne.',
+    );
   });
 });

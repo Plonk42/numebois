@@ -19,27 +19,29 @@ const digit = (n: number, rank: number) => Math.floor(n / 10 ** rank) % 10;
  * What a wrong result tells (#168): the last digit left out, a carry forgotten in the first
  * column that differs, or that column miscalculated. `carries[r]` is the carry column r receives.
  */
-function columnSlip(
+export function columnSlip(
   right: number,
   carries: readonly number[],
   tried: number,
   carried: string,
   sign: 1 | -1 = 1,
+  names: readonly string[] = RANKS,
 ) {
   const length = String(right).length;
   if (String(tried).length < length && tried === right % 10 ** (length - 1)) {
     return 'Il manque le dernier chiffre.\nÀ la fin, écris le nombre entier.';
   }
   const rank = Array.from({ length }, (_, r) => r).find((r) => digit(tried, r) !== digit(right, r));
-  if (rank === undefined || rank >= RANKS.length) return null;
+  if (rank === undefined || rank >= names.length) return null;
   const carry = carries[rank] ?? 0;
   // Without its carry, a sum has one less in that column, a difference one more.
   if (carry > 0 && digit(tried, rank) === (digit(right, rank) - sign * carry + 10) % 10) {
-    return `Aux ${RANKS[rank]}, tu as oublié la retenue.\n${carried}`;
+    return `Aux ${names[rank]}, tu as oublié la retenue.\n${carried}`;
   }
-  const again = `Recalcule la colonne des ${RANKS[rank]}.`;
+  const again = `Recalcule la colonne des ${names[rank]}.`;
   if (rank === 0) return again;
-  return `${rank === 1 ? 'Les unités sont bonnes' : 'Les colonnes de droite sont bonnes'}.\n${again}`;
+  if (rank > 1) return `Les colonnes de droite sont bonnes.\n${again}`;
+  return `${names === RANKS ? 'Les unités sont bonnes' : 'La colonne de droite est bonne'}.\n${again}`;
 }
 
 /** The carry each column receives, from the units. */
@@ -89,7 +91,7 @@ export function multiplicationHint(
   return `${multiplyStatement(a, b)} = ${formatNumber(a * b)}.\nLe sac garde la retenue pour la colonne suivante.`;
 }
 
-const COMPENSATION = 'En haut trop petit ? Ajoute 10, et retiens 1 en bas.';
+export const COMPENSATION = 'En haut trop petit ? Ajoute 10, et retiens 1 en bas.';
 
 /**
  * The first column that differs worked the other way round, the bottom digit minus the top one
