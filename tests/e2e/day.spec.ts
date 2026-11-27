@@ -32,7 +32,8 @@ test('la frise des durées : des bonds d’une heure, puis les minutes, la duré
 
   const [first, second] = driver(exercise.input).wrongs(exercise.input, exercise.answer);
   await driver(exercise.input).answer(page, exercise.input, first);
-  await expect(card.locator('.hint')).toContainText('Un bond, une heure');
+  // The mistake named (#168) or the method: either way, the jumps of an hour.
+  await expect(card.locator('.hint')).toContainText(/Un bond, une heure|bonds d’une heure/);
   await driver(exercise.input).answer(page, exercise.input, second);
   // The worked hint: the hours from the start, then the minutes.
   await expect(card.locator('.hint')).toContainText(
