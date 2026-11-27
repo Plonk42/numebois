@@ -9,12 +9,14 @@ Le propriétaire envoie régulièrement des photos de fiches et de leçons de la
 
 ## Références, dans l'ordre
 
-1. **La classe** (les photos) : c'est ce que l'enfant voit ; elle l'emporte en cas d'écart.
-2. **[maitrelucas.fr](https://maitrelucas.fr/ce2/maths-ce2/)** (CE2, choix du propriétaire) : référence de qualité pour la méthode, le vocabulaire et la progression, et la source fréquente des fiches (pied de page « maitrelucas.fr »). Lire la leçon correspondante (`fetch_webpage`) quand la photo ne suffit pas.
-3. Le programme officiel du cycle 2 en vigueur (BO n° 41 du 31/10/2024). Il fait foi pour ce que le site traite encore selon l'ancien programme : les fractions, absentes de son CE2 (sa leçon de CM1 ne sert que pour les mots).
+Règle du propriétaire (2026-11-27) : le programme (quelles notions, jusqu'où, dans quel ordre) vient **seulement des sources officielles** ; Maître Lucas est une ressource pour la manière d'enseigner, jamais pour le programme.
+
+1. **La classe** (les photos) : c'est ce que l'enfant voit ; pour la méthode, les mots et la présentation, elle l'emporte en cas d'écart.
+2. **Le programme officiel** du cycle 2 en vigueur (BO n° 41 du 31/10/2024) et les ressources éduscol : seule source pour le contenu et la progression.
    - [Ressources du cycle 2](https://eduscol.education.gouv.fr/4746/ressources-d-accompagnement-du-programme-de-mathematiques-au-cycle-2) : le programme et le livret d'accompagnement CE2, des séquences détaillées (n° 1 : mesurer des longueurs avec les fractions).
    - [Ressources du cycle 3](https://eduscol.education.gouv.fr/5712/ressources-d-accompagnement-du-programme-de-mathematiques-au-cycle-3), « Exemples de mise en œuvre par entrées thématiques » : fractions, calcul mental, résolution de problèmes, du CE1 au CM2.
    - [Repères annuels de progression](https://eduscol.education.gouv.fr/6910/reperes-annuels-de-progression-et-attendus-de-fin-d-annee-du-cp-la-troisieme) : à quelle période de l'année vient chaque notion.
+3. **[maitrelucas.fr](https://maitrelucas.fr/ce2/maths-ce2/)** (choix du propriétaire) : ressource de qualité pour la méthode, le vocabulaire et les exemples, et source fréquente des fiches (pied de page « maitrelucas.fr »). Lire la leçon correspondante (`fetch_webpage`) quand la photo ne suffit pas. Son classement par niveau suit encore l'ancien programme (ses fractions sont en CM1) : ne jamais en déduire ce qui est au programme.
 
 S'inspirer de la méthode et des mots, ne jamais recopier les textes, images ni exercices d'un site. Jamais le prénom de l'enfant (champ « Prénom » des fiches) ni les photos dans le dépôt.
 

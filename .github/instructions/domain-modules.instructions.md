@@ -14,7 +14,8 @@ applyTo: "src/core/**, src/domains/**"
 - **Identifiants stables :** une notion, un fait ou une leçon publiés ne sont jamais renommés. Les sauvegardes y font référence. Pour remplacer, ajouter le nouveau et retirer l'ancien.
 - La difficulté monte à l'intérieur d'une notion (niveaux internes), plutôt que par l'ajout de notions.
 - Une notion dont la question prend plus de 12 s à un enfant de 8 ans déclare `questionSeconds` (un temps par niveau) : le sentier raccourcit et les gains suivent l'effort (#153, plan, « Payer l'effort des notions longues »).
-- Méthode, mots et présentation : ceux de la classe (plan, « Façons de faire de la classe »), à défaut [maitrelucas.fr](https://maitrelucas.fr/ce2/maths-ce2/), référence de qualité ; s'en inspirer sans recopier. Photos de fiches à comparer : skill `classwork-check`.
+- Notions, niveaux et progression : seulement le programme officiel en vigueur (BO n° 41 du 31/10/2024, ressources éduscol), jamais un site.
+- Méthode, mots et présentation : ceux de la classe (plan, « Façons de faire de la classe »), à défaut [maitrelucas.fr](https://maitrelucas.fr/ce2/maths-ce2/), ressource de qualité ; s'en inspirer sans recopier. Photos de fiches à comparer : skill `classwork-check`.
 - Les réponses attendues doivent être exactes : un générateur refuse et retire les tirages hors contraintes (résultat négatif, retenue non voulue, division non entière…).
 - Tests de chaque générateur sur 1 000 graines, avec toutes les contraintes vérifiées. Les opérations posées sont comparées à un calcul direct.
 - Limites vérifiées par les tests de contenu :
