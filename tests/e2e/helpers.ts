@@ -377,18 +377,27 @@ export async function boxes(page: Page, selector: string): Promise<Box[]> {
 /** The slate stays clear of the bars, on screen, without scrolling, every key 56 px or more. */
 export async function expectSlateLayout(page: Page) {
   const viewport = page.viewportSize()!;
-  const layout = await page.evaluate(() => {
+  const layout = await page.evaluate(async () => {
     const doc = globalThis.document;
     const box = (element: Element | null) => {
       if (!element) return null;
       const { x, y, width, height } = element.getBoundingClientRect();
       return { x, y, width, height };
     };
+    const selectors = ['#reserve', '#trail', '#sound-toggle'];
+    // A bar still moving (the trail fading out for an astuce) is measured where it stops.
+    await Promise.all(
+      selectors.flatMap((s) =>
+        (doc.querySelector(s)?.getAnimations() ?? [])
+          .filter((animation) => animation instanceof CSSTransition)
+          .map((animation) => animation.finished.catch(() => undefined)),
+      ),
+    );
     const card = doc.querySelector('#question')!;
     return {
       card: box(card)!,
       // A bar out of sight (the trail during an astuce) covers nothing.
-      bars: ['#reserve', '#trail', '#sound-toggle']
+      bars: selectors
         .map((s) => doc.querySelector(s)!)
         .filter((bar) => getComputedStyle(bar).opacity !== '0')
         .map((bar) => [`#${bar.id}`, box(bar)!]),
