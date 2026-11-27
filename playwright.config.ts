@@ -17,6 +17,17 @@ export default defineConfig({
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
   use: {
     baseURL: `http://127.0.0.1:${PORT}/numebois/`,
+    // The landscape stops behind a question (option of the parent menu): drawn on the CPU here,
+    // it would slow every action of a test ten times.
+    storageState: {
+      cookies: [],
+      origins: [
+        {
+          origin: `http://127.0.0.1:${PORT}`,
+          localStorage: [{ name: 'numebois.freezeLandscape', value: '1' }],
+        },
+      ],
+    },
     launchOptions: {
       // WebGL without a GPU (CI): software rendering.
       args: ['--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],

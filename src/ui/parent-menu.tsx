@@ -39,6 +39,8 @@ interface Props {
   exportSave(): string;
   quality(): { chosen: Quality | 'auto'; current: Quality };
   onQuality(quality: Quality | 'auto'): void;
+  freeze(): boolean;
+  onFreeze(on: boolean): void;
   onLength(length: TrailLength): void;
   onSettings(settings: Map<SkillId, SkillSetting>): void;
   onAutomation(factor: number): void;
@@ -71,6 +73,8 @@ export function ParentMenu({
   exportSave,
   quality,
   onQuality,
+  freeze,
+  onFreeze,
   onLength,
   onSettings,
   onAutomation,
@@ -87,6 +91,7 @@ export function ParentMenu({
   const [tab, setTab] = useState<Tab>(problem ? 'settings' : 'progress');
   const [message, setMessage] = useState(problem);
   const [{ chosen, current }, setQuality] = useState(quality);
+  const [frozen, setFrozen] = useState(freeze);
   const [automation, setAutomation] = useState(session.automation);
   const [long, setLong] = useState(session.longChallenges);
   const [typedName, setTypedName] = useState(name);
@@ -236,6 +241,22 @@ export function ParentMenu({
                   }}
                 >
                   {option === 'auto' ? 'Auto' : QUALITY_LABELS[option]}
+                </button>
+              ))}
+            </div>
+            <p>Paysage pendant les questions (essai)</p>
+            <div class="choices">
+              {[false, true].map((option) => (
+                <button
+                  key={String(option)}
+                  type="button"
+                  aria-pressed={frozen === option}
+                  onPointerDown={() => {
+                    setFrozen(option);
+                    onFreeze(option);
+                  }}
+                >
+                  {option ? 'Arrêté' : 'Animé'}
                 </button>
               ))}
             </div>
