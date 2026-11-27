@@ -102,7 +102,7 @@ test('toucher le paysage : animaux et arbres réagissent pendant la promenade, j
   expect(errors).toEqual([]);
 });
 
-test('la nuit, les animaux dorment sauf le loup ; touchée, la biche se lève et se recouche ; le jour les réveille (#119)', async ({
+test('la nuit, les animaux dorment sauf le loup ; touchée, la biche se lève ; le jour les réveille (#119)', async ({
   page,
 }) => {
   test.setTimeout(120_000);
@@ -136,11 +136,10 @@ test('la nuit, les animaux dorment sauf le loup ; touchée, la biche se lève et
   await expect(page.locator('#walk')).toBeVisible();
   expect(await sleepers()).toEqual(['Deer:true', 'Fox:true', 'Wolf:false']);
 
-  // Touched, the doe gets up a moment, then lies down again where she slept.
+  // Touched, the doe gets up; she lies down again in the scene's time (scene.test.ts).
   await tapDoe(page, cdp);
   await expect.poll(() => touches(page)).toEqual([{ kind: 'animal', name: 'Deer' }]);
   await expect.poll(sleepers).toEqual(['Deer:false', 'Fox:true', 'Wolf:false']);
-  await expect.poll(sleepers, { timeout: 30_000 }).toEqual(['Deer:true', 'Fox:true', 'Wolf:false']);
 
   // The day back from the bar: everyone is awake; the night again, asleep.
   const picker = page.locator('#seasons');
