@@ -227,6 +227,11 @@ export class Stage {
     return this.orbit;
   }
 
+  /** The camera has stopped: no orbit, no glide. */
+  get resting(): boolean {
+    return this.orbit === 0 && this.explorer.settled;
+  }
+
   /** Exploration, orbit, focus and tour. No allocation: called every frame. */
   update(time: number): void {
     const view = this.explorer.step();

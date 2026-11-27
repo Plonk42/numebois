@@ -157,6 +157,8 @@ test('se promener dans la forêt : gestes dans leurs limites, retour au cadrage,
   await expect.poll(async () => (await view(page)).now).toEqual(home);
   // Nothing moves during a question: not even the orbit.
   await expect.poll(async () => (await view(page)).orbit).toBe(0);
+  // The camera at rest, the landscape is no longer drawn (option on in the tests).
+  await expect.poll(async () => (await view(page)).frozen).toBe(true);
 
   // During a question, the forest stays where it is, whatever the fingers do.
   await touch(cdp, drag([120, 300], [120, 600]));

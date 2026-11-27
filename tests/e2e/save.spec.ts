@@ -63,6 +63,19 @@ test('la progression et la réserve survivent au rechargement ; export et import
     quality: 'low',
     autoQuality: false,
   });
+  // The landscape behind a question, on trial: stopped in the tests, animated when chosen.
+  const frozen = async () => (await page.evaluate(() => window.__numebois!.view())).frozen;
+  await expect(page.getByRole('button', { name: 'Arrêté' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await expect.poll(frozen).toBe(true);
+  await page.getByRole('button', { name: 'Animé' }).click();
+  await expect(page.getByRole('button', { name: 'Animé' })).toHaveAttribute('aria-pressed', 'true');
+  expect(await frozen()).toBe(false);
+  expect(await page.evaluate(() => localStorage.getItem('numebois.freezeLandscape'))).toBe('0');
+  await page.getByRole('button', { name: 'Arrêté' }).click();
+  await expect.poll(frozen).toBe(true);
   const [download] = await Promise.all([
     page.waitForEvent('download'),
     page.getByRole('button', { name: 'Exporter la sauvegarde' }).click(),

@@ -59,6 +59,8 @@ const PICTURE_PX = 480;
 
 /** Quality chosen in the parent menu or the debug panel: a setting of the device, not of the save. */
 const QUALITY_KEY = 'numebois.quality';
+/** The landscape stops behind a question (parent menu, on trial; on in the UI tests). */
+const FREEZE_KEY = 'numebois.freezeLandscape';
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -74,6 +76,7 @@ export class SceneApp {
   assets: AssetLibrary | null = null;
   animals: AnimalLibrary | null = null;
   quality: Quality;
+  freezeLandscape = localStorage.getItem(FREEZE_KEY) === '1';
   onCounters: ((counters: SceneCounters) => void) | null = null;
   /** What the child's touches made react, for the tests. */
   readonly touches: Touched[] = [];
@@ -209,6 +212,17 @@ export class SceneApp {
     this.rebuild();
   }
 
+  /** Stops the landscape behind a question, or not, and keeps the choice on this device. */
+  setFreezeLandscape(on: boolean): void {
+    localStorage.setItem(FREEZE_KEY, on ? '1' : '0');
+    this.freezeLandscape = on;
+  }
+
+  /** Behind a question, once the camera rests, the landscape is no longer drawn. */
+  get frozen(): boolean {
+    return this.freezeLandscape && this.stage.still() && this.stage.resting;
+  }
+
   /**
    * The child explores the forest (#72), told when the view leaves or comes back to the
    * framing; null stops the gestures and the view glides back to the framing.
@@ -223,14 +237,15 @@ export class SceneApp {
     this.stage.explorer.recenter();
   }
 
-  /** The explored view: where it is, where it goes, whether gestures move it, the orbit. */
-  view(): { now: View; goal: View; active: boolean; orbit: number } {
+  /** The explored view: where it is, where it goes, whether gestures move it, the orbit, frozen. */
+  view(): { now: View; goal: View; active: boolean; orbit: number; frozen: boolean } {
     const explorer = this.stage.explorer;
     return {
       now: { ...explorer.view },
       goal: { ...explorer.destination },
       active: explorer.active,
       orbit: this.stage.orbiting,
+      frozen: this.frozen,
     };
   }
 
@@ -449,7 +464,7 @@ export class SceneApp {
   private readonly onResize = () => {
     this.stage.resize();
     this.painting?.resized();
-    if (!this.running) this.renderFrame(0);
+    if (!this.running || this.frozen) this.renderFrame(0);
   };
 
   /** The animation and the sound pause while the tab is hidden. */
@@ -470,6 +485,11 @@ export class SceneApp {
     if (!this.running) return;
     const dt = Math.min(0.1, (now - this.last) / 1000);
     this.last = now;
+    // Frozen, the last frame stays on the canvas and the scene's time waits.
+    if (this.frozen) {
+      this.frameRequest = requestAnimationFrame(this.loop);
+      return;
+    }
     this.renderFrame(dt);
     this.fpsFrames++;
     this.fpsElapsed += dt;

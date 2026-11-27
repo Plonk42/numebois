@@ -227,6 +227,9 @@ export interface GameForest extends SpotsForest {
   /** Quality chosen in the parent menu, and the tier drawn now (the automatic one steps down). */
   quality(): { chosen: Quality | 'auto'; current: Quality };
   setQuality(quality: Quality | 'auto'): void;
+  /** The landscape stopped behind a question (parent menu, on trial). */
+  freeze(): boolean;
+  setFreeze(on: boolean): void;
 }
 
 /** Read by the end-to-end tests. */
@@ -1379,6 +1382,8 @@ function Game(props: Props) {
           exportSave={() => exportFile(saveData(), album)}
           quality={forest.quality}
           onQuality={(value) => forest.setQuality(value)}
+          freeze={forest.freeze}
+          onFreeze={(on) => forest.setFreeze(on)}
           onLength={(value) => {
             session.length = value;
             setLength(value);

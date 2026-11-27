@@ -142,6 +142,8 @@ const ready = sceneOnly
             recenter: () => app.recenter(),
             quality: () => ({ chosen: app.qualityChoice, current: app.quality }),
             setQuality: (quality) => app.setQuality(quality),
+            freeze: () => app.freezeLandscape,
+            setFreeze: (on) => app.setFreezeLandscape(on),
           },
           unsaved
             ? practiceSave(

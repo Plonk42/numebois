@@ -32,6 +32,8 @@ En cas de doute, la route risquée. Un mauvais service worker peut bloquer l'app
 
 Un échec qui n'arrive que sur les runners hébergés est un signal réel, pas une instabilité. Le reproduire dans des conditions proches de la CI (processeur ralenti, rendu logiciel) et corriger la cause. La même signature d'échec deux fois mérite un ticket de bug, prioritaire sur les nouvelles fonctionnalités. Les limites de temps peuvent être relevées pour un travail légitimement lourd (environ trois fois le temps mesuré). La vitesse des runners n'est jamais un critère de correction ou de performance.
 
+Les specs Playwright tournent avec le paysage arrêté pendant les questions (`storageState` de `playwright.config.ts`, option « Paysage pendant les questions » du menu parent) : sans GPU, le paysage dessiné en continu prend tout le processeur et ralentit chaque action d'un test. Une spec qui a besoin du paysage animé pendant une question vide cette clé (`numebois.freezeLandscape`).
+
 ### Commits, fermeture des tickets et accords
 
 - Résumé à l'impératif, par exemple `Ajoute la rafale des tables (#12)`. Référencer les tickets liés avec `(#N)`. Mettre `Closes #N` dans le message de commit (push direct) ou dans la description de la PR quand le travail termine le ticket.

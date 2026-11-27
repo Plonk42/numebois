@@ -122,6 +122,11 @@ export class Explorer {
     return !this.away;
   }
 
+  /** The view has arrived where it goes: nothing glides. */
+  get settled(): boolean {
+    return KEYS.every((key) => this.view[key] === this.goal[key]);
+  }
+
   /** Where the view goes once the glide is over. */
   get destination(): Readonly<View> {
     return this.goal;
