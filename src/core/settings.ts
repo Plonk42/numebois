@@ -8,9 +8,6 @@ import type { Skill, SkillId } from './types';
 export type SkillMode = 'auto' | 'closed' | 'open' | 'focus';
 export const SKILL_MODES: readonly SkillMode[] = ['auto', 'closed', 'open', 'focus'];
 
-/** Notions in focus at the same time, at most. */
-export const MAX_FOCUS = 2;
-
 /** The parent's setting of a notion: its mode and the levels asked, to match the class. */
 export interface SkillSetting {
   skill: SkillId;
@@ -42,8 +39,7 @@ export function clampLevel(level: number, setting: SkillSetting): number {
 }
 
 /**
- * The settings with one notion changed. A third notion in focus takes the place of the oldest
- * one, which goes back to auto; the range stays ordered and within the notion's levels.
+ * The settings with one notion changed; the range stays ordered and within the notion's levels.
  */
 export function changeSetting(
   settings: Settings,
@@ -67,12 +63,6 @@ export function changeSetting(
   if (next.mode === 'focus' && until !== undefined) next.until = until;
   const result = new Map(settings);
   result.delete(skill.id);
-  if (next.mode === 'focus') {
-    const focus = [...result.values()].filter((s) => s.mode === 'focus');
-    for (const old of focus.slice(0, Math.max(0, focus.length - MAX_FOCUS + 1))) {
-      result.set(old.skill, backToAuto(old));
-    }
-  }
   const isDefault = next.mode === 'auto' && next.minLevel === 0 && next.maxLevel === top;
   if (!isDefault) result.set(skill.id, next);
   return result;

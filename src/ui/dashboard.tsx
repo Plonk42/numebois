@@ -278,13 +278,13 @@ function Stepper({
 }
 
 /**
- * The parent's settings of the notions (#47): auto, closed, open or focus (two at most), and
- * the levels asked.
+ * The parent's settings of the notions (#47): auto, closed, open or focus, notion by notion or
+ * for a whole domain at once, and the levels asked.
  */
 export function Notions({ session, onSettings }: SettingsProps) {
   const [settings, setSettings] = useState(() => new Map(session.settings));
-  const change = (skill: Skill, delta: Partial<Omit<SkillSetting, 'skill'>>) => {
-    const next = changeSetting(settings, skill, delta);
+  const change = (skills: readonly Skill[], delta: Partial<Omit<SkillSetting, 'skill'>>) => {
+    const next = skills.reduce((all, skill) => changeSetting(all, skill, delta), settings);
     setSettings(next);
     onSettings(next);
   };
@@ -294,13 +294,39 @@ export function Notions({ session, onSettings }: SettingsProps) {
         <section key={domain.name}>
           <h3>{domain.name}</h3>
           <table class="skills">
+            <thead>
+              <tr class="domain-row">
+                <td>Tout le domaine</td>
+                <td>
+                  <div
+                    class="choices modes"
+                    role="group"
+                    aria-label={`Tout le domaine : ${domain.name}`}
+                  >
+                    {SKILL_MODES.map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        aria-pressed={domain.skills.every(
+                          (skill) => settingOf(settings, skill).mode === mode,
+                        )}
+                        onPointerDown={() => change(domain.skills, { mode })}
+                      >
+                        {MODE_LABELS[mode]}
+                      </button>
+                    ))}
+                  </div>
+                </td>
+                <td />
+              </tr>
+            </thead>
             <tbody>
               {domain.skills.map((skill) => (
                 <SkillRow
                   key={skill.id}
                   skill={skill}
                   setting={settingOf(settings, skill)}
-                  onChange={(delta) => change(skill, delta)}
+                  onChange={(delta) => change([skill], delta)}
                 />
               ))}
             </tbody>
@@ -430,7 +456,7 @@ export function Homework(props: HomeworkProps) {
   );
   return (
     <div class="tab homework">
-      <h3>Notions en focus (au plus 2)</h3>
+      <h3>Notions en focus</h3>
       {focus.length === 0 && <p class="empty">Aucune notion en focus.</p>}
       <table class="skills focus">
         <tbody>

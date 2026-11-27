@@ -240,7 +240,7 @@ describe('réglages du parent (#47)', () => {
     ]);
   });
 
-  it('gives at least half of the trail to the notions in focus, two at most', () => {
+  it('gives at least half of the trail to the notions in focus, 3 at most in each', () => {
     const progress = [
       at('d.a', 'learning'),
       at('d.b', 'learning'),
@@ -259,16 +259,20 @@ describe('réglages du parent (#47)', () => {
         expect(focus).toHaveLength(TRAIL_QUESTIONS[length]);
       }
     }
-    // A third one takes the place of the oldest.
-    const three = set([
+    // As many as the parent wants: they share the trails, 3 at most in each, seen longest ago first.
+    const four = set([
       ['d.a', 'focus'],
       ['d.b', 'focus'],
       ['d.c', 'focus'],
+      ['d.d', 'focus'],
     ]);
-    expect([...three.values()].filter((s) => s.mode === 'focus').map((s) => s.skill)).toEqual([
-      'd.b',
-      'd.c',
-    ]);
+    expect([...four.values()].filter((s) => s.mode === 'focus')).toHaveLength(4);
+    const seen = (id: string, day: number) =>
+      at(id, 'learning', { recent: [{ level: 1, right: true, day }] });
+    const shared = trail([seen('d.a', 9), seen('d.b', 3), seen('d.c', 5), seen('d.d', 7)], {
+      settings: four,
+    });
+    expect(new Set(shared.map((s) => s.skill))).toEqual(new Set(['d.b', 'd.c', 'd.d']));
     // A notion in focus starts even before its prerequisites.
     expect(trail([], { settings: set([['d.e', 'focus']]) }).map((s) => s.skill)).toContain('d.e');
   });

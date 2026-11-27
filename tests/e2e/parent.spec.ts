@@ -97,6 +97,25 @@ test('le tableau de bord parent : suivi, réglage des notions, rafale recommand�
   const row = (id: string) =>
     menu.locator(`.notions .skills:not(.recommended) tr[data-skill="${id}"]`);
   await row('mental-math.add').getByRole('button', { name: 'Fermée' }).click();
+  // A whole domain at once, then back to auto.
+  const division = menu.getByRole('group', { name: 'Tout le domaine : La division' });
+  const pressed = (id: string, mode: string) =>
+    expect(row(id).getByRole('button', { name: mode })).toHaveAttribute('aria-pressed', 'true');
+  await division.getByRole('button', { name: 'Fermée' }).click();
+  await pressed('division.share', 'Fermée');
+  await pressed('division.divide', 'Fermée');
+  await expect(division.getByRole('button', { name: 'Fermée' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await row('division.divide').getByRole('button', { name: 'Ouverte' }).click();
+  await expect(division.getByRole('button', { name: 'Fermée' })).toHaveAttribute(
+    'aria-pressed',
+    'false',
+  );
+  await division.getByRole('button', { name: 'Auto' }).click();
+  await pressed('division.share', 'Auto');
+  await pressed('division.divide', 'Auto');
   await row('times-tables.products').getByRole('button', { name: 'Focus' }).click();
   for (let i = 0; i < 3; i++) {
     await row('times-tables.products').getByRole('button', { name: 'Plus haut : moins' }).click();

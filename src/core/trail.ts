@@ -1,14 +1,7 @@
 import { QUESTION_SECONDS, questionSeconds } from './economy';
 import { bestLevel, isAcquired, isDue, type SkillProgress } from './mastery';
 import type { Rng } from './rng';
-import {
-  clampLevel,
-  MAX_FOCUS,
-  modeOf,
-  settingOf,
-  type Settings,
-  type SkillSetting,
-} from './settings';
+import { clampLevel, modeOf, settingOf, type Settings, type SkillSetting } from './settings';
 import type { Skill, SkillId } from './types';
 
 export type TrailLength = 'short' | 'normal';
@@ -69,16 +62,20 @@ export function composeTrail(input: TrailInput): TrailStep[] {
   const size = TRAIL_QUESTIONS[input.slowing ? 'short' : input.length];
   const struggling = input.recentRate !== null && input.recentRate < LOW_RATE;
   const stage = (skill: Skill) => progress.get(skill.id)?.stage ?? 'discovery';
-  const focus = skills.filter((skill) => modeOf(settings, skill) === 'focus').slice(0, MAX_FOCUS);
+  // The notions in focus share the trail, 3 at most in each, those seen longest ago first.
+  const focused = skills.filter((skill) => modeOf(settings, skill) === 'focus');
+  const focus = inTurn(focused, MAX_ACTIVE, [], progress);
   const ready = (skill: Skill) =>
     modeOf(settings, skill) === 'open' ||
     skill.prerequisites.every((id) => isAcquired(progress.get(id)));
 
-  const learning = skills.filter((skill) => stage(skill) === 'learning' && !focus.includes(skill));
+  const learning = skills.filter(
+    (skill) => stage(skill) === 'learning' && !focused.includes(skill),
+  );
   // A notion in focus already acquired is reviewed, not in progress: it leaves room (#54).
   const reviewed = focus.filter((skill) => isAcquired(progress.get(skill.id))).length;
   const discovery = skills.filter(
-    (skill) => stage(skill) === 'discovery' && !focus.includes(skill),
+    (skill) => stage(skill) === 'discovery' && !focused.includes(skill),
   );
   // During a focus (homework of the week), no other notion opens while 3 are in progress.
   const room = focus.length > 0 ? MAX_ACTIVE : MAX_LEARNING;
@@ -94,7 +91,7 @@ export function composeTrail(input: TrailInput): TrailStep[] {
   if (novelty) active.push(novelty);
   const acquired = skills.filter((skill) => isAcquired(progress.get(skill.id)));
   const reviews = acquired
-    .filter((skill) => !focus.includes(skill) && isDue(progress.get(skill.id)!, day))
+    .filter((skill) => !focused.includes(skill) && isDue(progress.get(skill.id)!, day))
     .sort((a, b) => progress.get(a.id)!.due! - progress.get(b.id)!.due!)
     .slice(0, Math.floor(size * REVIEW_SHARE));
   // Everything acquired and nothing new to open: keep 3 acquired notions alive.
