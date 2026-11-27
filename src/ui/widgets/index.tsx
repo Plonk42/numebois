@@ -48,7 +48,9 @@ type Figures = {
 
 /** One component per kind of figure (a new kind does not compile without it). */
 const FIGURES: Figures = {
-  'number-line': ({ figure }) => <NumberLineFigure line={figure.line} arrow={figure.arrow} />,
+  'number-line': ({ figure }) => (
+    <NumberLineFigure line={figure.line} arrow={figure.arrow} strip={figure.strip} />
+  ),
   blocks: ({ figure: { hundreds, tens, units } }) => (
     <BlocksFigure hundreds={hundreds} tens={tens} units={units} />
   ),

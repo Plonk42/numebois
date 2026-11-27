@@ -3,6 +3,7 @@ import type { AddFractionsExercise } from '../../src/domains/fractions/add';
 import type { CompareFractionsExercise } from '../../src/domains/fractions/compare';
 import type { EqualExercise } from '../../src/domains/fractions/equal';
 import type { ReadExercise } from '../../src/domains/fractions/generators';
+import type { MeasureExercise } from '../../src/domains/fractions/measure';
 import { boxes, current, driver, expectSlateLayout } from './helpers';
 
 /** The first question of `fractions.read` in this form, from seed to seed. */
@@ -136,6 +137,26 @@ test('additionner deux fractions : les parts en deux couleurs, la case a/b (#170
   await test
     .info()
     .attach('additionner', { body: await page.screenshot(), contentType: 'image/png' });
+  await driver(input).answer(page, input, exercise.answer);
+  await expect(card.locator('.praise')).toBeVisible();
+});
+
+test('mesurer une bande avec la règle graduée en quarts (#171)', async ({ page }) => {
+  await page.goto('./?practice=fractions.measure&level=0&seed=3&stage=0&quality=low');
+  await page.evaluate(() => window.__numebois!.ready);
+  const exercise = (await current(page)) as MeasureExercise;
+  const card = page.locator('#question');
+  // The ruler in whole units, a tick every quarter, the strip laid from its 0.
+  const ruler = card.locator('.number-line');
+  await expect(ruler.locator('text')).toHaveText(['0', '1', '2']);
+  await expect(ruler.locator('.tick')).toHaveCount(9);
+  await expect(ruler.locator('.strip')).toHaveCount(1);
+  // The ticks counted with the 0: Plume says so.
+  const { input } = exercise;
+  await driver(input).answer(page, input, `${exercise.tick + 1}/4`);
+  await expect(card.locator('.hint')).toContainText('Tu as compté le trait du 0.');
+  await expectSlateLayout(page);
+  await test.info().attach('mesurer', { body: await page.screenshot(), contentType: 'image/png' });
   await driver(input).answer(page, input, exercise.answer);
   await expect(card.locator('.praise')).toBeVisible();
 });

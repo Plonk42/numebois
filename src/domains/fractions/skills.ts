@@ -31,6 +31,13 @@ import {
 } from './equal';
 import { READ, READ_LEVELS, generateRead, type ReadExercise } from './generators';
 import { readHint } from './hints';
+import {
+  MEASURE,
+  MEASURE_LEVELS,
+  generateMeasure,
+  measureHint,
+  type MeasureExercise,
+} from './measure';
 
 /** A number on the keypad, or one of the choices. */
 const validateAny = (exercise: Exercise, answer: string) =>
@@ -84,4 +91,20 @@ export const add = defineSkill<AddFractionsExercise>({
   generate: generateAddFractions,
   validate: validateEqualFraction,
   hint: addFractionsHint,
+});
+
+/** A strip measured (an equal fraction is right), a length among 4, or a tick placed. */
+function validateMeasure(exercise: Exercise, answer: string): boolean {
+  if (exercise.input.kind === 'fraction') return validateEqualFraction(exercise, answer);
+  return validateAny(exercise, answer);
+}
+
+export const measure = defineSkill<MeasureExercise>({
+  id: MEASURE,
+  name: 'Mesurer en fractions d’unité',
+  prerequisites: [EQUAL],
+  levels: MEASURE_LEVELS,
+  generate: generateMeasure,
+  validate: validateMeasure,
+  hint: measureHint,
 });

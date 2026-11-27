@@ -547,6 +547,12 @@
 .number-line.place .touch {
   fill: transparent;
 }
+/* A strip to measure (#171), laid on the ruler from its 0. */
+.number-line .strip {
+  fill: #6fb3e0;
+  stroke: #2f6e9e;
+  stroke-width: 3;
+}
 #question .answer-zone > .submit {
   min-height: 88px;
 }

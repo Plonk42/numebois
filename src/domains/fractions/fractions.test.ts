@@ -23,7 +23,8 @@ import {
 } from './equal';
 import { READ, READ_LEVELS, generateRead, type ReadExercise } from './generators';
 import { readHint } from './hints';
-import { add, read } from './skills';
+import { MEASURE_LEVELS, generateMeasure, measureHint, mixedText } from './measure';
+import { add, measure, read } from './skills';
 import { fractionWords } from './words';
 
 const SEEDS = 1000;
@@ -328,5 +329,56 @@ describe('additionner et soustraire des fractions (#170)', () => {
       'Les parts n’ont pas la même taille.\nÉcris d’abord 1/2 en quarts.',
     );
     expect(addFractionsHint(quarters, 2)).toBe('1/2 = 2/4.\nDonc 1/2 + 1/4 = 3/4.');
+  });
+});
+
+describe('mesurer en fractions d’unité (#171)', () => {
+  it('measures and places on a ruler in quarters, then in tenths', () => {
+    const forms = ['measure', 'place', 'mixed', 'place', 'measure'];
+    for (let level = 0; level < MEASURE_LEVELS; level++) {
+      for (let seed = 0; seed < SEEDS; seed++) {
+        const e = generateMeasure(new Rng(seed), level);
+        expect(e.form).toBe(forms[level]);
+        expect(e.denominator).toBe(level < 3 ? 4 : 10);
+        if (e.form === 'measure') {
+          expect(e.tick >= 1 && e.tick < e.denominator).toBe(true);
+          expect(e.figure).toEqual(expect.objectContaining({ arrow: e.tick, strip: true }));
+          expect(e.answer).toBe(`${e.tick}/${e.denominator}`);
+        }
+        if (e.form === 'place') {
+          const [n, d] = e.asked!;
+          expect(n < d && (n * e.denominator) / d === e.tick).toBe(true);
+          if (e.input.kind !== 'number-line') throw new Error('règle attendue');
+          expect(e.tick).toBeLessThanOrEqual(e.input.line.to);
+        }
+        if (e.form === 'mixed') {
+          expect(e.tick % 4).not.toBe(0);
+          expect(e.answer).toBe(mixedText(Math.floor(e.tick / 4), e.tick % 4));
+          if (e.input.kind !== 'choice') throw new Error('choix attendu');
+          expect(new Set(e.input.options).size).toBe(4);
+        }
+      }
+    }
+  });
+
+  it('accepts an equal fraction, names the ticks counted with the 0 and the fraction not written in tenths', () => {
+    const e = { ...generateMeasure(new Rng(1), 4), tick: 5, answer: '5/10' };
+    expect(measure.validate(e, '1/2')).toBe(true);
+    expect(measureHint(e, 1, tried('6/10'))).toBe(
+      'Tu as compté le trait du 0.\nCompte les bonds depuis 0.',
+    );
+    expect(measureHint(e, 1, tried('5/11'))).toBe(
+      'Entre 0 et 1, il y a 10 parts, pas 11.\nCompte les espaces, pas les traits.',
+    );
+    const half = {
+      ...generateMeasure(new Rng(1), 3),
+      tick: 5,
+      asked: [1, 2] as const,
+      answer: '5',
+    };
+    expect(measureHint(half, 1, tried('1'))).toBe(
+      '1/2, ce n’est pas 1/10.\nÉcris d’abord 1/2 en dixièmes.',
+    );
+    expect(measureHint(half, 2)).toBe('1/2 = 5/10 : 5 bonds depuis 0.');
   });
 });

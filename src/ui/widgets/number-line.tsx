@@ -62,7 +62,7 @@ function Line({ line, width, pins }: LineProps) {
             />
             {labelled && (
               <text x={x} y={AXIS_Y + 46}>
-                {grouped(String(value))}
+                {grouped(String(line.denominator ? value / line.denominator : value))}
               </text>
             )}
           </g>
@@ -75,11 +75,30 @@ function Line({ line, width, pins }: LineProps) {
   );
 }
 
-/** The line to read, beside the keypad: an arrow on one tick. */
-export function NumberLineFigure({ line, arrow }: { line: NumberLine; arrow: number }) {
+/** The line to read, beside the keypad: an arrow on one tick, or a strip laid from its 0 to it. */
+export function NumberLineFigure({
+  line,
+  arrow,
+  strip = false,
+}: {
+  line: NumberLine;
+  arrow: number;
+  strip?: boolean;
+}) {
+  const start = tickX(line, line.from, NARROW);
   return (
     <svg class="number-line" viewBox={`0 0 ${NARROW} ${HEIGHT}`}>
-      <Line line={line} width={NARROW} pins={[{ value: arrow, state: 'arrow' }]} />
+      {strip && (
+        <rect
+          class="strip"
+          x={start}
+          y={AXIS_Y - 58}
+          width={tickX(line, arrow, NARROW) - start}
+          height={36}
+          rx={4}
+        />
+      )}
+      <Line line={line} width={NARROW} pins={strip ? [] : [{ value: arrow, state: 'arrow' }]} />
     </svg>
   );
 }

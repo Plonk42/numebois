@@ -10,6 +10,8 @@ export interface NumberLine {
   to: number;
   step: number;
   labels: readonly number[];
+  /** A ruler in fractions of the unit (#171): values count quarters or tenths, labels whole units. */
+  denominator?: number;
 }
 
 /** How a whole shared in equal parts is drawn (#61): a galette, a strip, a bar of chocolate, a slice of log. */
@@ -104,7 +106,8 @@ export type ExerciseInput =
 
 /** What the child looks at without touching it, under the statement (one component per kind). */
 export type Figure =
-  | { kind: 'number-line'; line: NumberLine; arrow: number }
+  /** The arrow on a tick, or with `strip` a strip from the start of the line to it, to measure. */
+  | { kind: 'number-line'; line: NumberLine; arrow: number; strip?: boolean }
   /** Base-ten blocks: plates of 100, bars of 10 and cubes of 1. */
   | { kind: 'blocks'; hundreds: number; tens: number; units: number }
   /** A place-value table, one column per rank down to the units, a digit in each. */
