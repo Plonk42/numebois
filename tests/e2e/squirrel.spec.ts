@@ -25,10 +25,11 @@ async function playTrail(page: Page, missed: number | null = null) {
 async function tablesAcquired(page: Page) {
   await page.goto('./?stage=0&name=');
   await page.evaluate(() => window.__numebois!.ready);
+  // A short trail alone does not pay a shoot (#29): the reserve makes up for it.
   await loadSave(page, {
     version: 6,
     savedAt: '2026-11-23T10:00:00.000Z',
-    leaves: 0,
+    leaves: 6,
     seeds: 0,
     trailLength: 'short',
     progress: [
