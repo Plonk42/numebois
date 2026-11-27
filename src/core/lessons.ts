@@ -20,9 +20,14 @@ export interface LessonState {
   used: boolean;
 }
 
-/** The astuce of a notion: the first one not seen yet, or else the first one. */
-function lessonOf(skill: SkillId, { lessons, seen }: LessonState): Lesson | null {
-  const own = lessons.filter((lesson) => lesson.skill === skill);
+/**
+ * The astuce of a notion at its level: the first one not seen yet, or else the first one. An
+ * astuce for higher levels (`fromLevel`) waits for them.
+ */
+function lessonOf(skill: SkillId, { lessons, seen }: LessonState, level: number): Lesson | null {
+  const own = lessons.filter(
+    (lesson) => lesson.skill === skill && (lesson.fromLevel ?? 0) <= level,
+  );
   return own.find((lesson) => !seen.has(lesson.id)) ?? own[0] ?? null;
 }
 
@@ -36,7 +41,7 @@ export function lessonBefore(
   state: LessonState,
 ): LessonMoment | null {
   if (state.used || (progress && progress.stage !== 'discovery')) return null;
-  const lesson = lessonOf(skill, state);
+  const lesson = lessonOf(skill, state, progress?.level ?? 0);
   return lesson && !state.seen.has(lesson.id) ? { kind: 'impose', lesson } : null;
 }
 
@@ -49,6 +54,6 @@ export function lessonAfter(
   if (state.used) return null;
   const last = progress?.recent.slice(-STRUGGLE_ANSWERS) ?? [];
   if (last.filter((answer) => !answer.right).length < STRUGGLE_MISTAKES) return null;
-  const lesson = lessonOf(skill, state);
+  const lesson = lessonOf(skill, state, progress?.level ?? 0);
   return lesson && { kind: 'offer', lesson };
 }

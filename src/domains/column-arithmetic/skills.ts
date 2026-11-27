@@ -51,8 +51,9 @@ export const multiplication = defineSkill<MultiplicationExercise>({
   name: 'Poser une multiplication',
   prerequisites: [ADD, PRODUCTS],
   levels: MULTIPLY_LEVELS,
-  // Setting out, then a fact of the table, its carry and two digits written: 7 to 10 s a column.
-  questionSeconds: [25, 35, 35, 45, 50, 60],
+  // Setting out, then a fact of the table, its carry and two digits written: 7 to 10 s a column;
+  // by two digits (#176), two lines and their sum.
+  questionSeconds: [25, 35, 35, 45, 50, 60, 65, 80, 80],
   generate: generateMultiplication,
   validate: validateNumber,
   hint: multiplicationHint,

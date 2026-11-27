@@ -85,6 +85,11 @@ export type ExerciseInput =
       setup?: ColumnSetup;
       /** Prices (#177): the last `decimals` columns are the cents, after the comma. */
       decimals?: number;
+      /**
+       * A multiplication by two digits (#176): the lines of partial products written first, from
+       * the units (the second starts with its 0); `columns` is then their sum.
+       */
+      partials?: readonly (readonly Column[])[];
     }
   /** A time written in its boxes, hours then minutes (then seconds): « 14h10 » (`timeText`). */
   | {
@@ -291,6 +296,8 @@ export interface Lesson {
   /** Displayed title, in French. */
   title: string;
   steps: readonly LessonStep[];
+  /** For the levels from this one only (#176: multiplying by two digits). */
+  fromLevel?: number;
 }
 
 export interface Domain {

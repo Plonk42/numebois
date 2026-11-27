@@ -7,31 +7,33 @@ import { Keypad } from './keypad';
 
 type ColumnInput = Extract<ExerciseInput, { kind: 'column' }>;
 
-/** A box of the grid: the digit under the line, or the carry over a column. */
+/** A box of the grid: a digit of a line, or the carry over a column. */
 interface Spot {
   kind: 'digit' | 'carry';
+  /** The lines written under the operation (#176): the partial products, then the result. */
+  line: number;
   /** From the units. */
   column: number;
 }
 
-const keyOf = (spot: Spot) => `${spot.kind}${spot.column}`;
+const keyOf = (spot: Spot) => `${spot.kind}${spot.line}:${spot.column}`;
 /** A demo writes a digit once the column is read, its carry soon after. */
 const DEMO_DIGIT_MS = 2400;
 const DEMO_CARRY_MS = 900;
 
 /**
- * Where the cursor goes, from the units: the digit of each column, then its carry; a number
- * written whole (`joined` columns) from its left digit, as by hand (#164).
+ * Where the cursor goes in a line, from the units: the digit of each column, then its carry; a
+ * number written whole (`joined` columns) from its left digit, as by hand (#164).
  */
-function spotsOf(columns: readonly Column[]): Spot[] {
+function spotsOf(columns: readonly Column[], line: number): Spot[] {
   const spots: Spot[] = [];
   let i = 0;
   while (i < columns.length) {
     let end = i;
     while (columns[end + 1]?.joined) end++;
-    for (let j = end; j >= i; j--) spots.push({ kind: 'digit', column: j });
+    for (let j = end; j >= i; j--) spots.push({ kind: 'digit', line, column: j });
     if (columns[i].carry > 0 && end + 1 < columns.length) {
-      spots.push({ kind: 'carry', column: end + 1 });
+      spots.push({ kind: 'carry', line, column: end + 1 });
     }
     i = end + 1;
   }
@@ -48,26 +50,28 @@ function ownerOf(columns: readonly Column[], column: number): number {
 /** The column a box belongs to: a carry comes from the column on its right. */
 const sourceOf = (spot: Spot) => (spot.kind === 'digit' ? spot.column : spot.column - 1);
 
-function expected(columns: readonly Column[], spot: Spot): string {
-  const column = columns[sourceOf(spot)];
+function expected(lines: readonly (readonly Column[])[], spot: Spot): string {
+  const column = lines[spot.line][sourceOf(spot)];
   return String(spot.kind === 'digit' ? column.digit : column.carry);
 }
 
 /** The result as written under the line, empty boxes left out. */
-function resultOf(columns: readonly Column[], values: Record<string, string>): string {
-  return columns
-    .map((_, i) => values[`digit${i}`] ?? '')
+function resultOf(lines: readonly (readonly Column[])[], values: Record<string, string>): string {
+  const line = lines.length - 1;
+  return lines[line]
+    .map((_, column) => values[keyOf({ kind: 'digit', line, column })] ?? '')
     .reverse()
     .join('');
 }
 
 /**
  * An operation set out in columns, units on the right (#48), the numbers first set out by the
- * child (#158, `useColumnSetup`). The cursor goes by itself from
- * the units, the digit of a column then its carry; the keypad writes in it. Guided, Plume tells
- * the column; accompanied, a column is checked as it is written, its calculation shown at a
- * slip; alone, the result is checked at the end, the first column that jams shown gently, and
- * a touch on a box moves the cursor. Computed by the module: the widget only shows.
+ * child (#158, `useColumnSetup`). The cursor goes by itself from the units, the digit of a
+ * column then its carry; the keypad writes in it. A multiplication by two digits (#176) writes
+ * its two lines of partial products first, then their sum. Guided, Plume tells the column;
+ * accompanied, a column is checked as it is written, its calculation shown at a slip; alone, the
+ * result is checked at the end, the first box that jams shown gently, and a touch on a box moves
+ * the cursor. Computed by the module: the widget only shows.
  */
 export function ColumnOperation({
   exercise,
@@ -80,9 +84,13 @@ export function ColumnOperation({
   demo = false,
 }: WidgetProps<ColumnInput>) {
   const { columns, rows } = input;
+  const partials = input.partials ?? [];
+  const lines = [...partials, columns];
+  const last = lines.length - 1;
   // Played by itself, as Plume would guide it.
   const mode = demo ? 'guided' : input.mode;
-  const spots = spotsOf(columns);
+  const spots = lines.flatMap((line, i) => spotsOf(line, i));
+  const digits = spots.filter((spot) => spot.kind === 'digit');
   const [values, setValues] = useState<Record<string, string>>({});
   const [cursor, setCursor] = useState(0);
   /** Accompanied or guided: the box holding a digit that is not the one to write. */
@@ -113,7 +121,7 @@ export function ColumnOperation({
       move(next, at + 1);
       return;
     }
-    if (digit !== expected(columns, spot)) {
+    if (digit !== expected(lines, spot)) {
       move(next, at);
       setSlip(key);
       if (mode === 'accompanied' && !slipped.current) {
@@ -124,7 +132,7 @@ export function ColumnOperation({
     }
     setSlip(null);
     move(next, at + 1);
-    if (at + 1 === spots.length) onSubmit(resultOf(columns, next));
+    if (at + 1 === spots.length) onSubmit(resultOf(lines, next));
   };
   const type = (digit: string) => {
     if (!setup.posed.current) setup.keys.type(digit);
@@ -150,26 +158,26 @@ export function ColumnOperation({
     move(without(spots[at - 1]), at - 1);
   };
 
-  const ready = mode === 'alone' && columns.every((_, i) => values[`digit${i}`] !== undefined);
+  const filled = (now: Record<string, string>) =>
+    digits.every((spot) => now[keyOf(spot)] !== undefined);
+  const ready = mode === 'alone' && filled(values);
   const submit = () => {
     const { values: now } = latest.current;
     if (!setup.posed.current) {
       setup.keys.submit();
       return;
     }
-    if (locked || mode !== 'alone' || columns.some((_, i) => now[`digit${i}`] === undefined)) {
-      return;
-    }
-    const first = columns.findIndex((column, i) => now[`digit${i}`] !== String(column.digit));
-    if (first >= 0) {
-      const key = `digit${first}`;
+    if (locked || mode !== 'alone' || !filled(now)) return;
+    const first = digits.find((spot) => now[keyOf(spot)] !== expected(lines, spot));
+    if (first) {
+      const key = keyOf(first);
       setJam({ key, value: now[key] });
       move(
         now,
         spots.findIndex((spot) => keyOf(spot) === key),
       );
     }
-    onSubmit(resultOf(columns, now));
+    onSubmit(resultOf(lines, now));
   };
 
   const keys = useRef({ type, write, erase, submit });
@@ -195,7 +203,7 @@ export function ColumnOperation({
       if (!spot) return;
       timer = window.setTimeout(
         () => {
-          keys.current.write(expected(columns, spot));
+          keys.current.write(expected(lines, spot));
           next();
         },
         spot.kind === 'digit' ? DEMO_DIGIT_MS : DEMO_CARRY_MS,
@@ -208,45 +216,46 @@ export function ColumnOperation({
   const width = columns.length;
   const active = spots[cursor];
   const columnOf = (rank: number) => width - rank + 1;
-  // A multiplication keeps its carry in the bag beside it, not over the columns (#49).
+  // A multiplication keeps its carry in the bag beside it, not over the columns (#49), the sum
+  // of its two lines too (#176): the operation stays on the slate, under Plume's bubble.
   const bagged = input.operator === '×';
   // A subtraction's carry goes down, under the bottom number in the next column (#173).
   const under = input.operator === '−';
   const top = bagged || under ? 2 : 3;
-  const lineRow = rows.length + top + (under ? 1 : 0);
+  const operationLine = rows.length + top + (under ? 1 : 0);
+  // Two lines of partial products, then their sum.
+  const partialRow = (line: number) => operationLine + 1 + line;
+  const lineRow = partials.length > 0 ? partialRow(partials.length) : operationLine;
   const resultRow = lineRow + 1;
   // A price (#177): the comma after the euros, in every row, the result's too.
   const decimals = input.decimals ?? 0;
   const commaRows = decimals > 0 ? [...rows.map((_, row) => row + top), resultRow] : [];
   const carryRow = under ? rows.length + top : 2;
-  const box = (spot: Spot, inBag = false) => {
+  const rowOf = (spot: Spot) => {
+    if (spot.kind === 'carry') return carryRow;
+    return spot.line === last ? resultRow : partialRow(spot.line);
+  };
+  const box = (spot: Spot, bag = false) => {
     const key = keyOf(spot);
     let value = values[key] ?? '';
     let state = value ? 'filled' : 'empty';
-    if (shown !== null) [value, state] = [inBag ? '' : expected(columns, spot), 'shown'];
-    else if (right) [value, state] = [inBag ? '' : value, 'right'];
+    if (shown !== null) [value, state] = [bag ? '' : expected(lines, spot), 'shown'];
+    else if (right) [value, state] = [bag ? '' : value, 'right'];
     else if (key === slip || (jam?.key === key && jam.value === value)) state = 'tried';
     if (!locked && active && keyOf(active) === key) state += ' cursor';
     const rank = spot.column;
+    const name = `${spot.kind === 'digit' ? 'Chiffre' : 'Retenue'} des ${rankOf(rank, decimals).name}`;
     return (
       <button
         key={key}
         type="button"
         class={`box ${spot.kind} ${rankOf(rank, decimals).css} ${state}`}
+        data-line={spot.line}
         data-column={rank}
-        style={
-          inBag
-            ? undefined
-            : {
-                gridColumn: columnOf(rank),
-                gridRow: spot.kind === 'digit' ? resultRow : carryRow,
-              }
-        }
+        style={bag ? undefined : { gridColumn: columnOf(rank), gridRow: rowOf(spot) }}
         disabled={locked || mode !== 'alone'}
         aria-label={
-          inBag
-            ? 'Sac à retenue'
-            : `${spot.kind === 'digit' ? 'Chiffre' : 'Retenue'} des ${rankOf(rank, decimals).name}`
+          bag ? 'Sac à retenue' : `${spot.line < last ? `Ligne ${spot.line + 1}, ` : ''}${name}`
         }
         onPointerDown={(event) => {
           event.preventDefault();
@@ -262,11 +271,19 @@ export function ColumnOperation({
     );
   };
   // The bag holds the carry the column in progress receives, or the one it sends.
-  const owner = active ? ownerOf(columns, active.column) : -1;
+  const owner = active ? ownerOf(lines[active.line], active.column) : -1;
   const bagSpot =
-    spots.find((spot) => spot.kind === 'carry' && active && spot.column === owner) ?? null;
+    spots.find(
+      (spot) =>
+        spot.kind === 'carry' && active && spot.line === active.line && spot.column === owner,
+    ) ?? null;
+  // The table of the digit the line in progress multiplies by.
+  const factor =
+    partials.length > 0
+      ? Math.floor(rows[1] / 10 ** Math.min(active?.line ?? 0, partials.length - 1)) % 10
+      : rows[1];
 
-  const coach = active && !locked && !posing ? columns[sourceOf(active)] : null;
+  const coach = active && !locked && !posing ? lines[active.line][sourceOf(active)] : null;
   let bubble: { title: string; text: string } | null = setup.bubble;
   if (coach && mode === 'guided') bubble = { title: coach.calc, text: coach.say };
   else if (coach && mode === 'accompanied' && slip !== null) {
@@ -284,28 +301,36 @@ export function ColumnOperation({
     columns[rank].carry > 0 &&
     (shown !== null ||
       right ||
-      values[`carry${rank + 1}`] === '1' ||
+      values[keyOf({ kind: 'carry', line: last, column: rank + 1 })] === '1' ||
       (told && !posing && coach !== null && sourceOf(active) === rank));
 
   return (
     <>
       <Work>
         {table && (
-          <ol class="table-of" aria-label={`La table de ${rows[1]}`}>
+          <ol class="table-of" aria-label={`La table de ${factor}`}>
             {Array.from({ length: 10 }, (_, i) => (
               <li key={i}>
-                {rows[1]} × {i + 1} = {rows[1] * (i + 1)}
+                {factor} × {i + 1} = {factor * (i + 1)}
               </li>
             ))}
           </ol>
         )}
         <div class="column-layout" hidden={table}>
           <div
-            class="statement column-operation"
+            class={`statement column-operation${partials.length > 0 ? ' partials' : ''}`}
             aria-label={exercise.statement}
             style={{
               gridTemplateColumns: `44px repeat(${width}, ${under ? 76 : 68}px)`,
-              gridTemplateRows: `30px ${bagged || under ? '' : '60px '}repeat(${rows.length}, 60px) ${under ? '60px ' : ''}6px 64px`,
+              gridTemplateRows: [
+                '30px',
+                ...(bagged || under ? [] : ['60px']),
+                ...rows.map(() => '60px'),
+                ...(under ? ['60px'] : []),
+                '6px',
+                ...(partials.length > 0 ? [...partials.map(() => '60px'), '6px'] : []),
+                '64px',
+              ].join(' '),
             }}
           >
             {ranks.map((rank) => (
@@ -324,8 +349,8 @@ export function ColumnOperation({
                 {rankOf(rank, decimals).label}
               </span>
             ))}
-            {!bagged &&
-              !posing &&
+            {!posing &&
+              !bagged &&
               spots.filter((spot) => spot.kind === 'carry').map((spot) => box(spot))}
             {rows.slice(0, setup.termRows).flatMap((n, row) =>
               [...String(n)].reverse().map((digit, rank) => (
@@ -360,10 +385,21 @@ export function ColumnOperation({
             <span class="sign" style={{ gridColumn: 1, gridRow: rows.length + top - 1 }}>
               {input.operator}
             </span>
-            <span class="line" style={{ gridColumn: '1 / -1', gridRow: lineRow }} />
+            <span class="line" style={{ gridColumn: '1 / -1', gridRow: operationLine }} />
+            {partials.length > 0 && (
+              <>
+                <span
+                  class="sign"
+                  style={{ gridColumn: 1, gridRow: partialRow(partials.length - 1) }}
+                >
+                  +
+                </span>
+                <span class="line" style={{ gridColumn: '1 / -1', gridRow: lineRow }} />
+              </>
+            )}
             {posing
               ? setup.boxes((row, rank) => ({ gridColumn: columnOf(rank), gridRow: row + top }))
-              : spots.filter((spot) => spot.kind === 'digit').map((spot) => box(spot))}
+              : digits.map((spot) => box(spot))}
           </div>
           {bagged && (
             <div class="bag">
@@ -385,7 +421,7 @@ export function ColumnOperation({
               setTable(!table);
             }}
           >
-            {table ? 'Revenir à l’opération' : `Voir la table de ${rows[1]}`}
+            {table ? 'Revenir à l’opération' : `Voir la table de ${factor}`}
           </button>
         )}
       </Work>

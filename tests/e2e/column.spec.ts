@@ -5,6 +5,7 @@ import {
   driver,
   expectSlateLayout,
   game,
+  lineDigits,
   poseColumns,
   rowBox,
 } from './helpers';
@@ -325,5 +326,59 @@ test('prix posés : la virgule sous la virgule', async ({ page }) => {
   await test.info().attach('prix', { body: await page.screenshot(), contentType: 'image/png' });
   await page.keyboard.type(columnKeys(input.columns, exercise.answer).join(''));
   await expect(card.locator('.praise')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+/** By two digits (#176): a line for the units, a line for the tens with its 0, then the sum. */
+test('multiplication par deux chiffres : deux lignes, le 0, puis leur somme', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto('./?practice=column-arithmetic.multiply&level=6&seed=3&stage=0&quality=low');
+  await page.evaluate(() => window.__numebois!.ready);
+  const card = page.locator('#question');
+  const grid = card.locator('.column-operation');
+  let exercise = await current(page);
+  while (exercise.level < 6) {
+    await driver(exercise.input).answer(page, exercise.input, exercise.answer);
+    await expect(card.locator('.praise')).toBeVisible();
+    exercise = await current(page);
+  }
+  const input = exercise.input;
+  if (input.kind !== 'column' || !input.partials) throw new Error(input.kind);
+  expect(input.mode).toBe('guided');
+  const [first, second] = input.partials;
+  await poseColumns(page, input);
+  await page.keyboard.type(columnKeys(first, lineDigits(first)).join(''));
+  // The line of the tens starts with its 0, as Plume says.
+  await expect(card.locator('.hint')).toContainText('Maintenant, je multiplie par');
+  await expect(card.locator('.hint')).toContainText('un 0 dans les unités');
+  await page.keyboard.type('0');
+  await expect(grid.locator('.box.digit[data-line="1"][data-column="0"]')).toHaveText('0');
+  await page.keyboard.type(columnKeys(second, lineDigits(second)).slice(1).join(''));
+  await expect(card.locator('.hint')).toContainText('J’additionne les deux lignes.');
+  await expectSlateLayout(page);
+  await test.info().attach('somme', { body: await page.screenshot(), contentType: 'image/png' });
+  await page.keyboard.type(columnKeys(input.columns, exercise.answer).join(''));
+  await expect(card.locator('.praise')).toBeVisible();
+
+  // Alone: the 0 of the second line forgotten, named by Plume.
+  await page.goto('./?practice=column-arithmetic.multiply&level=8&seed=4&stage=0&quality=low');
+  await page.evaluate(() => window.__numebois!.ready);
+  exercise = await current(page);
+  while (exercise.level < 8) {
+    await driver(exercise.input).answer(page, exercise.input, exercise.answer);
+    await expect(card.locator('.praise')).toBeVisible();
+    exercise = await current(page);
+  }
+  const alone = exercise.input;
+  if (alone.kind !== 'column' || !alone.partials) throw new Error(alone.kind);
+  const [a, b] = alone.rows;
+  const wrong = String(a * (b % 10) + a * Math.floor(b / 10));
+  if (wrong.length === alone.columns.length) {
+    await driver(alone).answer(page, alone, wrong);
+    await expect(card.locator('.hint')).toContainText('Il manque le 0 de la 2e ligne.');
+    await expectSlateLayout(page);
+    await test.info().attach('seule', { body: await page.screenshot(), contentType: 'image/png' });
+  }
   expect(errors).toEqual([]);
 });

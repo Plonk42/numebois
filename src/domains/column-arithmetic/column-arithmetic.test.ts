@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { Rng } from '../../core/rng';
-import { addColumns, carryCount, multiplyColumns, subtractColumns } from './columns';
+import {
+  addColumns,
+  carryCount,
+  multiplyByTwoDigits,
+  multiplyColumns,
+  subtractColumns,
+} from './columns';
 import {
   addition,
   ADD_LEVELS,
@@ -10,6 +16,7 @@ import {
   generateMultiplication,
   multiplication,
   MULTIPLY_LEVELS,
+  multiplyStatement,
   WRITTEN_SHARE,
   SUBTRACT_LEVELS,
   fitsSubtractLevel,
@@ -92,9 +99,9 @@ describe('poser une addition', () => {
   });
 });
 
-describe('poser une multiplication (#49)', () => {
-  const MULTIPLY_MODES = ['guided', 'guided', 'accompanied', 'accompanied', 'alone', 'alone'];
+const MULTIPLY_MODES = [...MODES, 'guided', 'accompanied', 'alone'];
 
+describe('poser une multiplication (#49)', () => {
   it('a une règle par niveau, sur 1 000 graines', () => {
     expect(MULTIPLY_MODES).toHaveLength(MULTIPLY_LEVELS);
     for (let level = 0; level < MULTIPLY_LEVELS; level++) {
@@ -104,14 +111,15 @@ describe('poser une multiplication (#49)', () => {
         expect(fitsMultiplyLevel(a, b, level), `${a} × ${b} au niveau ${level}`).toBe(true);
         expect(input.kind === 'column' && input.mode).toBe(MULTIPLY_MODES[level]);
         expect(b).toBeGreaterThanOrEqual(2);
-        expect(b).toBeLessThanOrEqual(9);
+        expect(b).toBeLessThanOrEqual(level < 6 ? 9 : 49);
+        if (level >= 6) expect(b % 10).not.toBe(0);
         expect(a * b).toBeLessThanOrEqual(9999);
       }
     }
   });
 
   it('pose les chiffres et le sac à retenue d’un calcul direct, sur 1 000 graines', () => {
-    for (let level = 0; level < MULTIPLY_LEVELS; level++) {
+    for (let level = 0; level < 6; level++) {
       for (let seed = 0; seed < 1000; seed++) {
         const { a, b, answer } = generateMultiplication(new Rng(seed), level);
         const columns = multiplyColumns(a, b);
@@ -168,13 +176,13 @@ describe('poser une multiplication (#49)', () => {
 
 describe('poser l’opération avant de la calculer (#158)', () => {
   const generators = [
-    ['addition', generateAddition, ADD_LEVELS],
-    ['multiplication', generateMultiplication, MULTIPLY_LEVELS],
+    ['addition', generateAddition, ADD_LEVELS, MODES],
+    ['multiplication', generateMultiplication, MULTIPLY_LEVELS, MULTIPLY_MODES],
   ] as const;
 
   it.each(generators)(
     '%s : d’un appui avec Plume, puis écrite de plus en plus, sur 1 000 graines',
-    (_, generate, levels) => {
+    (_, generate, levels, modes) => {
       for (let level = 0; level < levels; level++) {
         let written = 0;
         for (let seed = 0; seed < 1000; seed++) {
@@ -183,7 +191,7 @@ describe('poser l’opération avant de la calculer (#158)', () => {
           expect(instruction.startsWith(`Pose ${statement}`), instruction).toBe(true);
           if (input.setup === 'write') written++;
         }
-        const share = WRITTEN_SHARE[MODES[level] as keyof typeof WRITTEN_SHARE];
+        const share = WRITTEN_SHARE[modes[level] as keyof typeof WRITTEN_SHARE];
         expect(written / 1000, `niveau ${level}`).toBeCloseTo(share, 1);
       }
     },
@@ -355,6 +363,83 @@ describe('poser des prix en euros (#177)', () => {
     expect(priceHint(sum, 1)).toContain('La virgule descend sous la virgule.');
     expect(priceHint(sum, 1, { answer: '1926' })).toBe(
       'Aux unités, tu as oublié la retenue.\nElle est en haut de la colonne.',
+    );
+  });
+});
+
+describe('multiplier par un nombre à deux chiffres (#176)', () => {
+  it('pose les deux lignes et leur somme d’un calcul direct, sur 1 000 graines', () => {
+    for (let level = 6; level < MULTIPLY_LEVELS; level++) {
+      let smallFirst = 0;
+      for (let seed = 0; seed < 1000; seed++) {
+        const { a, b, answer, input, statement } = generateMultiplication(new Rng(seed), level);
+        if (input.kind !== 'column') throw new Error(input.kind);
+        expect(answer).toBe(String(a * b));
+        expect(input.rows).toEqual([a, b]);
+        expect(String(a).length).toBeGreaterThanOrEqual(String(b).length);
+        const number = (line: readonly { digit: number }[]) =>
+          Number(
+            line
+              .map((c) => c.digit)
+              .reverse()
+              .join(''),
+          );
+        const [first, second] = input.partials!;
+        expect(number(first)).toBe(a * (b % 10));
+        expect(second[0]).toMatchObject({ digit: 0, carry: 0 });
+        expect(number(second)).toBe(a * Math.floor(b / 10) * 10);
+        expect(number(input.columns)).toBe(a * b);
+        if (statement !== multiplyStatement(a, b)) {
+          smallFirst++;
+          expect(String(a).length).toBeGreaterThan(String(b).length);
+        }
+      }
+      if (level === 7) expect(smallFirst / 1000).toBeCloseTo(0.5, 1);
+    }
+  });
+
+  it('dit ce que Plume écrit, comme la classe', () => {
+    const { partials, columns } = multiplyByTwoDigits(548, 16);
+    expect(partials[0].map((c) => c.calc)).toEqual([
+      '6 × 8 = 48',
+      '6 × 4 + 4 = 28',
+      '6 × 5 = 30, puis 30 + 2 = 32',
+      '6 × 5 = 30, puis 30 + 2 = 32',
+    ]);
+    expect(partials[1][0]).toEqual({
+      digit: 0,
+      carry: 0,
+      calc: 'Maintenant, je multiplie par 1 dizaine.',
+      say: 'J’écris d’abord un 0 dans les unités.',
+    });
+    expect(partials[1].slice(1).map((c) => c.digit)).toEqual([8, 4, 5]);
+    expect(columns[0].say).toBe('J’additionne les deux lignes.\nJ’écris 8.');
+    expect(columns[1].say).toBe('J’écris 6, je mets 1 dans le sac.');
+    expect(columns.map((c) => c.digit)).toEqual([8, 6, 7, 8]);
+  });
+});
+
+describe('indices de la multiplication par deux chiffres (#176)', () => {
+  const tried = (answer: number) => ({ answer: String(answer) });
+  const exercise = multiplication(548, 16, 7);
+
+  it('nomme une ligne oubliée et le 0 oublié', () => {
+    expect(multiplicationHint(exercise, 1, tried(3288 + 548))).toBe(
+      'Il manque le 0 de la 2e ligne.\nElle commence par un 0 dans les unités.',
+    );
+    expect(multiplicationHint(exercise, 1, tried(3288))).toBe(
+      'Il manque la 2e ligne, celle des dizaines.',
+    );
+    expect(multiplicationHint(exercise, 1, tried(5480))).toBe(
+      'Il manque la 1re ligne, celle des unités.',
+    );
+    // 8 + 8 = 16: the carry forgotten on the hundreds of the sum.
+    expect(multiplicationHint(exercise, 1, tried(8668))).toBe(
+      'Aux centaines, tu as oublié la retenue.\nElle est dans le sac.',
+    );
+    expect(multiplicationHint(exercise, 1)).toContain('Une ligne pour les unités');
+    expect(multiplicationHint(exercise, 2)).toBe(
+      '548\u00a0×\u00a016 = 8\u202f768.\n3\u202f288 + 5\u202f480 = 8\u202f768.',
     );
   });
 });

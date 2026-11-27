@@ -1,7 +1,14 @@
 import type { Rng } from '../../core/rng';
 import type { ColumnMode, ColumnSetup, Exercise } from '../../core/types';
 import { formatNumber } from '../numbers/words';
-import { addColumns, carryCount, multiplyColumns, rankCount, subtractColumns } from './columns';
+import {
+  addColumns,
+  carryCount,
+  multiplyByTwoDigits,
+  multiplyColumns,
+  rankCount,
+  subtractColumns,
+} from './columns';
 
 export const ADD = 'column-arithmetic.add';
 
@@ -280,7 +287,7 @@ export function generateSubtraction(rng: Rng, level: number): SubtractionExercis
 
 export const MULTIPLY = 'column-arithmetic.multiply';
 
-/** `a × b`, `b` of one digit; the rows are the two numbers. */
+/** `a × b`, `b` of one or two digits (#176); the rows are the two numbers, `a` on top. */
 export interface MultiplicationExercise extends Exercise {
   a: number;
   b: number;
@@ -299,13 +306,17 @@ interface MultiplyLevel {
 }
 
 /**
- * Levels of « poser une multiplication », by a number of one digit, results up to 9 999:
+ * Levels of « poser une multiplication », results up to 9 999, by a number of one digit:
  * 0. guided, 2 digits by 2 to 5, a carry: 23 × 4;
  * 1. guided, 3 digits by 2 to 9, two carries or more: 347 × 6;
  * 2. accompanied, 2 digits by 6 to 9, a carry or more;
  * 3. accompanied, 3 digits by 2 to 9, two carries or more;
  * 4. alone, 3 digits by 6 to 9, two carries or more;
- * 5. alone, 4 digits with a zero, by 2 to 9, a carry or more.
+ * 5. alone, 4 digits with a zero, by 2 to 9, a carry or more;
+ * then by a number of two digits (#176), two lines of partial products and their sum:
+ * 6. guided, 2 digits by 12 to 29: 34 × 12;
+ * 7. accompanied, 3 digits by 12 to 19: 548 × 16;
+ * 8. alone, 2 or 3 digits by 12 to 49.
  */
 const MULTIPLY_BY_LEVEL: readonly MultiplyLevel[] = [
   { mode: 'guided', ranks: [2, 2], factor: [2, 5], carries: 1 },
@@ -314,6 +325,9 @@ const MULTIPLY_BY_LEVEL: readonly MultiplyLevel[] = [
   { mode: 'accompanied', ranks: [3, 3], factor: [2, 9], carries: 2 },
   { mode: 'alone', ranks: [3, 3], factor: [6, 9], carries: 2 },
   { mode: 'alone', ranks: [4, 4], factor: [2, 9], carries: 1, zero: true },
+  { mode: 'guided', ranks: [2, 2], factor: [12, 29], carries: 1 },
+  { mode: 'accompanied', ranks: [3, 3], factor: [12, 19], carries: 2 },
+  { mode: 'alone', ranks: [2, 3], factor: [12, 49], carries: 2 },
 ];
 
 export const MULTIPLY_LEVELS = MULTIPLY_BY_LEVEL.length;
@@ -331,9 +345,14 @@ export function multiplication(
   b: number,
   level: number,
   setup?: ColumnSetup,
+  smallFirst = false,
 ): MultiplicationExercise {
   const { mode } = MULTIPLY_BY_LEVEL[level];
-  const statement = multiplyStatement(a, b);
+  // « 16 × 548 » is set out 548 on top: the number with fewer digits goes under.
+  const statement = smallFirst
+    ? `${b}${SPACE}×${SPACE}${formatNumber(a)}`
+    : multiplyStatement(a, b);
+  const lines = b >= 10 ? multiplyByTwoDigits(a, b) : { columns: multiplyColumns(a, b) };
   return {
     skill: MULTIPLY,
     level,
@@ -343,7 +362,7 @@ export function multiplication(
       kind: 'column',
       operator: '×',
       rows: [a, b],
-      columns: multiplyColumns(a, b),
+      ...lines,
       mode,
       ...(setup && { setup }),
     },
@@ -351,6 +370,13 @@ export function multiplication(
     a,
     b,
   };
+}
+
+/** Carries of `a × b`: in the bag, and over the sum of two lines (#176). */
+function carriesOf(a: number, b: number): number {
+  if (b < 10) return carryCount(multiplyColumns(a, b));
+  const { partials, columns } = multiplyByTwoDigits(a, b);
+  return [...partials, columns].reduce((sum, line) => sum + carryCount(line), 0);
 }
 
 /** Whether `a × b` fits a level: its ranks and multiplier, a result up to 9 999, the carries. */
@@ -363,7 +389,8 @@ export function fitsMultiplyLevel(a: number, b: number, level: number): boolean 
     b <= factor[1] &&
     a * b <= MAX_RESULT &&
     (!zero || String(a).slice(1).includes('0')) &&
-    carryCount(multiplyColumns(a, b)) >= carries
+    (b < 10 || b % 10 !== 0) &&
+    carriesOf(a, b) >= carries
   );
 }
 
@@ -375,7 +402,9 @@ export function generateMultiplication(rng: Rng, level: number): MultiplicationE
     const a = rng.int(10 ** (rank - 1), 10 ** rank - 1);
     const b = rng.int(factor[0], factor[1]);
     if (fitsMultiplyLevel(a, b, level)) {
-      return multiplication(a, b, level, drawSetup(rng, MULTIPLY_BY_LEVEL[level].mode));
+      // « 16 × 548 » now and then: the number with fewer digits goes under all the same.
+      const smallFirst = b >= 10 && a >= 100 && rng.fork('order').chance(1 / 2);
+      return multiplication(a, b, level, drawSetup(rng, MULTIPLY_BY_LEVEL[level].mode), smallFirst);
     }
   }
 }

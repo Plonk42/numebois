@@ -62,6 +62,19 @@ describe('astuces au bon moment (#51)', () => {
     expect(lessonAfter('d.c', answered(false, false, false), state())).toBeNull();
   });
 
+  it('keeps an astuce of higher levels for them (#176)', () => {
+    const LATER = { ...lesson('later'), fromLevel: 6 };
+    const states = (seen: Lesson[]): LessonState => ({
+      lessons: [FIRST, LATER],
+      seen: new Set(seen.map((l) => l.id)),
+      used: false,
+    });
+    const at = (level: number) => ({ ...answered(false, false, false), level });
+    expect(lessonAfter('d.a', at(2), states([FIRST]))?.lesson).toBe(FIRST);
+    expect(lessonAfter('d.a', at(6), states([FIRST]))?.lesson).toBe(LATER);
+    expect(lessonBefore('d.a', undefined, states([FIRST]))).toBeNull();
+  });
+
   it('brings at most one astuce a session', () => {
     expect(lessonBefore('d.a', undefined, state([], true))).toBeNull();
     expect(lessonAfter('d.a', answered(false, false, false), state([], true))).toBeNull();

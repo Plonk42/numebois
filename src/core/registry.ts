@@ -121,6 +121,10 @@ export function lessonContentErrors(lesson: Lesson, skills: ReadonlyMap<SkillId,
   if (!lesson.id.startsWith(`${lesson.skill}/`)) {
     errors.push(`${lesson.id} n'est pas préfixée par ${lesson.skill}/`);
   }
+  const from = lesson.fromLevel ?? 0;
+  if (skill && !(Number.isInteger(from) && from >= 0 && from < skill.levels)) {
+    errors.push(`${lesson.id} : à partir du niveau ${from}, hors de ${skill.id}`);
+  }
   if (lesson.steps.length === 0 || lesson.steps.length > MAX_LESSON_STEPS) {
     errors.push(`${lesson.id} : ${lesson.steps.length} étapes (1 à ${MAX_LESSON_STEPS})`);
   }

@@ -162,11 +162,17 @@ const DRIVERS: { [K in ExerciseInput['kind']]: Driver<Extract<ExerciseInput, { k
   },
   column: {
     async answer(page, input, value) {
-      const { columns, mode } = input;
+      const { columns, mode, partials = [] } = input;
       await poseColumns(page, input);
-      const typed = columnKeys(columns, value);
+      // The lines of partial products first (#176), written right, then the result.
+      const typed = [
+        ...partials.flatMap((line) => columnKeys(line, lineDigits(line))),
+        ...columnKeys(columns, value),
+      ];
       if (mode === 'alone') {
-        await page.locator('#question .box.digit[data-column="0"]').dispatchEvent('pointerdown');
+        await page
+          .locator('#question .box.digit[data-line="0"][data-column="0"]')
+          .dispatchEvent('pointerdown');
       }
       await page.keyboard.type(typed.join(''));
       if (mode === 'alone') await page.keyboard.press('Enter');
@@ -306,6 +312,13 @@ export function columnKeys(columns: readonly Column[], value: string): string[] 
   }
   return typed;
 }
+
+/** The number a line of columns writes, from its digits. */
+export const lineDigits = (columns: readonly Column[]) =>
+  columns
+    .map((column) => column.digit)
+    .reverse()
+    .join('');
 
 /** Writes a save in IndexedDB, as the game does, then reloads the page. */
 export async function loadSave(page: Page, save: object) {

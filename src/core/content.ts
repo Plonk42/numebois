@@ -91,7 +91,7 @@ function inputErrors(input: ExerciseInput, answer: string): string[] {
   }
   if (input.kind === 'column') {
     // Plume's bubble on each column: its calculation, and what she writes.
-    for (const { calc, say } of input.columns) {
+    for (const { calc, say } of [...(input.partials ?? []).flat(), ...input.columns]) {
       errors.push(...bubbleErrors('colonne', `${calc}\n${say}`));
     }
   }

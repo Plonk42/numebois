@@ -71,11 +71,39 @@ export function additionHint({ rows }: AdditionExercise, attempt: 1 | 2, tried?:
 }
 
 /** 1: the mistake when recognised, else the multiplier times each digit, the bag; 2: the result. */
+/**
+ * By two digits (#176): a line left out, or the 0 of the second; else the column of the sum that
+ * differs, its carry forgotten or miscalculated.
+ */
+function twoLinesSlip(a: number, b: number, answer: number): string | null {
+  const [first, second] = [a * (b % 10), a * Math.floor(b / 10) * 10];
+  if (answer === first + second / 10) {
+    return 'Il manque le 0 de la 2e ligne.\nElle commence par un 0 dans les unités.';
+  }
+  if (answer === first) return 'Il manque la 2e ligne, celle des dizaines.';
+  if (answer === second) return 'Il manque la 1re ligne, celle des unités.';
+  const ranks = String(a * b).length;
+  const carries = carriesOf((r) => digit(first, r) + digit(second, r), ranks);
+  return columnSlip(a * b, carries, answer, 'Elle est dans le sac.');
+}
+
+function twoLinesHint(a: number, b: number, attempt: 1 | 2, answer: number | null): string {
+  const [first, second] = [a * (b % 10), a * Math.floor(b / 10) * 10];
+  if (attempt === 2) {
+    return `${multiplyStatement(a, b)} = ${formatNumber(a * b)}.\n${formatNumber(first)} + ${formatNumber(second)} = ${formatNumber(a * b)}.`;
+  }
+  return (
+    (answer !== null && answer !== a * b && twoLinesSlip(a, b, answer)) ||
+    'Une ligne pour les unités, une pour les dizaines.\nLa 2e commence par un 0. Puis additionne.'
+  );
+}
+
 export function multiplicationHint(
   { a, b }: MultiplicationExercise,
   attempt: 1 | 2,
   tried?: Tried,
 ): string {
+  if (b >= 10) return twoLinesHint(a, b, attempt, triedNumber(tried));
   if (attempt === 1) {
     const answer = triedNumber(tried);
     const carries = carriesOf((r) => b * digit(a, r), String(a).length);

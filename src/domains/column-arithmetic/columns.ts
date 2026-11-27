@@ -35,6 +35,29 @@ export function addColumns(rows: readonly number[]): Column[] {
   return columns;
 }
 
+/**
+ * `a × b`, `b` of two digits (#176), set out as in class: a line for the units of `b`, a line
+ * for its tens that starts with a 0 in the units, then the sum of the two lines.
+ */
+export function multiplyByTwoDigits(
+  a: number,
+  b: number,
+): { partials: Column[][]; columns: Column[] } {
+  const [units, tens] = [b % 10, Math.floor(b / 10)];
+  const shift: Column = {
+    digit: 0,
+    carry: 0,
+    calc: `Maintenant, je multiplie par ${tens} dizaine${tens > 1 ? 's' : ''}.`,
+    say: 'J’écris d’abord un 0 dans les unités.',
+  };
+  // The carries of the sum wait in the bag too, as those of the two lines.
+  const columns = addColumns([a * units, a * tens * 10]).map((column, rank) => {
+    const say = column.say.replace(/je retiens (\d+)\./, 'je mets $1 dans le sac.');
+    return { ...column, say: rank === 0 ? `J’additionne les deux lignes.\n${say}` : say };
+  });
+  return { partials: [multiplyColumns(a, units), [shift, ...multiplyColumns(a, tens)]], columns };
+}
+
 /** Carries of an addition: columns that send one over the next. */
 export const carryCount = (columns: readonly Column[]) =>
   columns.filter((column) => column.carry > 0).length;

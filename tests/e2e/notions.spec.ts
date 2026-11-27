@@ -62,12 +62,15 @@ for (const skill of curriculum(DOMAINS)) {
     let exercise = await current(page);
     expect(exercise.skill).toBe(skill.id);
     await expectSlateLayout(page);
+    // A warm-up checked column by column (an accompanied operation) sends no wrong answer.
     let wrongs = driver(exercise.input).wrongs(exercise.input, exercise.answer);
-    await driver(exercise.input).answer(page, exercise.input, wrongs[0]);
-    await expect(hint).toContainText('Presque !');
-    // The answer tried keeps a soft colour (the choice tried, dimmed) until it changes.
-    await expect(card.locator('.tried').first()).toBeVisible();
-    await expectSlateLayout(page);
+    if (wrongs.length > 0) {
+      await driver(exercise.input).answer(page, exercise.input, wrongs[0]);
+      await expect(hint).toContainText('Presque !');
+      // The answer tried keeps a soft colour (the choice tried, dimmed) until it changes.
+      await expect(card.locator('.tried').first()).toBeVisible();
+      await expectSlateLayout(page);
+    }
     if (wrongs.length > 1) {
       await driver(exercise.input).answer(page, exercise.input, wrongs[1]);
       await expect(hint).toContainText('On regarde ensemble.');
