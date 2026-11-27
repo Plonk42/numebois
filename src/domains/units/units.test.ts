@@ -22,9 +22,12 @@ import {
   RELATIONS_LEVELS,
   TABLES,
   UNIT_RELATIONS,
+  convertExercise,
+  convertLures,
   generateConvert,
   generateRelation,
 } from './generators';
+import { convertHint } from './hints';
 
 const SEEDS = 1000;
 const levels = (count: number) => Array.from({ length: count }, (_, level) => level);
@@ -210,5 +213,60 @@ describe('la monnaie et les ordres de grandeur', () => {
       expect(offered).toEqual(km ? ['cm', 'dm', 'm', 'km'] : ['mm', 'cm', 'dm', 'm']);
     }
     if (level === 0) expect(units).toEqual(new Set(['mm', 'cm', 'dm', 'm', 'km']));
+  });
+});
+
+describe('convertir : indices après une erreur (#168)', () => {
+  const tried = (answer: number) => ({ answer: String(answer) });
+  const S = '\u00a0';
+  const length = (big: string, small: string) => ({ family: 'length' as const, big, small });
+  const table = `Un chiffre par colonne, jusqu’aux cm.\nComplète avec des 0.`;
+
+  it('into the smaller unit: a column too few or too many, the zeros, two units added', () => {
+    const total = convertExercise(length('m', 'cm'), 3, 25, 'total', 1);
+    expect(convertHint(total, 1, tried(55))).toBe(`1${S}m = 100${S}cm, pas 10${S}cm.\n${table}`);
+    expect(convertHint(total, 1, tried(3025))).toBe(
+      `1${S}m = 100${S}cm, pas 1\u202f000${S}cm.\n${table}`,
+    );
+    const empty = convertExercise(length('m', 'cm'), 3, 5, 'total', 1);
+    expect(convertHint(empty, 1, tried(35))).toBe(
+      `Il manque des 0 dans les colonnes vides.\n${table}`,
+    );
+    const tens = convertExercise(length('m', 'dm'), 3, 5, 'total', 1);
+    expect(convertHint(tens, 1, tried(8))).toContain('3 + 5 : ce ne sont pas les mêmes unités.');
+  });
+
+  it('what is left: the number taken away, a 0 too many, one larger unit left', () => {
+    const left = convertExercise(length('m', 'cm'), 3, 25, 'small', 3);
+    const method = `1${S}m = 100${S}cm.\nCherche combien de m il y a d’abord.`;
+    expect(convertHint(left, 1, tried(322))).toBe(
+      `Tu as enlevé 3, pas 3${S}m.\n3${S}m = 300${S}cm.`,
+    );
+    expect(convertHint(left, 1, tried(250))).toBe(`Il y a un 0 de trop.\n${method}`);
+    expect(convertHint(left, 1, tried(125))).toBe(`125${S}cm, c’est plus que 1${S}m.\n${method}`);
+  });
+
+  it('into the larger unit: copied, or read up to another column', () => {
+    const big = convertExercise(length('dm', 'cm'), 23, 0, 'big', 5);
+    expect(convertHint(big, 1, tried(2))).toBe(
+      'Tu as lu jusqu’aux m.\nArrête-toi à la colonne des dm.',
+    );
+    expect(convertHint(big, 1, tried(230))).toBe(
+      'Tu as recopié 230.\nArrête-toi à la colonne des dm.',
+    );
+    expect(convertHint(big, 1, tried(7))).toBe(convertHint(big, 1));
+  });
+
+  it.each(levels(CONVERT_LEVELS))('level %i: every lure is a recognised mistake', (level) => {
+    for (let seed = 0; seed < SEEDS; seed++) {
+      const exercise = generateConvert(new Rng(seed), level);
+      for (const lure of convertLures(exercise)) {
+        // 0 is no column at all.
+        if (lure <= 0 || String(lure) === exercise.answer) continue;
+        expect(convertHint(exercise, 1, tried(lure)), `${exercise.statement} → ${lure}`).not.toBe(
+          convertHint(exercise, 1),
+        );
+      }
+    }
   });
 });

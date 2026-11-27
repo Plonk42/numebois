@@ -1,5 +1,6 @@
 import { RULER_BEFORE_MM, type Point, type Pose } from '../../core/sheet';
 import type { Tried } from '../../core/types';
+import { triedNumber } from '../../core/validate';
 import type { GaugeExercise } from './gauges';
 import type { DrawExercise, MeasureExercise } from './generators';
 
@@ -121,17 +122,34 @@ export function drawHint({ length }: DrawExercise, attempt: 1 | 2): string {
   return `${length} mm, c’est ${cm} cm et ${mm} mm.\nArrête-toi ${mm} petits traits après le ${cm}.`;
 }
 
-/** 1: what a tick is worth; 2: the ticks counted from the number below. */
-export function gaugeHint(
+/** A tick off, the ticks counted 1 by 1, the next number, or null (#168). */
+function gaugeSlip(
   { value, step, label, unit, instrument }: GaugeExercise,
-  attempt: 1 | 2,
-): string {
-  const what = instrument === 'jug' ? 'Le liquide' : 'L’aiguille';
-  if (attempt === 1) {
-    if (step === label) return `${what} est sur un nombre : lis-le.`;
-    return `Entre deux nombres, chaque trait vaut ${step} ${unit}.`;
-  }
+  answer: number,
+  method: string,
+): string | null {
   const below = Math.floor(value / label) * label;
+  if (Math.abs(answer - value) === step) return `Tu es à un trait près.\n${method}`;
+  if (answer === below + (value - below) / step) return `Tu as compté 1 par trait.\n${method}`;
+  if (answer !== value + label) return null;
+  const before = instrument === 'jug' ? 'juste sous le liquide' : 'juste avant l’aiguille';
+  return `Pars du nombre ${before}.\nChaque trait vaut ${step} ${unit}.`;
+}
+
+/** 1: the mistake when recognised, else what a tick is worth; 2: the ticks counted from the number below. */
+export function gaugeHint(exercise: GaugeExercise, attempt: 1 | 2, tried?: Tried): string {
+  const { value, step, label, unit, instrument } = exercise;
+  const what = instrument === 'jug' ? 'Le liquide' : 'L’aiguille';
+  const below = Math.floor(value / label) * label;
+  if (attempt === 1) {
+    const method =
+      step === label
+        ? `${what} est sur un nombre : lis-le.`
+        : `Entre deux nombres, chaque trait vaut ${step} ${unit}.`;
+    const answer = triedNumber(tried);
+    if (answer === null || answer === value) return method;
+    return gaugeSlip(exercise, answer, method) ?? method;
+  }
   const ticks = (value - below) / step;
   if (ticks === 0) return `${what} est sur ${value} : ${value} ${unit}.`;
   const counted = `${ticks} trait${ticks > 1 ? 's' : ''}`;

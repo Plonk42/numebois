@@ -7,6 +7,10 @@ import { current, driver, expectSlateLayout } from './helpers';
 const NOTIONS: [domain: string, notion: string, level: number][] = [
   ['calcul mental', 'mental-math.subtract', 4],
   ['tables', 'times-tables.products', 3],
+  ['nombres', 'numbers.decompose', 3],
+  ['convertir', 'units.convert', 3],
+  ['unités de temps', 'time.units', 3],
+  ['graduations', 'measures.read-gauge', 3],
 ];
 
 for (const [domain, id, level] of NOTIONS) {

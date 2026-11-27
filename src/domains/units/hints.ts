@@ -1,5 +1,13 @@
+import type { Tried } from '../../core/types';
+import { triedNumber } from '../../core/validate';
 import { formatNumber as n } from '../numbers/words';
-import { factorOf, type ConvertExercise, type RelationExercise } from './generators';
+import {
+  columnsOf,
+  factorOf,
+  type ConvertExercise,
+  type Pair,
+  type RelationExercise,
+} from './generators';
 import { amountText, type MagnitudeExercise, type MoneyExercise } from './everyday';
 
 const SPACE = '\u00a0';
@@ -17,12 +25,64 @@ export function relationHint({ relation }: RelationExercise, attempt: 1 | 2): st
   return `1${SPACE}${big} = ${n(factor)}${SPACE}${small}.`;
 }
 
-/** 1: the table, a digit per column; 2: the conversion worked out. */
-export function convertHint({ pair, big, small, asked }: ConvertExercise, attempt: 1 | 2): string {
+const ruleOf = (pair: Pair) => `1${SPACE}${pair.big} = ${n(factorOf(pair))}${SPACE}${pair.small}`;
+
+/** Everything in the smaller unit: the zeros left out, a column too many or too few. */
+function totalSlip({ pair, big, small }: ConvertExercise, answer: number): string | null {
+  const factor = factorOf(pair);
+  const method = `Un chiffre par colonne, jusqu’aux ${pair.small}.\nComplète avec des 0.`;
+  const not = (k: number) => `${ruleOf(pair)}, pas ${n(k)}${SPACE}${pair.small}.\n${method}`;
+  if (answer === Number(`${big}${small}`))
+    return `Il manque des 0 dans les colonnes vides.\n${method}`;
+  if (answer === big * factor * 10 + small) return not(factor * 10);
+  if (answer !== big * (factor / 10) + small) return null;
+  if (factor === 10 && small > 0)
+    return `${big} + ${small} : ce ne sont pas les mêmes unités.\n${method}`;
+  return not(factor / 10);
+}
+
+/** What is left in the smaller unit: the number of larger ones taken away, a 0 too many, 1 left. */
+function smallSlip({ pair, big, small }: ConvertExercise, answer: number): string | null {
+  const factor = factorOf(pair);
+  const method = `${ruleOf(pair)}.\nCherche combien de ${pair.big} il y a d’abord.`;
+  const larger = `${big}${SPACE}${pair.big}`;
+  if (answer === big * factor + small - big) {
+    return `Tu as enlevé ${big}, pas ${larger}.\n${larger} = ${n(big * factor)}${SPACE}${pair.small}.`;
+  }
+  if (answer === small * 10) return `Il y a un 0 de trop.\n${method}`;
+  if (answer !== small + factor) return null;
+  return `${n(answer)}${SPACE}${pair.small}, c’est plus que 1${SPACE}${pair.big}.\n${method}`;
+}
+
+/** Into the larger unit: the number copied, or read up to another column. */
+function bigSlip({ pair, big, small }: ConvertExercise, answer: number): string | null {
+  const total = big * factorOf(pair) + small;
+  const method = `Arrête-toi à la colonne des ${pair.big}.`;
+  if (answer === total) return `Tu as recopié ${n(total)}.\n${method}`;
+  const columns = columnsOf(pair);
+  const at = columns.indexOf(pair.small);
+  const read = columns.slice(0, at).findLast((_, i) => {
+    const reached = Math.floor(total / 10 ** (at - i));
+    return reached > 0 && reached === answer;
+  });
+  return read ? `Tu as lu jusqu’aux ${read}.\n${method}` : null;
+}
+
+const CONVERT_SLIPS = { total: totalSlip, small: smallSlip, big: bigSlip };
+
+/** 1: the mistake when recognised, else the table, a digit per column; 2: the conversion worked out. */
+export function convertHint(exercise: ConvertExercise, attempt: 1 | 2, tried?: Tried): string {
+  const { pair, big, small, asked } = exercise;
   const factor = factorOf(pair);
   const rule = `1${SPACE}${pair.big} = ${n(factor)}${SPACE}${pair.small}.`;
   const total = big * factor + small;
   if (attempt === 1) {
+    const answer = triedNumber(tried);
+    const slip =
+      answer === null || String(answer) === exercise.answer
+        ? null
+        : CONVERT_SLIPS[asked](exercise, answer);
+    if (slip) return slip;
     if (asked === 'small') return `${rule}\nCherche combien de ${pair.big} il y a d’abord.`;
     if (asked === 'big') {
       return `Écris ${n(total)} : son chiffre des unités dans les ${pair.small}.\nLis jusqu’à la colonne des ${pair.big}.`;

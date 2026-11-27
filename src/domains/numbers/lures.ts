@@ -1,7 +1,7 @@
 import type { DecomposeExercise, NumberLineExercise, WriteDigitsExercise } from './generators';
 
 /** The zeros of the empty ranks left out: 3 042 written 342. */
-function withoutZeros(value: number): number {
+export function withoutZeros(value: number): number {
   return Number(String(value).replaceAll('0', '')) || value;
 }
 

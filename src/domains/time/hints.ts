@@ -1,4 +1,6 @@
 import { clockText, durationText, onDial, timeText, weekday } from '../../core/time';
+import type { Tried } from '../../core/types';
+import { triedNumber } from '../../core/validate';
 import { WEEKDAYS, type CalendarExercise } from './calendar';
 import { stopsOf, type DurationExercise } from './durations';
 import {
@@ -81,11 +83,56 @@ const REMINDERS: Record<string, string> = {
   'year-months': 'Compte les mois, de janvier à décembre.',
 };
 
-/** 1: the relation; 2: the relation used, the larger units added one by one. */
-export function unitsHint(exercise: UnitsExercise, attempt: 1 | 2): string {
+/** The relation, or at level 0, where it is the answer, the clock or the calendar. */
+function unitsMethod({ relation: r, level }: UnitsExercise): string {
+  return level === 0 ? REMINDERS[r.key] : `${r.one} = ${r.factor} ${r.small}.`;
+}
+
+/** 100 counted to the larger unit (10 to a day, a week…), as in tens and hundreds. */
+function hundredSlip({ relation: r, level }: UnitsExercise): string {
+  const hundred = r.factor === 60 ? 100 : 10;
+  if (level === 0) return `Ce n’est pas ${hundred} ${r.small}.\n${REMINDERS[r.key]}`;
+  return `${r.one} = ${r.factor} ${r.small}, pas ${hundred} ${r.small}.`;
+}
+
+/** Taken back: the total copied, 100 taken away, one larger unit left, 10 off (#168). */
+function backSlip(exercise: UnitsExercise, answer: number): string | null {
+  const { relation: r, big, small } = exercise;
+  const total = big * r.factor + small;
+  if (answer === total) {
+    return `Tu as recopié ${total}.\nEnlève d’abord ${big} ${r.big}, c’est ${big * r.factor} ${r.small}.`;
+  }
+  if (answer === total - (r.factor === 60 ? 100 : 10) * big) return hundredSlip(exercise);
+  const method = unitsMethod(exercise);
+  if (answer === small + r.factor)
+    return `${answer} ${r.small}, c’est plus que ${r.one}.\n${method}`;
+  return answer === small + 10 ? `Tu es à 10 ${r.small} près.\n${method}` : null;
+}
+
+/** Into the smaller unit: 100 to the larger one, 10 off, the two numbers added or copied (#168). */
+function unitsSlip(exercise: UnitsExercise, answer: number): string | null {
+  const { relation: r, big, small, back } = exercise;
+  if (back) return backSlip(exercise, answer);
+  const method = unitsMethod(exercise);
+  if (answer === big * (r.factor === 60 ? 100 : 10) + small) return hundredSlip(exercise);
+  if (answer === big * r.factor + small + 10) return `Tu es à 10 ${r.small} près.\n${method}`;
+  if (answer !== big + small) return null;
+  if (small > 0) {
+    return `${big} + ${small} : ce ne sont pas les mêmes unités.\nChange d’abord ${big} ${r.big} en ${r.small}.`;
+  }
+  return r.one.startsWith('1') ? `Tu as recopié ${big}.\n${method}` : null;
+}
+
+/** 1: the mistake when recognised, else the relation; 2: the relation used, the larger units added one by one. */
+export function unitsHint(exercise: UnitsExercise, attempt: 1 | 2, tried?: Tried): string {
   const { relation: r, big, small, back } = exercise;
   const rule = `${r.one} = ${r.factor} ${r.small}.`;
-  if (attempt === 1) return exercise.level === 0 ? REMINDERS[r.key] : rule;
+  if (attempt === 1) {
+    const answer = triedNumber(tried);
+    const slip =
+      answer === null || String(answer) === exercise.answer ? null : unitsSlip(exercise, answer);
+    return slip ?? (exercise.level === 0 ? REMINDERS[r.key] : rule);
+  }
   if (exercise.level === 0) return rule;
   const bigs = Array.from({ length: big }, () => r.factor).join(' + ');
   const larger = big * r.factor;

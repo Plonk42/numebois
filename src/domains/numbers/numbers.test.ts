@@ -23,9 +23,9 @@ import {
 } from './generators';
 import { compareHint, decomposeHint, numberLineHint, orderHint, writeDigitsHint } from './hints';
 import { decomposeLures } from './lures';
-import { decompose, lineRead } from './skills';
+import { decompose, lineRead, writeDigits } from './skills';
 import { offerChoices } from '../../core/choices';
-import type { NumberLine } from '../../core/types';
+import type { Exercise, NumberLine, Skill } from '../../core/types';
 import { validateNumber } from '../../core/validate';
 import { formatNumber, numberWords } from './words';
 
@@ -378,5 +378,86 @@ describe('droite graduée', () => {
     expect(numberLineHint(at(4, 2000, 2800), 2)).toBe(
       'Depuis 3\u202f000, 2 traits de 100 en arrière : 2\u202f800.',
     );
+  });
+});
+
+describe('indices après une erreur (#168)', () => {
+  const tried = (answer: number) => ({ answer: String(answer) });
+
+  it('write digits and compose: the zeros of the empty ranks left out', () => {
+    const write = { ...generateWriteDigits(new Rng(1), 2), value: 3042, answer: '3042' };
+    expect(writeDigitsHint(write, 1, tried(342))).toBe(
+      'trois-mille · quarante-deux\nIl manque un 0 : un rang vide, c’est 0.',
+    );
+    const thousands = { ...write, value: 3002, answer: '3002' };
+    expect(writeDigitsHint(thousands, 1, tried(32))).toContain('Il manque des 0');
+    const compose: DecomposeExercise = {
+      ...generateDecompose(new Rng(1), 1),
+      value: 3042,
+      answer: '3042',
+      ask: 'compose',
+      show: 'named',
+    };
+    expect(decomposeHint(compose, 1, tried(342))).toBe(
+      'Il manque un 0.\nUn chiffre par rang, dans l’ordre.',
+    );
+  });
+
+  it('a digit: the one of another rank', () => {
+    const e = { ...generateDecompose(new Rng(1), 2), value: 3457, rank: 2, answer: '4' };
+    expect(decomposeHint({ ...e, show: 'words' }, 1, tried(5))).toBe(
+      '5, c’est le chiffre des dizaines.\nCherche celui des centaines.',
+    );
+  });
+
+  it('a count: the digit alone, the whole number, another rank', () => {
+    const e: DecomposeExercise = {
+      ...generateDecompose(new Rng(1), 3),
+      value: 3457,
+      rank: 1,
+      answer: '345',
+      show: 'words',
+    };
+    const method = '\nCache les chiffres à droite des dizaines.';
+    expect(decomposeHint(e, 1, tried(5))).toBe(
+      `5, c’est seulement le chiffre des dizaines.${method}`,
+    );
+    expect(decomposeHint(e, 1, tried(3457))).toBe(`Tu as recopié tout le nombre.${method}`);
+    expect(decomposeHint(e, 1, tried(34))).toBe(`34, c’est le nombre de centaines.${method}`);
+  });
+
+  it('the number line: a tick or two away', () => {
+    const e = {
+      ...generateLineRead(new Rng(1), 0),
+      line: { from: 0, to: 10, step: 1, labels: [0, 5, 10] },
+      value: 7,
+    };
+    expect(numberLineHint(e, 1, tried(8))).toBe(
+      'Tu es à 1 trait près.\nPars de 5 et avance de 1 en 1.',
+    );
+    expect(numberLineHint(e, 1, tried(9))).toContain('Tu es à 2 traits près.');
+    expect(numberLineHint(e, 1, tried(3))).toBe(numberLineHint(e, 1));
+  });
+
+  it('every lure is a recognised mistake, on 1 000 seeds', () => {
+    const notions: [Skill, (rng: Rng, level: number) => Exercise, number][] = [
+      [writeDigits, generateWriteDigits, WRITE_DIGITS_LEVELS],
+      [decompose, generateDecompose, DECOMPOSE_LEVELS],
+      [lineRead, generateLineRead, NUMBER_LINE_LEVELS],
+    ];
+    for (const [skill, generate, levels] of notions) {
+      for (let level = 0; level < levels; level++) {
+        for (let seed = 0; seed < 1000; seed++) {
+          const exercise = generate(new Rng(seed), level);
+          for (const lure of skill.lures!(exercise)) {
+            if (String(lure) === exercise.answer) continue;
+            expect(
+              skill.hint(exercise, 1, tried(lure)),
+              `${exercise.statement} → ${lure}`,
+            ).not.toBe(skill.hint(exercise, 1));
+          }
+        }
+      }
+    }
   });
 });

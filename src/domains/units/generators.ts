@@ -126,7 +126,7 @@ const NEW_PAIRS: readonly Pair[] = [length('m', 'mm'), length('dm', 'mm'), lengt
 export const CLASS_LENGTHS = ['m', 'dm', 'cm', 'mm'] as const;
 
 /** The columns of the table for a pair: the class one when the km is not involved. */
-function columnsOf({ family, big }: Pair): readonly string[] {
+export function columnsOf({ family, big }: Pair): readonly string[] {
   return family === 'length' && big !== 'km' ? CLASS_LENGTHS : TABLES[family];
 }
 
