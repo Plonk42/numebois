@@ -225,6 +225,10 @@ test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt po
   const end = page.locator('#trail-end');
   await expect(end.locator('.praise')).toHaveText('Sentier terminé !');
   await expect(end).toContainText(`Tu as gagné ${earned} feuilles et `);
+  // Measured now: it leaves 2 s after the basket is poured, too soon to catch under load.
+  const [endBox] = await boxes(page, '#trail-end');
+  expect(endBox.y + endBox.height).toBeLessThanOrEqual(pathBox.y);
+  expect(Math.abs(endBox.x + endBox.width / 2 - viewport.width / 2)).toBeLessThan(2);
   await expect(card).toHaveCount(0);
   await expect(dim).not.toHaveClass(/on/);
   await expect(path.locator('.stone.crossed')).toHaveCount(10);
@@ -241,9 +245,6 @@ test('un sentier complet : 10 pierres, un résumé bienveillant, et la forêt po
   await expect
     .poll(() => page.evaluate(() => (globalThis as unknown as { flights: number }).flights))
     .toBeGreaterThan(earned);
-  const [endBox] = await boxes(page, '#trail-end');
-  expect(endBox.y + endBox.height).toBeLessThanOrEqual(pathBox.y);
-  expect(Math.abs(endBox.x + endBox.width / 2 - viewport.width / 2)).toBeLessThan(2);
 
   // Then the forest is the child's: a walk, the reserve glows, the trail grows where it is,
   // its sign calling: a touch on it starts the next one.
