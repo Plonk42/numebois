@@ -16,8 +16,13 @@ export type TrailLength = 'short' | 'normal';
  * Questions of a trail, quick ones: long questions make it shorter, to keep its time (#153).
  */
 export const TRAIL_QUESTIONS: Record<TrailLength, number> = { short: 6, normal: 10 };
-/** Notions in progress at the same time. */
+/** Notions in progress in one trail. */
 export const MAX_ACTIVE = 3;
+/**
+ * Notions in progress at the same time: they take turns from trail to trail, so the child works
+ * a little of everything, often, rather than weeks on the same ones (owner, 2026-11-27).
+ */
+export const MAX_LEARNING = 8;
 /** Share of reviews in a trail; the surplus waits for the next one. */
 export const REVIEW_SHARE = 0.25;
 /** Under this rate of right first answers: no novelty, easier questions. */
@@ -72,14 +77,20 @@ export function composeTrail(input: TrailInput): TrailStep[] {
   const learning = skills.filter((skill) => stage(skill) === 'learning' && !focus.includes(skill));
   // A notion in focus already acquired is reviewed, not in progress: it leaves room (#54).
   const reviewed = focus.filter((skill) => isAcquired(progress.get(skill.id))).length;
-  const active = [...focus, ...learning].slice(0, Math.max(MAX_ACTIVE + reviewed, focus.length));
   const discovery = skills.filter(
     (skill) => stage(skill) === 'discovery' && !focus.includes(skill),
   );
+  // During a focus (homework of the week), no other notion opens while 3 are in progress.
+  const room = focus.length > 0 ? MAX_ACTIVE : MAX_LEARNING;
   const novelty =
-    struggling || active.length - reviewed >= MAX_ACTIVE
+    struggling || focus.length - reviewed + learning.length >= room
       ? undefined
       : (discovery.find((skill) => modeOf(settings, skill) === 'open') ?? discovery.find(ready));
+  const places = Math.max(MAX_ACTIVE + reviewed, focus.length) - focus.length - (novelty ? 1 : 0);
+  const active = [
+    ...focus,
+    ...inTurn(learning, places, novelty ? [...focus, novelty] : focus, progress),
+  ];
   if (novelty) active.push(novelty);
   const acquired = skills.filter((skill) => isAcquired(progress.get(skill.id)));
   const reviews = acquired
@@ -183,6 +194,40 @@ function withFocus(trail: TrailStep[], focus: readonly Skill[]): TrailStep[] {
       return { ...step, skill: focus[turn++ % focus.length].id };
     });
   return pass(pass(trail, ['core']), ['warmup', 'finish']);
+}
+
+/**
+ * The notions in progress of a trail take turns: those seen longest ago first (the fewest
+ * answers that day), one per domain while there are others.
+ */
+function inTurn(
+  learning: readonly Skill[],
+  places: number,
+  taken: readonly Skill[],
+  progress: ReadonlyMap<SkillId, SkillProgress>,
+): Skill[] {
+  const seen = (skill: Skill) => {
+    const recent = progress.get(skill.id)?.recent ?? [];
+    const day = recent.at(-1)?.day ?? 0;
+    return { day, answers: recent.filter((answer) => answer.day === day).length };
+  };
+  const turns = [...learning].sort((a, b) => {
+    const [first, second] = [seen(a), seen(b)];
+    return first.day - second.day || first.answers - second.answers;
+  });
+  const domain = (skill: Skill) => skill.id.split('.')[0];
+  const domains = new Set(taken.map(domain));
+  const chosen: Skill[] = [];
+  for (const skill of turns) {
+    if (chosen.length < places && !domains.has(domain(skill))) {
+      chosen.push(skill);
+      domains.add(domain(skill));
+    }
+  }
+  for (const skill of turns) {
+    if (chosen.length < places && !chosen.includes(skill)) chosen.push(skill);
+  }
+  return chosen;
 }
 
 function shuffled<T>(items: readonly T[], rng: Rng): T[] {

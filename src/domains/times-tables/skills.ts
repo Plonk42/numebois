@@ -1,6 +1,5 @@
 import { defineSkill } from '../../core/registry';
 import { validateNumber } from '../../core/validate';
-import { DOUBLES_HALVES } from '../mental-math/generators';
 import { missingFactorFacts, productFacts } from './facts';
 import {
   MISSING_FACTOR,
@@ -17,7 +16,7 @@ import { missingFactorLures, productLures } from './lures';
 export const products = defineSkill<ProductExercise>({
   id: PRODUCTS,
   name: 'Les tables de multiplication',
-  prerequisites: [DOUBLES_HALVES],
+  prerequisites: [],
   levels: TABLES_LEVELS,
   generate: generateProduct,
   validate: validateNumber,

@@ -8,7 +8,7 @@ import { Session } from '../../src/core/session';
 import { MAX_ACTIVE, REVIEW_SHARE, TRAIL_QUESTIONS } from '../../src/core/trail';
 import { changeSetting } from '../../src/core/settings';
 import type { Domain, Exercise, Skill } from '../../src/core/types';
-import { DOMAINS } from '../../src/domains';
+import { DOMAINS, ORDER } from '../../src/domains';
 
 const DAYS = 182;
 /** Virtual children: one alone is a lottery (38 to 51 notions acquired with the same registry). */
@@ -49,7 +49,7 @@ function syntheticDomain(index: number, count: number): Domain {
  * in seven and sometimes plays two trails: what each trail asks and what is left aside.
  */
 function sixMonths(domains: readonly Domain[], withHomework: boolean, seed: number) {
-  const skills = curriculum(domains);
+  const skills = curriculum(domains, ORDER);
   const rng = new Rng(seed);
   const child = rng.fork('child');
   let day = 0;
@@ -134,14 +134,14 @@ describe('six mois de jeu', () => {
   );
   // Notions acquired in six months, on average: as many whatever the size of the programme,
   // which takes longer than six months as it grows (measured 2026-11-27, about 2 under; the
-  // long notions of M6, set out on a sheet, leave fewer questions for the others).
+  // notions to come open after the current ones, in the order of the registry).
   it.each([
-    { name: 'the current registry', domains: DOMAINS, homework: false, acquired: 21 },
+    { name: 'the current registry', domains: DOMAINS, homework: false, acquired: 28 },
     {
       name: 'a registry of about 100 notions',
       domains: [...DOMAINS, ...futures],
       homework: false,
-      acquired: 37,
+      acquired: 28,
     },
     // Half of the trail goes to the homework of the week: fewer notions open (#54).
     {
@@ -154,7 +154,7 @@ describe('six mois de jeu', () => {
       name: 'about 100 notions, homework every week',
       domains: [...DOMAINS, ...futures],
       homework: true,
-      acquired: 21,
+      acquired: 19,
     },
   ])(
     '$name: same trail time, 3 notions in progress, reviews under 25 %, nothing forgotten',

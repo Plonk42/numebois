@@ -9,7 +9,7 @@ Recette de fond : [plan, « Recette : ajouter une notion ou un domaine »](../..
 
 ## Écrire
 
-1. **Domaine :** existant, ou `src/domains/<domain>/index.ts` (`defineDomain`) ajouté à `src/domains/index.ts`. L'ordre des domaines y règle l'ordre d'ouverture (`curriculum` les alterne).
+1. **Domaine :** existant, ou `src/domains/<domain>/index.ts` (`defineDomain`) ajouté à `src/domains/index.ts`. L'ordre d'ouverture est `ORDER` (`src/domains/order.ts`) : y placer l'id de la notion, après ses prérequis, selon son importance (un test vérifie que chaque notion y est une fois).
 2. **Générateur** (`generators.ts`) : l'id `<domain>.<notion>` en constante, un type d'exercice qui étend `Exercise` avec les valeurs tirées, les niveaux décrits en commentaire, `generate(rng, level, context)` pur qui refuse et retire les tirages hors contraintes (`context.vocabulary` : les mots du décor, pour un énoncé de problème ; modèle `src/domains/word-problems/problems.ts`).
 3. **Indices** (`hints.ts`) : 1 = la méthode, 2 = la réponse avec la méthode. Phrases de 12 mots au plus, 3 phrases ou lignes et 120 caractères par bulle, aucun mot d'échec. **L'indice 1 nomme les erreurs typiques** (`tried` : la réponse fausse et l'état du widget, #167, #168) : lister les erreurs (les leurres `lures` d'abord), proposer au propriétaire chaque erreur reconnue avec son texte (« l'erreur nommée, puis la méthode », sans donner la réponse), les écrire après sa validation ; une erreur non reconnue garde l'indice de méthode. `triedNumber` (`src/core/validate.ts`) lit un nombre tapé.
 4. **Validation :** `validateNumber` ou `validateChoice` (`src/core/validate.ts`), sinon une nouvelle fonction au même endroit.

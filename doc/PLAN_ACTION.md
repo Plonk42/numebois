@@ -191,7 +191,7 @@ Confirmées par le propriétaire ou par une photo de la classe ; le jeu les suit
   - `widgets/*.tsx` : seulement si le domaine a besoin d'une interaction qui lui est propre ;
   - `problems.ts` : modèles d'énoncés ;
   - `*.test.ts`.
-- `src/domains/index.ts` : le registre, une ligne par domaine.
+- `src/domains/index.ts` : le registre, une ligne par domaine ; `src/domains/order.ts` : l'ordre d'ouverture des notions.
 - `src/ui/widgets/` : widgets partagés (voir le glossaire). Un widget par type de saisie (`ExerciseInput`), déclaré dans `src/ui/widgets/index.tsx`. Un nouveau type ne compile pas sans ses quatre morceaux : le type, sa règle de réponse (`ANSWER_FITS`, `src/core/content.ts`), son widget et son pilote de test (`DRIVERS`, `tests/e2e/helpers.ts`). Le widget reçoit l'exercice et son état (`locked`, `right`, `shown` : la réponse montrée après la deuxième erreur) et renvoie une réponse (`onSubmit`). Il se place lui-même sur l'ardoise avec `Work` et `AnswerZone`. Les modes `demo` et `guided` viendront avec le `LessonPlayer` (#50). La validation et les indices viennent du domaine.
 - **Regarder ou manipuler (décision pour #21 et les ateliers) :** ce que l'enfant regarde et ce qu'il manipule restent séparés. Une illustration en lecture seule (droite graduée à lire, horloge, parts coloriées, quadrillage) est un champ `figure` de l'exercice, affiché dans `Work` sous l'énoncé, à côté de la zone de réponse ; la saisie (`ExerciseInput`) dit seulement comment il répond. Lire une graduation = figure « droite graduée » + pavé ; placer un nombre = saisie `number-line` qui occupe `Work wide`. Une figure a son composant par type, exhaustif comme les saisies (`FIGURES` dans `src/ui/widgets/index.tsx`, #21).
 - **Essayer une notion :** `?practice=<notion>&level=<n>` joue cette notion seule à partir de ce niveau, sur un tableau neuf, sans lire ni écrire la sauvegarde (tests, revue d'une nouvelle notion sur la tablette).
@@ -215,7 +215,7 @@ Une leçon est une courte liste d'étapes typées dans le module :
 Exemples de demandes : « ajouter les divisions », « l'enfant doit travailler les triangles ». Le skill `add-skill` en donne la liste de contrôle.
 
 1. Mettre à jour ce plan : décisions.
-2. Si le domaine existe, ajouter la notion dans son `skills.ts`. Sinon, créer `src/domains/<domain>/` et l'enregistrer dans `src/domains/index.ts`.
+2. Si le domaine existe, ajouter la notion dans son `skills.ts`. Sinon, créer `src/domains/<domain>/` et l'enregistrer dans `src/domains/index.ts`. Placer son id dans l'ordre d'ouverture (`ORDER`, `src/domains/order.ts`), après ses prérequis.
 3. Écrire générateurs, validation et indices, avec leurs tests (1 000 graines, contraintes respectées). L'indice 1 nomme les erreurs typiques de la notion dès sa création (#168) : erreurs et textes proposés au propriétaire et validés avant d'être écrits, un test par erreur. Les règles communes (`exerciseErrors`) sont vérifiées sans rien ajouter par `tests/unit/content.test.ts`.
 4. Réutiliser un widget partagé si possible. Sinon, ajouter un type de saisie à `ExerciseInput`, sa règle de réponse, son widget dans `src/ui/widgets/index.tsx` (placé sur l'ardoise avec `Work`, ou `Work wide`, et `AnswerZone`) et son pilote de test.
 5. Écrire une leçon courte, et éventuellement des modèles de problèmes.
@@ -378,7 +378,8 @@ Principe : le contenu grandit, mais la charge par session reste fixe. Tout est l
 
 ### Pour l'enfant
 
-1. Au plus 3 notions « en cours » à la fois dans le sentier. Une nouvelle notion ne s'ouvre que lorsqu'une autre est acquise. Une notion en focus (au plus 2) occupe l'une de ces places.
+1. Au plus 3 notions « en cours » dans un sentier, choisies parmi 8 au plus qui se relaient d'un sentier à l'autre (`MAX_LEARNING`, `src/core/trail.ts`) : celles vues il y a le plus longtemps d'abord, une par domaine quand c'est possible. Décision du propriétaire (2026-11-27) : un peu de tout, régulièrement, plutôt que des semaines sur les mêmes sujets. Une nouvelle notion s'ouvre (une par sentier) tant qu'il y en a moins de 8 en cours ; pendant un focus, seulement s'il y en a moins de 3, pour laisser le temps aux devoirs. Une notion en focus (au plus 2) occupe l'une de ces places.
+   - **Ordre d'ouverture** (`ORDER`, `src/domains/order.ts`, décision du propriétaire, 2026-11-27) : les tables d'addition et de multiplication d'abord, la base de tout, puis les bases de chaque domaine, à tour de rôle ; chaque notion après ses prérequis (test). L'enfant a déjà vu en classe toutes les notions du jeu : l'ordre ne suit pas les périodes de l'année. Six mois simulés (8 minutes par jour) : les tables au premier jour, les dix domaines en moins de 30 jours, les 44 notions acquises (avant : les tables vers le 150e jour, derrière les doubles et moitiés, et 5 notions jamais ouvertes).
 2. Cycle de vie d'une notion :
    - découverte ;
    - en cours ;

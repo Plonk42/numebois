@@ -5,7 +5,7 @@ import {
   MAX_STATEMENT_WORDS,
 } from '../../src/core/content';
 import { curriculum } from '../../src/core/registry';
-import { DOMAINS } from '../../src/domains';
+import { DOMAINS, ORDER } from '../../src/domains';
 import { current, driver, expectSlateLayout, game, wrong } from './helpers';
 
 test('l’ardoise tient l’énoncé le plus long permis avec la bulle la plus haute', async ({
@@ -46,7 +46,7 @@ test('l’ardoise tient l’énoncé le plus long permis avec la bulle la plus h
 
 // Every notion of the registry, played on the slate through its widget (`?practice`): a new
 // notion is checked here without writing anything, as in tests/unit/content.test.ts.
-for (const skill of curriculum(DOMAINS)) {
+for (const skill of curriculum(DOMAINS, ORDER)) {
   test(`${skill.id} : sur l’ardoise, l’indice, la réponse montrée, puis au dernier niveau`, async ({
     page,
   }) => {

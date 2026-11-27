@@ -4,11 +4,11 @@ import { Rng } from '../../src/core/rng';
 import { Session } from '../../src/core/session';
 import { changeSetting, endFocus } from '../../src/core/settings';
 import type { Lesson, Skill } from '../../src/core/types';
-import { DOMAINS } from '../../src/domains';
+import { DOMAINS, ORDER } from '../../src/domains';
 import { curriculum } from '../../src/core/registry';
 import { CLEARING } from './helpers';
 
-const SKILLS = curriculum(DOMAINS);
+const SKILLS = curriculum(DOMAINS, ORDER);
 const byId = (id: string) => SKILLS.find((skill) => skill.id === id)!;
 const TABLES = byId('times-tables.products');
 const NINE = byId('mental-math.nine-eleven');

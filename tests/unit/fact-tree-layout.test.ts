@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { curriculum } from '../../src/core/registry';
-import { DOMAINS } from '../../src/domains';
+import { DOMAINS, ORDER } from '../../src/domains';
 import { TREE_HEIGHT, TREE_WIDTH, treeLayout, type TreeGroup } from '../../src/ui/fact-tree-layout';
 
 const LABEL = { width: 150, height: 100 };
@@ -44,7 +44,7 @@ function check(groups: TreeGroup[], seed: string) {
 
 describe('l’arbre de ce qu’on sait par cœur (#151)', () => {
   it('place chaque fait, chaque nom et sa part de l’arbre, pour chaque notion à faits', () => {
-    const trees = curriculum(DOMAINS).filter((skill) => skill.facts?.groups);
+    const trees = curriculum(DOMAINS, ORDER).filter((skill) => skill.facts?.groups);
     expect(trees.length).toBeGreaterThan(4);
     for (const skill of trees) {
       check(

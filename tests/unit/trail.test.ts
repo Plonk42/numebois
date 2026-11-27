@@ -5,6 +5,7 @@ import { Rng } from '../../src/core/rng';
 import { changeSetting, defaultSetting, type SkillMode } from '../../src/core/settings';
 import {
   MAX_ACTIVE,
+  MAX_LEARNING,
   TRAIL_QUESTIONS,
   composeTrail,
   revisit,
@@ -76,10 +77,40 @@ describe('sentier', () => {
     expect(opened.find((s) => s.role === 'new')?.skill).toBe('d.d');
   });
 
-  it('keeps at most 3 notions in progress', () => {
+  it('asks at most 3 notions in progress in a trail, and opens others meanwhile', () => {
     const steps = trail([at('d.a', 'learning'), at('d.b', 'learning'), at('d.c', 'learning')]);
+    expect(steps.find((s) => s.role === 'new')?.skill).toBe('d.d');
+    const asked = steps.filter((s) => s.role === 'core' || s.role === 'new').map((s) => s.skill);
+    expect(new Set(asked).size).toBe(MAX_ACTIVE);
+  });
+
+  it('lets up to 8 notions in progress take turns, seen longest ago first, one per domain', () => {
+    const skills = ['a.1', 'a.2', 'b.1', 'c.1', 'd.1', 'e.1', 'f.1', 'g.1', 'h.1'].map((id) =>
+      skill(id),
+    );
+    const seen = (id: string, day: number, answers = 1) =>
+      at(id, 'learning', {
+        recent: Array.from({ length: answers }, () => ({ level: 1, right: true, day })),
+      });
+    const progress = [
+      seen('a.1', 1),
+      seen('a.2', 1),
+      seen('b.1', 1, 2),
+      seen('c.1', 2),
+      ...['d.1', 'e.1', 'f.1', 'g.1'].map((id) => seen(id, 9)),
+    ];
+    expect(progress).toHaveLength(MAX_LEARNING);
+    const steps = trail(progress, { skills });
     expect(steps.some((s) => s.role === 'new')).toBe(false);
-    expect(new Set(steps.filter((s) => s.role === 'core').map((s) => s.skill)).size).toBe(3);
+    const core = steps.filter((s) => s.role === 'core').map((s) => s.skill);
+    expect(new Set(core)).toEqual(new Set(['a.1', 'b.1', 'c.1']));
+    expect(trail(progress.slice(0, -1), { skills }).find((s) => s.role === 'new')?.skill).toBe(
+      'g.1',
+    );
+    // During a focus, nothing opens while 3 are in progress.
+    const focus = changeSetting(new Map(), skills[4], { mode: 'focus' });
+    const focused = trail(progress.slice(0, 3), { skills, settings: focus });
+    expect(focused.some((s) => s.role === 'new')).toBe(false);
   });
 
   it('caps the reviews at 25 %, oldest first, the others wait', () => {

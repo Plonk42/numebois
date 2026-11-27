@@ -22,14 +22,19 @@ export function skillsById(domains: readonly Domain[]): Map<SkillId, Skill> {
 }
 
 /**
- * Order in which the trail opens the notions: the domains take turns (the first notion of
- * each domain, then the second…), so a new domain does not wait for all of the previous one.
+ * Order in which the trail opens the notions: the registry's `order` first, then the notions it
+ * does not list, the domains taking turns (the first notion of each domain, then the second…).
  */
-export function curriculum(domains: readonly Domain[]): Skill[] {
+export function curriculum(domains: readonly Domain[], order: readonly SkillId[]): Skill[] {
+  const byId = skillsById(domains);
+  const first = order.flatMap((id) => byId.get(id) ?? []);
   const longest = Math.max(0, ...domains.map((domain) => domain.skills.length));
-  return Array.from({ length: longest }, (_, i) =>
+  const rest = Array.from({ length: longest }, (_, i) =>
     domains.flatMap((domain) => domain.skills[i] ?? []),
-  ).flat();
+  )
+    .flat()
+    .filter((skill) => !first.includes(skill));
+  return [...first, ...rest];
 }
 
 /**

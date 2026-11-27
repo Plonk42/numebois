@@ -16,10 +16,10 @@ import { curriculum } from '../../src/core/registry';
 import { Rng } from '../../src/core/rng';
 import { Session } from '../../src/core/session';
 import type { Exercise } from '../../src/core/types';
-import { DOMAINS } from '../../src/domains';
+import { DOMAINS, ORDER } from '../../src/domains';
 import { blooms } from '../../src/ui/fact-tree';
 
-const SKILLS = curriculum(DOMAINS);
+const SKILLS = curriculum(DOMAINS, ORDER);
 const products = SKILLS.find((skill) => skill.id === 'times-tables.products')!;
 const complements = SKILLS.find((skill) => skill.id === 'mental-math.complements')!;
 const TABLE_7 = products.facts!.groups!.find((group) => group.id === 'table-7')!.facts;

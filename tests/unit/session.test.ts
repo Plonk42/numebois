@@ -6,16 +6,16 @@ import {
   LEAVES_PER_RIGHT_ANSWER,
   leavesPerElement,
 } from '../../src/core/economy';
-import { newProgress, type SkillProgress } from '../../src/core/mastery';
+import { bestLevel, newProgress, type SkillProgress } from '../../src/core/mastery';
 import { curriculum } from '../../src/core/registry';
 import { Rng } from '../../src/core/rng';
 import { Session, type Achievement } from '../../src/core/session';
 import { defaultSetting } from '../../src/core/settings';
 import { atRecord, TRAIL_QUESTIONS, type StepRole } from '../../src/core/trail';
-import { DOMAINS } from '../../src/domains';
+import { DOMAINS, ORDER } from '../../src/domains';
 import { LAST_STAGE } from '../../src/scene/description';
 
-const SKILLS = curriculum(DOMAINS);
+const SKILLS = curriculum(DOMAINS, ORDER);
 
 /** Plays the trail in progress; `right(i)` tells whether question i is right first time. */
 function play(session: Session, right: (i: number) => boolean = () => true): string[] {
@@ -219,10 +219,15 @@ describe('payer l’effort (#141)', () => {
     // Mistakes on purpose until the trail gets easier.
     earn(sly, false);
     earn(sly, false);
+    const best = new Map([...sly.progress].map(([id, progress]) => [id, bestLevel(progress)]));
     const spoilt = earn(sly, true);
     expect(sly.trail.filter((step) => step.role === 'warmup')).toHaveLength(3);
     const fair = earn(honest, true);
-    expect(spoilt.levels).toEqual([]);
+    // Only a notion opened meanwhile climbs its first level, as at the child's level.
+    for (const level of spoilt.levels) {
+      expect(level).toMatchObject({ level: 1 });
+      if (level.kind === 'level') expect(best.get(level.skill) ?? 0).toBe(0);
+    }
     expect(spoilt.perQuestion).toBe(LEAVES_PER_RIGHT_ANSWER);
     expect(fair.perQuestion).toBeGreaterThan(spoilt.perQuestion);
   });

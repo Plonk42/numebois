@@ -24,9 +24,9 @@ import {
 } from '../../src/core/records';
 import { Rng } from '../../src/core/rng';
 import { Session } from '../../src/core/session';
-import { DOMAINS } from '../../src/domains';
+import { DOMAINS, ORDER } from '../../src/domains';
 
-const SKILLS = curriculum(DOMAINS);
+const SKILLS = curriculum(DOMAINS, ORDER);
 const products = SKILLS.find((skill) => skill.id === 'times-tables.products')!;
 const BASKET: ChallengeFormat = { kind: 'basket', seconds: 30 };
 const RACE: ChallengeFormat = { kind: 'race', questions: 10 };

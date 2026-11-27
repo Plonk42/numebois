@@ -10,6 +10,8 @@ import { timesTables } from './times-tables';
 import { units } from './units';
 import { wordProblems } from './word-problems';
 
+export { ORDER } from './order';
+
 /** The registry: one line per domain. */
 export const DOMAINS: readonly Domain[] = [
   numbers,

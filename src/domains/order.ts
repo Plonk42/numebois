@@ -1,0 +1,53 @@
+import type { SkillId } from '../core/types';
+
+/**
+ * Order in which the trail opens the notions (owner, 2026-11-27): the addition and
+ * multiplication tables first, the bases of each domain next, the domains taking turns; the
+ * child met every notion in class. Each notion comes after its prerequisites.
+ */
+export const ORDER: readonly SkillId[] = [
+  'numbers.write-digits',
+  'mental-math.sums',
+  'times-tables.products',
+  'mental-math.add',
+  'times-tables.missing-factor',
+  'time.read-clock',
+  'mental-math.subtract',
+  'numbers.read',
+  'column-arithmetic.add',
+  'measures.measure',
+  'mental-math.complements',
+  'numbers.decompose',
+  'word-problems.add-subtract',
+  'units.money',
+  'fractions.read',
+  'column-arithmetic.subtract',
+  'division.share',
+  'numbers.compare',
+  'time.set-clock',
+  'mental-math.doubles-halves',
+  'units.relations',
+  'column-arithmetic.multiply',
+  'word-problems.multiply',
+  'numbers.number-line-read',
+  'measures.draw',
+  'fractions.equal',
+  'time.units',
+  'mental-math.times-10-100',
+  'division.divide',
+  'numbers.order',
+  'units.convert',
+  'column-arithmetic.prices',
+  'mental-math.nine-eleven',
+  'numbers.number-line-place',
+  'measures.read-gauge',
+  'time.durations',
+  'fractions.compare',
+  'numbers.operation-words',
+  'units.compare-lengths',
+  'time.calendar',
+  'units.magnitude',
+  'fractions.add',
+  'fractions.measure',
+  'word-problems.fractions',
+];

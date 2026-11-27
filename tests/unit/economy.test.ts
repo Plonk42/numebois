@@ -20,7 +20,7 @@ import { Session } from '../../src/core/session';
 import { changeSetting } from '../../src/core/settings';
 import { TRAIL_QUESTIONS } from '../../src/core/trail';
 import type { SkillId } from '../../src/core/types';
-import { DOMAINS } from '../../src/domains';
+import { DOMAINS, ORDER } from '../../src/domains';
 import { MAX_ELEMENTS, stageFor } from '../../src/scene/description';
 
 /**
@@ -63,7 +63,7 @@ function play(
   const child = rng.fork('child');
   let day = 1;
   let today = 0;
-  const skills = curriculum(DOMAINS);
+  const skills = curriculum(DOMAINS, ORDER);
   const session = new Session(
     skills,
     rng.fork('trail'),
@@ -163,7 +163,7 @@ describe('economy (#29)', () => {
 
 describe('effort of the long notions (#153)', () => {
   it('pays a minute of a long notion at least as much as a minute of a quick one', () => {
-    for (const skill of curriculum(DOMAINS)) {
+    for (const skill of curriculum(DOMAINS, ORDER)) {
       for (let level = 0; level < skill.levels; level++) {
         const perSecond = effort(skill, level) / questionSeconds(skill, level);
         expect(perSecond, `${skill.id} ${level}`).toBeGreaterThanOrEqual(1 / QUESTION_SECONDS);
@@ -172,7 +172,7 @@ describe('effort of the long notions (#153)', () => {
   });
 
   it('pays the golden seeds of a long notion by its effort, a fact by one', () => {
-    const add = curriculum(DOMAINS).find((s) => s.id === 'column-arithmetic.add')!;
+    const add = curriculum(DOMAINS, ORDER).find((s) => s.id === 'column-arithmetic.add')!;
     expect(seedsOf([{ kind: 'level', skill: add.id, level: 5 }], add, 4)).toBe(effort(add, 4));
     expect(effort(add, 4)).toBeGreaterThan(1);
     expect(seedsOf([{ kind: 'automated', fact: 'x' }], add, 4)).toBe(1);

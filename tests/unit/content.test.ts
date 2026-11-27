@@ -1,10 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { OFFERED_CHOICES, offerChoices } from '../../src/core/choices';
 import { exerciseErrors } from '../../src/core/content';
-import { lessonContentErrors, registryErrors, skillsById } from '../../src/core/registry';
+import {
+  curriculum,
+  lessonContentErrors,
+  registryErrors,
+  skillsById,
+} from '../../src/core/registry';
 import { Rng } from '../../src/core/rng';
 import type { Domain, Skill } from '../../src/core/types';
-import { DOMAINS } from '../../src/domains';
+import { DOMAINS, ORDER } from '../../src/domains';
 import { TRY_LESSON } from '../../src/domains/column-arithmetic/lessons/essai';
 import { BIOMES } from '../../src/scene/biomes';
 import { BIOME_IDS } from '../../src/scene/description';
@@ -31,6 +36,18 @@ function skill(id: string, prerequisites: string[] = []): Skill {
 describe('registre', () => {
   it('is valid', () => {
     expect(registryErrors(DOMAINS)).toEqual([]);
+  });
+
+  it('opens every notion once, after its prerequisites, the tables first', () => {
+    const ids = DOMAINS.flatMap((domain) => domain.skills.map((skill) => skill.id));
+    expect([...ORDER].sort()).toEqual([...ids].sort());
+    for (const skill of curriculum(DOMAINS, ORDER)) {
+      for (const id of skill.prerequisites) {
+        expect(ORDER.indexOf(id), `${skill.id} avant ${id}`).toBeLessThan(ORDER.indexOf(skill.id));
+      }
+    }
+    expect(ORDER.indexOf('mental-math.sums')).toBeLessThan(3);
+    expect(ORDER.indexOf('times-tables.products')).toBeLessThan(3);
   });
 
   it('detects duplicates, unknown prerequisites, cycles and unprefixed identifiers', () => {

@@ -1,6 +1,6 @@
 import { curriculum } from './core/registry';
 import { today } from './core/day';
-import { DOMAINS } from './domains';
+import { DOMAINS, ORDER } from './domains';
 import { TRY_LESSON } from './domains/column-arithmetic/lessons/essai';
 import { SceneApp, type SceneCounters } from './scene/app';
 import { mountSoundButton } from './scene/audio/sound-button';
@@ -65,7 +65,7 @@ const ready = sceneOnly
       })
       .then(([json, albumJson]) => {
         // Every notion, in the order of the curriculum: the trail chooses among them.
-        const all = curriculum(DOMAINS);
+        const all = curriculum(DOMAINS, ORDER);
         // `?practice=<notion>&level=<n>`: that notion alone from that level, on a new painting,
         // without reading or writing the save (tests, trying a new notion).
         const practice = all.find((skill) => skill.id === params.get('practice'));
