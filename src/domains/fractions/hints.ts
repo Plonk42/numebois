@@ -56,7 +56,7 @@ export function readHint(exercise: ReadExercise, attempt: 1 | 2, tried?: Tried):
     if (attempt === 1) {
       return `On lit le nombre du haut, puis le nom des parts.\nEn bas ${d} : des ${partsName(d)}.`;
     }
-    return `${fraction} se lit « ${fractionWords(n, d)} ».`;
+    return `${fraction} se lit «\u00a0${fractionWords(n, d)}\u00a0».`;
   }
   if (form === 'colour') {
     if (attempt === 1) {

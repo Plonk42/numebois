@@ -2055,7 +2055,9 @@
 .frac .answer.inline {
   margin-bottom: 0.08em;
 }
-.choice .frac {
+.choice .frac,
+.statement.small .frac,
+.statement.text .frac {
   font-size: 1em;
 }
 

@@ -118,6 +118,6 @@ describe('lire, écrire et colorier des fractions (#61)', () => {
     expect(readHint(words, 1, tried('six huitièmes'))).toBe(
       'En bas, il y a 9 : ce sont des neuvièmes.',
     );
-    expect(readHint(words, 2)).toBe('6/9 se lit « six neuvièmes ».');
+    expect(readHint(words, 2)).toBe('6/9 se lit «\u00a0six neuvièmes\u00a0».');
   });
 });

@@ -92,7 +92,18 @@ export function generateRead(rng: Rng, level: number): ReadExercise {
   if (level < 0 || level >= READ_LEVELS) throw new RangeError(`niveau ${level}`);
   const [n, d] = drawFraction(rng, level);
   const form = rng.pick<ReadForm>(['write', 'colour', 'words']);
-  const shape = shapeFor(rng, d);
+  return readExercise(rng, level, form, n, d, shapeFor(rng, d));
+}
+
+/** The fraction n/d of a whole of this shape, to write, to colour or to read (an astuce too). */
+export function readExercise(
+  rng: Rng,
+  level: number,
+  form: ReadForm,
+  n: number,
+  d: number,
+  shape: WholeShape,
+): ReadExercise {
   const base = { skill: READ, level, numerator: n, denominator: d, form };
   const whole: Whole = { shape, parts: d, coloured: n };
   if (form === 'write') {
