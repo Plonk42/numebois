@@ -1,4 +1,12 @@
-import { clockText, durationText, onDial, timeText, weekday } from '../../core/time';
+import {
+  clockText,
+  durationText,
+  onDial,
+  parseTime,
+  timeText,
+  weekday,
+  type TimeOfDay,
+} from '../../core/time';
 import type { Tried } from '../../core/types';
 import { triedNumber } from '../../core/validate';
 import { WEEKDAYS, type CalendarExercise } from './calendar';
@@ -39,9 +47,53 @@ function readingMethod({ minutes, seconds, period }: DrawnTime): string {
   return 'Compte de 5 en 5 jusqu’au chiffre,\npuis les petits traits un par un.';
 }
 
-/** 1: how to read it; 2: each hand read, then the time. */
-export function readClockHint(exercise: ReadClockExercise, attempt: 1 | 2): string {
-  if (attempt === 1) return readingMethod(exercise);
+/** The hands read the other way round: the hour on the minute number, the minutes on the hour. */
+function swapped({ hours, minutes }: TimeOfDay, tried: TimeOfDay): boolean {
+  const same = tried.hours % 12 === hours % 12 && tried.minutes === minutes;
+  return (
+    !same &&
+    minutes % 5 === 0 &&
+    tried.hours === (minutes / 5 || 12) &&
+    tried.minutes === 5 * (hours % 12)
+  );
+}
+
+/** What a wrong reading tells: the hands swapped, the number read, the next hour, the period (#168). */
+function readingSlip(exercise: ReadClockExercise, tried: TimeOfDay): string | null {
+  const { hours, minutes, seconds, period } = exercise;
+  const dial = onDial(hours, minutes).hours;
+  const sameHour = onDial(tried.hours, 0).hours === dial;
+  if (seconds !== undefined && sameHour && tried.minutes === seconds && tried.seconds === minutes) {
+    return 'Tu as échangé minutes et secondes.\nLa trotteuse, la plus fine, compte les secondes.';
+  }
+  if (swapped(exercise, tried)) {
+    return 'Tu as lu les aiguilles à l’envers.\nLa petite montre l’heure, la grande les minutes.';
+  }
+  if (tried.minutes !== minutes) {
+    if (sameHour && minutes % 5 === 0 && tried.minutes === minutes / 5) {
+      return 'Tu as lu le chiffre, pas les minutes.\nLa grande aiguille compte de 5 en 5.';
+    }
+    return null;
+  }
+  const next = (dial % 12) + 1;
+  if (minutes > 0 && onDial(tried.hours, 0).hours === next) {
+    return `La petite aiguille n’est pas encore sur le ${next}.\nLis le nombre qu’elle vient de passer.`;
+  }
+  if (period === 'morning' && tried.hours === hours + 12) {
+    return 'Le matin, garde les heures de l’horloge.';
+  }
+  if (period && period !== 'morning' && tried.hours === dial) {
+    return `Tu as bien lu l’horloge.\nC’est ${PERIOD_WORDS[period]} : ajoute 12 aux heures.`;
+  }
+  return null;
+}
+
+/** 1: the mistake when recognised, else how to read it; 2: each hand read, then the time. */
+export function readClockHint(exercise: ReadClockExercise, attempt: 1 | 2, tried?: Tried): string {
+  if (attempt === 1) {
+    const time = tried && parseTime(tried.answer);
+    return (time && readingSlip(exercise, time)) || readingMethod(exercise);
+  }
   const { hours, minutes, seconds, period } = exercise;
   const said = `Il est ${exercise.answer}.`;
   const dial = onDial(hours, minutes);
@@ -59,10 +111,31 @@ export function readClockHint(exercise: ReadClockExercise, attempt: 1 | 2): stri
   return `La petite aiguille est ${hourSpot(hours, minutes)}.\n${big}\n${said}`;
 }
 
-/** 1: the hour hand first, then the minute hand; 2: where each one goes. */
-export function setClockHint({ hours, minutes, period }: SetClockExercise, attempt: 1 | 2): string {
+/** What hands set wrong tell: swapped, the big one on the number of minutes, one of them (#168). */
+function settingSlip({ hours, minutes }: SetClockExercise, tried: TimeOfDay): string | null {
+  const dial = onDial(hours, minutes);
+  if (swapped(dial, tried))
+    return 'La petite et la grande aiguille sont échangées.\nLa petite montre l’heure.';
+  if (minutes > 0 && minutes < 12 && tried.minutes === 5 * minutes) {
+    return `Tu as mis la grande aiguille sur le ${minutes}.\nElle compte de 5 en 5 : 5 minutes par chiffre.`;
+  }
+  if (tried.minutes === minutes) {
+    return 'La grande aiguille est bien placée.\nRegarde la petite : elle montre l’heure.';
+  }
+  if (onDial(tried.hours, 0).hours === dial.hours) {
+    return 'La petite aiguille est bien placée.\nLa grande : 5 minutes par chiffre.';
+  }
+  return null;
+}
+
+/** 1: the mistake when recognised, else the hour hand first, then the minute hand; 2: where each one goes. */
+export function setClockHint(exercise: SetClockExercise, attempt: 1 | 2, tried?: Tried): string {
+  const { hours, minutes, period } = exercise;
   const dial = onDial(hours, minutes);
   if (attempt === 1) {
+    const time = tried && parseTime(tried.answer);
+    const slip = time && settingSlip(exercise, time);
+    if (slip) return slip;
     if (period && period !== 'morning') return 'Après midi, enlève 12 aux heures pour l’horloge.';
     if (minutes === 0) return 'La petite aiguille sur l’heure,\nla grande sur 12.';
     return 'La petite aiguille montre l’heure.\nLa grande : 5 minutes par chiffre.';
@@ -159,19 +232,59 @@ function jumps(start: number, end: number): [number, number][] {
       ];
 }
 
-/** 1: how the jumps go; 2: each jump, then the duration or the end. */
-export function durationHint({ level, start, end }: DurationExercise, attempt: 1 | 2): string {
-  const length = end - start;
-  if (attempt === 1) {
-    if (level === 0) return 'Compte les minutes de 5 en 5,\ndu début à la fin.';
-    if (level === 1) return 'Un bond, une heure : compte les bonds.';
-    if (level === 2) return 'Fais un bond jusqu’à l’heure pile, puis continue.';
-    if (level === 3) return 'Un bond, une heure.\nPuis compte les minutes du dernier bond.';
-    const add = `Ajoute ${durationText(length)} à ${clockText(start)}.`;
-    return length > 60
-      ? `${add}\nD’abord les heures, puis les minutes.`
-      : `${add}\nVa d’abord jusqu’à l’heure pile.`;
+/** The answer tried as a duration in minutes: minutes, hours, a duration or the end time. */
+function triedLength({ level, start }: DurationExercise, tried: Tried): number | null {
+  if (level < 3) {
+    const n = triedNumber(tried);
+    if (n === null) return null;
+    return level === 1 ? n * 60 : n;
   }
+  const time = parseTime(tried.answer);
+  if (!time) return null;
+  return time.hours * 60 + time.minutes - (level === 4 ? start : 0);
+}
+
+/** 100 minutes to the hour, the end minutes copied, 5 minutes or an hour off (#168). */
+function durationSlip(exercise: DurationExercise, tried: Tried): string | null {
+  const { level, start, end } = exercise;
+  const length = end - start;
+  const t = triedLength(exercise, tried);
+  if (t === null || t === length) return null;
+  const hundreds =
+    (Math.floor(end / 60) - Math.floor(start / 60)) * 100 + (end % 60) - (start % 60);
+  if (level === 2 && t === hundreds) {
+    return 'Une heure, c’est 60 min, pas 100.\nFais un bond jusqu’à l’heure pile, puis continue.';
+  }
+  if ((level === 0 || level === 2) && t === end % 60) {
+    return `${end % 60}, ce sont les minutes de la fin.\nCompte du début à la fin.`;
+  }
+  if (Math.abs(t - length) === 5 && level !== 1) {
+    return `Tu es à 5 min près.\n${durationMethod(exercise)}`;
+  }
+  if (level < 3 || Math.abs(t - length) !== 60) return null;
+  if (level === 4 && t < length && (start % 60) + (length % 60) >= 60) {
+    return 'Les minutes sont bonnes.\nTu passes l’heure pile : l’heure avance de 1.';
+  }
+  return 'Les minutes sont bonnes.\nRecompte les bonds d’une heure.';
+}
+
+/** How the jumps go, at each level. */
+function durationMethod({ level, start, end }: DurationExercise): string {
+  if (level === 0) return 'Compte les minutes de 5 en 5,\ndu début à la fin.';
+  if (level === 1) return 'Un bond, une heure : compte les bonds.';
+  if (level === 2) return 'Fais un bond jusqu’à l’heure pile, puis continue.';
+  if (level === 3) return 'Un bond, une heure.\nPuis compte les minutes du dernier bond.';
+  const add = `Ajoute ${durationText(end - start)} à ${clockText(start)}.`;
+  return end - start > 60
+    ? `${add}\nD’abord les heures, puis les minutes.`
+    : `${add}\nVa d’abord jusqu’à l’heure pile.`;
+}
+
+/** 1: the mistake when recognised, else how the jumps go; 2: each jump, then the duration or the end. */
+export function durationHint(exercise: DurationExercise, attempt: 1 | 2, tried?: Tried): string {
+  const { level, start, end } = exercise;
+  const length = end - start;
+  if (attempt === 1) return (tried && durationSlip(exercise, tried)) || durationMethod(exercise);
   if (level === 0) return `De ${clockText(start)} à ${clockText(end)} : ${length} min.`;
   if (level === 1) return `De ${clockText(start)} à ${clockText(end)} : ${length / 60} h.`;
   const lines = jumps(start, end).map(
@@ -181,8 +294,30 @@ export function durationHint({ level, start, end }: DurationExercise, attempt: 1
   return [...lines, total].join('\n');
 }
 
-/** 1: where to look; 2: the line or the weeks that give the answer. */
-export function calendarHint(exercise: CalendarExercise, attempt: 1 | 2): string {
+/** A day next to the right one, a week or a day off (#168). */
+function calendarSlip(exercise: CalendarExercise, tried: Tried): string | null {
+  const { level, asked } = exercise;
+  if (level === 0 || level === 3) {
+    const [day, right] = [tried.answer, exercise.answer].map((d) => WEEKDAYS.indexOf(d));
+    if (day < 0 || ((day - right + 7) % 7 !== 1 && (right - day + 7) % 7 !== 1)) return null;
+    if (level === 0) {
+      return 'C’est le jour d’à côté.\nRemonte bien droit jusqu’au nom de la colonne.';
+    }
+    return 'Tu es à 1 jour près.\nTous les 7 jours, le même jour revient.';
+  }
+  const date = triedNumber(tried);
+  if (date === asked + 7) return 'Une semaine de trop : une ligne plus haut.';
+  if (date === asked - 7) return 'Il manque une semaine : une ligne plus bas.';
+  if (date !== null && Math.abs(date - asked) === 1) {
+    return `Tu es à 1 jour près.\n${calendarHint(exercise, 1)}`;
+  }
+  return null;
+}
+
+/** 1: the mistake when recognised, else where to look; 2: the line or the weeks that give the answer. */
+export function calendarHint(exercise: CalendarExercise, attempt: 1 | 2, tried?: Tried): string {
+  const slip = attempt === 1 && tried && calendarSlip(exercise, tried);
+  if (slip) return slip;
   const { level, year, month, given, asked } = exercise;
   if (level === 0) {
     return attempt === 1

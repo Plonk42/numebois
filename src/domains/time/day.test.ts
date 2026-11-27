@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { Rng } from '../../core/rng';
 import { daysIn, parseTime, weekday } from '../../core/time';
-import { CALENDAR_LEVELS, WEEKDAYS, generateCalendar } from './calendar';
-import { DURATIONS_LEVELS, generateDuration, stopsOf } from './durations';
+import { CALENDAR_LEVELS, WEEKDAYS, generateCalendar, type CalendarExercise } from './calendar';
+import { DURATIONS_LEVELS, durationExercise, generateDuration, stopsOf } from './durations';
 import { unitFacts } from './facts';
-import { durationHint, unitsHint } from './hints';
+import { calendarHint, durationHint, unitsHint } from './hints';
+import { bubbleErrors } from '../../core/content';
 import { RELATIONS, UNITS_LEVELS, generateUnits, unitsLures } from './units';
 import { validateAny } from './validate';
 
@@ -162,5 +163,57 @@ describe('heures, minutes et secondes : indices après une erreur (#168)', () =>
         );
       }
     }
+  });
+});
+
+describe('durées et calendrier : indices après une erreur (#168)', () => {
+  const tried = (answer: string) => ({ answer });
+  const kind = (text: string) => expect(bubbleErrors('indice', text)).toEqual([]);
+
+  it('durations: 100 to the hour, the end minutes, 5 minutes or an hour off', () => {
+    const past = durationExercise(14 * 60 + 40, 15 * 60 + 10, 2);
+    expect(durationHint(past, 1, tried('70'))).toBe(
+      'Une heure, c’est 60 min, pas 100.\nFais un bond jusqu’à l’heure pile, puis continue.',
+    );
+    expect(durationHint(past, 1, tried('10'))).toBe(
+      '10, ce sont les minutes de la fin.\nCompte du début à la fin.',
+    );
+    expect(durationHint(past, 1, tried('25'))).toBe(
+      'Tu es à 5 min près.\nFais un bond jusqu’à l’heure pile, puis continue.',
+    );
+    const long = durationExercise(14 * 60 + 10, 15 * 60 + 30, 3);
+    expect(durationHint(long, 1, tried('2h20'))).toBe(
+      'Les minutes sont bonnes.\nRecompte les bonds d’une heure.',
+    );
+    const end = durationExercise(14 * 60 + 40, 15 * 60 + 25, 4);
+    expect(durationHint(end, 1, tried('14h25'))).toBe(
+      'Les minutes sont bonnes.\nTu passes l’heure pile : l’heure avance de 1.',
+    );
+    expect(durationHint(end, 1, tried('15h30'))).toContain('Tu es à 5 min près.');
+    expect(durationHint(end, 1, tried('17h00'))).toBe(durationHint(end, 1));
+    for (let level = 0; level < DURATIONS_LEVELS; level++) {
+      for (let seed = 0; seed < SEEDS; seed++) {
+        const e = generateDuration(new Rng(seed), level);
+        kind(durationHint(e, 1, tried(level < 3 ? String(Number(e.answer) + 5) : e.answer)));
+      }
+    }
+  });
+
+  it('calendar: the day next to it, a week or a day off', () => {
+    const day = { ...generateCalendar(new Rng(1), 0), answer: WEEKDAYS[2] };
+    expect(calendarHint(day, 1, tried(WEEKDAYS[1]))).toBe(
+      'C’est le jour d’à côté.\nRemonte bien droit jusqu’au nom de la colonne.',
+    );
+    expect(calendarHint(day, 1, tried(WEEKDAYS[5]))).toBe(calendarHint(day, 1));
+    const far: CalendarExercise = { ...generateCalendar(new Rng(1), 3), answer: WEEKDAYS[6] };
+    expect(calendarHint(far, 1, tried(WEEKDAYS[0]))).toBe(
+      'Tu es à 1 jour près.\nTous les 7 jours, le même jour revient.',
+    );
+    const week: CalendarExercise = { ...generateCalendar(new Rng(1), 2), given: 13, asked: 20 };
+    expect(calendarHint(week, 1, tried('27'))).toBe('Une semaine de trop : une ligne plus haut.');
+    expect(calendarHint(week, 1, tried('13'))).toBe('Il manque une semaine : une ligne plus bas.');
+    expect(calendarHint(week, 1, tried('21'))).toBe(
+      'Tu es à 1 jour près.\nUne semaine, c’est 7 jours : une ligne plus bas.',
+    );
   });
 });

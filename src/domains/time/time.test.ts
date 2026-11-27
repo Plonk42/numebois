@@ -11,7 +11,12 @@ import {
   drawTime,
   generateReadClock,
   generateSetClock,
+  readClock,
+  setClock,
+  type ReadClockExercise,
 } from './generators';
+import { readClockHint, setClockHint } from './hints';
+import { bubbleErrors } from '../../core/content';
 import { validateReading, validateSetting } from './validate';
 
 const SEEDS = 1000;
@@ -125,5 +130,61 @@ describe('placer les aiguilles', () => {
     // From 12h05 back to 11h55, and the hour hand keeps the minutes.
     expect(turnMinuteHand(5, 330, 5)).toBe(11 * 60 + 55);
     expect(turnHourHand(45, 90 + 22)).toBe(3 * 60 + 45);
+  });
+});
+
+describe('l’heure : indices après une erreur (#168)', () => {
+  const tried = (answer: string) => ({ answer });
+  const read = (hours: number, minutes: number, more: Partial<ReadClockExercise> = {}) =>
+    readClock({ hours, minutes, ...more }, 3);
+  const kind = (text: string) => expect(bubbleErrors('indice', text)).toEqual([]);
+
+  it('reading: the hands swapped, the number read, the next hour', () => {
+    for (const text of [
+      readClockHint(read(3, 10), 1, tried('2h15')),
+      readClockHint(read(3, 10), 1, tried('3h02')),
+      readClockHint(read(3, 45), 1, tried('4h45')),
+    ]) {
+      kind(text);
+    }
+    expect(readClockHint(read(3, 10), 1, tried('2h15'))).toBe(
+      'Tu as lu les aiguilles à l’envers.\nLa petite montre l’heure, la grande les minutes.',
+    );
+    expect(readClockHint(read(3, 10), 1, tried('3h02'))).toBe(
+      'Tu as lu le chiffre, pas les minutes.\nLa grande aiguille compte de 5 en 5.',
+    );
+    expect(readClockHint(read(3, 45), 1, tried('4h45'))).toBe(
+      'La petite aiguille n’est pas encore sur le 4.\nLis le nombre qu’elle vient de passer.',
+    );
+    expect(readClockHint(read(3, 45), 1, tried('5h45'))).toBe(readClockHint(read(3, 45), 1));
+  });
+
+  it('reading: the period, the seconds', () => {
+    expect(readClockHint(read(14, 10, { period: 'afternoon' }), 1, tried('2h10'))).toBe(
+      'Tu as bien lu l’horloge.\nC’est l’après-midi : ajoute 12 aux heures.',
+    );
+    expect(readClockHint(read(9, 10, { period: 'morning' }), 1, tried('21h10'))).toBe(
+      'Le matin, garde les heures de l’horloge.',
+    );
+    expect(readClockHint(read(3, 12, { seconds: 40 }), 1, tried('3h40min12s'))).toBe(
+      'Tu as échangé minutes et secondes.\nLa trotteuse, la plus fine, compte les secondes.',
+    );
+  });
+
+  it('setting: the hands swapped, the big one on the minutes, one hand right', () => {
+    const set = (hours: number, minutes: number) => setClock({ hours, minutes }, 3);
+    expect(setClockHint(set(3, 10), 1, tried('2h15'))).toBe(
+      'La petite et la grande aiguille sont échangées.\nLa petite montre l’heure.',
+    );
+    expect(setClockHint(set(2, 10), 1, tried('2h50'))).toBe(
+      'Tu as mis la grande aiguille sur le 10.\nElle compte de 5 en 5 : 5 minutes par chiffre.',
+    );
+    expect(setClockHint(set(2, 10), 1, tried('5h10'))).toBe(
+      'La grande aiguille est bien placée.\nRegarde la petite : elle montre l’heure.',
+    );
+    expect(setClockHint(set(2, 10), 1, tried('2h30'))).toBe(
+      'La petite aiguille est bien placée.\nLa grande : 5 minutes par chiffre.',
+    );
+    expect(setClockHint(set(2, 10), 1, tried('7h35'))).toBe(setClockHint(set(2, 10), 1));
   });
 });
