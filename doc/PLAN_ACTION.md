@@ -70,7 +70,7 @@ flowchart LR
    - **Temps estimé par niveau** (`questionSeconds` de la notion, `src/domains/*/skills.ts`), à défaut 12 s, une question rapide (`QUESTION_SECONDS`, séance #128). Estimations faites sans séance, pour un enfant de 8 ans : poser une addition 25 à 70 s, une multiplication 25 à 60 s, mesurer 15 à 55 s, tracer 15 à 22 s, l'heure 10 à 30 s, les durées 15 à 30 s, le calendrier 12 à 25 s, la monnaie 20 à 25 s, convertir 12 à 22 s, la balance 10 à 20 s, les problèmes 25 à 40 s. À remplacer par des temps mesurés quand le propriétaire pourra jouer à la place de l'enfant.
    - **Effort** = temps / 12 s, arrondi au-dessus (`effort`, `src/core/economy.ts`) : une minute sur une notion longue ne rapporte jamais moins qu'une minute sur une notion rapide. Il multiplie les feuilles de la question (`Session.worth`) et les graines dorées d'une notion acquise ou d'un cran franchi (`seedsOf` ; un fait su par cœur reste à une graine).
    - **Sentier en temps** (`fitTime`, `src/core/trail.ts`) : il garde la durée de 10 (ou 6) questions rapides ; les questions du cœur partent d'abord (une reste), puis les révisions (elles attendent le sentier suivant), puis l'échauffement (un reste) ; la notion en focus garde la moitié du temps. Au pire : un échauffement, une question, la fin, tous longs.
-   - **Simulations :** `tests/unit/economy.test.ts` (un tableau en 35 à 45 minutes ; une notion longue en focus ne ralentit pas le tableau par rapport à une rapide) et `tests/unit/simulation.test.ts` (six mois au même temps de jeu : une notion longue demande plus de temps, un peu moins de notions s'ouvrent).
+   - **Simulations :** `tests/unit/economy.test.ts` (un tableau en 35 à 45 minutes ; une notion longue en focus ne ralentit pas le tableau par rapport à une rapide) et `tests/unit/simulation.test.ts` (six mois au même temps de jeu, 8 élèves virtuels : un nombre de notions acquises, pas une part du registre ; une notion longue demande plus de temps).
 
 Tickets : réserve et micro-retour (#22), boutique (#83), pose et paliers (#24), emplacement (#25), saisons (#82), nuit (#85), éléments rares (#46), calibrage (#29).
 
@@ -701,11 +701,12 @@ Dépend de 4, puis à chaque jalon.
    - défis avec temps simulé ;
    - aller-retour export/import ;
    - une fois la compatibilité activée, ouverture de chaque fixture figée `tests/fixtures/saves/schema-N.json`.
-4. Simulation de 6 mois, avec un élève virtuel à 80 % de réussite et des devoirs chaque semaine (focus jusqu'à une date), qui vérifie (`tests/unit/simulation.test.ts` pour le sentier, sur le registre actuel et sur un registre d'une centaine de notions ; les devoirs avec #54 (chaque semaine, une notion en cours en focus jusqu'à la veille de la semaine suivante : la moitié des sentiers va aux devoirs, donc un registre d'une centaine de notions en ouvre moins, environ 30 au lieu de 50 en six mois), le tableau avec #29, l'Album avec #34) :
+4. Simulation de 6 mois, avec 8 élèves virtuels à 80 % de réussite (un seul est une loterie : 38 à 51 notions acquises sur le même registre) et des devoirs chaque semaine (focus jusqu'à une date), qui vérifie (`tests/unit/simulation.test.ts` pour le sentier, sur le registre actuel et sur un registre d'une centaine de notions ; les devoirs avec #54 (chaque semaine, une notion en cours en focus jusqu'à la veille de la semaine suivante : la moitié des sentiers va aux devoirs, donc un registre d'une centaine de notions en ouvre moins, environ 23 au lieu de 43 en six mois), le tableau avec #29, l'Album avec #34) :
    - un sentier de taille constante ;
    - au plus 3 notions en cours ;
    - des révisions ≤ 25 % ;
    - aucune notion acquise oubliée plus de 60 jours ;
+   - un nombre moyen de notions acquises en six mois qui ne dépend pas de la taille du programme (décision du propriétaire, 2026-11-27 : plus de notions demandent plus de temps, pas une part fixe du registre) ;
    - un nombre d'objets de la scène sous le plafond ;
    - un tableau complété en 35 à 45 minutes de jeu simulé ;
    - un Album qui contient tous les tableaux terminés, chacun rejouable à l'identique depuis sa description.

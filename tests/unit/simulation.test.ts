@@ -11,6 +11,8 @@ import type { Domain, Exercise, Skill } from '../../src/core/types';
 import { DOMAINS } from '../../src/domains';
 
 const DAYS = 182;
+/** Virtual children: one alone is a lottery (38 to 51 notions acquired with the same registry). */
+const CHILDREN = [1, 2, 3, 4, 5, 6, 7, 8];
 /** Seconds of questions of a normal trail of quick questions. */
 const BUDGET = TRAIL_QUESTIONS.normal * QUESTION_SECONDS;
 
@@ -46,9 +48,9 @@ function syntheticDomain(index: number, count: number): Domain {
  * Six months of a virtual child right 80 % of the time at first try, who skips about one day
  * in seven and sometimes plays two trails: what each trail asks and what is left aside.
  */
-function sixMonths(domains: readonly Domain[], withHomework: boolean) {
+function sixMonths(domains: readonly Domain[], withHomework: boolean, seed: number) {
   const skills = curriculum(domains);
-  const rng = new Rng(7);
+  const rng = new Rng(seed);
   const child = rng.fork('child');
   let day = 0;
   const session = new Session(
@@ -130,57 +132,58 @@ describe('six mois de jeu', () => {
   const futures = Array.from({ length: Math.round((100 - real) / 6) }, (_, i) =>
     syntheticDomain(i, 6),
   );
-  // A long notion takes more time to learn, in trails of the same time (#153): fewer open.
+  // Notions acquired in six months, on average: as many whatever the size of the programme,
+  // which takes longer than six months as it grows (measured 2026-11-27, about 2 under).
   it.each([
-    { name: 'the current registry', domains: DOMAINS, homework: false, opens: 0.8 },
+    { name: 'the current registry', domains: DOMAINS, homework: false, acquired: 24 },
     {
       name: 'a registry of about 100 notions',
       domains: [...DOMAINS, ...futures],
       homework: false,
-      opens: 0.75,
+      acquired: 40,
     },
     // Half of the trail goes to the homework of the week: fewer notions open (#54).
     {
       name: 'the current registry, homework every week',
       domains: DOMAINS,
       homework: true,
-      opens: 0.6,
+      acquired: 19,
     },
     {
       name: 'about 100 notions, homework every week',
       domains: [...DOMAINS, ...futures],
       homework: true,
-      opens: 0.35,
+      acquired: 21,
     },
   ])(
     '$name: same trail time, 3 notions in progress, reviews under 25 %, nothing forgotten',
-    ({ domains, homework, opens }) => {
-      const { trails, forgotten, acquired, notions, homeworkQuestions } = sixMonths(
-        domains,
-        homework,
-      );
-      expect(trails.length).toBeGreaterThan(DAYS);
-      // The homework of each week comes often: half of most trails of its week.
-      if (homework) {
-        expect(homeworkQuestions).toBeGreaterThan((trails.length * TRAIL_QUESTIONS.normal) / 4);
+    ({ domains, homework, acquired }) => {
+      const children = CHILDREN.map((seed) => sixMonths(domains, homework, seed));
+      for (const { trails, forgotten, homeworkQuestions } of children) {
+        expect(trails.length).toBeGreaterThan(DAYS);
+        // The homework of each week comes often: half of most trails of its week.
+        if (homework) {
+          expect(homeworkQuestions).toBeGreaterThan((trails.length * TRAIL_QUESTIONS.normal) / 4);
+        }
+        const size = TRAIL_QUESTIONS.normal;
+        // Fewer stones when the questions are long (#153); at worst a warmup, a question, a
+        // finish and one more after a mistake, all long.
+        const seconds = trails.map((trail) => trail.seconds);
+        expect(seconds.reduce((a, b) => a + b, 0) / seconds.length).toBeLessThanOrEqual(
+          BUDGET * 1.1,
+        );
+        for (const trail of trails) {
+          expect(trail.stones).toBeLessThanOrEqual(size);
+          expect(trail.seconds).toBeLessThanOrEqual(BUDGET * 2.5);
+          expect(trail.inProgress).toBeLessThanOrEqual(MAX_ACTIVE);
+          expect(trail.reviews).toBeLessThanOrEqual(Math.floor(size * REVIEW_SHARE));
+        }
+        // An acquired notion comes back at least as often as its longest review interval.
+        expect(forgotten).toBeLessThanOrEqual(REVIEW_DAYS.at(-1)!);
       }
-      const size = TRAIL_QUESTIONS.normal;
-      // Fewer stones when the questions are long (#153); at worst a warmup, a question, a
-      // finish and one more after a mistake, all long.
-      const seconds = trails.map((trail) => trail.seconds);
-      expect(seconds.reduce((a, b) => a + b, 0) / seconds.length).toBeLessThanOrEqual(BUDGET * 1.1);
-      for (const trail of trails) {
-        expect(trail.stones).toBeLessThanOrEqual(size);
-        expect(trail.seconds).toBeLessThanOrEqual(BUDGET * 2.5);
-        expect(trail.inProgress).toBeLessThanOrEqual(MAX_ACTIVE);
-        expect(trail.reviews).toBeLessThanOrEqual(Math.floor(size * REVIEW_SHARE));
-      }
-      // An acquired notion comes back at least as often as its longest review interval.
-      expect(forgotten).toBeLessThanOrEqual(REVIEW_DAYS.at(-1)!);
-      // The content keeps opening: most of today's notions, half of 100, in six months.
-      expect(acquired, `${acquired} sur ${notions}`).toBeGreaterThanOrEqual(
-        opens * Math.min(notions, 60),
-      );
+      const counts = children.map((child) => child.acquired);
+      const mean = counts.reduce((a, b) => a + b, 0) / counts.length;
+      expect(mean, counts.join(' ')).toBeGreaterThanOrEqual(acquired);
     },
   );
 });
