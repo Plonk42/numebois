@@ -133,14 +133,15 @@ describe('six mois de jeu', () => {
     syntheticDomain(i, 6),
   );
   // Notions acquired in six months, on average: as many whatever the size of the programme,
-  // which takes longer than six months as it grows (measured 2026-11-27, about 2 under).
+  // which takes longer than six months as it grows (measured 2026-11-27, about 2 under; the
+  // long notions of M6, set out on a sheet, leave fewer questions for the others).
   it.each([
     { name: 'the current registry', domains: DOMAINS, homework: false, acquired: 24 },
     {
       name: 'a registry of about 100 notions',
       domains: [...DOMAINS, ...futures],
       homework: false,
-      acquired: 40,
+      acquired: 37,
     },
     // Half of the trail goes to the homework of the week: fewer notions open (#54).
     {

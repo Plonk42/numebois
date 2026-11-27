@@ -1177,6 +1177,15 @@
   margin: 2px 6px;
   font-size: 28px;
 }
+/* By compensation (#173), the top digit gets 10 more: a small 1 before it. */
+.column-operation .ten {
+  justify-self: start;
+  align-self: center;
+  margin: -6px 0 0 12px;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--rank-dark);
+}
 /* A box of a number being set out (#158), in its row. */
 #question .column-layout .box.term {
   margin: 2px 4px;

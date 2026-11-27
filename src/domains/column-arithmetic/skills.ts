@@ -1,18 +1,22 @@
 import { defineSkill } from '../../core/registry';
 import { validateNumber } from '../../core/validate';
-import { ADD as MENTAL_ADD } from '../mental-math/generators';
+import { ADD as MENTAL_ADD, SUBTRACT as MENTAL_SUBTRACT } from '../mental-math/generators';
 import { PRODUCTS } from '../times-tables/generators';
 import {
   ADD,
   ADD_LEVELS,
   generateAddition,
   generateMultiplication,
+  generateSubtraction,
   MULTIPLY,
   MULTIPLY_LEVELS,
+  SUBTRACT,
+  SUBTRACT_LEVELS,
   type AdditionExercise,
   type MultiplicationExercise,
+  type SubtractionExercise,
 } from './generators';
-import { additionHint, multiplicationHint } from './hints';
+import { additionHint, multiplicationHint, subtractionHint, subtractionLures } from './hints';
 
 export const addition = defineSkill<AdditionExercise>({
   id: ADD,
@@ -25,6 +29,19 @@ export const addition = defineSkill<AdditionExercise>({
   generate: generateAddition,
   validate: validateNumber,
   hint: additionHint,
+});
+
+export const subtraction = defineSkill<SubtractionExercise>({
+  id: SUBTRACT,
+  name: 'Poser une soustraction',
+  prerequisites: [ADD, MENTAL_SUBTRACT],
+  levels: SUBTRACT_LEVELS,
+  // As the addition, a little more a column: the carry added at the bottom, 10 more at the top.
+  questionSeconds: [25, 30, 40, 45, 55, 65],
+  generate: generateSubtraction,
+  validate: validateNumber,
+  hint: subtractionHint,
+  lures: subtractionLures,
 });
 
 export const multiplication = defineSkill<MultiplicationExercise>({

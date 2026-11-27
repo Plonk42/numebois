@@ -1,7 +1,7 @@
 import type { Rng } from '../../core/rng';
 import type { ColumnMode, ColumnSetup, Exercise } from '../../core/types';
 import { formatNumber } from '../numbers/words';
-import { addColumns, carryCount, multiplyColumns, rankCount } from './columns';
+import { addColumns, carryCount, multiplyColumns, rankCount, subtractColumns } from './columns';
 
 export const ADD = 'column-arithmetic.add';
 
@@ -153,6 +153,118 @@ export function generateAddition(rng: Rng, level: number): AdditionExercise {
     });
     if (fitsAddLevel(rows, level)) {
       return addition(rows, level, drawSetup(rng, ADD_BY_LEVEL[level].mode));
+    }
+  }
+}
+
+export const SUBTRACT = 'column-arithmetic.subtract';
+
+/** `top − bottom`, the rows set out one over the other. */
+export interface SubtractionExercise extends Exercise {
+  top: number;
+  bottom: number;
+}
+
+interface SubtractLevel {
+  mode: ColumnMode;
+  /** Ranks of the top number, and of the bottom one, drawn between the two. */
+  top: number;
+  bottom: readonly [number, number];
+  /** Carries, between the two. */
+  carries: readonly [number, number];
+  /** A zero in the middle of the top number, that a carry crosses: 403 − 178. */
+  zero?: boolean;
+}
+
+/**
+ * Levels of « poser une soustraction » (#173), by compensation, results with as many digits as
+ * the top number:
+ * 0. guided, 3 digits, no carry: 587 − 243;
+ * 1. guided, 3 digits minus 2 or 3, one carry: 463 − 128;
+ * 2. accompanied, 3 digits minus 2 or 3, one carry;
+ * 3. accompanied, 3 digits, two carries;
+ * 4. alone, a zero in the middle of the top number: 403 − 178;
+ * 5. alone, 4 digits minus 3 or 4, two carries or more.
+ */
+const SUBTRACT_BY_LEVEL: readonly SubtractLevel[] = [
+  { mode: 'guided', top: 3, bottom: [3, 3], carries: [0, 0] },
+  { mode: 'guided', top: 3, bottom: [2, 3], carries: [1, 1] },
+  { mode: 'accompanied', top: 3, bottom: [2, 3], carries: [1, 1] },
+  { mode: 'accompanied', top: 3, bottom: [3, 3], carries: [2, 2] },
+  { mode: 'alone', top: 3, bottom: [2, 3], carries: [1, 2], zero: true },
+  { mode: 'alone', top: 4, bottom: [3, 4], carries: [2, 3] },
+];
+
+export const SUBTRACT_LEVELS = SUBTRACT_BY_LEVEL.length;
+
+const SUBTRACT_INSTRUCTIONS: Record<ColumnMode, string> = {
+  ...INSTRUCTIONS,
+  alone: 'Calcule la soustraction posée.',
+};
+
+export const subtractStatement = (top: number, bottom: number) =>
+  `${formatNumber(top)}${SPACE}−${SPACE}${formatNumber(bottom)}`;
+
+export function subtraction(
+  top: number,
+  bottom: number,
+  level: number,
+  setup?: ColumnSetup,
+): SubtractionExercise {
+  const { mode } = SUBTRACT_BY_LEVEL[level];
+  const statement = subtractStatement(top, bottom);
+  return {
+    skill: SUBTRACT,
+    level,
+    instruction: setup ? SETUP_INSTRUCTIONS[mode](statement) : SUBTRACT_INSTRUCTIONS[mode],
+    statement,
+    input: {
+      kind: 'column',
+      operator: '−',
+      rows: [top, bottom],
+      columns: subtractColumns(top, bottom),
+      mode,
+      ...(setup && { setup }),
+    },
+    answer: String(top - bottom),
+    top,
+    bottom,
+  };
+}
+
+/**
+ * Whether `top − bottom` fits a level: the ranks, a result with as many digits as `top` (no 0 to
+ * write on the left), the carries, the zero in the middle crossed by a carry.
+ */
+export function fitsSubtractLevel(top: number, bottom: number, level: number): boolean {
+  const settings = SUBTRACT_BY_LEVEL[level];
+  const columns = subtractColumns(top, bottom);
+  const carries = carryCount(columns);
+  const middle = String(top).slice(1, -1);
+  return (
+    bottom < top &&
+    rankCount(top) === settings.top &&
+    rankCount(bottom) >= settings.bottom[0] &&
+    rankCount(bottom) <= settings.bottom[1] &&
+    rankCount(top - bottom) === settings.top &&
+    carries >= settings.carries[0] &&
+    carries <= settings.carries[1] &&
+    (!settings.zero ||
+      (middle.includes('0') &&
+        columns.some((column, rank) => column.carry > 0 && String(top).at(-2 - rank) === '0')))
+  );
+}
+
+export function generateSubtraction(rng: Rng, level: number): SubtractionExercise {
+  const settings = SUBTRACT_BY_LEVEL[level];
+  if (!settings) throw new RangeError(`niveau ${level}`);
+  for (;;) {
+    let top = rng.int(10 ** (settings.top - 1), 10 ** settings.top - 1);
+    if (settings.zero) top -= (Math.floor(top / 10) % 10) * 10;
+    const rank = rng.int(...settings.bottom);
+    const bottom = rng.int(10 ** (rank - 1), 10 ** rank - 1);
+    if (fitsSubtractLevel(top, bottom, level)) {
+      return subtraction(top, bottom, level, drawSetup(rng, settings.mode));
     }
   }
 }

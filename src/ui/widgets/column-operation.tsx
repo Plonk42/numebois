@@ -210,8 +210,12 @@ export function ColumnOperation({
   const columnOf = (rank: number) => width - rank + 1;
   // A multiplication keeps its carry in the bag beside it, not over the columns (#49).
   const bagged = input.operator === '×';
-  const top = bagged ? 2 : 3;
-  const resultRow = rows.length + top + 1;
+  // A subtraction's carry goes down, under the bottom number in the next column (#173).
+  const under = input.operator === '−';
+  const top = bagged || under ? 2 : 3;
+  const lineRow = rows.length + top + (under ? 1 : 0);
+  const resultRow = lineRow + 1;
+  const carryRow = under ? rows.length + top : 2;
   const box = (spot: Spot, inBag = false) => {
     const key = keyOf(spot);
     let value = values[key] ?? '';
@@ -229,7 +233,10 @@ export function ColumnOperation({
         style={
           inBag
             ? undefined
-            : { gridColumn: columnOf(rank), gridRow: spot.kind === 'digit' ? resultRow : 2 }
+            : {
+                gridColumn: columnOf(rank),
+                gridRow: spot.kind === 'digit' ? resultRow : carryRow,
+              }
         }
         disabled={locked || mode !== 'alone'}
         aria-label={
@@ -262,6 +269,19 @@ export function ColumnOperation({
     bubble = { title: 'Presque !', text: coach.calc };
   }
   const ranks = columns.map((_, rank) => rank);
+  /**
+   * By compensation, the top digit of a column that sends a carry gets 10 more: a small 1
+   * before it, once its carry is written, or while Plume tells that column (guided, or after a
+   * slip when accompanied).
+   */
+  const told = mode === 'guided' || (mode === 'accompanied' && slip !== null);
+  const tenMore = (rank: number) =>
+    under &&
+    columns[rank].carry > 0 &&
+    (shown !== null ||
+      right ||
+      values[`carry${rank + 1}`] === '1' ||
+      (told && !posing && coach !== null && sourceOf(active) === rank));
 
   return (
     <>
@@ -280,8 +300,8 @@ export function ColumnOperation({
             class="statement column-operation"
             aria-label={exercise.statement}
             style={{
-              gridTemplateColumns: `44px repeat(${width}, 68px)`,
-              gridTemplateRows: `30px ${bagged ? '' : '60px '}repeat(${rows.length}, 60px) 6px 64px`,
+              gridTemplateColumns: `44px repeat(${width}, ${under ? 76 : 68}px)`,
+              gridTemplateRows: `30px ${bagged || under ? '' : '60px '}repeat(${rows.length}, 60px) ${under ? '60px ' : ''}6px 64px`,
             }}
           >
             {ranks.map((rank) => (
@@ -314,10 +334,20 @@ export function ColumnOperation({
                 </span>
               )),
             )}
+            {!posing &&
+              ranks.filter(tenMore).map((rank) => (
+                <span
+                  key={`ten-${rank}`}
+                  class={`ten r${rank}`}
+                  style={{ gridColumn: columnOf(rank), gridRow: top }}
+                >
+                  1
+                </span>
+              ))}
             <span class="sign" style={{ gridColumn: 1, gridRow: rows.length + top - 1 }}>
               {input.operator}
             </span>
-            <span class="line" style={{ gridColumn: '1 / -1', gridRow: rows.length + top }} />
+            <span class="line" style={{ gridColumn: '1 / -1', gridRow: lineRow }} />
             {posing
               ? setup.boxes((row, rank) => ({ gridColumn: columnOf(rank), gridRow: row + top }))
               : spots.filter((spot) => spot.kind === 'digit').map((spot) => box(spot))}

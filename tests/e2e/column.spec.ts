@@ -229,3 +229,74 @@ test('poser case par case : le nombre mal posé montré, repris, puis le calcul'
   await expect(card.locator('.praise')).toBeVisible();
   expect(errors).toEqual([]);
 });
+
+/**
+ * Subtraction by compensation (#173): the carry goes down beside the bottom digit of the next
+ * column, the top digit gets a small 1; guided, then alone with a zero in the middle.
+ */
+test('soustraction posée par compensation, guidée puis seule', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto('./?practice=column-arithmetic.subtract&level=1&seed=3&stage=0&quality=low');
+  await page.evaluate(() => window.__numebois!.ready);
+  const card = page.locator('#question');
+  const grid = card.locator('.column-operation');
+  let exercise = await current(page);
+  while (exercise.level < 1) {
+    await driver(exercise.input).answer(page, exercise.input, exercise.answer);
+    await expect(card.locator('.praise')).toBeVisible();
+    exercise = await current(page);
+  }
+  const input = exercise.input;
+  if (input.kind !== 'column' || input.operator !== '−') throw new Error(input.kind);
+  expect(input.mode).toBe('guided');
+  await poseColumns(page, input);
+  await expectSlateLayout(page);
+  // Column by column with Plume: the borrowing column shows its 10 more, its carry goes down.
+  for (const [i, column] of input.columns.entries()) {
+    await expect(card.locator('.hint')).toContainText(column.calc);
+    if (column.carry > 0) {
+      await expect(card.locator('.hint')).toContainText('je ne peux pas : j’ajoute 10.');
+      await expect(grid.locator(`.ten.r${i}`)).toHaveText('1');
+    }
+    await page.keyboard.type(String(column.digit));
+    if (column.carry > 0) {
+      await expect(grid.locator(`.box.carry.r${i + 1}`)).toHaveClass(/cursor/);
+      await test
+        .info()
+        .attach('guidée', { body: await page.screenshot(), contentType: 'image/png' });
+      await page.keyboard.type('1');
+      await expect(grid.locator(`.box.carry.r${i + 1}`)).toHaveText('1');
+    }
+  }
+  await expect(card.locator('.praise')).toBeVisible();
+  await expect(grid.locator('.box.digit.right')).toHaveCount(input.columns.length);
+
+  // Alone, a zero in the middle: the carry forgotten on the tens, named by Plume (#168).
+  await page.goto('./?practice=column-arithmetic.subtract&level=4&seed=5&stage=0&quality=low');
+  await page.evaluate(() => window.__numebois!.ready);
+  exercise = await current(page);
+  while (
+    exercise.level < 4 ||
+    exercise.input.kind !== 'column' ||
+    exercise.input.columns[0].carry === 0
+  ) {
+    await driver(exercise.input).answer(page, exercise.input, exercise.answer);
+    await expect(card.locator('.praise')).toBeVisible();
+    exercise = await current(page);
+  }
+  const alone = exercise.input;
+  if (alone.kind !== 'column') throw new Error(alone.kind);
+  expect(alone.mode).toBe('alone');
+  const wrong = [...exercise.answer];
+  wrong[wrong.length - 2] = String((alone.columns[1].digit + 1) % 10);
+  await driver(alone).answer(page, alone, wrong.join(''));
+  await expect(card.locator('.hint')).toContainText('Aux dizaines, tu as oublié la retenue.');
+  await expect(grid.locator('.box.tried')).toHaveAttribute('aria-label', 'Chiffre des dizaines');
+  await expectSlateLayout(page);
+  await test.info().attach('seule', { body: await page.screenshot(), contentType: 'image/png' });
+  await page.keyboard.type(String(alone.columns[1].digit));
+  await page.keyboard.press('Enter');
+  await expect(card.locator('.praise')).toBeVisible();
+  expect(errors).toEqual([]);
+});

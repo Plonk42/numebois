@@ -40,6 +40,38 @@ export const carryCount = (columns: readonly Column[]) =>
   columns.filter((column) => column.carry > 0).length;
 
 /**
+ * The columns of `top − bottom` set out on a sheet, from the units, by compensation as the class
+ * does it (#173): a top digit too small gets 10 more (« 13 − 8 = 5 »), and the carry, 1, goes
+ * down beside the bottom digit of the next column, which it is added to (« 7 + 1 = 8 »).
+ */
+export function subtractColumns(top: number, bottom: number): Column[] {
+  const columns: Column[] = [];
+  let received = 0;
+  for (let rank = 0; rank < rankCount(top); rank++) {
+    const high = digitAt(top, rank);
+    const low = digitAt(bottom, rank);
+    const taken = low + received;
+    const carry = high < taken ? 1 : 0;
+    const digit = high + 10 * carry - taken;
+    const minus = `${high + 10 * carry} − ${taken} = ${digit}`;
+    let calc = minus;
+    if (received > 0) {
+      calc =
+        rankCount(bottom) > rank
+          ? `${low} + 1 = ${taken}, puis ${minus}`
+          : `Il reste la retenue : ${minus}`;
+    }
+    let say = `J’écris ${digit}.`;
+    if (carry > 0) {
+      say = `${high} − ${taken}, je ne peux pas : j’ajoute 10.\nJ’écris ${digit}, je retiens 1 en bas.`;
+    }
+    columns.push({ digit, carry, calc, say });
+    received = carry;
+  }
+  return columns;
+}
+
+/**
  * The columns of `a × b` (b of one digit) set out on a sheet, from the units, as the class says
  * it (#164): `b` times each digit of `a`, plus what waits in the bag of carries, the digit
  * written under the line and what goes into the bag for the next column (the school's « sac à

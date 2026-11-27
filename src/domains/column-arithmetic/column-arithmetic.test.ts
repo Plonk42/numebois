@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Rng } from '../../core/rng';
-import { addColumns, carryCount, multiplyColumns } from './columns';
+import { addColumns, carryCount, multiplyColumns, subtractColumns } from './columns';
 import {
   addition,
   ADD_LEVELS,
@@ -11,8 +11,12 @@ import {
   multiplication,
   MULTIPLY_LEVELS,
   WRITTEN_SHARE,
+  SUBTRACT_LEVELS,
+  fitsSubtractLevel,
+  generateSubtraction,
+  subtraction,
 } from './generators';
-import { additionHint, multiplicationHint } from './hints';
+import { additionHint, multiplicationHint, subtractionHint, subtractionLures } from './hints';
 
 const MODES = ['guided', 'guided', 'accompanied', 'accompanied', 'alone', 'alone'];
 
@@ -180,5 +184,104 @@ describe('poser l’opération avant de la calculer (#158)', () => {
     expect(addition([47, 38], 0).input).not.toHaveProperty('setup');
     expect(multiplication(47, 3, 0).input).not.toHaveProperty('setup');
     expect(addition([47, 38], 0).instruction).toBe('Calcule avec Plume, colonne par colonne.');
+  });
+});
+
+describe('poser une soustraction, par compensation (#173)', () => {
+  it('a une règle par niveau, sur 1 000 graines', () => {
+    expect(MODES).toHaveLength(SUBTRACT_LEVELS);
+    const zeros = [0, 0, 0, 0, 0, 0];
+    for (let level = 0; level < SUBTRACT_LEVELS; level++) {
+      for (let seed = 0; seed < 1000; seed++) {
+        const exercise = generateSubtraction(new Rng(seed), level);
+        const { top, bottom, input } = exercise;
+        expect(fitsSubtractLevel(top, bottom, level), `${top} − ${bottom} au niveau ${level}`).toBe(
+          true,
+        );
+        expect(input.kind === 'column' && input.mode).toBe(MODES[level]);
+        expect(String(top - bottom)).toHaveLength(String(top).length);
+        if (String(top).slice(1, -1).includes('0')) zeros[level]++;
+      }
+    }
+    expect(zeros[4]).toBe(1000);
+  });
+
+  it('pose les chiffres et les retenues d’un calcul direct, sur 1 000 graines', () => {
+    for (let level = 0; level < SUBTRACT_LEVELS; level++) {
+      for (let seed = 0; seed < 1000; seed++) {
+        const { top, bottom, answer, input } = generateSubtraction(new Rng(seed), level);
+        if (input.kind !== 'column') throw new Error(input.kind);
+        expect(answer).toBe(String(top - bottom));
+        expect(
+          input.columns
+            .map((c) => c.digit)
+            .reverse()
+            .join(''),
+        ).toBe(answer);
+        // Column by column: 10 more at the top when it is too small, the carry added at the bottom.
+        let received = 0;
+        input.columns.forEach((column, rank) => {
+          const high = Math.floor(top / 10 ** rank) % 10;
+          const taken = (Math.floor(bottom / 10 ** rank) % 10) + received;
+          expect(column.carry).toBe(high < taken ? 1 : 0);
+          expect(column.digit).toBe(high + 10 * column.carry - taken);
+          received = column.carry;
+        });
+        expect(input.columns.at(-1)!.carry).toBe(0);
+      }
+    }
+  });
+
+  it('dit ce que Plume écrit, comme la classe', () => {
+    expect(subtractColumns(523, 178).map((c) => [c.calc, c.say])).toEqual([
+      ['13 − 8 = 5', '3 − 8, je ne peux pas : j’ajoute 10.\nJ’écris 5, je retiens 1 en bas.'],
+      [
+        '7 + 1 = 8, puis 12 − 8 = 4',
+        '2 − 8, je ne peux pas : j’ajoute 10.\nJ’écris 4, je retiens 1 en bas.',
+      ],
+      ['1 + 1 = 2, puis 5 − 2 = 3', 'J’écris 3.'],
+    ]);
+    expect(subtractColumns(403, 78).at(-1)!.calc).toBe('Il reste la retenue : 4 − 1 = 3');
+    expect(subtractColumns(403, 178)[1].calc).toBe('7 + 1 = 8, puis 10 − 8 = 2');
+  });
+
+  it('nomme la colonne à l’envers et la retenue oubliée', () => {
+    const exercise = subtraction(523, 169, 4);
+    const tried = (answer: number) => ({ answer: String(answer) });
+    // 3 − 9 worked as 9 − 3.
+    expect(subtractionHint(exercise, 1, tried(356))).toBe(
+      'Aux unités, 3 − 9, on ne peut pas.\nEn haut trop petit ? Ajoute 10, et retiens 1 en bas.',
+    );
+    expect(subtractionHint(subtraction(523, 178, 4), 1, tried(355))).toBe(
+      'Aux dizaines, tu as oublié la retenue.\nAjoute-la au chiffre du bas.',
+    );
+    expect(subtractionHint(exercise, 2)).toBe(
+      '523\u00a0−\u00a0169 = 354.\nRegarde les retenues en bas des colonnes.',
+    );
+    for (let level = 0; level < SUBTRACT_LEVELS; level++) {
+      for (let seed = 0; seed < 1000; seed++) {
+        const e = generateSubtraction(new Rng(seed), level);
+        for (const lure of subtractionLures(e)) {
+          expect(subtractionHint(e, 1, tried(lure)), `${e.statement} → ${lure}`).not.toBe(
+            subtractionHint(e, 1),
+          );
+        }
+      }
+    }
+  });
+
+  it('se pose d’un appui avec Plume, puis écrite de plus en plus', () => {
+    for (let level = 0; level < SUBTRACT_LEVELS; level++) {
+      let written = 0;
+      for (let seed = 0; seed < 1000; seed++) {
+        const { input, instruction, statement } = generateSubtraction(new Rng(seed), level);
+        if (input.kind !== 'column') throw new Error(input.kind);
+        expect(instruction.startsWith(`Pose ${statement}`), instruction).toBe(true);
+        if (input.setup === 'write') written++;
+      }
+      const share = WRITTEN_SHARE[MODES[level] as keyof typeof WRITTEN_SHARE];
+      expect(written / 1000, `niveau ${level}`).toBeCloseTo(share, 1);
+    }
+    expect(subtraction(523, 178, 0).input).not.toHaveProperty('setup');
   });
 });
