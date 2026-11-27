@@ -25,10 +25,6 @@ const AUTOMATION_LABELS: Record<(typeof AUTOMATION_FACTORS)[number], string> = {
   1.5: 'Souple',
 };
 
-/** 23 to 49, never a round ten: the product is out of reach of a child of 8 by chance. */
-const gateFactor = () =>
-  10 * (2 + Math.floor(Math.random() * 3)) + 3 + Math.floor(Math.random() * 7);
-
 interface Props {
   skills: readonly Skill[];
   session: Session;
@@ -62,9 +58,8 @@ interface Props {
 }
 
 /**
- * Hidden parent dashboard (long press on the reserve, #47, then a multiplication to enter): the
- * child's progress, the settings of the notions, then trail length, automation, quality, export
- * and import (Album included).
+ * Hidden parent dashboard (10 quick taps on the reserve, #47): the child's progress, the settings
+ * of the notions, then trail length, automation, quality, export and import (Album included).
  */
 export function ParentMenu({
   skills,
@@ -100,9 +95,6 @@ export function ParentMenu({
   const [automation, setAutomation] = useState(session.automation);
   const [long, setLong] = useState(session.longChallenges);
   const [typedName, setTypedName] = useState(name);
-  const [gate] = useState(() => [gateFactor(), gateFactor()]);
-  const [answer, setAnswer] = useState('');
-  const [unlocked, setUnlocked] = useState(false);
 
   const download = () => {
     const day = new Date().toISOString().slice(0, 10);
@@ -132,39 +124,6 @@ export function ParentMenu({
     });
     input.click();
   };
-
-  if (!unlocked) {
-    return (
-      <section id="parent-menu" class="gate" role="dialog" aria-label="Espace parent">
-        <h2>Espace parent</h2>
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            // A wrong answer just closes: a new multiplication at the next long press.
-            if (Number(answer) === gate[0]! * gate[1]!) setUnlocked(true);
-            else onClose();
-          }}
-        >
-          <label class="name">
-            Pour entrer, combien font {gate[0]} × {gate[1]} ?
-            <input
-              type="text"
-              inputMode="numeric"
-              value={answer}
-              autocomplete="off"
-              onInput={(event) => setAnswer(event.currentTarget.value)}
-            />
-          </label>
-          <div class="choices">
-            <button type="submit">Entrer</button>
-            <button type="button" class="close" onPointerDown={onClose}>
-              Fermer
-            </button>
-          </div>
-        </form>
-      </section>
-    );
-  }
 
   return (
     <section id="parent-menu" role="dialog" aria-label="Espace parent">

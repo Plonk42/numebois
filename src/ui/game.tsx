@@ -1237,11 +1237,12 @@ function Game(props: Props) {
         open={SHOP_PHASES.has(shown)}
         ready={free && items.some((item) => canBuy(item, leaves, seeds))}
         onTap={() => {
+          if (menu) return;
           if (free) setPhase('shop');
           else closeShop();
         }}
-        // The same finger opened the shop when it touched: the parent menu takes its place.
-        onLongPress={() => {
+        // The taps opened and closed the shop: the parent menu takes its place.
+        onParentTaps={() => {
           setMenu(true);
           setPhase((now) => (now === 'shop' ? 'walking' : now));
         }}

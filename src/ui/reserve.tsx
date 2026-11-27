@@ -2,8 +2,9 @@ import type { RefObject } from 'preact';
 import { createPortal } from 'preact/compat';
 import { useLayoutEffect, useRef, useState } from 'preact/hooks';
 
-/** Hold the reserve this long to open the parent menu. */
-const LONG_PRESS_MS = 1500;
+/** Taps on the reserve, each soon after the last, that open the parent menu. */
+const PARENT_TAPS = 10;
+const PARENT_TAP_GAP_MS = 500;
 const FLIGHT_MS = 750;
 /** Leaves earned together fly one after the other, this far apart. */
 const FLIGHT_GAP_MS = 180;
@@ -151,7 +152,7 @@ interface Props {
   /** Something can be bought: the reserve glows. */
   ready: boolean;
   onTap(): void;
-  onLongPress(): void;
+  onParentTaps(): void;
 }
 
 /**
@@ -160,22 +161,13 @@ interface Props {
  * Between two trails, it is a button, a shoot at its end: a touch opens the shop, the next
  * one closes it.
  */
-export function Reserve({ leaves, seeds, button, open, ready, onTap, onLongPress }: Props) {
-  const timer = useRef(0);
-  const pressedAt = useRef<number | null>(null);
+export function Reserve({ leaves, seeds, button, open, ready, onTap, onParentTaps }: Props) {
+  const taps = useRef({ count: 0, at: -Infinity });
   const leafCounter = useRef<HTMLSpanElement>(null);
   const seedCounter = useRef<HTMLSpanElement>(null);
   const [shownLeaves, leafFlights] = useLanding('leaf', leaves, '.basket', leafCounter);
   const [shownSeeds, seedFlights] = useLanding('seed', seeds, '#seed-gift .seed-icon', seedCounter);
 
-  const cancel = () => {
-    clearTimeout(timer.current);
-    pressedAt.current = null;
-  };
-  const longPress = () => {
-    cancel();
-    onLongPress();
-  };
   let look = '';
   if (button) look = open ? 'button open' : 'button';
   return (
@@ -187,19 +179,12 @@ export function Reserve({ leaves, seeds, button, open, ready, onTap, onLongPress
         aria-pressed={button ? open : undefined}
         aria-label={`Réserve : ${plural(leaves, 'feuille', 'feuilles')}, ${plural(seeds, 'graine dorée', 'graines dorées')}`}
         onPointerDown={(event) => {
-          cancel();
-          pressedAt.current = event.timeStamp;
-          timer.current = window.setTimeout(longPress, LONG_PRESS_MS);
-          onTap();
+          const last = taps.current;
+          const count = event.timeStamp - last.at <= PARENT_TAP_GAP_MS ? last.count + 1 : 1;
+          taps.current = { count: count % PARENT_TAPS, at: event.timeStamp };
+          if (count < PARENT_TAPS) onTap();
+          else onParentTaps();
         }}
-        // A busy page can fire the timer late: the hold time decides, measured on the events.
-        onPointerUp={(event) => {
-          const held = pressedAt.current !== null && event.timeStamp - pressedAt.current;
-          if (held !== false && held >= LONG_PRESS_MS) longPress();
-          else cancel();
-        }}
-        onPointerLeave={cancel}
-        onPointerCancel={cancel}
         onContextMenu={(event) => event.preventDefault()}
       >
         <span class="counter leaves" ref={leafCounter}>

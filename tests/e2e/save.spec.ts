@@ -7,16 +7,13 @@ async function answerRight(page: Page) {
 }
 
 async function openParentMenu(page: Page) {
-  const box = (await page.locator('#reserve').boundingBox())!;
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await page.mouse.down();
-  await page.waitForTimeout(1700);
-  await page.mouse.up();
-  const gate = page.locator('#parent-menu.gate');
-  const [, a, b] = (await gate.textContent())!.match(/(\d+) × (\d+)/)!;
-  await gate.getByRole('textbox').fill(String(Number(a) * Number(b)));
-  await gate.getByRole('button', { name: 'Entrer' }).click();
-  await expect(page.locator('#parent-menu:not(.gate)')).toBeVisible();
+  // In one task: the taps are as close as can be, whatever the load of the machine.
+  await page.locator('#reserve').evaluate((reserve) => {
+    for (let i = 0; i < 10; i++) {
+      reserve.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    }
+  });
+  await expect(page.locator('#parent-menu')).toBeVisible();
   // It opens on the child's progress; the export and the import are in the settings.
   await page.getByRole('button', { name: 'Réglages' }).click();
 }

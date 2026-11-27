@@ -1,19 +1,13 @@
 import { expect, test, type Page } from '@playwright/test';
 import { game, loadSave } from './helpers';
 
-/** A long press on the reserve, then the multiplication: the child cannot open it by chance. */
-async function openDashboard(page: Page, wrong = false) {
-  const box = (await page.locator('#reserve').boundingBox())!;
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await page.mouse.down();
-  await page.waitForTimeout(1700);
-  await page.mouse.up();
-  const gate = page.locator('#parent-menu.gate');
-  const [, a, b] = (await gate.textContent())!.match(/(\d+) √ó (\d+)/)!;
-  await gate.getByRole('textbox').fill(String(Number(a) * Number(b) + (wrong ? 1 : 0)));
-  await gate.getByRole('button', { name: 'Entrer' }).click();
-  if (!wrong) await expect(page.locator('#parent-menu:not(.gate)')).toBeVisible();
-}
+/** Quick taps on the reserve, in one task: as close as can be, whatever the load. */
+const tapReserve = (page: Page, taps: number) =>
+  page.locator('#reserve').evaluate((reserve, taps) => {
+    for (let i = 0; i < taps; i++) {
+      reserve.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    }
+  }, taps);
 
 const saved = (page: Page) =>
   page.evaluate(
@@ -45,6 +39,10 @@ test('le tableau de bord parent : suivi, r√©glage des notions, rafale recommand√
   const day = await page.evaluate(() =>
     Math.floor((Date.now() - new Date().getTimezoneOffset() * 60_000) / 86_400_000),
   );
+  // Nine taps only open the shop; the reload of the save starts the count again.
+  await tapReserve(page, 9);
+  await expect(page.locator('#reserve')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#parent-menu')).toHaveCount(0);
   await loadSave(page, {
     version: 6,
     savedAt: '2026-11-23T10:00:00.000Z',
@@ -71,10 +69,10 @@ test('le tableau de bord parent : suivi, r√©glage des notions, rafale recommand√
       { day, kind: 'drill', questions: 20, right: 15, ms: 240_000 },
     ],
   });
-  // A wrong product closes the gate: nothing of the menu was shown.
-  await openDashboard(page, true);
-  await expect(page.locator('#parent-menu')).toHaveCount(0);
-  await openDashboard(page);
+  // Ten open the menu in place of the shop.
+  await tapReserve(page, 10);
+  await expect(page.locator('#parent-menu')).toBeVisible();
+  await expect(page.locator('#reserve')).toHaveAttribute('aria-pressed', 'false');
   const menu = page.locator('#parent-menu');
 
   // The progress first: the last days, each notion where it is, the fragile facts.
