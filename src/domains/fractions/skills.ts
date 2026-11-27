@@ -3,6 +3,13 @@ import type { Exercise } from '../../core/types';
 import { validateChoice, validateFraction, validateNumber } from '../../core/validate';
 import { WRITE_DIGITS } from '../numbers/generators';
 import {
+  COMPARE,
+  COMPARE_LEVELS,
+  compareFractionsHint,
+  generateCompareFractions,
+  type CompareFractionsExercise,
+} from './compare';
+import {
   EQUAL,
   EQUAL_LEVELS,
   equalHint,
@@ -45,4 +52,14 @@ export const equal = defineSkill<EqualExercise>({
   validate: validateAny,
   hint: equalHint,
   lures: equalLuresOf,
+});
+
+export const compare = defineSkill<CompareFractionsExercise>({
+  id: COMPARE,
+  name: 'Comparer des fractions',
+  prerequisites: [EQUAL],
+  levels: COMPARE_LEVELS,
+  generate: generateCompareFractions,
+  validate: validateChoice,
+  hint: compareFractionsHint,
 });

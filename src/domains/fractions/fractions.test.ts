@@ -2,6 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { Rng } from '../../core/rng';
 import { parseFraction } from '../../core/validate';
 import {
+  COMPARE_LEVELS,
+  compareFractionsHint,
+  generateCompareFractions,
+  type CompareFractionsExercise,
+} from './compare';
+import {
   EQUAL,
   EQUAL_LEVELS,
   equalHint,
@@ -192,5 +198,63 @@ describe('les fractions égales (#169)', () => {
     );
     expect(equalHint(down, 2)).toBe('3 × 2 = 6 et 4 × 2 = 8.\nDonc 6/8 = 3/4.');
     expect(equalLuresOf(down)).toContain(2);
+  });
+});
+
+describe('comparer des fractions (#62)', () => {
+  it('keeps each level to its kind, under 1, the sign exact', () => {
+    for (let level = 0; level < COMPARE_LEVELS; level++) {
+      const equals = [];
+      for (let seed = 0; seed < SEEDS; seed++) {
+        const e = generateCompareFractions(new Rng(seed), level);
+        const { kind, left, right } = e;
+        for (const [n, d] of [left, right]) expect(n >= 1 && n < d && d <= 12).toBe(true);
+        const [x, y] = [left[0] * right[1], right[0] * left[1]];
+        expect(e.answer).toBe(x < y ? '<' : x > y ? '>' : '=');
+        if (e.answer === '=') equals.push(seed);
+        if (level < 3) expect(kind).toBe(['denominator', 'numerator', 'multiple'][level]);
+        if (kind === 'denominator') expect(left[1] === right[1] && left[0] !== right[0]).toBe(true);
+        if (kind === 'numerator') expect(left[0] === right[0] && left[1] !== right[1]).toBe(true);
+        if (kind === 'multiple') {
+          const [small, big] = [Math.min(left[1], right[1]), Math.max(left[1], right[1])];
+          expect(big % small === 0 && big > small).toBe(true);
+        }
+        expect(e.figure !== undefined).toBe(level < 3);
+      }
+      if (level === 2) expect(equals.length).toBeGreaterThan(SEEDS / 10);
+    }
+  });
+
+  const compare = (
+    kind: CompareFractionsExercise['kind'],
+    left: [number, number],
+    right: [number, number],
+    answer: string,
+  ): CompareFractionsExercise => ({
+    ...generateCompareFractions(new Rng(1), 0),
+    kind,
+    left,
+    right,
+    answer,
+  });
+
+  it('names the denominators compared as numbers, the numerators alone, the sign reversed', () => {
+    const thirds = compare('numerator', [1, 6], [1, 3], '<');
+    expect(compareFractionsHint(thirds, 1, tried('>'))).toBe(
+      '6 est plus grand que 3,\nmais les sixièmes sont plus petits.',
+    );
+    expect(compareFractionsHint(thirds, 2)).toBe(
+      'Un tiers est plus grand qu’un sixième.\nDonc 1/6 < 1/3.',
+    );
+    const twelfths = compare('multiple', [7, 12], [5, 6], '<');
+    expect(compareFractionsHint(twelfths, 1, tried('>'))).toBe(
+      'Les parts n’ont pas la même taille.\nÉcris d’abord 5/6 en douzièmes.',
+    );
+    expect(compareFractionsHint(twelfths, 2)).toBe('5/6 = 10/12.\nDonc 7/12 < 5/6.');
+    const same = compare('denominator', [5, 12], [7, 12], '<');
+    expect(compareFractionsHint(same, 1, tried('>'))).toBe(
+      'Le signe est à l’envers.\nLa pointe montre la plus petite fraction.',
+    );
+    expect(compareFractionsHint(same, 1, tried('='))).toBe(compareFractionsHint(same, 1));
   });
 });

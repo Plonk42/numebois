@@ -1,7 +1,8 @@
 import { expect, test, type Page } from '@playwright/test';
+import type { CompareFractionsExercise } from '../../src/domains/fractions/compare';
 import type { EqualExercise } from '../../src/domains/fractions/equal';
 import type { ReadExercise } from '../../src/domains/fractions/generators';
-import { boxes, current, expectSlateLayout } from './helpers';
+import { boxes, current, driver, expectSlateLayout } from './helpers';
 
 /** The first question of `fractions.read` in this form, from seed to seed. */
 async function readQuestion(page: Page, form: ReadExercise['form']) {
@@ -84,5 +85,32 @@ test('compléter une égalité : la case au numérateur, les deux bandes aligné
   await test.info().attach('égalité', { body: await page.screenshot(), contentType: 'image/png' });
   await page.keyboard.type(exercise.answer);
   await page.keyboard.press('Enter');
+  await expect(card.locator('.praise')).toBeVisible();
+});
+
+test('comparer deux fractions : le signe entre elles, les bandes dessous (#62)', async ({
+  page,
+}) => {
+  await page.goto('./?practice=fractions.compare&level=1&seed=3&stage=0&quality=low');
+  await page.evaluate(() => window.__numebois!.ready);
+  const exercise = (await current(page)) as CompareFractionsExercise;
+  const card = page.locator('#question');
+  const numbers = card.locator('.comparison .number .frac');
+  await expect(numbers.locator('.numerator')).toHaveText([
+    String(exercise.left[0]),
+    String(exercise.right[0]),
+  ]);
+  await expect(numbers.locator('.denominator')).toHaveText([
+    String(exercise.left[1]),
+    String(exercise.right[1]),
+  ]);
+  await expect(card.locator('.fraction-figure .whole')).toHaveCount(2);
+  await expectSlateLayout(page);
+  await test.info().attach('comparer', { body: await page.screenshot(), contentType: 'image/png' });
+  const [wrong] = driver(exercise.input).wrongs(exercise.input, exercise.answer);
+  await driver(exercise.input).answer(page, exercise.input, wrong);
+  await expect(card.locator('.hint')).toContainText('Presque !');
+  await expectSlateLayout(page);
+  await driver(exercise.input).answer(page, exercise.input, exercise.answer);
   await expect(card.locator('.praise')).toBeVisible();
 });

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { ExerciseInput } from '../../core/types';
+import { withFractions } from '../fraction-text';
 import { AnswerZone, Work } from '../slate';
-import type { WidgetProps } from './index';
+import { FigureView, type WidgetProps } from './index';
 
 const SIGNS = ['<', '=', '>'] as const;
 
@@ -68,10 +69,11 @@ export function CompareSigns({
     <>
       <Work wide>
         <p class="statement large comparison" aria-label={exercise.statement}>
-          <span class="number">{input.left}</span>
+          <span class="number">{withFractions(input.left)}</span>
           <span class={`between ${state}`}>{between}</span>
-          <span class="number">{input.right}</span>
+          <span class="number">{withFractions(input.right)}</span>
         </p>
+        {exercise.figure && <FigureView figure={exercise.figure} />}
       </Work>
       <AnswerZone>
         <div class="choice signs">
