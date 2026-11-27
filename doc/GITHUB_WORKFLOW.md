@@ -45,7 +45,7 @@ Un échec qui n'arrive que sur les runners hébergés est un signal réel, pas u
 
 ## CI et déploiement
 
-Le workflow `.github/workflows/ci.yml` tourne sur les PR, les pushs sur `main` et le déclenchement manuel, avec des permissions en lecture seule (sauf pour le déploiement). Un push plus récent sur la même branche annule l'exécution précédente.
+Le workflow `.github/workflows/ci.yml` tourne sur les PR, les pushs sur `main` et le déclenchement manuel, avec des permissions en lecture seule (sauf pour le déploiement). Un push plus récent sur une branche de PR annule l'exécution précédente. Sur `main`, l'exécution en cours va toujours jusqu'au déploiement (sinon des pushs rapprochés ne déploieraient jamais) ; seule celle qui attend est remplacée par la plus récente.
 
 | Job             | Rôle                                                                                                                                                                                                                                                                   |
 | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

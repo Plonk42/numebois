@@ -9,9 +9,11 @@ on:
 permissions:
   contents: read
 
+# On main a running pipeline always finishes, otherwise frequent pushes never deploy; a queued one
+# is still replaced by the newest push.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   checks:
