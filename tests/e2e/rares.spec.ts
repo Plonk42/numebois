@@ -13,7 +13,7 @@ test('les éléments rares : les castors achetés en graines dorées remplissent
     version: 6,
     savedAt: '2026-11-23T10:00:00.000Z',
     leaves: 0,
-    seeds: 5,
+    seeds: 6,
     trailLength: 'short',
     painting: {
       biome: 'clearing',
@@ -38,7 +38,7 @@ test('les éléments rares : les castors achetés en graines dorées remplissent
   await expect(page.locator('#reserve')).toHaveClass(/ready/);
   await page.locator('#reserve').click();
   const shop = page.locator('#shop .articles');
-  const beavers = shop.getByRole('button', { name: 'Des castors, 5 graines dorées' });
+  const beavers = shop.getByRole('button', { name: 'Des castors, 6 graines dorées' });
   await expect(beavers).toBeEnabled();
   // The great element of the décor: a card apart, bigger and golden.
   await expect(beavers).toHaveClass(/grand/);

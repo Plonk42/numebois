@@ -193,7 +193,7 @@ test('bac à sable : du paysage au jeu, réponses et réserve sans sauvegarde', 
   await page.waitForURL(/sandbox/);
   await page.evaluate(() => window.__numebois!.ready);
   expect(await page.evaluate(() => window.__numebois!.describe())).toMatchObject({
-    stage: 2,
+    stage: 1,
     elements: [{}, {}],
     animals: [],
   });

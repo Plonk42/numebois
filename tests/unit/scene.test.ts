@@ -840,7 +840,7 @@ describe('slots and grand moments', () => {
   });
 
   it('passes the stages with the elements placed, always leaving slots to choose from', () => {
-    expect([0, 1, 2, 3, 4, 5, 19, 21, 22].map(stageFor)).toEqual([0, 1, 2, 3, 3, 4, 11, 11, 11]);
+    expect([0, 1, 2, 3, 4, 5, 19, 21, 22].map(stageFor)).toEqual([0, 1, 1, 2, 3, 4, 11, 11, 11]);
     for (let seed = 0; seed < 16; seed++) {
       const open = STAGES.map((stage) => createClearing(seed, stage).slots.length);
       for (let placed = 0; placed < MAX_ELEMENTS; placed++) {

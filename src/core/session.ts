@@ -1,5 +1,5 @@
 import { CHOICE_SHARE, offerChoices } from './choices';
-import { effort, LEAVES_AT_RECORD, LEAVES_PER_RIGHT_ANSWER } from './economy';
+import { effort, LEAVES_AT_RECORD, LEAVES_PER_RIGHT_ANSWER, SEEDS_FROM_LEVEL } from './economy';
 import { isKnown, recordFact, newFact, type FactProgress } from './facts';
 import { bestLevel, isAcquired, newProgress, record, type SkillProgress } from './mastery';
 import {
@@ -71,6 +71,8 @@ export class Session {
   results: boolean[] = [];
   /** Leaves a right answer to the question asked earns: more at the notion's record (#141). */
   worth = LEAVES_PER_RIGHT_ANSWER;
+  /** Leaves of a right answer after a mistake or a slip: never the record's. */
+  retryWorth = LEAVES_PER_RIGHT_ANSWER;
   private readonly byId: Map<SkillId, Skill>;
   private history: boolean[] = [];
   private extra = 0;
@@ -122,9 +124,10 @@ export class Session {
     const progress = this.progress.get(skill.id);
     const setting = settingOf(this.settings, skill);
     const level = stepLevel(this.step, progress, setting);
-    this.worth =
-      effort(skill, level) *
-      (atRecord(this.step, level, progress, setting) ? LEAVES_AT_RECORD : LEAVES_PER_RIGHT_ANSWER);
+    this.retryWorth = effort(skill, level) * LEAVES_PER_RIGHT_ANSWER;
+    this.worth = atRecord(this.step, level, progress, setting)
+      ? effort(skill, level) * LEAVES_AT_RECORD
+      : this.retryWorth;
     // The statement alone may not change (« Quelle heure est-il ? » under a clock).
     const same = (exercise: Exercise) =>
       exercise.statement === previous?.statement && exercise.answer === previous.answer;
@@ -173,7 +176,7 @@ export class Session {
     const best = bestLevel(before);
     this.progress.set(skill.id, { ...recorded, level, best: Math.max(best, level) });
     // A level climbed by the child for the first time, never one the parent's range gave.
-    if (recorded.level > progress.level && level > best) {
+    if (recorded.level > progress.level && level > best && level >= SEEDS_FROM_LEVEL) {
       achievements.push({ kind: 'level', skill: skill.id, level });
     }
     if (!isAcquired(progress) && isAcquired(recorded)) {

@@ -88,7 +88,8 @@ function play(
         const { skill, exercise } = session.ask(previous);
         const right = child.chance(0.8);
         const second = !right && child.chance(0.6);
-        if (right || second) leaves += session.worth;
+        if (right) leaves += session.worth;
+        else if (second) leaves += session.retryWorth;
         const achieved = session.conclude(skill, exercise, right, 4000, !right && !second);
         painting.seeds += seedsOf(achieved, skill, exercise.level);
         previous = exercise;
@@ -119,28 +120,29 @@ function play(
 describe('economy (#29)', () => {
   const paintings = [1, 2, 3].flatMap((seed) => play(seed, 3));
 
-  it('completes a painting in about 40 minutes of trails', () => {
+  it('completes a painting in about 1 h 45 of trails', () => {
     const minutes = paintings.map((p) => p.minutes);
     const mean = minutes.reduce((a, b) => a + b, 0) / minutes.length;
-    expect(mean).toBeGreaterThanOrEqual(35);
-    expect(mean).toBeLessThanOrEqual(45);
-    for (const m of minutes) expect(m).toBeGreaterThan(30);
-    for (const m of minutes) expect(m).toBeLessThan(50);
+    expect(mean).toBeGreaterThanOrEqual(95);
+    expect(mean).toBeLessThanOrEqual(120);
+    for (const m of minutes) expect(m).toBeGreaterThan(85);
+    for (const m of minutes) expect(m).toBeLessThan(135);
   });
 
-  it('grows the landscape by 1 or 2 elements a trail, from the very first one', () => {
+  it('buys an element after the first trail, then one every 1 or 2 trails', () => {
     for (const p of [1, 2, 3].map((seed) => play(seed, 1)[0])) {
-      expect(p.bought[0]).toBeGreaterThanOrEqual(1);
-      expect(p.bought[0]).toBeLessThanOrEqual(2);
-      const mean = MAX_ELEMENTS / p.bought.length;
+      expect(p.bought[0]).toBe(1);
+      const mean = p.bought.length / MAX_ELEMENTS;
       expect(mean).toBeGreaterThanOrEqual(1);
       expect(mean).toBeLessThanOrEqual(2);
+      // A trail may buy nothing, never three in a row.
+      expect(p.bought.join('')).not.toMatch(/000/);
     }
   });
 
-  // One painting alone is a lottery (6 to 25 seeds): 16 children, 3 paintings each, on average.
+  // One painting alone is a lottery (about 10 to 50 seeds): 16 children, 3 paintings each, on average.
   it('pays most of the golden seeds a painting asks', () => {
-    expect(SEED_CATALOG).toBe(22);
+    expect(SEED_CATALOG).toBe(34);
     const children = Array.from({ length: 16 }, (_, i) => play(i + 1, 3).map((p) => p.seeds));
     const mean = (values: number[]) => values.reduce((a, b) => a + b, 0) / values.length;
     expect(mean(children.flat())).toBeGreaterThanOrEqual(SEED_CATALOG * 0.8);
@@ -152,12 +154,10 @@ describe('economy (#29)', () => {
     }
   });
 
-  it('buys an element after a short trail on the first half of the stages', () => {
+  it('buys the first element of a painting within two short trails', () => {
     const [first] = play(4, 1, 'short');
     expect(LEAVES_PER_ELEMENT).toBe(leavesPerElement(0));
-    // About 11 trails to the stage 6, a little over one each.
-    const half = first.bought.slice(0, 11);
-    expect(half.reduce((a, b) => a + b, 0)).toBeGreaterThanOrEqual(11);
+    expect(first.bought[0] + first.bought[1]).toBeGreaterThanOrEqual(1);
   });
 });
 
@@ -194,11 +194,17 @@ describe('effort of the long notions (#153)', () => {
     const paintings = inFocus(focus);
     // The notions around the focus differ: 10 % of margin.
     expect(meanMinutes(paintings)).toBeLessThanOrEqual(quick * 1.1);
-    // About the time of the quick questions; at worst a warmup, a question, a finish and one
-    // more after a mistake, all long.
-    const trails = paintings.flatMap((p) => p.trails);
+    // About the time of the quick questions in the first 80 minutes of each child; at worst a
+    // warmup, a question, a finish and one more after a mistake, all long. Later, at the top
+    // levels of a long notion, a trail lasts longer (#153).
     const budget = TRAIL_QUESTIONS.normal * QUESTION_SECONDS;
-    expect(trails.reduce((a, b) => a + b, 0) / trails.length).toBeLessThanOrEqual(budget * 1.25);
-    for (const seconds of trails) expect(seconds).toBeLessThanOrEqual(budget * 2.5);
+    const early = [paintings.slice(0, 2), paintings.slice(2)].flatMap((child) => {
+      let minutes = 0;
+      return child
+        .flatMap((p) => p.trails)
+        .filter((seconds) => (minutes += (seconds + AROUND_TRAIL_S) / 60) <= 80);
+    });
+    expect(early.reduce((a, b) => a + b, 0) / early.length).toBeLessThanOrEqual(budget * 1.25);
+    for (const seconds of early) expect(seconds).toBeLessThanOrEqual(budget * 2.5);
   });
 });

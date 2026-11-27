@@ -28,6 +28,8 @@ export const LEAVES_PER_RIGHT_ANSWER = 1;
 export const LEAVES_AT_RECORD = 2;
 /** Golden seeds earned by a notion acquired, a fact automated or a level reached (#141). */
 export const SEEDS_PER_ACHIEVEMENT = 1;
+/** The first level whose reaching pays a golden seed: the easy start is not paid twice. */
+export const SEEDS_FROM_LEVEL = 2;
 
 /**
  * Golden seeds of what an answer at `level` achieved: a notion acquired or a level reached pays
@@ -46,22 +48,24 @@ export const LEAVES_PER_FLASH = 1;
 /** Leaves the drill gives in a day at most, all branches together (#29). */
 export const DRILL_LEAVES_PER_DAY = 10;
 /** Leaves of a new element in the shop of the forest (#83), at the first stage. */
-export const LEAVES_PER_ELEMENT = 6;
+export const LEAVES_PER_ELEMENT = 12;
+/** Leaves more for an element at each stage. */
+export const LEAVES_PER_STAGE = 2;
 
 /**
- * The price of a new element rises with the stages, one leaf every two: 1 or 2 elements per
- * trail, a painting in about 40 minutes (#141, #29; `tests/unit/economy.test.ts`).
+ * The price of a new element rises with the stages: the first trail buys one, then about one
+ * every 1 or 2 trails, a painting in about 1 h 45 (#29; `tests/unit/economy.test.ts`).
  */
 export function leavesPerElement(stage: number): number {
-  return LEAVES_PER_ELEMENT + Math.floor(stage / 2);
+  return LEAVES_PER_ELEMENT + LEAVES_PER_STAGE * stage;
 }
 /** Golden seeds of an animal in the shop of the forest (#83). */
-export const SEEDS_PER_ANIMAL = 1;
+export const SEEDS_PER_ANIMAL = 2;
 /** Golden seeds of a season for the painting in progress (#82). */
-export const SEEDS_PER_SEASON = 2;
+export const SEEDS_PER_SEASON = 3;
 /** Golden seeds of the night for the painting in progress (#85). */
-export const SEEDS_PER_NIGHT = 2;
+export const SEEDS_PER_NIGHT = 3;
 /** Golden seeds of a rare element for the painting in progress: fireflies, rainbow, beavers (#46). */
-export const SEEDS_PER_RARE = 2;
+export const SEEDS_PER_RARE = 3;
 /** Golden seeds of the great element of the décor, saved up for: castors, windmill, balloon. */
-export const SEEDS_PER_GRAND = 5;
+export const SEEDS_PER_GRAND = 6;

@@ -2,11 +2,12 @@ import { CLEARING } from './helpers';
 import { describe, expect, it } from 'vitest';
 import { nearNumbers, offerChoices } from '../../src/core/choices';
 import {
+  LEAVES_AT_RECORD,
   LEAVES_PER_ELEMENT,
   LEAVES_PER_RIGHT_ANSWER,
   leavesPerElement,
 } from '../../src/core/economy';
-import { bestLevel, newProgress, type SkillProgress } from '../../src/core/mastery';
+import { newProgress, type SkillProgress } from '../../src/core/mastery';
 import { curriculum } from '../../src/core/registry';
 import { Rng } from '../../src/core/rng';
 import { Session, type Achievement } from '../../src/core/session';
@@ -219,30 +220,33 @@ describe('payer l’effort (#141)', () => {
     // Mistakes on purpose until the trail gets easier.
     earn(sly, false);
     earn(sly, false);
-    const best = new Map([...sly.progress].map(([id, progress]) => [id, bestLevel(progress)]));
     const spoilt = earn(sly, true);
     expect(sly.trail.filter((step) => step.role === 'warmup')).toHaveLength(3);
     const fair = earn(honest, true);
-    // Only a notion opened meanwhile climbs its first level, as at the child's level.
-    for (const level of spoilt.levels) {
-      expect(level).toMatchObject({ level: 1 });
-      if (level.kind === 'level') expect(best.get(level.skill) ?? 0).toBe(0);
-    }
+    // A notion opened meanwhile climbs its first level at most, which pays no seed.
+    expect(spoilt.levels).toEqual([]);
     expect(spoilt.perQuestion).toBe(LEAVES_PER_RIGHT_ANSWER);
     expect(fair.perQuestion).toBeGreaterThan(spoilt.perQuestion);
   });
 
-  it('gives a golden seed for each level reached, once, even after going down and up', () => {
+  it('pays a right answer after a mistake one leaf, never the record', () => {
+    const session = newSession();
+    session.startTrail();
+    do session.ask();
+    while (session.worth < LEAVES_AT_RECORD && session.advance());
+    expect(session.worth).toBe(LEAVES_AT_RECORD);
+    expect(session.retryWorth).toBe(LEAVES_PER_RIGHT_ANSWER);
+  });
+
+  it('gives a golden seed for each level reached from the second, once, even after going down and up', () => {
     const session = newSession();
     const complements = SKILLS.find((skill) => skill.id === 'mental-math.complements')!;
     const exercise = complements.generate(new Rng(1), 0, CLEARING);
     const levels = [true, true, true, false, false, false, true, true, true, true, true, true]
       .flatMap((right) => session.learn(complements, exercise, right, 900))
       .filter((a) => a.kind === 'level');
-    expect(levels).toEqual([
-      { kind: 'level', skill: complements.id, level: 1 },
-      { kind: 'level', skill: complements.id, level: 2 },
-    ]);
+    // The first level is the easy start: not paid (#29).
+    expect(levels).toEqual([{ kind: 'level', skill: complements.id, level: 2 }]);
     expect(session.progress.get(complements.id)).toMatchObject({ level: 2, best: 2 });
   });
 

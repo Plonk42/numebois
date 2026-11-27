@@ -1065,16 +1065,11 @@ function Game(props: Props) {
       }
       return;
     }
-    count(mistakes === 0 && !slipped.current);
-    const achievements = session.conclude(
-      skill,
-      exercise,
-      mistakes === 0 && !slipped.current,
-      firstAnswerMs.current,
-      false,
-    );
-    const flashWon = flash && mistakes === 0 && firstAnswerMs.current <= FLASH_MS;
-    reward(achievements, PRAISE_MS, flashWon ? LEAVES_PER_FLASH : 0);
+    const first = mistakes === 0 && !slipped.current;
+    count(first);
+    const achievements = session.conclude(skill, exercise, first, firstAnswerMs.current, false);
+    const flashWon = flash && first && firstAnswerMs.current <= FLASH_MS;
+    reward(achievements, PRAISE_MS, flashWon ? LEAVES_PER_FLASH : 0, first);
   };
 
   /** One try in a drill: a missed answer shows a moment, then the next question comes. */
@@ -1125,7 +1120,12 @@ function Game(props: Props) {
   };
 
   /** A right answer: praise and a leaf (and a flash bonus), golden seeds for what it taught. */
-  const reward = (achievements: readonly Achievement[], praiseMs: number, bonus = 0) => {
+  const reward = (
+    achievements: readonly Achievement[],
+    praiseMs: number,
+    bonus = 0,
+    first = true,
+  ) => {
     note(achievements);
     // The last leaf of today on the branch drilled: a moment of its own (#150).
     const picked = drilling && drill.current!.picked;
@@ -1135,7 +1135,9 @@ function Game(props: Props) {
     setPhase('right');
     forest.reward(picked ? 'element' : 'right');
     // In a challenge, an acorn in the squirrel's basket instead: leaves come at its end (#120).
-    const worth = drilling ? drill.current!.earned : session.worth;
+    // After a mistake or a slip, never the record's leaves (#29).
+    const trailWorth = first ? session.worth : session.retryWorth;
+    const worth = drilling ? drill.current!.earned : trailWorth;
     const earned = mode === 'challenge' ? 0 : worth + bonus;
     setLeaves(leaves + earned);
     setLeavesHere(leavesHere + earned);

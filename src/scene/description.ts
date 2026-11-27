@@ -30,7 +30,7 @@ export const MAX_ELEMENTS = SLOT_COUNT;
  * Elements placed to reach each stage (#29): one per stage at first, then two. The slots
  * open at a stage always leave at least two free to choose from (tested over many seeds).
  */
-export const ELEMENTS_AT_STAGE: PerStage<number> = [0, 1, 2, 3, 5, 7, 9, 11, 13, 15, 17, 19];
+export const ELEMENTS_AT_STAGE: PerStage<number> = [0, 1, 3, 4, 5, 7, 9, 11, 13, 15, 17, 19];
 
 /**
  * Animals of the shop of each décor (#83), each open from a stage: one newcomer at a time as

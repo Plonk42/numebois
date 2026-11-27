@@ -83,9 +83,10 @@ describe('boutique de la forêt', () => {
   it('opens the animals with the stages, one of each kind, and the next one to come', () => {
     const orchard = { ...painting(ELEMENTS_AT_STAGE[5]), biome: 'orchard' as const };
     expect(names(orchard)).toEqual(['element', 'Donkey', 'Alpaca', 'Horse']);
-    expect(names(painting(3))).toEqual(['element', 'Deer', 'Fox']);
-    expect(names(painting(3, ['Deer']))).toEqual(['element', 'Fox']);
-    expect(shopItems(painting(3, ['Deer']))[1].elementsToGo).toBe(ELEMENTS_AT_STAGE[5] - 3);
+    const doe = ELEMENTS_AT_STAGE[3];
+    expect(names(painting(doe))).toEqual(['element', 'Deer', 'Fox']);
+    expect(names(painting(doe, ['Deer']))).toEqual(['element', 'Fox']);
+    expect(shopItems(painting(doe, ['Deer']))[1].elementsToGo).toBe(ELEMENTS_AT_STAGE[5] - doe);
     // The second doe waits for the first one to be bought.
     expect(names(painting(ELEMENTS_AT_STAGE[8]))).toEqual([
       'element',
