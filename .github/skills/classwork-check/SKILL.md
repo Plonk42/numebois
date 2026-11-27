@@ -11,7 +11,7 @@ Le propriétaire envoie régulièrement des photos de fiches et de leçons de la
 
 1. **La classe** (les photos) : c'est ce que l'enfant voit ; elle l'emporte en cas d'écart.
 2. **[maitrelucas.fr](https://maitrelucas.fr/ce2/maths-ce2/)** (CE2, choix du propriétaire) : référence de qualité pour la méthode, le vocabulaire et la progression, et la source fréquente des fiches (pied de page « maitrelucas.fr »). Lire la leçon correspondante (`fetch_webpage`) quand la photo ne suffit pas.
-3. Le programme officiel du cycle 2.
+3. Le programme officiel du cycle 2 en vigueur (BO n° 41 du 31/10/2024). Il fait foi pour ce que le site traite encore selon l'ancien programme : les fractions, absentes de son CE2 (sa leçon de CM1 ne sert que pour les mots).
 
 S'inspirer de la méthode et des mots, ne jamais recopier les textes, images ni exercices d'un site. Jamais le prénom de l'enfant (champ « Prénom » des fiches) ni les photos dans le dépôt.
 
