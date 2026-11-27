@@ -44,6 +44,7 @@ Le rendu est la priorité n°1 : un paysage de plus en plus riche et joli est la
 
 ## Données et assets
 
+- Les dessins 3D de l'interface (sentier, souche, panneau « Défi », arbre de la rafale) sont rendus en image une seule fois par `Stage.cutout`, avec l'atlas et les modèles du paysage, puis mis en cache (`SceneApp.trailArt`, `factTree`, `factTufts`) : jamais à chaque image, et rien n'est redessiné quand un progrès change (l'interface pose les images).
 - Un tableau est décrit par des données compactes et déterministes (décor, graine, éléments posés). Le même rendu doit se rejouer à l'identique dans l'Album : `SceneApp.show` construit un autre tableau à la place de celui en cours (Album, aperçus du tableau suivant) sans toucher à sa description, `Stage.capture` en fait une image WebP du cadrage.
 - Le code ne référence les modèles qu'à travers le manifeste généré (`src/scene/assets.gen.ts`), jamais par un chemin écrit à la main. Les modèles utilisés sont listés dans `src/scene/asset-catalog.ts` ; `npm run assets` régénère le manifeste et `public/assets/kaykit.glb`, commités ensemble (un test vérifie qu'ils correspondent).
 - Sans les packs (CI, clone neuf), la scène doit marcher avec les formes de remplacement de `src/scene/placeholders.ts` : tout nouveau type de modèle y reçoit une forme de même taille.

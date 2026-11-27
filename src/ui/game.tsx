@@ -59,6 +59,7 @@ import {
 import { canBuy, shopItems, type ShopItem } from '../scene/shop';
 import type { Quality } from '../scene/render/quality';
 import type { TrailArt } from '../scene/render/trail-art';
+import type { TreeArt } from './fact-tree';
 import { AlbumButton, AlbumGrid, AlbumPage } from './album';
 import { Basket } from './basket';
 import {
@@ -198,6 +199,10 @@ export interface GameForest extends SpotsForest {
   portrait(animal: AnimalName): string | null;
   /** The trail and its sign drawn with the models of the forest, null while they load. */
   trailArt(stones: number): TrailArt | null;
+  /** The wood of a tree of what is known by heart (#151), drawn once per `key`. */
+  factTree: TreeArt['factTree'];
+  /** The tufts the facts grow on it. */
+  factTufts: TreeArt['factTufts'];
   /** The models are loaded and the painting built. */
   ready: Promise<unknown>;
   /** The grand finale of the complete painting; resolves once it is over. */
@@ -1481,6 +1486,7 @@ function Game(props: Props) {
               facts={session.facts}
               suggested={suggested}
               day={today()}
+              art={forest}
               onPick={startDrill}
               onClose={() => setPhase('walking')}
             />
@@ -1490,6 +1496,7 @@ function Game(props: Props) {
               basket={basket}
               branch={roundBranch(drill.current)}
               pause={pause}
+              art={forest}
               onMore={moreDrill}
               onStop={stopDrill}
             />

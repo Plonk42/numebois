@@ -6,7 +6,7 @@ import type { FactGroup, FactId, Skill } from '../core/types';
 import type { TrailArt } from '../scene/render/trail-art';
 import { Basket } from './basket';
 import { Plume } from './character';
-import { FactBranch, FactTree } from './fact-tree';
+import { FactBranch, FactTree, type TreeArt } from './fact-tree';
 import { LeafIcon } from './reserve';
 
 /** The name of the drill, written on its stump. */
@@ -66,6 +66,7 @@ interface TreeProps {
   suggested: Branch | null;
   /** Today: the branches that still give leaves show it (#143). */
   day: number;
+  art: TreeArt;
   onPick(target: DrillTarget): void;
   onClose(): void;
 }
@@ -74,7 +75,7 @@ interface TreeProps {
  * Where the drill starts (#130): the tree of what is known by heart, a touch on a branch and
  * its drill begins. Plume makes a branch glow; a tab per tree when there are several.
  */
-export function DrillTree({ trees, facts, suggested, day, onPick, onClose }: TreeProps) {
+export function DrillTree({ trees, facts, suggested, day, art, onPick, onClose }: TreeProps) {
   const [shown, setShown] = useState(
     trees.find((skill) => skill.id === suggested?.skill) ?? trees[0],
   );
@@ -103,6 +104,7 @@ export function DrillTree({ trees, facts, suggested, day, onPick, onClose }: Tre
         facts={facts}
         glow={glow}
         day={day}
+        art={art}
         onPick={(group) => onPick({ kind: 'skill', skill: shown.id, group: group.id })}
       />
       <div class="foot">
@@ -141,6 +143,7 @@ interface BreakProps {
   branch: { group: FactGroup; facts: ReadonlyMap<FactId, FactProgress>; today: number } | null;
   /** Plume offers a pause rather than another round. */
   pause: boolean;
+  art: TreeArt;
   onMore(): void;
   onStop(): void;
 }
@@ -149,13 +152,13 @@ interface BreakProps {
  * Between two rounds of the drill (#131): the branch just played, where today's leaves grow one
  * by one, then another round or the end, without a word; after a while, Plume offers a pause.
  */
-export function DrillBreak({ basket, branch, pause, onMore, onStop }: BreakProps) {
+export function DrillBreak({ basket, branch, pause, art, onMore, onStop }: BreakProps) {
   return (
     <section id="drill-break" class="card">
       <Plume mood="cheer" />
       <Basket leaves={basket} pouring={false} />
       {pause && <p class="instruction">Et si tu faisais une pause ?</p>}
-      {branch && <FactBranch {...branch} />}
+      {branch && <FactBranch {...branch} art={art} />}
       <div class="actions">
         <button type="button" class="next" onPointerDown={onMore}>
           {pause ? 'Je continue' : 'Encore !'}

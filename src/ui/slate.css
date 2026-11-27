@@ -1656,26 +1656,14 @@
   border-right: 16px solid #fff;
   border-left: 0;
 }
-.tree .trunk {
-  fill: #8a5a33;
-  stroke: #6a4224;
-  stroke-width: 3;
+/* The tree (#151): its wood drawn with the models of the forest, a tuft per fact. */
+.tree .timber {
+  pointer-events: none;
 }
-.tree .bark {
+.tree .bare path {
   fill: none;
-  stroke: #6a4224;
-  stroke-width: 3;
+  stroke: #8a5a33;
   stroke-linecap: round;
-  opacity: 0.6;
-}
-.tree .crown circle {
-  fill: #7cc46a;
-  stroke: #5fa64f;
-  stroke-width: 3;
-}
-.tree.bloom .crown circle {
-  fill: #f4c7d8;
-  stroke: #d99ab3;
 }
 .tree .branch {
   cursor: pointer;
@@ -1683,48 +1671,13 @@
 .tree .touch {
   fill: transparent;
 }
-.tree .wood {
-  fill: none;
-  stroke: #8a5a33;
-  stroke-width: 16;
-  stroke-linecap: round;
-}
-.tree .wood-light {
-  fill: none;
-  stroke: #a87446;
-  stroke-width: 5;
-  stroke-linecap: round;
-  transform: translateY(-3px);
-}
-.tree .bud {
+/* While the models load: a disc per fact. */
+.tree circle.tuft {
   fill: #e4f1c6;
-  stroke: #a9c98a;
-  stroke-width: 2.5;
 }
-.tree .blade {
-  stroke-width: 1.4;
-  stroke-linejoin: round;
-}
-.tree .days-1 .blade {
-  fill: #bfe39a;
-  stroke: #8fbf6a;
-}
-.tree .days-2 .blade {
-  fill: #86c95f;
-  stroke: #5d9e3f;
-}
-.tree .days-3 .blade {
-  fill: #3f9a35;
-  stroke: #2c6e26;
-}
-.tree .flower circle {
-  fill: #fff3f8;
-  stroke: #f2a7c3;
-  stroke-width: 1;
-}
-.tree .flower .heart {
-  fill: #ffd85a;
-  stroke: none;
+.tree .days-2 circle.tuft,
+.tree .days-3 circle.tuft {
+  fill: #5fae3b;
 }
 .tree .plank rect {
   fill: #e2b77c;
@@ -1734,16 +1687,20 @@
 .tree .plank text {
   text-anchor: middle;
   font-weight: 800;
-  fill: #5a3a1c;
+  fill: #2f3d12;
+  stroke: #f8fbe6;
+  stroke-width: 5px;
+  stroke-linejoin: round;
+  paint-order: stroke;
 }
 .tree .plank .small {
-  font-size: 15px;
+  font-size: 16px;
 }
 .tree .plank .big {
   font-size: 34px;
 }
 .tree .plank .name {
-  font-size: 22px;
+  font-size: 21px;
 }
 .tree .bloom .plank rect {
   fill: #f5d7e2;
@@ -1770,7 +1727,7 @@
   opacity: 0.55;
   filter: blur(4px);
 }
-.tree rect.halo {
+.tree ellipse.halo {
   fill: #ffe27a;
   opacity: 0.7;
   filter: blur(5px);
@@ -1815,6 +1772,10 @@
   width: 100%;
   height: auto;
   overflow: visible;
+}
+/* The branch comes from the edge of the card, its cut end hidden. */
+.branch-card .timber {
+  mask-image: linear-gradient(90deg, transparent, #000 80px);
 }
 .branch-card .leaf.grew .pop,
 .branch-card .leaf .drop {

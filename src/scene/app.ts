@@ -18,6 +18,12 @@ import { parseViewShares, type View } from './render/explore';
 import { QUALITY, QualityGovernor, parseQuality, type Quality } from './render/quality';
 import { APPROACH_ARRIVAL_SECONDS, APPROACH_SECONDS, Stage, TOUR_SECONDS } from './render/stage';
 import { trailArt, type TrailArt } from './render/trail-art';
+import {
+  factTreeTufts,
+  factTreeWood,
+  type TuftSprites,
+  type WoodPiece,
+} from './render/fact-tree-art';
 
 export interface SceneCounters extends PaintingStats {
   fps: number;
@@ -88,6 +94,8 @@ export class SceneApp {
   private readonly veil: HTMLElement;
   private readonly portraits = new Map<AnimalName, string>();
   private readonly trails = new Map<number, TrailArt>();
+  private readonly factTrees = new Map<string, string>();
+  private tufts: TuftSprites | null = null;
   /** `view=yaw,pitch,zoom,x,z`: an explored view as shares of its limits, for captures. */
   private readonly viewShares: number[] | null;
 
@@ -406,6 +414,35 @@ export class SceneApp {
       this.renderFrame(0);
     }
     return art ?? null;
+  }
+
+  /**
+   * The wood of a tree of what is known by heart (#151), `width × height`, drawn once per
+   * `key`; null while the models load.
+   */
+  factTree(
+    key: string,
+    wood: readonly WoodPiece[],
+    width: number,
+    height: number,
+    ground: boolean,
+  ): string | null {
+    let url = this.factTrees.get(key);
+    if (!url && this.assets) {
+      url = factTreeWood(this.stage, this.assets, wood, width, height, ground);
+      this.factTrees.set(key, url);
+      this.renderFrame(0);
+    }
+    return url ?? null;
+  }
+
+  /** The tufts the facts grow on that tree, null while the models load. */
+  factTufts(): TuftSprites | null {
+    if (!this.tufts && this.assets) {
+      this.tufts = factTreeTufts(this.stage, this.assets);
+      this.renderFrame(0);
+    }
+    return this.tufts;
   }
 
   private readonly onResize = () => {

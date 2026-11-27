@@ -128,6 +128,9 @@ const ready = sceneOnly
             addRare: (rare) => app.addRare(rare),
             portrait: (animal) => app.portrait(animal),
             trailArt: (stones) => app.trailArt(stones),
+            factTree: (key, wood, width, height, ground) =>
+              app.factTree(key, wood, width, height, ground),
+            factTufts: () => app.factTufts(),
             ready: started,
             finale: () => app.finale(),
             picture: () => app.picture(),
