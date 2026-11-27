@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
+import type { EqualExercise } from '../../src/domains/fractions/equal';
 import type { ReadExercise } from '../../src/domains/fractions/generators';
-import { current, expectSlateLayout } from './helpers';
+import { boxes, current, expectSlateLayout } from './helpers';
 
 /** The first question of `fractions.read` in this form, from seed to seed. */
 async function readQuestion(page: Page, form: ReadExercise['form']) {
@@ -60,5 +61,28 @@ test('écrire une fraction : le numérateur, puis le dénominateur, au pavé (#6
   await expectSlateLayout(page);
   await test.info().attach('écrire', { body: await page.screenshot(), contentType: 'image/png' });
   await keypad.getByRole('button', { name: 'Valider' }).click();
+  await expect(card.locator('.praise')).toBeVisible();
+});
+
+test('compléter une égalité : la case au numérateur, les deux bandes alignées (#169)', async ({
+  page,
+}) => {
+  await page.goto('./?practice=fractions.equal&level=1&seed=3&stage=0&quality=low');
+  await page.evaluate(() => window.__numebois!.ready);
+  const exercise = (await current(page)) as EqualExercise;
+  const card = page.locator('#question');
+  // The box written over the denominator asked, as on a sheet: « 1/2 = ▢/8 ».
+  const asked = card.locator('.statement.written > .frac');
+  await expect(asked.locator('.numerator .answer.inline')).toBeVisible();
+  await expect(asked.locator('.denominator')).toHaveText(String(exercise.asked[1]));
+  // Two strips one under the other, the same width: their parts line up.
+  const strips = await boxes(page, '#question .fraction-figure .whole');
+  expect(strips).toHaveLength(2);
+  expect(strips[0].x).toBeCloseTo(strips[1].x, 0);
+  expect(strips[0].width).toBeCloseTo(strips[1].width, 0);
+  await expectSlateLayout(page);
+  await test.info().attach('égalité', { body: await page.screenshot(), contentType: 'image/png' });
+  await page.keyboard.type(exercise.answer);
+  await page.keyboard.press('Enter');
   await expect(card.locator('.praise')).toBeVisible();
 });

@@ -2,8 +2,22 @@ import { defineSkill } from '../../core/registry';
 import type { Exercise } from '../../core/types';
 import { validateChoice, validateFraction, validateNumber } from '../../core/validate';
 import { WRITE_DIGITS } from '../numbers/generators';
+import {
+  EQUAL,
+  EQUAL_LEVELS,
+  equalHint,
+  equalLuresOf,
+  generateEqual,
+  type EqualExercise,
+} from './equal';
 import { READ, READ_LEVELS, generateRead, type ReadExercise } from './generators';
 import { readHint } from './hints';
+
+/** A number on the keypad, or one of the choices. */
+const validateAny = (exercise: Exercise, answer: string) =>
+  exercise.input.kind === 'choice'
+    ? validateChoice(exercise, answer)
+    : validateNumber(exercise, answer);
 
 /** The fraction written in its boxes, the parts coloured, or one of the choices. */
 function validateRead(exercise: Exercise, answer: string): boolean {
@@ -20,4 +34,15 @@ export const read = defineSkill<ReadExercise>({
   generate: generateRead,
   validate: validateRead,
   hint: readHint,
+});
+
+export const equal = defineSkill<EqualExercise>({
+  id: EQUAL,
+  name: 'Les fractions égales',
+  prerequisites: [READ],
+  levels: EQUAL_LEVELS,
+  generate: generateEqual,
+  validate: validateAny,
+  hint: equalHint,
+  lures: equalLuresOf,
 });

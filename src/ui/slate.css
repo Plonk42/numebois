@@ -2060,6 +2060,11 @@
 .statement.text .frac {
   font-size: 1em;
 }
+/* Beside a figure, an equality of fractions stays large enough to read each number. */
+.bench > .work:not(.wide) .statement.written:has(.frac) {
+  font-size: 48px;
+  line-height: 56px;
+}
 
 /* Wholes shared in equal parts: a galette, a strip, a bar of chocolate, a slice of log. */
 .bench > .work:has(.fraction-figure, .whole.touch) {

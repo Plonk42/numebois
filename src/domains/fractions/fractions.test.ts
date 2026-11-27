@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { Rng } from '../../core/rng';
 import { parseFraction } from '../../core/validate';
+import {
+  EQUAL,
+  EQUAL_LEVELS,
+  equalHint,
+  equalLuresOf,
+  generateEqual,
+  type EqualExercise,
+} from './equal';
 import { READ, READ_LEVELS, generateRead, type ReadExercise } from './generators';
 import { readHint } from './hints';
 import { read } from './skills';
@@ -119,5 +127,70 @@ describe('lire, écrire et colorier des fractions (#61)', () => {
       'En bas, il y a 9 : ce sont des neuvièmes.',
     );
     expect(readHint(words, 2)).toBe('6/9 se lit «\u00a0six neuvièmes\u00a0».');
+  });
+});
+
+describe('les fractions égales (#169)', () => {
+  const value = ([n, d]: readonly [number, number]) => n / d;
+
+  it('keeps each level exact, up to twelfths, the strips drawn first', () => {
+    for (let level = 0; level < EQUAL_LEVELS; level++) {
+      for (let seed = 0; seed < SEEDS; seed++) {
+        const e = generateEqual(new Rng(seed), level);
+        const { given, asked, factor } = e;
+        expect(e.skill).toBe(EQUAL);
+        expect(given[0] * asked[1]).toBe(asked[0] * given[1]);
+        for (const [n, d] of [given, asked]) {
+          expect(n >= 1 && n < d && d <= 12).toBe(true);
+        }
+        expect(Math.max(given[1], asked[1])).toBe(Math.min(given[1], asked[1]) * factor);
+        if (level === 0) expect(factor).toBe(2);
+        if (level < 3) {
+          expect(e.statement).toBe(`${given[0]}/${given[1]} = ?/${asked[1]}`);
+          expect(e.answer).toBe(String(asked[0]));
+          expect(e.figure !== undefined).toBe(level < 2);
+        } else {
+          if (e.input.kind !== 'choice') throw new Error('choix attendu');
+          const equalOnes = e.input.options.filter((option) => {
+            const [n, d] = option.split('/').map(Number);
+            return n * given[1] === given[0] * d;
+          });
+          expect(equalOnes).toEqual([e.answer]);
+          expect(new Set(e.input.options).size).toBe(4);
+          expect(value(given)).toBe(value(asked));
+        }
+      }
+    }
+  });
+
+  const missing = (given: [number, number], asked: [number, number]): EqualExercise => ({
+    ...generateEqual(new Rng(1), 1),
+    form: 'missing',
+    given,
+    asked,
+    factor: Math.max(given[1], asked[1]) / Math.min(given[1], asked[1]),
+    statement: `${given[0]}/${given[1]} = ?/${asked[1]}`,
+    input: { kind: 'keypad', maxDigits: 2, inline: true },
+    answer: String(asked[0]),
+  });
+
+  it('names the same number added or taken on top and below, and the numerator kept', () => {
+    const up = missing([1, 2], [4, 8]);
+    expect(equalHint(up, 1)).toBe(
+      'Des parts quatre fois plus petites : quatre fois plus de parts.',
+    );
+    expect(equalHint(up, 1, tried('7'))).toBe(
+      'Ajouter 6 en haut et en bas change la fraction.\nDes parts quatre fois plus petites : quatre fois plus de parts.',
+    );
+    expect(equalHint(up, 1, tried('1'))).toContain(
+      'Les parts changent de taille : le haut change aussi.',
+    );
+    expect(equalHint(up, 2)).toBe('1 × 4 = 4 et 2 × 4 = 8.\nDonc 1/2 = 4/8.');
+    const down = missing([6, 8], [3, 4]);
+    expect(equalHint(down, 1, tried('2'))).toBe(
+      'Enlever 4 en haut et en bas change la fraction.\nDes parts deux fois plus grandes : deux fois moins de parts.',
+    );
+    expect(equalHint(down, 2)).toBe('3 × 2 = 6 et 4 × 2 = 8.\nDonc 6/8 = 3/4.');
+    expect(equalLuresOf(down)).toContain(2);
   });
 });
