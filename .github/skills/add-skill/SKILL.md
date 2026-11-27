@@ -11,7 +11,7 @@ Recette de fond : [plan, « Recette : ajouter une notion ou un domaine »](../..
 
 1. **Domaine :** existant, ou `src/domains/<domain>/index.ts` (`defineDomain`) ajouté à `src/domains/index.ts`. L'ordre des domaines y règle l'ordre d'ouverture (`curriculum` les alterne).
 2. **Générateur** (`generators.ts`) : l'id `<domain>.<notion>` en constante, un type d'exercice qui étend `Exercise` avec les valeurs tirées, les niveaux décrits en commentaire, `generate(rng, level, context)` pur qui refuse et retire les tirages hors contraintes (`context.vocabulary` : les mots du décor, pour un énoncé de problème ; modèle `src/domains/word-problems/problems.ts`).
-3. **Indices** (`hints.ts`) : 1 = la méthode, 2 = la réponse avec la méthode. Phrases de 12 mots au plus, 3 phrases ou lignes et 120 caractères par bulle, aucun mot d'échec. L'indice 1 peut nommer l'erreur faite (`tried` : la réponse fausse et l'état du widget, #167) ; les leurres (`lures`) servent de liste d'erreurs typiques.
+3. **Indices** (`hints.ts`) : 1 = la méthode, 2 = la réponse avec la méthode. Phrases de 12 mots au plus, 3 phrases ou lignes et 120 caractères par bulle, aucun mot d'échec. **L'indice 1 nomme les erreurs typiques** (`tried` : la réponse fausse et l'état du widget, #167, #168) : lister les erreurs (les leurres `lures` d'abord), proposer au propriétaire chaque erreur reconnue avec son texte (« l'erreur nommée, puis la méthode », sans donner la réponse), les écrire après sa validation ; une erreur non reconnue garde l'indice de méthode. `triedNumber` (`src/core/validate.ts`) lit un nombre tapé.
 4. **Validation :** `validateNumber` ou `validateChoice` (`src/core/validate.ts`), sinon une nouvelle fonction au même endroit.
 5. **Notion** (`skills.ts`, `defineSkill`) : prérequis (y compris d'autres domaines), `levels`, `challenge`, `facts` (`facts.ts`, ids `<notion>:<clé>`, `exercise(fact, rng)`, `groups` facultatifs) seulement pour ce qui se sait par cœur : une notion à faits se joue en rafale, les autres non. Réponse au pavé : le sentier la propose environ une fois sur trois parmi 4 choix (`offerChoices`, `src/core/choices.ts`) ; `lures` (`lures.ts`) donne les erreurs typiques de la notion (table voisine, retenue oubliée…), sinon ± 1, ± 10 et chiffres échangés. Un choix compte pour la maîtrise, jamais pour un fait.
 6. **Nouveau type de saisie** (seulement si pavé, choix, signe entre deux nombres, droite graduée, opération posée, heure écrite, horloge à régler et règle ne suffisent pas) : le compilateur réclame les quatre morceaux.
@@ -23,8 +23,8 @@ Recette de fond : [plan, « Recette : ajouter une notion ou un domaine »](../..
 
 ## Vérifier
 
-1. Tests du module : contraintes de chaque niveau sur 1 000 graines (`src/domains/<domain>/<domain>.test.ts`).
-2. Automatiques, sans rien écrire : `tests/unit/content.test.ts` (`exerciseErrors` sur 1 000 graines par niveau) et `tests/e2e/notions.spec.ts` (la notion jouée sur l'ardoise, indice, réponse montrée, dernier niveau, capture jointe).
+1. Tests du module : contraintes de chaque niveau sur 1 000 graines (`src/domains/<domain>/<domain>.test.ts`), un test par erreur reconnue, et chaque leurre reconnu (indice différent de la méthode).
+2. Automatiques, sans rien écrire : `tests/unit/content.test.ts` (`exerciseErrors` sur 1 000 graines par niveau, bulle après chaque leurre), `tests/unit/mistakes.test.ts` (bulle après des réponses fausses voisines) et `tests/e2e/notions.spec.ts` (la notion jouée sur l'ardoise, indice, réponse montrée, dernier niveau, capture jointe). Nouveau domaine : une ligne dans `NOTIONS` de `tests/e2e/hints.spec.ts` (une erreur typique nommée par Plume).
 3. `npm run format`, `npm run check`, puis `npx playwright test tests/e2e/notions.spec.ts -g <notion> --reporter=list`.
 4. À l'œil : `?practice=<notion>&level=<n>` sur le serveur de dev (ou la tablette) joue la notion seule, sans toucher à la sauvegarde.
 5. Plan : décisions, et tableau de couverture à la fin du jalon.

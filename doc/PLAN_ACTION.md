@@ -213,7 +213,7 @@ Exemples de demandes : « ajouter les divisions », « l'enfant doit travailler 
 
 1. Mettre à jour ce plan : décisions.
 2. Si le domaine existe, ajouter la notion dans son `skills.ts`. Sinon, créer `src/domains/<domain>/` et l'enregistrer dans `src/domains/index.ts`.
-3. Écrire générateurs, validation et indices, avec leurs tests (1 000 graines, contraintes respectées). Les règles communes (`exerciseErrors`) sont vérifiées sans rien ajouter par `tests/unit/content.test.ts`.
+3. Écrire générateurs, validation et indices, avec leurs tests (1 000 graines, contraintes respectées). L'indice 1 nomme les erreurs typiques de la notion dès sa création (#168) : erreurs et textes proposés au propriétaire et validés avant d'être écrits, un test par erreur. Les règles communes (`exerciseErrors`) sont vérifiées sans rien ajouter par `tests/unit/content.test.ts`.
 4. Réutiliser un widget partagé si possible. Sinon, ajouter un type de saisie à `ExerciseInput`, sa règle de réponse, son widget dans `src/ui/widgets/index.tsx` (placé sur l'ardoise avec `Work`, ou `Work wide`, et `AnswerZone`) et son pilote de test.
 5. Écrire une leçon courte, et éventuellement des modèles de problèmes.
 6. Déclarer les prérequis pour placer la notion dans le parcours.
