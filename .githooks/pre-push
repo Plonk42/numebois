@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Refuse de pousser sur main tant que la dernière CI terminée de main est rouge, sauf un correctif (CI_FIX=1).
+set -u
+
+pushes_main=false
+while read -r _ _ remote_ref _; do
+  [[ $remote_ref == refs/heads/main ]] && pushes_main=true
+done
+$pushes_main || exit 0
+[[ ${CI_FIX:-} == 1 ]] && exit 0
+
+last=$(gh run list --branch main --workflow ci.yml --status completed --limit 10 \
+  --json conclusion,headSha,url,displayTitle \
+  --jq '[.[] | select(.conclusion == "success" or .conclusion == "failure")][0] // empty | [.conclusion, .headSha[0:7], .url, .displayTitle] | @tsv' 2>/dev/null)
+if [[ -z $last ]]; then
+  echo "pre-push : état de la CI de main inconnu, push autorisé." >&2
+  exit 0
+fi
+IFS=$'\t' read -r conclusion sha url title <<<"$last"
+[[ $conclusion == success ]] && exit 0
+
+cat >&2 <<EOF
+pre-push : la CI de main est ROUGE ($sha « $title »).
+  $url
+Corriger d'abord : npm run ci:watch -- $sha (affiche les tests en échec),
+puis pousser le correctif avec : CI_FIX=1 git push origin main
+EOF
+exit 1

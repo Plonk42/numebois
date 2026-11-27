@@ -47,7 +47,7 @@ Pour chaque ticket choisi, dans l'ordre du classement :
    Ne jamais affaiblir une assertion, ajouter des relances ni sauter un test.
 
 5. Commiter des étapes cohérentes avec uniquement ses propres fichiers (résumé à l'impératif avec `(#N)`).
-   - Courant : `Closes #N` dans le dernier commit, puis `git push origin main`.
+   - Courant : `Closes #N` dans le dernier commit, puis `git push origin main` et `npm run ci:watch` ; CI rouge → la corriger dans la foulée, avant le ticket suivant.
    - Risqué : pousser la branche, ouvrir une PR avec le [modèle](../pull_request_template.md) et `Closes #N`, puis `gh pr merge --auto --squash`. Ne pas attendre la CI ; revenir sur `main`.
    - Ticket seulement avancé (sans `Closes`) : commenter le ticket (commit ou PR, ce qui est fait, ce qui reste).
 6. Si le ticket ne peut pas être terminé (décision manquante, validation qui échoue et que l'on ne sait pas corriger, périmètre plus grand que prévu), arrêter ce ticket et ne rien commiter d'incomplet sur `main`.

@@ -34,6 +34,7 @@ Numebois est un jeu web de maths pour un enfant de CE2 (8 ans, grande difficult�
 
 - Partir de `main` à jour (`git pull --ff-only`). Ne jamais mettre de côté (stash), réinitialiser, jeter ni commiter des modifications sans rapport.
 - `main` = production : un push déploie sur la tablette de l'enfant si la CI passe.
+- **CI de main rouge = la corriger dans la foulée** (propriétaire), avant toute autre tâche : après le dernier push d'une tâche, `npm run ci:watch` (synchrone, affiche les tests en échec) ; rouge → reproduire, corriger, pousser le correctif avec `CI_FIX=1 git push origin main`, et relancer `ci:watch`. Le hook `.githooks/pre-push` (`git config core.hooksPath .githooks`) refuse tout autre push sur main tant que la dernière CI terminée de main est rouge.
 - **Courant** (interface, notions, leçons, textes, docs, tests, petites corrections) : `npm run format`, `npm run check` et les specs Playwright concernées, puis commit et push sur `main`.
 - **Risqué** (format de sauvegarde ou de l'Album, service worker, moteur de rendu partagé, chaîne de traitement des assets, CI, dépendances) : branche, PR avec le modèle, `gh pr merge --auto --squash`, sans attendre la CI.
 - Un commit par étape cohérente, avec ses tests et ses docs. Résumé à l'impératif, `(#N)` ou `Closes #N`. Ne jamais faire de force-push sur `main`, affaiblir un test ni ajouter de relances pour obtenir du vert.
