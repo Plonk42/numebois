@@ -10,6 +10,8 @@ export const MAX_BUBBLE_SENTENCES = 3;
 export const MAX_BUBBLE_CHARS = 120;
 /** A word problem is read at a glance. */
 export const MAX_STATEMENT_WORDS = 25;
+/** An instruction too long for a line is cut where it makes sense: one sentence per line. */
+export const MAX_INSTRUCTION_LINES = 2;
 /** Choices fit in the answer zone and on the keys 1 to 4. */
 export const MAX_CHOICES = 4;
 
@@ -126,10 +128,14 @@ export function exerciseErrors(skill: Skill, exercise: Exercise, level: number):
   if (!skill.validate(exercise, exercise.answer)) {
     errors.push(`la réponse attendue « ${exercise.answer} » n'est pas acceptée`);
   }
+  const lines = exercise.instruction.split('\n').length;
   errors.push(
     ...inputErrors(exercise.input, exercise.answer),
-    ...textErrors('consigne', exercise.instruction, 1),
+    ...textErrors('consigne', exercise.instruction, lines),
   );
+  if (lines > MAX_INSTRUCTION_LINES) {
+    errors.push(`consigne sur ${lines} lignes : ${exercise.instruction}`);
+  }
   const words = sentenceLengths(exercise.statement).reduce((sum, n) => sum + n, 0);
   if (words > MAX_STATEMENT_WORDS) errors.push(`énoncé de ${words} mots : ${exercise.statement}`);
   if (FAILURE_WORDS.test(exercise.statement)) errors.push(`énoncé : mot d'échec`);

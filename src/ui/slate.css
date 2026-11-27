@@ -79,6 +79,7 @@
   line-height: 36px;
   font-weight: 600;
   color: #2f4a3a;
+  white-space: pre-line;
 }
 .praise {
   font-size: 32px;

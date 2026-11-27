@@ -151,6 +151,12 @@ describe('registre', () => {
     ]);
     const keypad = { ...exercise, input: { kind: 'keypad' as const, maxDigits: 2 }, answer: '123' };
     expect(exerciseErrors(notion, keypad, 0)).toContain('réponse « 123 » hors du widget keypad');
+    const cut = { ...keypad, instruction: 'Pose 12 + 23 + 34\nPuis calcule colonne par colonne.' };
+    expect(exerciseErrors(notion, cut, 0).filter((e) => e.startsWith('consigne'))).toEqual([]);
+    const tall = { ...keypad, instruction: 'Pose.\nCalcule.\nVérifie.' };
+    expect(exerciseErrors(notion, tall, 0)).toContain(
+      'consigne sur 3 lignes : Pose.\nCalcule.\nVérifie.',
+    );
     const long = 'Compte les glands un par un.\n'.repeat(5).trim();
     expect(exerciseErrors({ ...notion, hint: () => long }, keypad, 0)).toContain(
       `indice 1 : ${long.length} caractères : ${long}`,

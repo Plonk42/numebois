@@ -178,7 +178,7 @@ Confirmées par le propriétaire ou par une photo de la classe ; le jeu les suit
   - `rng.ts`, `expr.ts` (interpréteur limité, pas d'`eval`) ;
   - `mastery.ts` (cycle de vie et Leitner), `facts.ts` (suivi fait par fait), `trail.ts` (sentier), `drill.ts` (rafale), `challenge.ts`, `records.ts` ;
   - `registry.ts` et `types.ts` : les contrats `Domain`, `Skill`, `Generator`, `Exercise`, `Lesson` ;
-  - `content.ts` : les règles de contenu vérifiées sur chaque exercice tiré (`exerciseErrors` : réponse exacte et de la forme que rend le widget, 2 à 4 choix, phrases de 12 mots, bulles de 3 phrases ou lignes et 120 caractères, énoncé de 25 mots, aucun mot d'échec, fait déclaré).
+  - `content.ts` : les règles de contenu vérifiées sur chaque exercice tiré (`exerciseErrors` : réponse exacte et de la forme que rend le widget, 2 à 4 choix, phrases de 12 mots, consigne d'une phrase par ligne sur 2 lignes au plus, bulles de 3 phrases ou lignes et 120 caractères, énoncé de 25 mots, aucun mot d'échec, fait déclaré).
 - `src/domains/<domain>/` : un module autonome.
   - `index.ts` : `defineDomain` (id, nom affiché en français, icône, liste des notions) ;
   - `skills.ts` : notions avec id stable, prérequis, niveaux de difficulté internes, drapeau `challenge` ; une notion à faits (`facts`) se joue en rafale ;
