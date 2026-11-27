@@ -1,4 +1,7 @@
+import type { Tried } from '../../core/types';
+import { triedNumber } from '../../core/validate';
 import { formatNumber } from '../numbers/words';
+import { complementLures } from './lures';
 import type {
   ComplementExercise,
   DoubleHalfExercise,
@@ -20,8 +23,35 @@ const NINE_ELEVEN_METHOD: Record<string, string> = {
   '−11': 'Enlever 11, c’est enlever 10 puis encore 1.',
 };
 
-/** From the larger number: on to the sum, or to 10 then the rest; a double is a double. */
-export function sumHint({ a, b }: OperationExercise, attempt: 1 | 2): string {
+/** 10 added or taken away, its correction forgotten (#168). */
+const TEN_ONLY: Record<string, string> = {
+  '+9': 'Tu as ajouté 10, c’est 1 de trop.\nEnlève encore 1.',
+  '+11': 'Tu as ajouté 10.\nAjoute encore 1.',
+  '−9': 'Tu as enlevé 10, c’est 1 de trop.\nRemets 1.',
+  '−11': 'Tu as enlevé 10.\nEnlève encore 1.',
+};
+
+const tenForgotten = (a: number, b: number) =>
+  `Tu as écrit les unités, pas la dizaine.\n${a} + ${b}, c’est plus que 10.`;
+
+/** The mistake named, then the method: the hint after a recognised wrong answer (#168). */
+const named = (mistake: string, method: string) => `${mistake}\n${method}`;
+
+/** 1: one off, or the ten forgotten, else the method; 2: the sum worked out. */
+export function sumHint(exercise: OperationExercise, attempt: 1 | 2, tried?: Tried): string {
+  const { a, b } = exercise;
+  const result = a + b;
+  const answer = triedNumber(tried);
+  if (attempt === 1 && answer !== null && answer !== result) {
+    if (result > 10 && answer === result - 10) return tenForgotten(a, b);
+    if (Math.abs(answer - result) === 1) {
+      return named('Tu es à 1 du bon nombre.', sumMethod(exercise, 1));
+    }
+  }
+  return sumMethod(exercise, attempt);
+}
+
+function sumMethod({ a, b }: OperationExercise, attempt: 1 | 2): string {
   const big = Math.max(a, b);
   const small = Math.min(a, b);
   const result = a + b;
@@ -38,9 +68,44 @@ export function sumHint({ a, b }: OperationExercise, attempt: 1 | 2): string {
   return `${big} + ${toTen} = 10, puis 10 + ${small - toTen} = ${result}.`;
 }
 
-/** Units first, by the ten when crossing it, tens then units for two-digit numbers. */
-export function addSubtractHint(exercise: OperationExercise, attempt: 1 | 2): string {
+/** What a wrong result tells: the units right but the tens not, or a subtraction upside down. */
+function addSubtractSlip({ a, op, b }: OperationExercise, answer: number): string | null {
+  const result = apply(a, op, b);
+  const [ua, ub] = [a % 10, b % 10];
+  const crosses = op === '+' ? ua + ub >= 10 : ub > ua;
+  if (answer % 10 === result % 10) {
+    const right = 'Les unités sont bonnes.';
+    if (op === '+' && crosses && answer === result - 10) {
+      return named(right, `${ua} + ${ub} = ${ua + ub} : garde la dizaine en plus !`);
+    }
+    if (op === '−' && crosses && answer === result + 10) {
+      return named(right, 'Tu as défait une dizaine : il en reste une de moins.');
+    }
+    return named(right, 'Recompte les dizaines.');
+  }
+  if (op === '−' && crosses && answer === a - ua - (b - ub) + ub - ua) {
+    const upside = `Tu as fait ${ub} − ${ua}, à l’envers.`;
+    if (b < 10) return named(upside, `Descends d’abord jusqu’à ${a - ua}, puis enlève le reste.`);
+    return named(upside, `Enlève d’abord ${b - ub}, puis encore ${ub}.`);
+  }
+  return null;
+}
+
+/**
+ * 1: the mistake when recognised, else units first, by the ten when crossing it, tens then units
+ * for two-digit numbers; 2: the steps worked out.
+ */
+export function addSubtractHint(
+  exercise: OperationExercise,
+  attempt: 1 | 2,
+  tried?: Tried,
+): string {
   const { a, op, b } = exercise;
+  const answer = triedNumber(tried);
+  if (attempt === 1 && answer !== null && answer !== apply(a, op, b)) {
+    const slip = addSubtractSlip(exercise, answer);
+    if (slip) return slip;
+  }
   if (b < 10) return oneDigitHint(exercise, attempt);
   const result = apply(a, op, b);
   const units = b % 10;
@@ -76,16 +141,44 @@ function oneDigitHint({ a, op, b }: OperationExercise, attempt: 1 | 2): string {
   return `${a} ${op} ${first} = ${ten}, puis ${ten} ${op} ${b - first} = ${result}.`;
 }
 
-/** Through 10: + 9 is + 10 − 1, − 11 is − 10 − 1… */
-export function nineElevenHint({ a, op, b }: OperationExercise, attempt: 1 | 2): string {
+/** Through 10: + 9 is + 10 − 1, − 11 is − 10 − 1…; 10 alone, or 9 and 11 swapped, named. */
+export function nineElevenHint(
+  { a, op, b }: OperationExercise,
+  attempt: 1 | 2,
+  tried?: Tried,
+): string {
   const fix = b === 11 ? op : OPPOSITE[op];
-  if (attempt === 1) return NINE_ELEVEN_METHOD[`${op}${b}`];
+  const method = NINE_ELEVEN_METHOD[`${op}${b}`];
+  if (attempt === 1) {
+    const answer = triedNumber(tried);
+    const other = b === 9 ? 11 : 9;
+    if (answer === apply(a, op, 10)) return TEN_ONLY[`${op}${b}`];
+    if (answer === apply(a, op, other)) return named(`Ça, c’est ${a} ${op} ${other}.`, method);
+    return method;
+  }
   const middle = apply(a, op, 10);
   return `${a} ${op} 10 = ${middle}, puis ${middle} ${fix} 1 = ${apply(middle, fix, 1)}.`;
 }
 
-/** Counting up to 10, by tens to 100, or up to the next ten then to 100. */
-export function complementHint({ given, target }: ComplementExercise, attempt: 1 | 2): string {
+/**
+ * Counting up to 10, by tens to 100, or up to the next ten then to 100; an answer one (or one
+ * ten) off is first checked: « 3 + 6 = 9, pas 10 ».
+ */
+export function complementHint(
+  exercise: ComplementExercise,
+  attempt: 1 | 2,
+  tried?: Tried,
+): string {
+  const { given, target } = exercise;
+  const answer = triedNumber(tried);
+  if (attempt === 1 && answer !== null && complementLures(exercise).includes(answer)) {
+    const check = `${given} + ${answer} = ${given + answer}, pas ${target}.`;
+    return named(check, complementMethod(exercise, 1));
+  }
+  return complementMethod(exercise, attempt);
+}
+
+function complementMethod({ given, target }: ComplementExercise, attempt: 1 | 2): string {
   const missing = target - given;
   if (target === 10) {
     return attempt === 1 ? `Compte de ${given} jusqu’à 10.` : `${given} + ${missing} = 10.`;
@@ -102,8 +195,46 @@ export function complementHint({ given, target }: ComplementExercise, attempt: 1
   );
 }
 
+/** What a wrong double or half tells: the number copied, the ten forgotten, the double… */
+function doubleHalfSlip(exercise: DoubleHalfExercise, answer: number): string | null {
+  const { kind, value } = exercise;
+  if (kind === 'double') {
+    const double = 2 * value;
+    if (answer === value) return `Tu as recopié ${value}.\nLe double, c’est ${value} + ${value}.`;
+    if (value <= 10 && double > 10 && answer === double - 10) return tenForgotten(value, value);
+    if (value > 10 && answer % 10 === double % 10) {
+      return `Les unités sont bonnes.\nRecompte le double de ${value - (value % 10)}.`;
+    }
+    return null;
+  }
+  if (answer === 2 * value) {
+    return `Ça, c’est le double de ${value}.\nLa moitié est plus petite que ${value}.`;
+  }
+  if (Math.abs(answer - value / 2) === 5) {
+    const check = `${answer} + ${answer} = ${2 * answer}, pas ${value}.`;
+    return named(check, doubleHalfMethod(exercise, 1));
+  }
+  return null;
+}
+
+/** 1: the mistake when recognised, else the method; 2: the double or half worked out. */
+export function doubleHalfHint(
+  exercise: DoubleHalfExercise,
+  attempt: 1 | 2,
+  tried?: Tried,
+): string {
+  const { kind, value } = exercise;
+  const answer = triedNumber(tried);
+  const right = kind === 'double' ? 2 * value : value / 2;
+  if (attempt === 1 && answer !== null && answer !== right) {
+    const slip = doubleHalfSlip(exercise, answer);
+    if (slip) return slip;
+  }
+  return doubleHalfMethod(exercise, attempt);
+}
+
 /** Small or round numbers as a sum; other ones tens and units apart. */
-export function doubleHalfHint({ kind, value }: DoubleHalfExercise, attempt: 1 | 2): string {
+function doubleHalfMethod({ kind, value }: DoubleHalfExercise, attempt: 1 | 2): string {
   const units = value % 10;
   const tens = value - units;
   if (kind === 'double') {
@@ -131,14 +262,32 @@ export function doubleHalfHint({ kind, value }: DoubleHalfExercise, attempt: 1 |
   );
 }
 
-/** Each unit becomes a ten (or a hundred), whatever the order. */
-export function timesTenHint(
-  { value, factor, factorFirst }: TimesTenExercise,
-  attempt: 1 | 2,
-): string {
-  const [one, many] = factor === 10 ? ['dizaine', 'dizaines'] : ['centaine', 'centaines'];
+const RANKS: Record<number, [string, string]> = {
+  10: ['dizaine', 'dizaines'],
+  100: ['centaine', 'centaines'],
+};
+
+/** What a wrong product by 10 or 100 tells: the other rank, one zero too many, or a sum. */
+function timesTenSlip({ value, factor, factorFirst }: TimesTenExercise, answer: number) {
+  const times = (k: number) =>
+    factorFirst ? `${formatNumber(k)} × ${value}` : `${value} × ${formatNumber(k)}`;
+  const other = factor === 10 ? 100 : 10;
+  if (answer === value * other) return `Ça, c’est ${times(other)} : ${value} ${RANKS[other][1]}.`;
+  if (factor === 100 && answer === value * 1000) return `Ça, c’est ${times(1000)}.`;
+  if (answer !== value + factor) return null;
+  const sum = factorFirst ? `${factor} + ${value}` : `${value} + ${factor}`;
+  return `${sum} = ${value + factor} : c’est une addition.`;
+}
+
+/** Each unit becomes a ten (or a hundred), whatever the order; the wrong rank or a sum named. */
+export function timesTenHint(exercise: TimesTenExercise, attempt: 1 | 2, tried?: Tried): string {
+  const { value, factor, factorFirst } = exercise;
+  const [one, many] = RANKS[factor];
   if (attempt === 1) {
     const method = `× ${factor} : chaque unité devient une ${one}.`;
+    const answer = triedNumber(tried);
+    const slip = answer === null ? null : timesTenSlip(exercise, answer);
+    if (slip) return named(slip, method);
     return factorFirst ? `${factor} × ${value}, c’est ${value} × ${factor}.\n${method}` : method;
   }
   const product = factorFirst ? `${factor} × ${value}` : `${value} × ${factor}`;

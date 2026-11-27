@@ -2,12 +2,19 @@ import { describe, expect, it } from 'vitest';
 import { Rng } from '../../core/rng';
 import type { Exercise } from '../../core/types';
 import {
+  ADD,
   ADD_LEVELS,
+  COMPLEMENTS,
   COMPLEMENTS_LEVELS,
+  DOUBLES_HALVES,
   DOUBLES_HALVES_LEVELS,
+  NINE_ELEVEN,
   NINE_ELEVEN_LEVELS,
+  SUBTRACT,
   SUBTRACT_LEVELS,
+  SUMS,
   SUMS_LEVELS,
+  TIMES_TEN,
   TIMES_TEN_LEVELS,
   generateAdd,
   generateComplement,
@@ -29,6 +36,7 @@ import {
   sumHint,
   timesTenHint,
 } from './hints';
+import { mentalMath } from './index';
 
 const tens = (n: number) => Math.floor(n / 10);
 const units = (n: number) => n % 10;
@@ -217,4 +225,154 @@ describe('indices', () => {
     );
     expect(timesTenHint(exercise(10, true), 2)).toBe('10 × 34 = 340 : 34 dizaines.');
   });
+});
+
+describe('indices après une erreur (#168)', () => {
+  const tried = (answer: number) => ({ answer: String(answer) });
+  const operation = (a: number, op: '+' | '−', b: number) =>
+    ({ ...generateAdd(new Rng(1), 0), a, op, b }) as OperationExercise;
+
+  it('simple additions: one off, or the ten forgotten', () => {
+    const sum = operation(8, '+', 5);
+    expect(sumHint(sum, 1, tried(12))).toBe(
+      'Tu es à 1 du bon nombre.\nPars de 8, va jusqu’à 10, puis ajoute le reste.',
+    );
+    expect(sumHint(sum, 1, tried(3))).toBe(
+      'Tu as écrit les unités, pas la dizaine.\n8 + 5, c’est plus que 10.',
+    );
+    expect(sumHint(sum, 2, tried(3))).toBe(sumHint(sum, 2));
+  });
+
+  it('add and subtract: the units right, the tens not', () => {
+    expect(addSubtractHint(operation(38, '+', 27), 1, tried(55))).toBe(
+      'Les unités sont bonnes.\n8 + 7 = 15 : garde la dizaine en plus !',
+    );
+    expect(addSubtractHint(operation(52, '−', 27), 1, tried(35))).toBe(
+      'Les unités sont bonnes.\nTu as défait une dizaine : il en reste une de moins.',
+    );
+    expect(addSubtractHint(operation(34, '+', 25), 1, tried(69))).toBe(
+      'Les unités sont bonnes.\nRecompte les dizaines.',
+    );
+  });
+
+  it('subtract: the units upside down', () => {
+    expect(addSubtractHint(operation(52, '−', 24), 1, tried(32))).toBe(
+      'Tu as fait 4 − 2, à l’envers.\nEnlève d’abord 20, puis encore 4.',
+    );
+    expect(addSubtractHint(operation(32, '−', 5), 1, tried(33))).toBe(
+      'Tu as fait 5 − 2, à l’envers.\nDescends d’abord jusqu’à 30, puis enlève le reste.',
+    );
+  });
+
+  it('9 and 11: the correction forgotten, or 9 and 11 swapped', () => {
+    expect(nineElevenHint(operation(34, '+', 9), 1, tried(44))).toBe(
+      'Tu as ajouté 10, c’est 1 de trop.\nEnlève encore 1.',
+    );
+    expect(nineElevenHint(operation(34, '+', 11), 1, tried(44))).toBe(
+      'Tu as ajouté 10.\nAjoute encore 1.',
+    );
+    expect(nineElevenHint(operation(34, '−', 9), 1, tried(24))).toBe(
+      'Tu as enlevé 10, c’est 1 de trop.\nRemets 1.',
+    );
+    expect(nineElevenHint(operation(34, '−', 11), 1, tried(24))).toBe(
+      'Tu as enlevé 10.\nEnlève encore 1.',
+    );
+    expect(nineElevenHint(operation(34, '+', 9), 1, tried(45))).toBe(
+      'Ça, c’est 34 + 11.\nAjouter 9, c’est ajouter 10 puis enlever 1.',
+    );
+  });
+
+  it('complements: one or one ten off, checked', () => {
+    const complement = (level: number, given: number) => ({
+      ...generateComplement(new Rng(1), level),
+      given,
+    });
+    expect(complementHint(complement(0, 3), 1, tried(6))).toBe(
+      '3 + 6 = 9, pas 10.\nCompte de 3 jusqu’à 10.',
+    );
+    expect(complementHint(complement(2, 37), 1, tried(73))).toBe(
+      '37 + 73 = 110, pas 100.\nVa d’abord jusqu’à 40, puis jusqu’à 100.',
+    );
+  });
+
+  it('doubles and halves: copied, the ten forgotten, the tens, the double, checked', () => {
+    const doubleHalf = (kind: 'double' | 'half', value: number) =>
+      ({ ...generateDoubleHalf(new Rng(1), 0), kind, value }) as DoubleHalfExercise;
+    expect(doubleHalfHint(doubleHalf('double', 7), 1, tried(7))).toBe(
+      'Tu as recopié 7.\nLe double, c’est 7 + 7.',
+    );
+    expect(doubleHalfHint(doubleHalf('double', 7), 1, tried(4))).toBe(
+      'Tu as écrit les unités, pas la dizaine.\n7 + 7, c’est plus que 10.',
+    );
+    expect(doubleHalfHint(doubleHalf('double', 23), 1, tried(56))).toBe(
+      'Les unités sont bonnes.\nRecompte le double de 20.',
+    );
+    expect(doubleHalfHint(doubleHalf('half', 14), 1, tried(28))).toBe(
+      'Ça, c’est le double de 14.\nLa moitié est plus petite que 14.',
+    );
+    expect(doubleHalfHint(doubleHalf('half', 46), 1, tried(28))).toBe(
+      '28 + 28 = 56, pas 46.\nPartage les dizaines, puis les unités.',
+    );
+  });
+
+  it('times 10 and 100: the other rank, a thousand, or a sum', () => {
+    const exercise = (factor: 10 | 100, factorFirst = false) => ({
+      ...generateTimesTen(new Rng(1), 1),
+      value: 34,
+      factor,
+      factorFirst,
+    });
+    expect(timesTenHint(exercise(10), 1, tried(3400))).toBe(
+      'Ça, c’est 34 × 100 : 34 centaines.\n× 10 : chaque unité devient une dizaine.',
+    );
+    expect(timesTenHint(exercise(100, true), 1, tried(340))).toBe(
+      'Ça, c’est 10 × 34 : 34 dizaines.\n× 100 : chaque unité devient une centaine.',
+    );
+    expect(timesTenHint(exercise(100), 1, tried(34000))).toBe(
+      'Ça, c’est 34 × 1\u202f000.\n× 100 : chaque unité devient une centaine.',
+    );
+    expect(timesTenHint(exercise(10), 1, tried(44))).toBe(
+      '34 + 10 = 44 : c’est une addition.\n× 10 : chaque unité devient une dizaine.',
+    );
+  });
+
+  it('keeps the method hint for a mistake it does not know', () => {
+    const sum = operation(8, '+', 5);
+    expect(sumHint(sum, 1, tried(17))).toBe(sumHint(sum, 1));
+    expect(sumHint(sum, 1, { answer: '' })).toBe(sumHint(sum, 1));
+    expect(addSubtractHint(operation(38, '+', 27), 1, tried(61))).toBe(
+      addSubtractHint(operation(38, '+', 27), 1),
+    );
+  });
+
+  const notions: [string, (rng: Rng, level: number) => Exercise, number][] = [
+    [SUMS, generateSum, SUMS_LEVELS],
+    [ADD, generateAdd, ADD_LEVELS],
+    [SUBTRACT, generateSubtract, SUBTRACT_LEVELS],
+    [NINE_ELEVEN, generateNineEleven, NINE_ELEVEN_LEVELS],
+    [COMPLEMENTS, generateComplement, COMPLEMENTS_LEVELS],
+    [DOUBLES_HALVES, generateDoubleHalf, DOUBLES_HALVES_LEVELS],
+    [TIMES_TEN, generateTimesTen, TIMES_TEN_LEVELS],
+  ];
+  it.each(notions)(
+    '%s: every lure is a recognised mistake, on 1 000 seeds',
+    (id, generate, levels) => {
+      const skill = mentalMath.skills.find((s) => s.id === id)!;
+      for (let level = 0; level < levels; level++) {
+        for (let seed = 0; seed < 1000; seed++) {
+          const exercise = generate(new Rng(seed), level);
+          for (const lure of skill.lures!(exercise)) {
+            if (lure < 0 || String(lure) === exercise.answer) continue;
+            // 7 + 7 = 14 typed 24: no text for the units right below 10.
+            const { kind, value } = exercise as DoubleHalfExercise;
+            if (kind === 'double' && value <= 10 && lure !== value && lure !== 2 * value - 10)
+              continue;
+            if (kind === 'double' && value <= 5 && lure === 2 * value - 10) continue;
+            const hint = skill.hint(exercise, 1, tried(lure));
+            expect(hint, `${exercise.statement} → ${lure}`).not.toBe(skill.hint(exercise, 1));
+          }
+        }
+      }
+    },
+  );
 });

@@ -12,6 +12,7 @@ import {
   type ProductExercise,
 } from './generators';
 import { missingFactorHint, productHint } from './hints';
+import { missingFactorLures, productLures } from './lures';
 
 const SEEDS = 1000;
 const inRange = (n: number) => Number.isInteger(n) && n >= MIN_FACTOR && n <= MAX_FACTOR;
@@ -126,5 +127,66 @@ describe('indices', () => {
     } as MissingFactorExercise;
     expect(missingFactorHint(exercise, 1)).toBe('Récite la table de 8 jusqu’à 56.');
     expect(missingFactorHint(exercise, 2)).toBe('8 × 7 = 56, donc il manque 7.');
+  });
+});
+
+describe('indices après une erreur (#168)', () => {
+  const tried = (answer: number) => ({ answer: String(answer) });
+  const product = (a: number, b: number) =>
+    ({ ...generateProduct(new Rng(1), 0), a, b }) as ProductExercise;
+  const missing = (a: number, b: number, hidden: 'a' | 'b') =>
+    ({ ...generateMissingFactor(new Rng(1), 3), a, b, hidden }) as MissingFactorExercise;
+
+  it('a neighbouring product, in the same table first', () => {
+    expect(productHint(product(7, 8), 1, tried(48))).toBe(
+      '48, c’est 6 × 8, juste à côté.\n7 × 8, c’est le double de 7 × 4.',
+    );
+    expect(productHint(product(7, 8), 1, tried(63))).toBe(
+      '63, c’est 7 × 9, juste à côté.\n7 × 8, c’est le double de 7 × 4.',
+    );
+  });
+
+  it('a sum instead of the product', () => {
+    expect(productHint(product(7, 8), 1, tried(15))).toBe(
+      '7 + 8 = 15 : c’est une addition.\n7 × 8, c’est le double de 7 × 4.',
+    );
+  });
+
+  it('missing factor: a neighbour checked, the shown factor copied', () => {
+    expect(missingFactorHint(missing(7, 8, 'b'), 1, tried(9))).toBe(
+      '7 × 9 = 63, pas 56.\nRécite la table de 7 jusqu’à 56.',
+    );
+    expect(missingFactorHint(missing(8, 7, 'a'), 1, tried(7))).toBe(
+      '7 × 7 = 49, pas 56.\nRécite la table de 7 jusqu’à 56.',
+    );
+    expect(missingFactorHint(missing(6, 9, 'b'), 1, tried(6))).toBe(
+      'Tu as recopié le 6.\nRécite la table de 6 jusqu’à 54.',
+    );
+  });
+
+  it('keeps the method hint for a mistake it does not know', () => {
+    expect(productHint(product(7, 8), 1, tried(54))).toBe(productHint(product(7, 8), 1));
+    expect(missingFactorHint(missing(7, 8, 'b'), 1, tried(4))).toBe(
+      missingFactorHint(missing(7, 8, 'b'), 1),
+    );
+  });
+
+  it.each(levels)('level %i: every lure is a recognised mistake, on 1 000 seeds', (level) => {
+    for (let seed = 0; seed < SEEDS; seed++) {
+      const exercise = generateProduct(new Rng(seed), level);
+      for (const lure of productLures(exercise)) {
+        if (String(lure) === exercise.answer) continue;
+        expect(productHint(exercise, 1, tried(lure)), `${exercise.statement} → ${lure}`).not.toBe(
+          productHint(exercise, 1),
+        );
+      }
+      const asked = generateMissingFactor(new Rng(seed), level);
+      for (const lure of missingFactorLures(asked)) {
+        if (String(lure) === asked.answer) continue;
+        expect(missingFactorHint(asked, 1, tried(lure)), `${asked.statement} → ${lure}`).not.toBe(
+          missingFactorHint(asked, 1),
+        );
+      }
+    }
   });
 });
