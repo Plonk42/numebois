@@ -138,13 +138,18 @@ describe('economy (#29)', () => {
     }
   });
 
+  // One painting alone is a lottery (6 to 25 seeds): 16 children, 3 paintings each, on average.
   it('pays most of the golden seeds a painting asks', () => {
     expect(SEED_CATALOG).toBe(22);
-    const seeds = paintings.map((p) => p.seeds);
-    expect(seeds.reduce((a, b) => a + b, 0) / seeds.length).toBeGreaterThanOrEqual(
-      SEED_CATALOG * 0.8,
-    );
-    for (const s of seeds) expect(s).toBeGreaterThanOrEqual(SEED_CATALOG * 0.55);
+    const children = Array.from({ length: 16 }, (_, i) => play(i + 1, 3).map((p) => p.seeds));
+    const mean = (values: number[]) => values.reduce((a, b) => a + b, 0) / values.length;
+    expect(mean(children.flat())).toBeGreaterThanOrEqual(SEED_CATALOG * 0.8);
+    for (let rank = 0; rank < 3; rank++) {
+      const seeds = children.map((paintings) => paintings[rank]);
+      expect(mean(seeds), `tableau ${rank + 1} : ${seeds.join(' ')}`).toBeGreaterThanOrEqual(
+        SEED_CATALOG * 0.55,
+      );
+    }
   });
 
   it('buys an element after a short trail on the first half of the stages', () => {
