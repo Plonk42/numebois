@@ -264,8 +264,8 @@ export class SceneApp {
     };
   }
 
-  /** Where each animal shows on the screen, in CSS pixels, at half its height. */
-  animalsOnScreen(): { name: AnimalName; x: number; y: number }[] {
+  /** Where each animal shows on the screen, in CSS pixels, at half its height; asleep or not. */
+  animalsOnScreen(): { name: AnimalName; x: number; y: number; asleep: boolean }[] {
     const canvas = this.stage.canvas;
     return (this.painting?.animalSpots() ?? []).map((spot) => {
       const point = new THREE.Vector3(spot.x, spot.y + spot.height / 2, spot.z);
@@ -274,6 +274,7 @@ export class SceneApp {
         name: spot.name,
         x: ((point.x + 1) / 2) * canvas.clientWidth,
         y: ((1 - point.y) / 2) * canvas.clientHeight,
+        asleep: spot.asleep,
       };
     });
   }

@@ -4,7 +4,7 @@
  */
 
 /** Gentle clips only: no attack, death or hit reaction in front of the child. */
-export type AnimalClip = 'idle' | 'look' | 'eat' | 'walk' | 'jump' | 'gallop';
+export type AnimalClip = 'idle' | 'look' | 'eat' | 'walk' | 'jump' | 'gallop' | 'sleep';
 export const ANIMAL_CLIPS: readonly AnimalClip[] = [
   'idle',
   'look',
@@ -12,6 +12,7 @@ export const ANIMAL_CLIPS: readonly AnimalClip[] = [
   'walk',
   'jump',
   'gallop',
+  'sleep',
 ];
 
 export interface AnimalSource {
@@ -23,7 +24,7 @@ export interface AnimalSource {
    * `assets-private/animals/export/<file>.glb`.
    */
   made?: true;
-  /** Clip of the pack behind each of our clips. */
+  /** Clip of the pack behind each of our clips; Sleep is made by `scripts/sleep.py` (#119). */
   clips: Record<AnimalClip, string>;
 }
 
@@ -35,6 +36,7 @@ const hoofed = {
   walk: 'Walk',
   jump: 'Jump_toIdle',
   gallop: 'Gallop',
+  sleep: 'Sleep',
 };
 const canine = {
   idle: 'Idle',
@@ -43,6 +45,7 @@ const canine = {
   walk: 'Walk',
   jump: 'Jump_ToIdle',
   gallop: 'Gallop',
+  sleep: 'Sleep',
 };
 // A bird: perched (preening to eat), flapping to walk, landing or taking off to jump, gliding
 // to gallop.
@@ -53,6 +56,7 @@ const bird = {
   walk: 'Flap',
   jump: 'Land',
   gallop: 'Glide',
+  sleep: 'Sleep',
 };
 
 export const ANIMAL_CATALOG = {

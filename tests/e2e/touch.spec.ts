@@ -101,3 +101,56 @@ test('toucher le paysage : animaux et arbres réagissent pendant la promenade, j
   expect(await touches(page)).toHaveLength(2);
   expect(errors).toEqual([]);
 });
+
+test('la nuit, les animaux dorment sauf le loup ; touchée, la biche se lève et se recouche ; le jour les réveille (#119)', async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto('./?seed=3&name=');
+  await page.evaluate(() => window.__numebois!.ready);
+  await loadSave(page, {
+    version: 6,
+    savedAt: '2026-11-24T10:00:00.000Z',
+    leaves: 0,
+    seeds: 0,
+    trailLength: 'short',
+    painting: {
+      biome: 'clearing',
+      seed: 3,
+      stage: 5,
+      season: 'summer',
+      seasons: ['summer'],
+      night: 'shown',
+      elements: [0, 1, 2, 3, 4, 5, 6].map((slot) => ({ slot, day: 1 })),
+      animals: ['Deer', 'Fox', 'Wolf'],
+    },
+    progress: [],
+    facts: [],
+    history: [],
+  });
+  const cdp = await page.context().newCDPSession(page);
+  const sleepers = async () =>
+    (await page.evaluate(() => window.__numebois!.animals())).map((a) => `${a.name}:${a.asleep}`);
+  await expect(page.locator('#walk')).toBeVisible();
+  expect(await sleepers()).toEqual(['Deer:true', 'Fox:true', 'Wolf:false']);
+
+  // Touched, the doe gets up a moment, then lies down again where she slept.
+  await tapDoe(page, cdp);
+  await expect.poll(() => touches(page)).toEqual([{ kind: 'animal', name: 'Deer' }]);
+  await expect.poll(sleepers).toEqual(['Deer:false', 'Fox:true', 'Wolf:false']);
+  await expect.poll(sleepers, { timeout: 30_000 }).toEqual(['Deer:true', 'Fox:true', 'Wolf:false']);
+
+  // The day back from the bar: everyone is awake; the night again, asleep.
+  const picker = page.locator('#seasons');
+  const summer = picker.getByRole('button', { name: 'L’été' });
+  const moon = picker.getByRole('button', { name: 'La nuit' });
+  await summer.click();
+  await expect(summer).toHaveAttribute('aria-pressed', 'true');
+  await expect.poll(sleepers).toEqual(['Deer:false', 'Fox:false', 'Wolf:false']);
+  await moon.click();
+  await expect(moon).toHaveAttribute('aria-pressed', 'true');
+  await expect.poll(sleepers).toEqual(['Deer:true', 'Fox:true', 'Wolf:false']);
+  expect(errors).toEqual([]);
+});

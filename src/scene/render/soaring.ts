@@ -170,6 +170,17 @@ function where(d: Drifter, index: number, time: number): Vec3 {
 
 const heading = (v: Vec3) => Math.atan2(v[0], v[2]);
 
+/**
+ * At night (#119) each eagle sleeps on a summit of its own, its head turned back, three-quarters
+ * to the camera.
+ */
+function asleep(d: Drifter, index: number, perches: NonNullable<Drifter['perches']>): SoarPose {
+  const [x, y, z] = perches[index % perches.length];
+  const yaw = index % 2 === 0 ? 0.7 : -0.7;
+  const feet = EAGLE_FEET * EAGLE_SCALE * d.scale;
+  return { x, y: y + feet, z, yaw, pitch: 0, roll: 0, clips: [{ clip: 'sleep', weight: 1 }] };
+}
+
 function wrap(a: number): number {
   return a - 2 * Math.PI * Math.round(a / (2 * Math.PI));
 }
@@ -196,7 +207,9 @@ function timeline(r: Round, length: number): [number, number, AnimalClip][] {
   ];
 }
 
-export function soarPose(d: Drifter, index: number, time: number): SoarPose {
+export function soarPose(d: Drifter, index: number, time: number, night = false): SoarPose {
+  const perches = d.perches ?? [];
+  if (night && perches.length > 0) return asleep(d, index, perches);
   const p = where(d, index, time);
   const before = where(d, index, time - STEP);
   const after = where(d, index, time + STEP);

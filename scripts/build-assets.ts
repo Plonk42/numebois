@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 import {
   Document,
   NodeIO,
+  type Accessor,
   type AnimationChannel,
   type JSONDocument,
   type Node,
@@ -567,6 +568,49 @@ async function readAnimal(io: NodeIO, files: Files, source: AnimalSource): Promi
   return io.read(made);
 }
 
+/**
+ * The Sleep clip, which the pack lacks (#119): made in Blender by `scripts/sleep.py` on the
+ * same skeleton, its channels go to the animal's bones of the same names.
+ */
+async function addSleep(io: NodeIO, doc: Document, source: AnimalSource): Promise<void> {
+  const path = join(ROOT, 'assets-private', 'animals', 'export', 'sleep', `${source.file}.glb`);
+  if (!existsSync(path)) {
+    throw new Error(`sleep/${source.file}.glb absent : lancer scripts/sleep.py dans Blender`);
+  }
+  const made = await io.read(path);
+  const root = doc.getRoot();
+  const nodes = new Map(root.listNodes().map((node) => [node.getName(), node]));
+  const buffer = root.listBuffers()[0];
+  const copy = (accessor: Accessor) =>
+    doc
+      .createAccessor()
+      .setType(accessor.getType())
+      .setArray(accessor.getArray()!.slice())
+      .setBuffer(buffer);
+  for (const theirs of made.getRoot().listAnimations()) {
+    const ours = doc.createAnimation(theirs.getName());
+    for (const channel of theirs.listChannels()) {
+      const name = channel.getTargetNode()!.getName();
+      const node = nodes.get(name);
+      if (!node) throw new Error(`${source.file}: no bone ${name} for the Sleep clip`);
+      const from = channel.getSampler()!;
+      const sampler = doc
+        .createAnimationSampler()
+        .setInput(copy(from.getInput()!))
+        .setOutput(copy(from.getOutput()!))
+        .setInterpolation(from.getInterpolation());
+      ours.addSampler(sampler);
+      ours.addChannel(
+        doc
+          .createAnimationChannel()
+          .setTargetNode(node)
+          .setTargetPath(channel.getTargetPath()!)
+          .setSampler(sampler),
+      );
+    }
+  }
+}
+
 async function prepareAnimal(
   io: NodeIO,
   files: Files,
@@ -574,6 +618,7 @@ async function prepareAnimal(
   source: AnimalSource,
 ): Promise<{ doc: Document; info: AnimalInfo }> {
   const doc = await readAnimal(io, files, source);
+  await addSleep(io, doc, source);
   const root = doc.getRoot();
   const skin = root.listSkins()[0];
   const joints = skin.listJoints();

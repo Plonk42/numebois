@@ -5,6 +5,18 @@ import { createMountain } from '../../src/scene/terrain/mountain';
 const FPS = 30;
 
 describe('eagles of the mountain', () => {
+  it('sleep at night, each on a summit of its own (#119)', () => {
+    const terrain = createMountain(7, 11);
+    const poses = terrain.drifters.map((d, index) => soarPose(d, index, 12.3, true));
+    poses.forEach((pose, index) => {
+      const d = terrain.drifters[index];
+      expect(pose.clips).toEqual([{ clip: 'sleep', weight: 1 }]);
+      expect(soarPose(d, index, 80, true)).toEqual(pose);
+      const [x, y, z] = d.perches![index];
+      expect([pose.x, pose.y, pose.z]).toEqual([x, y + EAGLE_FEET * EAGLE_SCALE * d.scale, z]);
+    });
+    expect(Math.hypot(poses[0].x - poses[1].x, poses[0].z - poses[1].z)).toBeGreaterThan(1);
+  });
   it('soar smoothly, land on every summit in turn and take off again', () => {
     for (const seed of [3, 7, 12, 21]) {
       const terrain = createMountain(seed, 11);

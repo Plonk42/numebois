@@ -382,7 +382,11 @@ export class Painting {
       );
     }
 
-    this.herd = new Herd(animals, planHerd(terrain, description.animals, seed), terrain);
+    this.herd = new Herd(
+      animals,
+      planHerd(terrain, description.animals, seed, ambience.night),
+      terrain,
+    );
     this.root.add(this.herd.group);
 
     this.sky = new Sky(ambience);
@@ -740,7 +744,7 @@ export class Painting {
    */
   adopt(next: SceneDescription, time: number): boolean {
     this.arrive(time);
-    const plan = planHerd(this.terrain, next.animals, next.seed);
+    const plan = planHerd(this.terrain, next.animals, next.seed, this.ambience.night);
     if (plan.length <= this.herd.size) return false;
     const members = plan.slice(this.herd.size);
     this.arriving = { members, at: time + APPROACH_ARRIVAL_SECONDS };
@@ -907,7 +911,7 @@ export class Painting {
       mesh.rotation.set(pose.swing, pose.yaw, 0);
     });
     this.soarers.forEach(({ object, body, drifter }, index) => {
-      const pose = soarPose(drifter, index, time);
+      const pose = soarPose(drifter, index, time, this.ambience.night);
       object.position.set(pose.x, pose.y, pose.z);
       object.rotation.set(pose.pitch, pose.yaw, pose.roll);
       if (!body) return;
