@@ -44,6 +44,14 @@ function byDomain(skills: readonly Skill[]): { name: string; skills: Skill[] }[]
   })).filter((domain) => domain.skills.length > 0);
 }
 
+/** The astuces grouped by the domain of their notion, in the order of the registry. */
+function lessonsByDomain(lessons: readonly Lesson[]): { name: string; lessons: Lesson[] }[] {
+  return DOMAINS.map((domain) => ({
+    name: domain.name,
+    lessons: lessons.filter((lesson) => domain.skills.some((skill) => skill.id === lesson.skill)),
+  })).filter((domain) => domain.lessons.length > 0);
+}
+
 /** Where a notion is: à découvrir, en cours, acquis, à revoir, ancré, automatisé. */
 function stageLabel(session: Session, skill: Skill, day: number): string {
   const progress = session.progress.get(skill.id);
@@ -484,25 +492,36 @@ export function Homework(props: HomeworkProps) {
       </details>
 
       <h3>Astuce à proposer au prochain sentier</h3>
-      <div class="choices" role="group" aria-label="Astuce à proposer">
-        <button
-          type="button"
-          aria-pressed={requests.lesson === null}
-          onPointerDown={() => ask({ lesson: null })}
-        >
-          Aucune
-        </button>
-        {lessons.map((lesson) => (
-          <button
-            key={lesson.id}
-            type="button"
-            aria-pressed={requests.lesson === lesson.id}
-            onPointerDown={() => ask({ lesson: lesson.id })}
-          >
-            {lesson.title}
+      <div class="lesson-asked">
+        <span>{lessons.find((lesson) => lesson.id === requests.lesson)?.title ?? 'Aucune'}</span>
+        {requests.lesson !== null && (
+          <button type="button" onPointerDown={() => ask({ lesson: null })}>
+            Retirer
           </button>
-        ))}
+        )}
       </div>
+      <details class="pick-lesson">
+        <summary>Choisir une astuce</summary>
+        <div role="group" aria-label="Astuce à proposer">
+          {lessonsByDomain(lessons).map((domain) => (
+            <section key={domain.name}>
+              <h4>{domain.name}</h4>
+              <div class="choices">
+                {domain.lessons.map((lesson) => (
+                  <button
+                    key={lesson.id}
+                    type="button"
+                    aria-pressed={requests.lesson === lesson.id}
+                    onPointerDown={() => ask({ lesson: lesson.id })}
+                  >
+                    {lesson.title}
+                  </button>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      </details>
 
       <h3>Défi à proposer après le prochain sentier</h3>
       {challenges.length === 0 ? (

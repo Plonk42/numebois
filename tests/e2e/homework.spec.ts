@@ -73,6 +73,7 @@ test('les devoirs de la semaine : focus jusqu’à une date, astuce et défi au 
   const focus = menu.locator('.focus tr[data-skill="mental-math.nine-eleven"]');
   await expect(focus).toContainText('Jusqu’au');
   await focus.getByRole('button', { name: 'Un jour de plus' }).click();
+  await menu.getByText('Choisir une astuce').click();
   await menu
     .getByRole('group', { name: 'Astuce à proposer' })
     .getByRole('button', { name: 'Le quadrillage de points' })

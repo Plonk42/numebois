@@ -830,8 +830,31 @@
 #parent-menu .levels button:disabled {
   opacity: 0.35;
 }
-#parent-menu .recommended .choices {
+#parent-menu .recommended .choices,
+#parent-menu .pick-lesson .choices {
   flex-wrap: wrap;
+}
+#parent-menu .pick-lesson button {
+  flex: none;
+  min-height: 48px;
+  padding: 0 14px;
+  font-size: 16px;
+}
+#parent-menu .pick-lesson summary {
+  padding: 10px 0;
+}
+#parent-menu .pick-lesson h4 {
+  margin: 8px 0 6px;
+}
+#parent-menu .lesson-asked {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+#parent-menu .lesson-asked button {
+  flex: none;
+  min-height: 48px;
+  padding: 0 16px;
 }
 #parent-menu .recommended button {
   flex: none;
