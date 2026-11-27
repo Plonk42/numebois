@@ -21,7 +21,7 @@ Les fichiers bruts des packs ne sont pas dans le dépôt. Les fleurs, champignon
 
 ## `public/assets/animals.glb`
 
-Les animaux du pack, extraits et optimisés par `npm run assets` (clips doux seulement, couleurs avivées). Le chamois, le bouquetin et la marmotte sont faits dans Blender à partir de la biche, du cerf et du renard du même pack (`scripts/mountain_animals.py` : robe, cornes, silhouette ; squelette et clips d'origine). L'aigle est créé pour Numebois sans pack tiers : modèle, squelette et clips générés dans Blender par `scripts/eagle.py`. La liste est dans `src/scene/animal-catalog.ts`.
+Les animaux du pack, extraits et optimisés par `npm run assets` (clips doux seulement, couleurs avivées). Le chamois, le bouquetin et la marmotte sont faits dans Blender à partir de la biche, du cerf et du renard du même pack (`scripts/mountain_animals.py` : robe, cornes, silhouette ; squelette et clips d'origine). L'aigle est créé pour Numebois sans pack tiers : modèle, squelette et clips générés dans Blender par `scripts/eagle.py`. Le geste de sommeil de chaque animal, absent du pack, est posé dans Blender sur son squelette par `scripts/sleep.py`. La liste est dans `src/scene/animal-catalog.ts`.
 
 | Pack                                         | Auteur                                                | Licence                                                       | Source                                                                      |
 | -------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------- | --------------------------------------------------------------------------- |

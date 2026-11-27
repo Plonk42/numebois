@@ -42,6 +42,19 @@ const REST = 0.6;
 const FACING = 0.75;
 /** Ground covered per gallop cycle, as a share of the body length. */
 const GALLOP_STRIDE = 0.8;
+/**
+ * At night (#119), touched, a sleeping animal gets up in RISE seconds, turns to the child,
+ * looks for LOOK seconds, turns back and lies down again: no jump, no gallop.
+ */
+const RISE = 1.2;
+/** Height of a lying animal, as a share of its standing height. */
+const LYING = 0.5;
+/**
+ * Asleep, it lies across the view, its left flank (where the head curls round, see
+ * `scripts/sleep.py`) towards the camera: headings from SIDEWAYS - TURNED to SIDEWAYS + TURNED.
+ */
+const SIDEWAYS = -Math.PI / 2 + 0.3;
+const TURNED = 0.4;
 /** Radii of the loop tried, as shares of the body length, largest first. */
 const RUN_RADII = [1, 0.75, 0.55];
 /** Where the loop may lie, from the side of the camera round to behind the animal. */
@@ -73,6 +86,8 @@ export interface HerdMember {
   /** Length of the loop, in seconds, and where in it the animal starts. */
   period: number;
   phase: number;
+  /** Asleep all night where its day starts. */
+  asleep: boolean;
 }
 
 function wraps(a: number): number {
@@ -83,11 +98,13 @@ function wraps(a: number): number {
  * Where the animals the child bought live and what they do, as a pure function of the seed:
  * the Album replays the same scene. Animals are placed in buying order, each from its own
  * draw, so a newcomer never moves the others. Bought, they are never cut by the quality tier.
+ * At night they all sleep where their day starts, but the wolves, who keep watch (#119).
  */
 export function planHerd(
   terrain: Terrain,
   animals: readonly AnimalName[],
   seed: number,
+  night = false,
 ): HerdMember[] {
   const members: HerdMember[] = [];
   const homes: Point[] = [];
@@ -100,9 +117,24 @@ export function planHerd(
       name === 'Wolf' && n === 0 && terrain.perch
         ? planOnPerch(terrain, terrain.perch, rng)
         : planMember(terrain, rng, name, homes);
-    if (member) members.push(member);
+    if (member) members.push(night && name !== 'Wolf' ? asleep(member, rng) : member);
   }
   return members;
+}
+
+/** Lying where its day starts, breathing slowly. */
+function asleep(member: HerdMember, rng: Rng): HerdMember {
+  const yaw = SIDEWAYS + rng.range(-TURNED, TURNED);
+  const breath = ANIMALS[member.name].clips.sleep;
+  const leg: Leg = {
+    clip: 'sleep',
+    start: 0,
+    end: breath,
+    path: [member.legs[0].path[0]],
+    yaw,
+    previousYaw: yaw,
+  };
+  return { ...member, legs: [leg], period: breath, phase: rng.range(0, breath), asleep: true };
 }
 
 function sizeOf(terrain: Terrain, name: AnimalName): { scale: number; length: number } {
@@ -129,7 +161,12 @@ function planOnPerch(terrain: Terrain, perch: NonNullable<Terrain['perch']>, rng
     [stops[1], stops[0]],
   ];
   const still = () => ['idle', 'look', 'idle'] as const;
-  return { name: 'Wolf', scale, ...schedule(rng, 'Wolf', stops, paths, length, still, gaze) };
+  return {
+    name: 'Wolf',
+    scale,
+    asleep: false,
+    ...schedule(rng, 'Wolf', stops, paths, length, still, gaze),
+  };
 }
 
 const AROUND = Array.from({ length: 8 }, (_, i) => [
@@ -254,7 +291,12 @@ function planMember(
       rng.chance(0.6) ? (['eat', 'idle', 'look'] as const) : (['idle', 'eat'] as const);
     // Grazing in one place, three-quarters towards the camera.
     const gaze = count === 1 ? rng.range(-1, 1) : undefined;
-    return { name, scale, ...schedule(rng, name, stops, paths, length, still, gaze) };
+    return {
+      name,
+      scale,
+      asleep: false,
+      ...schedule(rng, name, stops, paths, length, still, gaze),
+    };
   }
   return null;
 }
@@ -271,7 +313,7 @@ function schedule(
   length: number,
   still: () => readonly AnimalClip[],
   gaze?: number,
-): Omit<HerdMember, 'name' | 'scale'> {
+): Omit<HerdMember, 'name' | 'scale' | 'asleep'> {
   const clips = ANIMALS[name].clips;
   const speed = (STRIDE * length) / clips.walk;
   const legs: Leg[] = [];
@@ -339,8 +381,10 @@ export function animalState(member: HerdMember, time: number, out: AnimalState):
   out.clip = leg.clip;
   out.clipTime = local;
   const previous = legs[(i + legs.length - 1) % legs.length];
-  out.blend = Math.min(1, local / BLEND);
-  out.fading = out.blend < 1 && previous.clip !== leg.clip ? previous.clip : null;
+  // A clip that goes on (the sleep, night long) never fades towards the rest pose.
+  const fades = previous.clip !== leg.clip;
+  out.blend = fades ? Math.min(1, local / BLEND) : 1;
+  out.fading = fades && out.blend < 1 ? previous.clip : null;
   out.fadingTime = previous.end - previous.start + local;
   return out;
 }
@@ -405,6 +449,8 @@ interface Reaction {
   jump: number;
   run: Run | null;
   length: number;
+  /** Woken up at night: it gets up and lies down again. */
+  wakes: boolean;
 }
 
 const clamp01 = (t: number) => Math.max(0, Math.min(1, t));
@@ -456,14 +502,26 @@ export class Herd {
   }
 
   /** Where each animal stands and how tall it is, to find the one the child touches. */
-  spots(): { name: AnimalName; x: number; y: number; z: number; height: number }[] {
-    return this.bodies.map(({ member, body }) => ({
-      name: member.name,
-      x: body.object.position.x,
-      y: body.object.position.y,
-      z: body.object.position.z,
-      height: (ANIMALS[member.name].max[1] - ANIMALS[member.name].min[1]) * member.scale,
-    }));
+  spots(): {
+    name: AnimalName;
+    x: number;
+    y: number;
+    z: number;
+    height: number;
+    asleep: boolean;
+  }[] {
+    return this.bodies.map(({ member, body, reaction }) => {
+      const { min, max } = ANIMALS[member.name];
+      const lying = member.asleep && !reaction;
+      return {
+        name: member.name,
+        x: body.object.position.x,
+        y: body.object.position.y,
+        z: body.object.position.z,
+        height: (max[1] - min[1]) * member.scale * (lying ? LYING : 1),
+        asleep: lying,
+      };
+    });
   }
 
   /**
@@ -481,6 +539,11 @@ export class Herd {
     const face = Math.atan2(toward.x - s.x, toward.z - s.z);
     const yaw = s.yaw + wraps(face - s.yaw) * FACING;
     const { name } = entry.member;
+    if (entry.member.asleep) {
+      const length = 2 * (RISE + TURN_TO) + LOOK;
+      entry.reaction = { start: time, frozen, yaw, jump: 0, run: null, length, wakes: true };
+      return length;
+    }
     const run = planRun(this.terrain, name, s, yaw, index % 2 === 0 ? 1 : -1);
     const jump = ANIMALS[name].clips.jump;
     entry.reaction = {
@@ -490,6 +553,7 @@ export class Herd {
       jump,
       run,
       length: 2 * TURN_TO + jump + (run ? run.seconds + REST : LOOK),
+      wakes: false,
     };
     return entry.reaction.length;
   }
@@ -506,7 +570,8 @@ export class Herd {
       animalState(member, r ? r.frozen : time - entry.held, s);
       body.object.position.set(s.x, s.y, s.z);
       if (r) {
-        this.poseReaction(body, r, time - r.start, s);
+        if (r.wakes) this.poseWaking(body, r, time - r.start, s);
+        else this.poseReaction(body, r, time - r.start, s);
         continue;
       }
       body.object.rotation.y = s.yaw;
@@ -557,6 +622,17 @@ export class Herd {
     body.pose('idle', local, own * (1 - jump - gallop));
     body.pose('jump', Math.max(0, Math.min(jumpTime, r.jump - 1e-3)), own * jump);
     body.pose('gallop', Math.max(0, local - runStart + 0.2), own * gallop);
+    body.apply();
+  }
+
+  /** Up from its sleep, a look at the child, and down again: the blend of the clips does it. */
+  private poseWaking(body: AnimalBody, r: Reaction, local: number, s: AnimalState): void {
+    const left = r.length - local;
+    const up = smooth(clamp01(Math.min(local, left) / RISE));
+    const facing = smooth(clamp01((Math.min(local, left) - RISE) / TURN_TO));
+    body.object.rotation.y = s.yaw + wraps(r.yaw - s.yaw) * facing;
+    body.pose('sleep', s.clipTime, 1 - up);
+    body.pose('idle', local, up);
     body.apply();
   }
 

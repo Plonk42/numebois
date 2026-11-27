@@ -73,12 +73,12 @@ export class Stage {
   private approachPoint: THREE.Vector3 | null = null;
   private approachStart = -100;
   private tourStart = -100;
+  private readonly reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
   /** How far the orbit has faded in, 0 to 1, and its offsets at full strength (degrees). */
-  private orbit = 1;
+  private orbit = this.reducedMotion?.matches ? 0 : 1;
   private orbitYaw = 0;
   private orbitPitch = 0;
   private orbitClock = 0;
-  private readonly reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
   private readonly lookAt = new THREE.Vector3();
   private readonly offset = new THREE.Vector3();
 

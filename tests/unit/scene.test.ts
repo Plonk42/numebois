@@ -380,6 +380,47 @@ describe('animals', () => {
     }
     expect(runs / animals).toBeGreaterThan(0.6);
   });
+
+  it('sleep at night where their day starts, but the wolves, and get up when touched (#119)', () => {
+    const terrain = createClearing(7, LAST_STAGE);
+    const animals = demoAnimals('clearing', LAST_STAGE);
+    expect(animals).toContain('Wolf');
+    const day = planHerd(terrain, animals, 7);
+    const night = planHerd(terrain, animals, 7, true);
+    expect(night.map((m) => m.name)).toEqual(day.map((m) => m.name));
+    const state = {} as AnimalState;
+    night.forEach((member, i) => {
+      if (member.name === 'Wolf') {
+        expect(member).toEqual(day[i]);
+        return;
+      }
+      expect(member.asleep, member.name).toBe(true);
+      const home = day[i].legs[0].path[0];
+      for (let t = 0; t < 60; t += 0.7) {
+        animalState(member, t, state);
+        expect(state.clip).toBe('sleep');
+        // Never a blend towards the rest pose, standing, as the breath starts again.
+        expect(state.blend).toBe(1);
+        expect([state.x, state.z]).toEqual([home.x, home.z]);
+      }
+    });
+    // Touched, it gets up, looks at the child and lies down again, without a step.
+    const herd = new Herd(createPlaceholderAnimals(), night, terrain);
+    const i = night.findIndex((m) => m.asleep);
+    herd.update(3);
+    const lying = herd.spots()[i];
+    expect(lying.asleep).toBe(true);
+    const length = herd.react(i, 3, { x: 0, z: 80 });
+    expect(length).toBeGreaterThan(3);
+    expect(herd.react(i, 4, { x: 0, z: 80 })).toBe(0);
+    herd.update(3 + length / 2);
+    const up = herd.spots()[i];
+    expect(up.asleep).toBe(false);
+    expect(up.height).toBeGreaterThan(lying.height);
+    expect([up.x, up.z]).toEqual([lying.x, lying.z]);
+    herd.update(3 + length + 0.1);
+    expect(herd.spots()[i]).toEqual(lying);
+  });
 });
 
 describe('quality tiers', () => {
