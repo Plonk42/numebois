@@ -15,6 +15,9 @@ const swappedHands: Mistakes = (exercise) => {
   return [timeText({ hours: minutes / 5 || 12, minutes: 5 * (hours % 12) })];
 };
 
+/** The right calculation, one off. */
+const offByOne: Mistakes = (exercise) => [String(Number(exercise.answer) + 1)];
+
 // A typical mistake, one notion per domain: Plume names it before the method (#168).
 const NOTIONS: [domain: string, notion: string, level: number, mistakes?: Mistakes][] = [
   ['calcul mental', 'mental-math.subtract', 4],
@@ -24,6 +27,8 @@ const NOTIONS: [domain: string, notion: string, level: number, mistakes?: Mistak
   ['unités de temps', 'time.units', 3],
   ['graduations', 'measures.read-gauge', 3],
   ['heure', 'time.read-clock', 3, swappedHands],
+  ['problèmes', 'word-problems.add-subtract', 1, offByOne],
+  ['comparer des longueurs', 'units.compare-lengths', 1, () => ['<', '>', '=']],
 ];
 
 for (const [domain, id, level, mistakes] of NOTIONS) {

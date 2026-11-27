@@ -113,9 +113,18 @@ export function measureHint(exercise: MeasureExercise, attempt: 1 | 2, tried?: T
   return `Le bout tombe ${mm} petits traits après le ${cm}.\n${cm} cm et ${mm} mm : ${length} mm.`;
 }
 
-/** 1: the 0 on the point; 2: where to stop on the ruler. */
-export function drawHint({ length }: DrawExercise, attempt: 1 | 2): string {
-  if (attempt === 1) return 'Pose le 0 de la règle sur le point.\nPuis trace jusqu’au bon trait.';
+/** 1: the mistake when recognised, else the 0 on the point; 2: where to stop on the ruler. */
+export function drawHint({ length, level }: DrawExercise, attempt: 1 | 2, tried?: Tried): string {
+  if (attempt === 1) {
+    const drawn = triedNumber(tried);
+    const cm = length / 10;
+    if (level === 0 && drawn === cm) {
+      return `Ton trait fait ${cm} mm, pas ${cm} cm.\nArrête-toi sur le ${cm} de la règle.`;
+    }
+    const off = drawn === null ? 0 : Math.abs(drawn - length);
+    if (off === 1 || off === 2) return `Tu es à ${off} mm près.\nArrête-toi pile sur le bon trait.`;
+    return 'Pose le 0 de la règle sur le point.\nPuis trace jusqu’au bon trait.';
+  }
   const cm = Math.floor(length / 10);
   const mm = length % 10;
   if (mm === 0) return `Arrête le trait sur le ${cm} de la règle.`;

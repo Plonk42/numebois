@@ -82,6 +82,8 @@ test('addition posée avec 2 retenues, guidée puis seule', async ({ page }) => 
   wrong[wrong.length - 2] = String(tensDigit);
   await driver(alone).answer(page, alone, wrong.join(''));
   await expect(card.locator('.hint')).toContainText('Presque !');
+  // Plume names the mistake (#168).
+  await expect(card.locator('.hint')).toContainText('Aux dizaines, tu as oublié la retenue.');
   await expect(grid.locator('.box.tried')).toHaveAttribute('aria-label', 'Chiffre des dizaines');
   await expect(grid.locator('.box.cursor')).toHaveAttribute('aria-label', 'Chiffre des dizaines');
   await expectSlateLayout(page);
@@ -163,6 +165,8 @@ test('multiplication posée : le sac à retenue, la table sur demande, guidée p
   wrong[wrong.length - 2] = String((alone.columns[1].digit + 9) % 10);
   await driver(alone).answer(page, alone, wrong.join(''));
   await expect(card.locator('.hint')).toContainText('Presque !');
+  // Plume names the column, its carry forgotten or miscalculated (#168).
+  await expect(card.locator('.hint')).toContainText('dizaines');
   const grid = card.locator('.column-operation');
   await expect(grid.locator('.box.tried')).toHaveAttribute('aria-label', 'Chiffre des dizaines');
   await expectSlateLayout(page);

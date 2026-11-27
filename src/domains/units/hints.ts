@@ -8,7 +8,7 @@ import {
   type Pair,
   type RelationExercise,
 } from './generators';
-import { amountText, type MagnitudeExercise, type MoneyExercise } from './everyday';
+import { amountText, familyOf, type MagnitudeExercise, type MoneyExercise } from './everyday';
 
 const SPACE = '\u00a0';
 
@@ -18,10 +18,20 @@ function reminder({ big, small }: { big: string; small: string }): string {
   return `Du ${big} au ${small} : un 0 par colonne du tableau.`;
 }
 
-/** 1: where the relation is seen; 2: the relation. */
-export function relationHint({ relation }: RelationExercise, attempt: 1 | 2): string {
+/** 1: a 0 too many or too few named (#168), then where the relation is seen; 2: the relation. */
+export function relationHint(
+  { relation, back }: RelationExercise,
+  attempt: 1 | 2,
+  tried?: Tried,
+): string {
   const { big, small, factor } = relation;
-  if (attempt === 1) return reminder(relation);
+  if (attempt === 1) {
+    const answer = triedNumber(tried);
+    const right = back ? 1 : factor;
+    if (answer === right * 10) return `Un 0 de trop.\n${reminder(relation)}`;
+    if (answer === right / 10) return `Il manque un 0.\n${reminder(relation)}`;
+    return reminder(relation);
+  }
   return `1${SPACE}${big} = ${n(factor)}${SPACE}${small}.`;
 }
 
@@ -99,7 +109,26 @@ export function convertHint(exercise: ConvertExercise, attempt: 1 | 2, tried?: T
 }
 
 /** 1: the notes first, then the coins; 2: the amount, or the change counted up to 10 €. */
-export function moneyHint({ level, cents }: MoneyExercise, attempt: 1 | 2): string {
+/** The pieces counted one by one, 1 € off, the price taken for the change (#168). */
+function moneySlip({ level, cents, figure }: MoneyExercise, tried: Tried): string | null {
+  if (level === 2) {
+    if (tried.answer !== amountText(1000 - cents)) return null;
+    return 'Ça, c’est le prix.\nCompte ce qu’il faut ajouter pour aller jusqu’à 10 €.';
+  }
+  const euros = triedNumber(tried);
+  if (euros === null || euros * 100 === cents) return null;
+  if (figure?.kind === 'money' && euros === figure.cents.length) {
+    return 'Tu as compté les billets et les pièces un par un.\nRegarde ce que vaut chacun.';
+  }
+  if (Math.abs(euros * 100 - cents) !== 100) return null;
+  return 'Tu es à 1 € près.\nCompte d’abord les billets, puis les pièces.';
+}
+
+/** 1: the mistake when recognised, else the notes then the coins; 2: the amount, or the change. */
+export function moneyHint(exercise: MoneyExercise, attempt: 1 | 2, tried?: Tried): string {
+  const { level, cents } = exercise;
+  const slip = attempt === 1 && tried && moneySlip(exercise, tried);
+  if (slip) return slip;
   if (level === 2) {
     if (attempt === 1) return 'Compte ce qu’il faut ajouter pour aller jusqu’à 10 €.';
     return `${amountText(1000 - cents)} + ${amountText(cents)} = 10${SPACE}€.`;
@@ -108,11 +137,21 @@ export function moneyHint({ level, cents }: MoneyExercise, attempt: 1 | 2): stri
   return `En tout : ${amountText(cents)}.`;
 }
 
-/** 1: a landmark of the family; 2: the right size. */
-export function magnitudeHint({ thing }: MagnitudeExercise, attempt: 1 | 2): string {
+/** 1: a unit far too big or too small named (#168), then a landmark of the family; 2: the right size. */
+export function magnitudeHint({ thing }: MagnitudeExercise, attempt: 1 | 2, tried?: Tried): string {
   if (attempt === 2) return `${thing.text} ${thing.n}${SPACE}${thing.unit}.`;
-  if (['g', 'kg'].includes(thing.unit)) return '1 kg, c’est un paquet de farine.';
-  if (['cL', 'dL', 'L'].includes(thing.unit)) return '1 L, c’est une grande bouteille d’eau.';
-  if (thing.unit === 'dm') return '1 dm, c’est la largeur d’une main.\n1 m, c’est un grand pas.';
+  const landmark = landmarkOf(thing.unit);
+  const unit = tried?.answer.split(SPACE)[1];
+  const units = unit && familyOf(thing.unit);
+  if (!units || unit === thing.unit || !units.includes(unit)) return landmark;
+  const much =
+    units.indexOf(unit) > units.indexOf(thing.unit) ? 'beaucoup trop' : 'beaucoup trop peu';
+  return `${tried!.answer}, ce serait ${much}.\n${landmark}`;
+}
+
+function landmarkOf(unit: string): string {
+  if (['g', 'kg'].includes(unit)) return '1 kg, c’est un paquet de farine.';
+  if (['cL', 'dL', 'L'].includes(unit)) return '1 L, c’est une grande bouteille d’eau.';
+  if (unit === 'dm') return '1 dm, c’est la largeur d’une main.\n1 m, c’est un grand pas.';
   return '1 cm, c’est la largeur d’un doigt.\n1 m, c’est un grand pas.';
 }

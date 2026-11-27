@@ -154,11 +154,22 @@ function decomposeMethod(exercise: DecomposeExercise, attempt: 1 | 2): string {
   );
 }
 
+/** The sign the other way round, or « = » for two different numbers (#168): `smaller` named. */
+function signSlip(right: string, tried: Tried | undefined, smaller: string): string | null {
+  if (!tried || tried.answer === right || right === '=') return null;
+  if (tried.answer === '=') {
+    return 'Les nombres ne sont pas pareils.\nCompare rang par rang, en partant de la gauche.';
+  }
+  return `Le signe est à l’envers.\nLa pointe montre ${smaller}.`;
+}
+
 /** Rank by rank from the left; the point of the sign shows the smaller number. */
-export function compareHint({ a, b }: CompareExercise, attempt: 1 | 2): string {
+export function compareHint({ a, b }: CompareExercise, attempt: 1 | 2, tried?: Tried): string {
   const [x, y] = [String(a), String(b)];
   const sign = signOf(a, b);
   if (attempt === 1) {
+    const slip = signSlip(sign, tried, 'le plus petit nombre');
+    if (slip) return slip;
     const method =
       x.length === y.length
         ? 'Compare rang par rang, en partant de la gauche.'
@@ -175,9 +186,28 @@ export function compareHint({ a, b }: CompareExercise, attempt: 1 | 2): string {
   return `Premier rang différent : les ${rank}, ${x[at]} ${sign} ${y[at]}.\n${result}`;
 }
 
+/** The other end chosen, or a number with fewer digits taken for the largest (#168). */
+function orderSlip({ values, want }: OrderExercise, tried: Tried): string | null {
+  const chosen = values.find((v) => formatNumber(v) === tried.answer);
+  if (chosen === undefined) return null;
+  const [smallest, largest] = [Math.min(...values), Math.max(...values)];
+  if (chosen === (want === 'largest' ? smallest : largest)) {
+    const [is, wanted] = want === 'largest' ? ['petit', 'grand'] : ['grand', 'petit'];
+    return `Ça, c’est le plus ${is}.\nOn cherche le plus ${wanted}.`;
+  }
+  const digits = String(chosen).length;
+  if (want === 'largest' && digits < String(largest).length) {
+    return `${formatNumber(chosen)} n’a que ${digits} chiffres.\nLe nombre qui a le plus de chiffres est le plus grand.`;
+  }
+  return null;
+}
+
 /** Compare like two numbers, then all of them. */
-export function orderHint({ values, want }: OrderExercise, attempt: 1 | 2): string {
+export function orderHint(exercise: OrderExercise, attempt: 1 | 2, tried?: Tried): string {
+  const { values, want } = exercise;
   if (attempt === 1) {
+    const slip = tried && tried.answer !== exercise.answer && orderSlip(exercise, tried);
+    if (slip) return slip;
     const largest = Math.max(...values);
     return largest >= 1000
       ? 'Regarde d’abord les milliers, puis les centaines.'

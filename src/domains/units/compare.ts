@@ -1,5 +1,5 @@
 import type { Rng } from '../../core/rng';
-import type { Exercise } from '../../core/types';
+import type { Exercise, Tried } from '../../core/types';
 import { formatNumber } from '../numbers/words';
 import { signOf } from '../numbers/generators';
 
@@ -178,11 +178,36 @@ function commonUnit(sides: readonly Written[]): string {
   return UNITS[Math.max(...sides.flat().map(([, unit]) => UNITS.indexOf(unit)))];
 }
 
-/** 1: both lengths in the same unit; 2: each one converted, then compared or found. */
-export function compareLengthsHint(
+/** The numbers compared without their units, the sign the other way round, the same digits (#168). */
+function compareSlip(
   { level, sides, answer }: CompareLengthsExercise,
+  tried: string,
+): string | null {
+  if (tried === answer) return null;
+  const digits = (text: string) => text.replace(/\D/g, '');
+  const [left, right] = sides;
+  if (level === 2) {
+    if (digits(tried) !== digits(lengthText(left))) return null;
+    return `Mêmes chiffres, autre unité : ce n’est pas égal.\nPlace ${lengthText(left)} dans le tableau.`;
+  }
+  const bare = (side: Written) => (side.length === 1 ? side[0][0] : null);
+  const [x, y] = [bare(left), bare(right)];
+  if (x !== null && y !== null && tried === signOf(x, y)) {
+    return `Tu as comparé les nombres, pas les longueurs.\nÉcris les deux mesures en ${commonUnit(sides)}.`;
+  }
+  if (answer === '=' || tried === '=') return null;
+  return 'Le signe est à l’envers.\nLa pointe montre la plus petite longueur.';
+}
+
+/** 1: the mistake when recognised, else both lengths in the same unit; 2: each one converted. */
+export function compareLengthsHint(
+  exercise: CompareLengthsExercise,
   attempt: 1 | 2,
+  tried?: Tried,
 ): string {
+  const { level, sides, answer } = exercise;
+  const slip = attempt === 1 && tried && compareSlip(exercise, tried.answer);
+  if (slip) return slip;
   const unit = commonUnit(sides);
   const inUnit = (side: Written) => millimetres(side) / MM[unit];
   if (level === 2) {
