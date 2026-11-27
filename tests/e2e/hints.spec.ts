@@ -39,6 +39,7 @@ const NOTIONS: [domain: string, notion: string, level: number, mistakes?: Mistak
   ['problèmes', 'word-problems.add-subtract', 1, offByOne],
   ['comparer des longueurs', 'units.compare-lengths', 1, () => ['<', '>', '=']],
   ['fractions', 'fractions.read', 2, fractionSlips],
+  ['division', 'division.divide', 2],
 ];
 
 for (const [domain, id, level, mistakes] of NOTIONS) {

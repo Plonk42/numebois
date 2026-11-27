@@ -15,6 +15,7 @@ import { RulerDraw, RulerMeasure } from './ruler';
 import { Jug, ScaleDial } from './gauge';
 import { ConversionTable, Purse } from './units';
 import { FractionEntry, FractionFigure, PartsColour } from './fraction';
+import { ShareFigure } from './share';
 
 /** What every widget receives; the validation and the hints come from the domain. */
 export interface WidgetProps<I extends ExerciseInput = ExerciseInput> {
@@ -72,6 +73,7 @@ const FIGURES: Figures = {
   ),
   money: ({ figure }) => <Purse cents={figure.cents} />,
   fraction: ({ figure }) => <FractionFigure wholes={figure.wholes} />,
+  share: ({ figure }) => <ShareFigure items={figure.items} groups={figure.groups} />,
 };
 
 /** A figure to look at: a number line, base-ten blocks, a place-value table. */

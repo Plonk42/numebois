@@ -156,7 +156,9 @@ export type Figure =
   /** Coins and notes to count (#59), each one by its value in cents. */
   | { kind: 'money'; cents: readonly number[] }
   /** Wholes shared in equal parts (#61), side by side, or one under the other for strips. */
-  | { kind: 'fraction'; wholes: readonly Whole[] };
+  | { kind: 'fraction'; wholes: readonly Whole[] }
+  /** Things to share out (#175): `items` in rows of 10, and `groups` empty groups to fill (0: none). */
+  | { kind: 'share'; items: number; groups: number };
 
 export interface Exercise {
   skill: SkillId;
