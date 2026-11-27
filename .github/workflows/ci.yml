@@ -58,8 +58,13 @@ jobs:
             args: game.spec
           - group: notions
             args: notions.spec save.spec sound.spec
+          - group: lessons
+            args: lesson.spec hints.spec column.spec clock.spec ruler.spec day.spec units.spec
           - group: scene
-            args: --grep-invert "(game|notions|save|sound)\.spec"
+            args: scene.spec album.spec rares.spec touch.spec explore.spec tree.spec offline.spec
+          # A new spec file lands here.
+          - group: rest
+            args: --grep-invert "(game|notions|save|sound|lesson|hints|column|clock|ruler|day|units|scene|album|rares|touch|explore|tree|offline)\.spec"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
