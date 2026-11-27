@@ -37,6 +37,16 @@ import {
   writeDigitsHint,
 } from './hints';
 import { decomposeLures, numberLineLures, writeDigitsLures } from './lures';
+import { ADD, SUBTRACT } from '../mental-math/generators';
+import { PRODUCTS } from '../times-tables/generators';
+import {
+  OPERATION_WORDS,
+  OPERATION_WORDS_LEVELS,
+  generateOperationWords,
+  operationWordsHint,
+  operationWordsLures,
+  type OperationWordsExercise,
+} from './operation-words';
 
 export const writeDigits = defineSkill<WriteDigitsExercise>({
   id: WRITE_DIGITS,
@@ -109,4 +119,22 @@ export const linePlace = defineSkill<NumberLineExercise>({
   generate: generateLinePlace,
   validate: validateNumber,
   hint: numberLineHint,
+});
+
+/** A keypad answer for a calculation, one of the choices for the others. */
+function validateOperationWords(exercise: OperationWordsExercise, answer: string): boolean {
+  return exercise.input.kind === 'keypad'
+    ? validateNumber(exercise, answer)
+    : validateChoice(exercise, answer);
+}
+
+export const operationWords = defineSkill<OperationWordsExercise>({
+  id: OPERATION_WORDS,
+  name: 'Les mots des opérations',
+  prerequisites: [ADD, SUBTRACT, PRODUCTS],
+  levels: OPERATION_WORDS_LEVELS,
+  generate: generateOperationWords,
+  validate: validateOperationWords,
+  hint: operationWordsHint,
+  lures: operationWordsLures,
 });

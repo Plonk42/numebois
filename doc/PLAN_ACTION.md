@@ -573,7 +573,7 @@ Programme CE2 en vigueur (BO n° 41 du 31/10/2024, revu le 2026-11-27) : fractio
 2. Division : partager, grouper, le signe ÷, l'inverse de la multiplication (#175, domaine `division`).
 3. Multiplication posée par un nombre à deux chiffres (#176, période 4).
 4. Additions et soustractions posées de prix en euros (#177).
-5. Les mots des opérations : somme, différence, produit, multiple, pair, impair (#178).
+5. Les mots des opérations : somme, différence, produit, multiple, pair, impair (#178). Réalisé : `numbers.operation-words` (« Les mots des opérations », prérequis : additionner et soustraire de tête, les tables ; `src/domains/numbers/operation-words.ts`), 5 niveaux : la somme de 33 et 51, la différence entre 62 et 42 (au pavé) ; le produit de 4 et 9 en plus ; pair ou impair jusqu'à 9 999 ; « 59 est-il un multiple de 2 ? » (oui ou non) ou le multiple de 25 parmi 4 (multiples de 2, 5, 10, 25, 50, 100, reconnus à leur fin, et des tables de 3 à 9 ; un nombre qui n'en est pas un finit quand même par 0 ou 5 pour les multiples de 10 et plus) ; le mot d'un nombre dans « Dans 6 × 8 = 48, 48 est… » (un terme, un facteur, la somme, la différence, le produit). L'indice nomme le résultat d'une autre opération (« 13, c'est la différence : 25 − 12. ») et le sens du mot choisi à la place d'un autre ; la méthode des multiples dit à quoi on les reconnaît.
 
 ### 5f. Calcul mental du CE2 (M7)
 

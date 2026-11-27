@@ -23,7 +23,14 @@ import {
 } from './generators';
 import { compareHint, decomposeHint, numberLineHint, orderHint, writeDigitsHint } from './hints';
 import { decomposeLures } from './lures';
-import { decompose, lineRead, writeDigits } from './skills';
+import { decompose, lineRead, operationWords, writeDigits } from './skills';
+import {
+  OPERATION_WORDS_LEVELS,
+  generateOperationWords,
+  operationWordsHint,
+  operationWordsLures,
+  wordOf,
+} from './operation-words';
 import { offerChoices } from '../../core/choices';
 import type { Exercise, NumberLine, Skill } from '../../core/types';
 import { validateNumber } from '../../core/validate';
@@ -459,5 +466,94 @@ describe('indices après une erreur (#168)', () => {
         }
       }
     }
+  });
+});
+
+describe('les mots des opérations (#178)', () => {
+  const tried = (answer: string) => ({ answer });
+
+  it('keeps every level within its constraints, on 1 000 seeds', () => {
+    for (let level = 0; level < OPERATION_WORDS_LEVELS; level++) {
+      const asks = new Set<string>();
+      for (let seed = 0; seed < 1000; seed++) {
+        const e = generateOperationWords(new Rng(seed), level);
+        asks.add(e.ask);
+        const { a, b } = e;
+        if (e.ask === 'sum') expect(e.answer).toBe(String(a + b));
+        if (e.ask === 'sum') expect(a + b).toBeLessThanOrEqual(99);
+        if (e.ask === 'difference') expect(e.answer).toBe(String(a - b));
+        if (e.ask === 'difference') expect(a).toBeGreaterThan(b);
+        if (e.ask === 'product') expect(e.answer).toBe(String(a * b));
+        if (e.ask === 'even') expect(e.answer).toBe(a % 2 === 0 ? 'pair' : 'impair');
+        if (e.ask === 'multiple' && e.input.kind === 'choice') {
+          if (e.input.options.length === 4) {
+            const multiples = e.input.options.filter(
+              (o) => Number(o.replace(/\D/g, '')) % e.of! === 0,
+            );
+            expect(multiples).toEqual([e.answer]);
+          }
+          if (e.input.options.length === 2) expect(e.answer).toBe(a % e.of! === 0 ? 'oui' : 'non');
+        }
+        if (e.ask === 'word') expect(e.answer).toBe(wordOf(e.operator!, e.named!));
+      }
+      const expected = [
+        ['sum', 'difference'],
+        ['sum', 'difference', 'product'],
+        ['even'],
+        ['multiple'],
+        ['word'],
+      ][level];
+      expect([...asks].sort()).toEqual([...expected].sort());
+    }
+  });
+
+  it('names the result of another operation', () => {
+    const e = {
+      ...generateOperationWords(new Rng(1), 0),
+      ask: 'sum' as const,
+      a: 12,
+      b: 25,
+      answer: '37',
+    };
+    expect(operationWordsHint(e, 1, tried('13'))).toBe(
+      '13, c’est la différence : 25 − 12.\nPour la somme, fais une addition.',
+    );
+    expect(operationWordsHint(e, 1, tried('36'))).toBe(
+      'La somme, c’est le résultat d’une addition.',
+    );
+    expect(operationWordsHint(e, 2)).toBe('12 + 25 = 37.\nLa somme est 37.');
+    const product = { ...e, ask: 'product' as const, a: 6, b: 7, answer: '42' };
+    expect(operationWordsHint(product, 1, tried('13'))).toBe(
+      '13, c’est la somme : 6 + 7.\nPour le produit, fais une multiplication.',
+    );
+  });
+
+  it('names the word chosen for another', () => {
+    const e = generateOperationWords(new Rng(3), 4);
+    const word = {
+      ...e,
+      operator: '−' as const,
+      a: 60,
+      b: 37,
+      named: 2 as const,
+      answer: 'la différence',
+    };
+    expect(operationWordsHint(word, 1, tried('la somme'))).toBe(
+      'La somme, c’est le résultat d’une addition.\nIci, c’est une soustraction, et 23 est le résultat.',
+    );
+    expect(operationWordsHint(word, 2)).toBe('C’est une soustraction.\n23 est la différence.');
+  });
+
+  it('every lure is a recognised mistake, on 1 000 seeds', () => {
+    for (const level of [0, 1]) {
+      for (let seed = 0; seed < 1000; seed++) {
+        const e = generateOperationWords(new Rng(seed), level);
+        for (const lure of operationWordsLures(e)) {
+          if (String(lure) === e.answer) continue;
+          expect(operationWordsHint(e, 1, tried(String(lure)))).not.toBe(operationWordsHint(e, 1));
+        }
+      }
+    }
+    expect(operationWords.lures).toBe(operationWordsLures);
   });
 });
