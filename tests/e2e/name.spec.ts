@@ -28,7 +28,11 @@ async function openDashboard(page: Page) {
   await page.mouse.down();
   await page.waitForTimeout(1700);
   await page.mouse.up();
-  await expect(page.locator('#parent-menu')).toBeVisible();
+  const gate = page.locator('#parent-menu.gate');
+  const [, a, b] = (await gate.textContent())!.match(/(\d+) × (\d+)/)!;
+  await gate.getByRole('textbox').fill(String(Number(a) * Number(b)));
+  await gate.getByRole('button', { name: 'Entrer' }).click();
+  await expect(page.locator('#parent-menu:not(.gate)')).toBeVisible();
 }
 
 test('Plume demande le prénom au premier lancement, gardé et modifiable (#138)', async ({

@@ -754,6 +754,15 @@
   flex: none;
   background: #f3ecdb;
 }
+#parent-menu.gate {
+  width: min(560px, calc(100vw - 32px));
+  height: auto;
+}
+#parent-menu.gate form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
 #parent-menu header {
   display: flex;
   align-items: center;

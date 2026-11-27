@@ -1,14 +1,18 @@
 import { expect, test, type Page } from '@playwright/test';
 import { game, loadSave } from './helpers';
 
-/** A long press on the reserve: the child cannot open it by chance. */
-async function openDashboard(page: Page) {
+/** A long press on the reserve, then the multiplication: the child cannot open it by chance. */
+async function openDashboard(page: Page, wrong = false) {
   const box = (await page.locator('#reserve').boundingBox())!;
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.down();
   await page.waitForTimeout(1700);
   await page.mouse.up();
-  await expect(page.locator('#parent-menu')).toBeVisible();
+  const gate = page.locator('#parent-menu.gate');
+  const [, a, b] = (await gate.textContent())!.match(/(\d+) × (\d+)/)!;
+  await gate.getByRole('textbox').fill(String(Number(a) * Number(b) + (wrong ? 1 : 0)));
+  await gate.getByRole('button', { name: 'Entrer' }).click();
+  if (!wrong) await expect(page.locator('#parent-menu:not(.gate)')).toBeVisible();
 }
 
 const saved = (page: Page) =>
@@ -67,6 +71,9 @@ test('le tableau de bord parent : suivi, réglage des notions, rafale recommand�
       { day, kind: 'drill', questions: 20, right: 15, ms: 240_000 },
     ],
   });
+  // A wrong product closes the gate: nothing of the menu was shown.
+  await openDashboard(page, true);
+  await expect(page.locator('#parent-menu')).toHaveCount(0);
   await openDashboard(page);
   const menu = page.locator('#parent-menu');
 
