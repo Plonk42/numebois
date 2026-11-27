@@ -1,7 +1,19 @@
 import { defineSkill } from '../../core/registry';
 import type { Exercise } from '../../core/types';
-import { validateChoice, validateFraction, validateNumber } from '../../core/validate';
+import {
+  validateChoice,
+  validateEqualFraction,
+  validateFraction,
+  validateNumber,
+} from '../../core/validate';
 import { WRITE_DIGITS } from '../numbers/generators';
+import {
+  ADD,
+  ADD_LEVELS,
+  addFractionsHint,
+  generateAddFractions,
+  type AddFractionsExercise,
+} from './add';
 import {
   COMPARE,
   COMPARE_LEVELS,
@@ -62,4 +74,14 @@ export const compare = defineSkill<CompareFractionsExercise>({
   generate: generateCompareFractions,
   validate: validateChoice,
   hint: compareFractionsHint,
+});
+
+export const add = defineSkill<AddFractionsExercise>({
+  id: ADD,
+  name: 'Additionner et soustraire des fractions',
+  prerequisites: [EQUAL],
+  levels: ADD_LEVELS,
+  generate: generateAddFractions,
+  validate: validateEqualFraction,
+  hint: addFractionsHint,
 });

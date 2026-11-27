@@ -1,7 +1,15 @@
 import { defineSkill } from '../../core/registry';
-import { validateNumber } from '../../core/validate';
+import { validateEqualFraction, validateNumber } from '../../core/validate';
+import { ADD as ADD_FRACTIONS } from '../fractions/add';
 import { ADD, SUBTRACT } from '../mental-math/generators';
 import { PRODUCTS } from '../times-tables/generators';
+import {
+  FRACTIONS,
+  FRACTION_TEMPLATES,
+  fractionProblemHint,
+  generateFractionProblem,
+  type FractionProblemExercise,
+} from './fractions';
 import { problemHint } from './hints';
 import {
   ADD_SUBTRACT,
@@ -23,6 +31,17 @@ export const addSubtract = defineSkill<ProblemExercise>({
   generate: generateAddSubtract,
   validate: validateNumber,
   hint: problemHint,
+});
+
+export const fractions = defineSkill<FractionProblemExercise>({
+  id: FRACTIONS,
+  name: 'Problèmes de fractions',
+  prerequisites: [ADD_FRACTIONS],
+  levels: FRACTION_TEMPLATES.length,
+  questionSeconds: [30, 40],
+  generate: generateFractionProblem,
+  validate: validateEqualFraction,
+  hint: fractionProblemHint,
 });
 
 export const multiply = defineSkill<ProblemExercise>({

@@ -2,6 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { Rng } from '../../core/rng';
 import { parseFraction } from '../../core/validate';
 import {
+  ADD_LEVELS,
+  addFractionsHint,
+  generateAddFractions,
+  type AddFractionsExercise,
+} from './add';
+import {
   COMPARE_LEVELS,
   compareFractionsHint,
   generateCompareFractions,
@@ -17,7 +23,7 @@ import {
 } from './equal';
 import { READ, READ_LEVELS, generateRead, type ReadExercise } from './generators';
 import { readHint } from './hints';
-import { read } from './skills';
+import { add, read } from './skills';
 import { fractionWords } from './words';
 
 const SEEDS = 1000;
@@ -256,5 +262,71 @@ describe('comparer des fractions (#62)', () => {
       'Le signe est à l’envers.\nLa pointe montre la plus petite fraction.',
     );
     expect(compareFractionsHint(same, 1, tried('='))).toBe(compareFractionsHint(same, 1));
+  });
+});
+
+describe('additionner et soustraire des fractions (#170)', () => {
+  it('keeps every result exact, up to 1, the parts drawn before the last level', () => {
+    for (let level = 0; level < ADD_LEVELS; level++) {
+      for (let seed = 0; seed < SEEDS; seed++) {
+        const e = generateAddFractions(new Rng(seed), level);
+        const { kind, operator, first, second, result } = e;
+        const big = Math.max(first[1], second[1]);
+        const sign = operator === '+' ? 1 : -1;
+        expect(result[1]).toBe(big);
+        expect(result[0]).toBe((first[0] * big) / first[1] + (sign * second[0] * big) / second[1]);
+        expect(result[0] >= 1 && result[0] <= result[1] && result[1] <= 12).toBe(true);
+        for (const [n, d] of [first, second]) expect(n >= 1 && n <= d).toBe(true);
+        if (kind !== 'multiple') expect(first[1]).toBe(second[1]);
+        else expect(big % Math.min(first[1], second[1])).toBe(0);
+        if (kind === 'complete') {
+          expect(result).toEqual([big, big]);
+          expect(e.answer).toBe(`${second[0]}/${second[1]}`);
+        } else expect(e.answer).toBe(`${result[0]}/${result[1]}`);
+        if (level === 0) expect(kind).toBe('add');
+        if (level === 3) expect(e.figure).toBeUndefined();
+        if (level === 0) expect(e.figure).toBeDefined();
+      }
+    }
+  });
+
+  const exercise = (
+    kind: AddFractionsExercise['kind'],
+    operator: '+' | '−',
+    first: [number, number],
+    second: [number, number],
+    result: [number, number],
+  ): AddFractionsExercise => ({
+    ...generateAddFractions(new Rng(1), 0),
+    kind,
+    operator,
+    first,
+    second,
+    result,
+    statement: `${first.join('/')} ${operator} ${second.join('/')} = ?`,
+    answer: result.join('/'),
+  });
+
+  it('accepts an equal fraction, says the calculation in words', () => {
+    const e = exercise('add', '+', [1, 4], [1, 4], [2, 4]);
+    expect(add.validate(e, '2/4')).toBe(true);
+    expect(add.validate(e, '1/2')).toBe(true);
+    expect(add.validate(e, '2/8')).toBe(false);
+    const fifths = exercise('add', '+', [1, 5], [2, 5], [3, 5]);
+    expect(addFractionsHint(fifths, 2)).toBe(
+      'Un cinquième plus deux cinquièmes,\ncela fait trois cinquièmes.',
+    );
+  });
+
+  it('names the denominators added and the parts not alike', () => {
+    const fifths = exercise('add', '+', [2, 5], [1, 5], [3, 5]);
+    expect(addFractionsHint(fifths, 1, tried('3/10'))).toBe(
+      'Le nombre du bas ne change pas :\nles parts gardent leur taille.',
+    );
+    const quarters = exercise('multiple', '+', [1, 2], [1, 4], [3, 4]);
+    expect(addFractionsHint(quarters, 1, tried('2/4'))).toBe(
+      'Les parts n’ont pas la même taille.\nÉcris d’abord 1/2 en quarts.',
+    );
+    expect(addFractionsHint(quarters, 2)).toBe('1/2 = 2/4.\nDonc 1/2 + 1/4 = 3/4.');
   });
 });

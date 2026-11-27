@@ -197,7 +197,11 @@ const WIDGETS: Widgets = {
   draw: RulerDraw,
   fraction: ({ exercise, locked, right, shown, onSubmit }) => (
     <>
-      <Subject exercise={exercise} />
+      {/* Beside the answer zone even alone: two boxes and the keypad are too tall under it. */}
+      <Work>
+        <Statement text={exercise.statement} />
+        {exercise.figure && <FigureView figure={exercise.figure} />}
+      </Work>
       <AnswerZone>
         <FractionEntry locked={locked} right={right} shown={shown} onSubmit={onSubmit} />
       </AnswerZone>

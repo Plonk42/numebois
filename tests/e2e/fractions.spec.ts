@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import type { AddFractionsExercise } from '../../src/domains/fractions/add';
 import type { CompareFractionsExercise } from '../../src/domains/fractions/compare';
 import type { EqualExercise } from '../../src/domains/fractions/equal';
 import type { ReadExercise } from '../../src/domains/fractions/generators';
@@ -112,5 +113,29 @@ test('comparer deux fractions : le signe entre elles, les bandes dessous (#62)',
   await expect(card.locator('.hint')).toContainText('Presque !');
   await expectSlateLayout(page);
   await driver(exercise.input).answer(page, exercise.input, exercise.answer);
+  await expect(card.locator('.praise')).toBeVisible();
+});
+
+test('additionner deux fractions : les parts en deux couleurs, la case a/b (#170)', async ({
+  page,
+}) => {
+  await page.goto('./?practice=fractions.add&level=1&seed=3&stage=0&quality=low');
+  await page.evaluate(() => window.__numebois!.ready);
+  const exercise = (await current(page)) as AddFractionsExercise;
+  expect(exercise.kind).toBe('add');
+  const { first, second, result } = exercise;
+  const card = page.locator('#question');
+  await expect(card.locator('.statement .frac')).toHaveCount(2);
+  await expect(card.locator('.fraction-figure .part.coloured')).toHaveCount(first[0]);
+  await expect(card.locator('.fraction-figure .part.added')).toHaveCount(second[0]);
+  // The denominators added too: Plume says the parts keep their size.
+  const { input } = exercise;
+  await driver(input).answer(page, input, `${result[0]}/${first[1] + second[1]}`);
+  await expect(card.locator('.hint')).toContainText('Le nombre du bas ne change pas');
+  await expectSlateLayout(page);
+  await test
+    .info()
+    .attach('additionner', { body: await page.screenshot(), contentType: 'image/png' });
+  await driver(input).answer(page, input, exercise.answer);
   await expect(card.locator('.praise')).toBeVisible();
 });

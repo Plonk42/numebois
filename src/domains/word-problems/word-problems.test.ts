@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Rng } from '../../core/rng';
 import { BIOMES } from '../../scene/biomes';
 import { BIOME_IDS, type BiomeId } from '../../scene/description';
+import { FRACTION_TEMPLATES, fractionProblemHint, generateFractionProblem } from './fractions';
 import { problemHint } from './hints';
 import {
   ADD_SUBTRACT_TEMPLATES,
@@ -91,4 +92,36 @@ it('hints: how to start, then the calculation', () => {
   expect(problemHint(e, 1)).toBe('D’abord, combien de pommes dans les cageots ?');
   expect(problemHint(e, 2)).toBe('6 × 8 = 48, puis 48 + 7 = 55.');
   expect(problemHint({ ...e, steps: [[45, '−', 12]] }, 2)).toBe('45 − 12 = 33.');
+});
+
+describe('problèmes de fractions (#170)', () => {
+  for (const biome of BIOME_IDS) {
+    it(`${biome}: a fraction of a whole, up to 1, never nothing left`, () => {
+      for (let level = 0; level < FRACTION_TEMPLATES.length; level++) {
+        for (let seed = 0; seed < SEEDS; seed++) {
+          const e = generateFractionProblem(new Rng(seed), level, {
+            vocabulary: BIOMES[biome].vocabulary,
+          });
+          const [n, d] = e.result;
+          expect(n >= 1 && n <= d && d <= 12, e.statement).toBe(true);
+          expect(e.answer).toBe(`${n}/${d}`);
+          // The denominator of the answer is in the statement.
+          expect(e.statement).toContain(String(d));
+        }
+      }
+    });
+  }
+
+  it('names what is eaten for what is left, and the denominators added', () => {
+    const e = generateFractionProblem(new Rng(1), 0, { vocabulary: BIOMES.clearing.vocabulary });
+    const left = { ...e, result: [5, 8], eaten: [3, 8] } as const;
+    expect(fractionProblemHint(left, 1, { answer: '3/8' })).toBe(
+      'Ça, c’est ce qui est mangé.\nOn cherche ce qui reste.',
+    );
+    const eaten = { ...e, result: [5, 8], eaten: undefined } as const;
+    expect(fractionProblemHint(eaten, 1, { answer: '5/16' })).toBe(
+      'Le nombre du bas ne change pas :\nles parts gardent leur taille.',
+    );
+    expect(fractionProblemHint(eaten, 1, { answer: '4/8' })).toBe(eaten.method);
+  });
 });
