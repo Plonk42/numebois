@@ -118,7 +118,8 @@ test('une boucle jouable : questions, indices et feuilles', async ({ page }) => 
       'aria-label',
       `Panier : ${earned} feuille${earned > 1 ? 's' : ''}`,
     );
-    expect((await game(page)).leaves).toBe(earned);
+    // The probe is written after the page: it may come a moment after the basket.
+    await expect.poll(async () => (await game(page)).leaves).toBe(earned);
     await expect.poll(flights).toBe(earned);
     if (answer === 1) {
       await test.info().attach('feuille', {
@@ -127,7 +128,12 @@ test('une boucle jouable : questions, indices et feuilles', async ({ page }) => 
       });
     }
     await expect(basket.locator('b')).toHaveText(String(earned));
-    await expect(reserve).toHaveAttribute('aria-label', reserveLabel(0, (await game(page)).seeds));
+    await expect
+      .poll(async () => {
+        const label = await reserve.getAttribute('aria-label');
+        return label === reserveLabel(0, (await game(page)).seeds);
+      })
+      .toBe(true);
     await expect(card.locator('.praise')).toHaveCount(0);
   }
   expect(earned).toBeGreaterThan(4);

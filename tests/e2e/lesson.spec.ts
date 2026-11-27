@@ -88,7 +88,17 @@ test('une astuce jusqu’au bout, puis sa page dans le Carnet', async ({ page })
   const card = page.locator('#question');
   const hint = card.locator('.hint');
   const heading = card.locator('header');
-  const onward = () => card.getByRole('button', { name: 'Suivant' }).click();
+  // The probe follows the widget's effects: its keys listen once the step has changed.
+  const onward = async () => {
+    const before = (await game(page)).lesson?.step;
+    await card.getByRole('button', { name: 'Suivant' }).click();
+    await expect
+      .poll(async () => {
+        const now = await game(page);
+        return now.phase !== 'lesson' || now.lesson?.step !== before;
+      })
+      .toBe(true);
+  };
 
   // Plume explains: a text, then a figure.
   await expect(heading).toHaveText('Essai d’astuce');
