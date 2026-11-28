@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { DOMAINS } from '../../src/domains';
-import { current, driver, expectSlateLayout, game, loadSave, startTrail } from './helpers';
+import { current, driver, expectSlateLayout, game, loadSave } from './helpers';
 
 /**
  * Plays the astuce on the slate to its end, as the child would: each explanation read, each
@@ -64,11 +64,26 @@ test('la première astuce d’une notion avant sa première question', async ({ 
     history: [],
     settings: [{ skill: 'numbers.decompose', mode: 'open', minLevel: 0, maxLevel: 3 }],
   });
-  await startTrail(page);
+  await page.getByRole('button', { name: 'Chemin du progrès' }).click();
+  // Announced first, not offered: no question of the trail (#203).
+  const announce = page.locator('#lesson-offer');
+  await expect(announce).toContainText('Plume te montre une astuce !');
+  await expect(announce).toContainText('La valeur des chiffres');
+  await expect(announce.getByRole('button', { name: 'Non merci' })).toHaveCount(0);
+  await announce.getByRole('button', { name: 'C’est parti !' }).click();
   await expect(page.locator('#question header')).toHaveText('La valeur des chiffres');
+  await expect(page.locator('#question .lesson-badge')).toHaveText('Astuce de Plume');
+  // Opened by the trail: played to its end, no cross to close it.
+  await expect(page.locator('#question').getByRole('button', { name: 'Fermer' })).toHaveCount(0);
   await playLesson(page, 'première fois');
+  // Then Plume says the questions come back.
+  const end = page.locator('#lesson-end');
+  await expect(end).toContainText('On reprend le chemin.');
+  await expect(end).toContainText('Elle est rangée dans ton carnet.');
+  await end.getByRole('button', { name: 'C’est parti !' }).click();
   const exercise = await current(page);
   expect(exercise.skill).toBe('numbers.decompose');
+  await expect(page.locator('#question .lesson-badge')).toHaveCount(0);
   const now = await game(page);
   expect([now.stone, now.leaves]).toEqual([0, 0]);
 });
@@ -160,5 +175,12 @@ test('une astuce jusqu’au bout, puis sa page dans le Carnet', async ({ page })
   await expect(pageButton).not.toContainText('Nouvelle page');
   await pageButton.click();
   await expect(heading).toHaveText('Essai d’astuce');
+  // Opened from the Carnet, it closes before its end: back to the Carnet, nothing new (#203).
+  await onward();
+  await card.getByRole('button', { name: 'Fermer' }).click();
+  await expect(card).toHaveCount(0);
+  await expect(pageButton).toBeVisible();
+  await expect(pageButton).not.toContainText('Nouvelle page');
+  expect((await game(page)).phase).toBe('notebook');
   expect(errors).toEqual([]);
 });

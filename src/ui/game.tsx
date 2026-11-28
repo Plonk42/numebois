@@ -73,7 +73,7 @@ import {
 } from './challenge';
 import { DrillBreak, DrillTree, Garland, TuftButton, DRILL_NAME } from './drill';
 import { FinaleBanner, Frame, NextPainting, type NextChoice } from './finale';
-import { LessonOffer, LessonPlayer, lessonPlayable, type LessonShown } from './lesson';
+import { LessonEnd, LessonOffer, LessonPlayer, lessonPlayable, type LessonShown } from './lesson';
 import { Naming } from './naming';
 import { Notebook, NotebookButton } from './notebook';
 import { ParentMenu } from './parent-menu';
@@ -163,9 +163,13 @@ type Phase =
   | 'next'
   | 'album'
   | 'visiting'
-  /** An astuce of Plume (#50), offered between two questions (#51), then the Carnet. */
+  /**
+   * An astuce of Plume (#50), offered between two questions (#51) or announced (#203), then
+   * the Carnet, or the trail again.
+   */
   | 'lesson'
   | 'lesson-offer'
+  | 'lesson-end'
   | 'notebook';
 
 /** A trail or a drill in progress: the slate and its rewards. */
@@ -394,8 +398,12 @@ function Game(props: Props) {
   }, [notebook, notebookChoices]);
   /** Where an astuce leads, once seen: its page in the Carnet, or back to the trail. */
   const [lessonReturn, setLessonReturn] = useState<LessonReturn>('notebook');
-  /** The astuce Plume offers, then where the trail goes on (#51, #54). */
-  const [tip, setTip] = useState<{ lesson: Lesson; after: LessonReturn } | null>(null);
+  /** The astuce Plume offers, or announces (#203), then where the trail goes on (#51, #54). */
+  const [tip, setTip] = useState<{ lesson: Lesson; after: LessonReturn; imposed: boolean } | null>(
+    null,
+  );
+  /** The astuce of the trail just seen got its page in the Carnet (#203). */
+  const [lessonFresh, setLessonFresh] = useState(false);
   /** At most one astuce a session comes by itself (#51). */
   const lessonUsed = useRef(false);
   const lessonState = () => ({
@@ -403,14 +411,13 @@ function Game(props: Props) {
     seen: new Set(notebook),
     used: lessonUsed.current,
   });
-  /** A notion that opens brings its astuce first, played at once (never twice). */
+  /** A notion that opens brings its astuce first, announced, then played (never twice). */
   const lessonFirst = (id: SkillId): boolean => {
     const moment = lessonBefore(id, session.progress.get(id), lessonState());
     if (!moment) return false;
     lessonUsed.current = true;
-    setLesson(moment.lesson);
-    setLessonReturn('question');
-    setPhase('lesson');
+    setTip({ lesson: moment.lesson, after: 'question', imposed: true });
+    setPhase('lesson-offer');
     return true;
   };
   /** The astuce the parent asked for, offered when the trail starts, once (#54). */
@@ -419,7 +426,7 @@ function Game(props: Props) {
     if (!asked.lesson) return false;
     setRequests(asked.requests);
     lessonUsed.current = true;
-    setTip({ lesson: asked.lesson, after });
+    setTip({ lesson: asked.lesson, after, imposed: false });
     setPhase('lesson-offer');
     return true;
   };
@@ -656,7 +663,7 @@ function Game(props: Props) {
       const moment = lessonAfter(skill.id, session.progress.get(skill.id), lessonState());
       if (moment) {
         lessonUsed.current = true;
-        setTip({ lesson: moment.lesson, after: 'next' });
+        setTip({ lesson: moment.lesson, after: 'next', imposed: false });
         setPhase('lesson-offer');
         return;
       }
@@ -998,15 +1005,20 @@ function Game(props: Props) {
   };
 
   /**
-   * An astuce seen to the end: a new page of the Carnet, which opens on it, or the trail goes
-   * on where it was.
+   * An astuce seen to the end: a new page of the Carnet, which opens on it, or Plume says the
+   * trail goes on where it was (#203).
    */
   const endLesson = () => {
     const id = lesson!.id;
     const fresh = !notebook.includes(id);
     if (fresh) setNotebook([...notebook, id]);
-    if (lessonReturn === 'notebook') setFreshPage(fresh ? id : null);
-    goOn(lessonReturn);
+    if (lessonReturn === 'notebook') {
+      setFreshPage(fresh ? id : null);
+      goOn('notebook');
+      return;
+    }
+    setLessonFresh(fresh);
+    setPhase('lesson-end');
   };
 
   /** A painting of the Album, alive again: built under the light, which then goes. */
@@ -1304,10 +1316,12 @@ function Game(props: Props) {
       {phase === 'lesson-offer' && tip && (
         <LessonOffer
           lesson={tip.lesson}
+          imposed={tip.imposed}
           onAccept={() => openLesson(tip.lesson, tip.after)}
           onDecline={() => goOn(tip.after)}
         />
       )}
+      {phase === 'lesson-end' && <LessonEnd fresh={lessonFresh} onGo={() => goOn(lessonReturn)} />}
       {phase === 'notebook' && (
         <Notebook
           pages={pages}
@@ -1326,6 +1340,7 @@ function Game(props: Props) {
             probe.lesson = shown;
           }}
           onDone={endLesson}
+          onClose={lessonReturn === 'notebook' ? () => setPhase('notebook') : undefined}
         />
       )}
       {phase === 'album' && <AlbumGrid entries={album} onVisit={visit} onClose={closeAlbum} />}

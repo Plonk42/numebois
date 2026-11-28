@@ -2079,6 +2079,76 @@
   stroke-linejoin: round;
 }
 
+/* An astuce of Plume (#203): the slate in the colours of the Carnet, its name on the frame. */
+#question.lesson {
+  border-color: #d9b25c;
+}
+#question.lesson .instruction {
+  background: #fbeec4;
+  color: #5e4512;
+}
+.lesson-badge {
+  position: absolute;
+  left: 28px;
+  top: -14px;
+  padding: 2px 14px 2px 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 18px;
+  background: #fff6d6;
+  box-shadow: 0 2px 6px rgba(0, 30, 20, 0.2);
+  font-size: 20px;
+  font-weight: 700;
+  color: #8a6a1f;
+  pointer-events: none;
+}
+.lesson-badge svg {
+  width: 26px;
+  height: 26px;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.lesson-badge .cover {
+  fill: #e9f4dc;
+  stroke: #4a7a3a;
+  stroke-width: 2;
+}
+.lesson-badge .leaf {
+  fill: #6dbb4f;
+  stroke: #3a7527;
+  stroke-width: 1.4;
+}
+/* Opened from the Carnet: a cross to close it before its end. */
+#question .close {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  width: 56px;
+  height: 56px;
+  min-height: 56px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #f3ecdb;
+  box-shadow: 0 3px 0 #ddd0b4;
+}
+#question .close svg {
+  width: 26px;
+  height: 26px;
+  fill: none;
+  stroke: #6b5a3a;
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+/* The card that announces an astuce, or brings the questions back. */
+.card .note {
+  font-size: 24px;
+  line-height: 30px;
+  color: #5a6e5f;
+}
+
 /* Fractions (#61): written as at school, the numerator over the denominator. */
 .frac {
   display: inline-flex;

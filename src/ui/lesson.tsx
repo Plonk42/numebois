@@ -82,6 +82,8 @@ interface LessonProps {
   context: ExerciseContext;
   onShow?(shown: LessonShown): void;
   onDone(): void;
+  /** Opened from the Carnet: the child may close it before its end (#203). */
+  onClose?(): void;
 }
 
 /**
@@ -90,7 +92,15 @@ interface LessonProps {
  * of the notion. Nothing counts for the mastery nor brings leaves: a mistake shows the hint,
  * a second one the answer, as on the trail.
  */
-export function LessonPlayer({ lesson, skills, rng, context, onShow, onDone }: LessonProps) {
+export function LessonPlayer({
+  lesson,
+  skills,
+  rng,
+  context,
+  onShow,
+  onDone,
+  onClose,
+}: LessonProps) {
   const units = useMemo(() => unitsOf(lesson, skills, rng, context), [lesson]);
   const [index, setIndex] = useState(0);
   const [phase, setPhase] = useState<Phase>('asking');
@@ -182,6 +192,8 @@ export function LessonPlayer({ lesson, skills, rng, context, onShow, onDone }: L
       hint={hint}
       away={false}
       basket={0}
+      lesson
+      over={<LessonFrame onClose={onClose} />}
     >
       {unit.kind === 'explain' ? (
         <>
@@ -213,25 +225,75 @@ export function LessonPlayer({ lesson, skills, rng, context, onShow, onDone }: L
   );
 }
 
+/**
+ * On the frame of the slate during an astuce: not a question of the trail, and, opened from
+ * the Carnet, a cross to close it (#203).
+ */
+function LessonFrame({ onClose }: { onClose?(): void }) {
+  return (
+    <>
+      <div class="lesson-badge">
+        <svg viewBox="0 0 32 32" aria-hidden="true">
+          <rect class="cover" x="7" y="4" width="19" height="24" rx="3" />
+          <path class="leaf" d="M12 20c0-6 4-9 10-10-1 6-4 10-10 10zM12 20l5-5" />
+        </svg>
+        Astuce de Plume
+      </div>
+      {onClose && (
+        <button type="button" class="close" aria-label="Fermer" onPointerDown={onClose}>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M6 6l12 12M18 6L6 18" />
+          </svg>
+        </button>
+      )}
+    </>
+  );
+}
+
 interface OfferProps {
   lesson: Lesson;
+  /** Played at once as its notion opens: announced, not offered (#203). */
+  imposed: boolean;
   onAccept(): void;
   onDecline(): void;
 }
 
-/** Between two questions, Plume offers her astuce (#51): refusing costs nothing. */
-export function LessonOffer({ lesson, onAccept, onDecline }: OfferProps) {
+/**
+ * Between two questions, Plume offers her astuce (#51): refusing costs nothing. The one of a
+ * notion that opens is only announced: what comes is not a question of the trail (#203).
+ */
+export function LessonOffer({ lesson, imposed, onAccept, onDecline }: OfferProps) {
   return (
     <section id="lesson-offer" class="card" aria-live="polite">
       <Plume mood="talk" />
-      <p class="praise">On regarde une astuce ?</p>
+      <p class="praise">{imposed ? 'Plume te montre une astuce !' : 'On regarde une astuce ?'}</p>
       <p class="title">{lesson.title}</p>
+      {imposed && <p class="note">On découvre ensemble. Les feuilles reviennent juste après.</p>}
       <div class="actions">
         <button type="button" class="next" onPointerDown={onAccept}>
-          D’accord !
+          {imposed ? 'C’est parti !' : 'D’accord !'}
         </button>
-        <button type="button" onPointerDown={onDecline}>
-          Non merci
+        {!imposed && (
+          <button type="button" onPointerDown={onDecline}>
+            Non merci
+          </button>
+        )}
+      </div>
+    </section>
+  );
+}
+
+/** An astuce of the trail seen to the end: the questions, and their leaves, come back (#203). */
+export function LessonEnd({ fresh, onGo }: { fresh: boolean; onGo(): void }) {
+  return (
+    <section id="lesson-end" class="card" aria-live="polite">
+      <Plume mood="cheer" />
+      <p class="praise">Astuce terminée !</p>
+      <p class="title">On reprend le chemin.</p>
+      <p class="note">{fresh && 'Elle est rangée dans ton carnet. '}Les feuilles reviennent !</p>
+      <div class="actions">
+        <button type="button" class="next" onPointerDown={onGo}>
+          C’est parti !
         </button>
       </div>
     </section>

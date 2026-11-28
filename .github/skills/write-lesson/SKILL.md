@@ -20,7 +20,7 @@ Le mot « leçon » n'apparaît jamais dans le jeu : « Plume te montre une astu
 
 ## Ce que fait le lecteur
 
-Quand elle vient (#51, `src/core/lessons.ts`) : avant la première question d'une notion, son astuce pas encore vue se joue d'abord ; après 3 erreurs sur 5, Plume la propose (refusable) ; au plus une par session ; le Carnet la rejoue à volonté. Une notion peut avoir plusieurs astuces : la première pas encore vue vient d'abord ; une astuce de ses derniers niveaux (`fromLevel`, « Multiplier par deux chiffres ») n'est proposée qu'à partir de ce niveau.
+Quand elle vient (#51, `src/core/lessons.ts`) : avant la première question d'une notion, son astuce pas encore vue est annoncée (« Plume te montre une astuce ! ») puis se joue ; après 3 erreurs sur 5, Plume la propose (refusable) ; au plus une par session ; dans le sentier, une carte « On reprend le chemin. » ramène les questions (#203) ; le Carnet la rejoue à volonté, et l'enfant la ferme quand il veut (croix). Une notion peut avoir plusieurs astuces : la première pas encore vue vient d'abord ; une astuce de ses derniers niveaux (`fromLevel`, « Multiplier par deux chiffres ») n'est proposée qu'à partir de ce niveau.
 
 `LessonPlayer` (`src/ui/lesson.tsx`) : une étape après l'autre sur l'ardoise, « Suivant » (ou Entrée) pour continuer. Un essai manqué montre l'indice de la notion, un deuxième la réponse, comme au sentier ; rien ne compte pour la maîtrise et rien ne rapporte de feuilles (rejouable sans ferme). À la fin, la page entre dans le Carnet (`src/ui/notebook.tsx`, bouton sous le son ou sous l'Album), qui s'ouvre dessus ; un appui sur une page la rejoue.
 

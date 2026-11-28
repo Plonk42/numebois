@@ -357,11 +357,17 @@
   font-size: 20px;
   color: #8a6a1f;
 }
-/* Plume offers her astuce between two questions (#51). */
-#lesson-offer {
-  width: 560px;
+/* Plume offers her astuce between two questions (#51), announces it, then the trail again (#203). */
+#lesson-offer,
+#lesson-end {
+  width: 640px;
 }
-#lesson-offer .title {
+#lesson-offer .actions button,
+#lesson-end .actions button {
+  flex: 1;
+}
+#lesson-offer .title,
+#lesson-end .title {
   font-size: 28px;
   font-weight: 700;
   color: #2f4a3a;
